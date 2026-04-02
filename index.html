@@ -113,6 +113,18 @@
     .btn-secondary { background: transparent; color: var(--text); border: 1px solid var(--border); }
     .btn-secondary:hover { border-color: rgba(255,255,255,0.2); background: var(--surface); }
 
+    .hero-photo {
+      width: 100%; aspect-ratio: 1; border-radius: 16px; overflow: hidden;
+      border: 1px solid var(--border); margin-bottom: 1rem;
+      position: relative;
+    }
+    .hero-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
+    .hero-photo::after {
+      content: ''; position: absolute; inset: 0;
+      background: linear-gradient(180deg, transparent 60%, rgba(5,8,15,0.4) 100%);
+      pointer-events: none;
+    }
+
     .hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
     .stat-card {
       background: var(--surface); border: 1px solid var(--border);
@@ -305,7 +317,11 @@
         <a href="#contact" class="btn btn-secondary">Get in touch</a>
       </div>
     </div>
-    <div class="hero-stats">
+    <div class="hero-right">
+      <div class="hero-photo">
+        <img src="LoraFanda.png" alt="Lora Fanda" />
+      </div>
+      <div class="hero-stats">
       <div class="stat-card">
         <div class="stat-num">710<span>+</span></div>
         <div class="stat-label">Total citations</div>
@@ -321,6 +337,7 @@
       <div class="stat-card">
         <div class="stat-num">4<span>+</span></div>
         <div class="stat-label">Years in research</div>
+      </div>
       </div>
     </div>
   </div>
@@ -381,6 +398,18 @@
     <div class="projects-grid">
 
       <div class="project-card">
+        <div class="project-icon">🗺️</div>
+        <h3>Functional Brain Mapping (FBM)</h3>
+        <p>Mapping eloquent cortex in epilepsy patients using intracranial recordings and stimulation to guide surgical planning and preserve critical brain functions.</p>
+        <div class="project-tech">
+          <span class="tech-badge">stereo-EEG</span>
+          <span class="tech-badge">Epilepsy</span>
+          <span class="tech-badge">Clustering</span>
+          <span class="tech-badge">Clinical Research</span>
+        </div>
+      </div>
+
+      <div class="project-card">
         <div class="project-icon">🧠</div>
         <h3>Voxeloc</h3>
         <p>A graphical user interface for localizing and visualizing stereo-EEG electrodes, reducing time and effort in clinical neuroscience workflows.</p>
@@ -422,18 +451,6 @@
           <span class="tech-badge">sEMG</span>
           <span class="tech-badge">Device Design</span>
           <span class="tech-badge">Prototyping</span>
-        </div>
-      </div>
-
-      <div class="project-card">
-        <div class="project-icon">🗺️</div>
-        <h3>Functional Brain Mapping (FBM)</h3>
-        <p>Mapping eloquent cortex in epilepsy patients using intracranial recordings and stimulation to guide surgical planning and preserve critical brain functions.</p>
-        <div class="project-tech">
-          <span class="tech-badge">stereo-EEG</span>
-          <span class="tech-badge">Epilepsy</span>
-          <span class="tech-badge">Clustering</span>
-          <span class="tech-badge">Clinical Research</span>
         </div>
       </div>
 
@@ -559,9 +576,9 @@
       <h2>Let's connect</h2>
       <p>Whether it's research collaboration, a speaking opportunity, or just a conversation — I'd love to hear from you.</p>
       <div class="contact-links">
-        <a href="/cdn-cgi/l/email-protection#670b081506010609030627000a060e0b4904080a" class="contact-link primary"><span class="__cf_email__" data-cfemail="90fcffe2f1f6f1fef4f1d0f7fdf1f9fcbef3fffd">[email&#160;protected]</span></a>
-        <a href="https://github.com/yourusername" class="contact-link">GitHub</a>
-        <a href="https://linkedin.com/in/yourprofile" class="contact-link">LinkedIn</a>
+        <a href="mailto:lorafanda@gmail.com" class="contact-link primary">lorafanda@gmail.com</a>
+        <a href="https://github.com/lorafanda" class="contact-link">GitHub</a>
+        <a href="https://www.linkedin.com/in/lorafanda/" class="contact-link">LinkedIn</a>
       </div>
     </div>
   </div>

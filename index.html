@@ -12,17 +12,23 @@
     :root {
       --bg: #05080f;
       --surface: #0c1120;
-      --surface2: #111827;
       --text: #e8eaf0;
-      --muted: #7a8299;
+      --muted: #9ba5be; /* lifted from #7a8299 to pass 4.5:1 contrast on dark bg */
       --accent: #7eb8f7;
       --accent2: #a78bfa;
       --accent3: #34d399;
       --border: rgba(255,255,255,0.07);
       --border-accent: rgba(126,184,247,0.25);
+      --focus-ring: 0 0 0 3px rgba(126,184,247,0.6);
     }
 
     html { scroll-behavior: smooth; }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+      html { scroll-behavior: auto; }
+    }
 
     body {
       font-family: 'Instrument Sans', sans-serif;
@@ -43,6 +49,22 @@
       z-index: 0;
     }
 
+    /* Skip link for keyboard users */
+    .skip-link {
+      position: absolute; top: -100%; left: 1rem;
+      background: var(--accent); color: #05080f;
+      padding: 0.5rem 1rem; border-radius: 0 0 8px 8px;
+      font-weight: 500; font-size: 0.875rem; text-decoration: none; z-index: 9999;
+    }
+    .skip-link:focus { top: 0; }
+
+    /* Focus rings on all interactive elements */
+    a:focus-visible, button:focus-visible {
+      outline: none;
+      box-shadow: var(--focus-ring);
+      border-radius: 4px;
+    }
+
     nav {
       position: fixed; top: 0; left: 0; right: 0;
       padding: 1.25rem 3rem;
@@ -55,36 +77,32 @@
     .nav-name { font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--text); }
     .nav-name span { color: var(--accent); }
     .nav-links { display: flex; gap: 2.5rem; }
-    .nav-links a { text-decoration: none; color: var(--muted); font-size: 0.78rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; transition: color 0.2s; }
+    .nav-links a {
+      text-decoration: none; color: var(--muted); font-size: 0.78rem; font-weight: 500;
+      letter-spacing: 0.1em; text-transform: uppercase; transition: color 0.2s;
+      border-radius: 4px; padding: 2px 4px;
+    }
     .nav-links a:hover { color: var(--text); }
 
     .hero {
       min-height: 100vh;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
+      display: grid; grid-template-columns: 1fr 1fr;
       align-items: center;
       padding: 8rem 3rem 5rem;
-      position: relative;
-      z-index: 1;
-      gap: 4rem;
-      max-width: 1100px;
-      margin: 0 auto;
+      position: relative; z-index: 1;
+      gap: 4rem; max-width: 1100px; margin: 0 auto;
     }
 
     .hero-tag {
       display: inline-flex; align-items: center; gap: 8px;
-      background: rgba(126,184,247,0.08);
-      border: 1px solid var(--border-accent);
-      color: var(--accent);
-      font-size: 0.75rem; font-weight: 500;
+      background: rgba(126,184,247,0.08); border: 1px solid var(--border-accent);
+      color: var(--accent); font-size: 0.75rem; font-weight: 500;
       letter-spacing: 0.1em; text-transform: uppercase;
-      padding: 6px 14px; border-radius: 100px;
-      margin-bottom: 2rem;
+      padding: 6px 14px; border-radius: 100px; margin-bottom: 2rem;
     }
     .hero-tag::before {
       content: ''; width: 6px; height: 6px; border-radius: 50%;
-      background: var(--accent3);
-      animation: pulse 2s ease-in-out infinite;
+      background: var(--accent3); animation: pulse 2s ease-in-out infinite;
     }
     @keyframes pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
@@ -106,7 +124,7 @@
     .btn {
       text-decoration: none; padding: 0.7rem 1.6rem; border-radius: 8px;
       font-size: 0.875rem; font-weight: 500; transition: all 0.2s;
-      font-family: 'Instrument Sans', sans-serif;
+      font-family: 'Instrument Sans', sans-serif; display: inline-block;
     }
     .btn-primary { background: var(--accent); color: #05080f; }
     .btn-primary:hover { background: #a5d0fb; transform: translateY(-1px); }
@@ -115,8 +133,7 @@
 
     .hero-photo {
       width: 100%; aspect-ratio: 1; border-radius: 16px; overflow: hidden;
-      border: 1px solid var(--border); margin-bottom: 1rem;
-      position: relative;
+      border: 1px solid var(--border); margin-bottom: 1rem; position: relative;
     }
     .hero-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
     .hero-photo::after {
@@ -157,19 +174,18 @@
     .skill-group:hover { border-color: var(--border-accent); }
     .skill-group-title { font-size: 0.7rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent); margin-bottom: 0.75rem; }
     .skill-tags { display: flex; flex-wrap: wrap; gap: 0.4rem; }
-    .skill-tag { font-size: 0.78rem; color: var(--muted); background: rgba(255,255,255,0.04); border: 1px solid var(--border); padding: 3px 10px; border-radius: 6px; transition: color 0.2s; }
-    .skill-group:hover .skill-tag { color: var(--text); }
+    .skill-tag { font-size: 0.78rem; color: var(--muted); background: rgba(255,255,255,0.04); border: 1px solid var(--border); padding: 3px 10px; border-radius: 6px; }
 
     .projects-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.25rem; }
     .project-card {
       background: var(--surface); border: 1px solid var(--border);
       border-radius: 14px; padding: 1.75rem;
-      text-decoration: none; color: inherit; display: block;
+      color: inherit; display: block;
       transition: border-color 0.25s, transform 0.25s;
       position: relative; overflow: hidden;
     }
     .project-card:hover { border-color: rgba(126,184,247,0.3); transform: translateY(-3px); }
-    .project-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(126,184,247,0.1); border: 1px solid var(--border-accent); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; margin-bottom: 1rem; }
+    .project-icon { width: 40px; height: 40px; border-radius: 10px; background: rgba(126,184,247,0.1); border: 1px solid var(--border-accent); display: flex; align-items: center; justify-content: center; font-size: 1.1rem; margin-bottom: 1rem; aria-hidden: true; }
     .project-card h3 { font-family: 'Playfair Display', serif; font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--text); }
     .project-card p { color: var(--muted); font-size: 0.875rem; font-weight: 300; margin-bottom: 1rem; line-height: 1.7; }
     .project-tech { display: flex; flex-wrap: wrap; gap: 0.4rem; }
@@ -215,39 +231,34 @@
     .contact-link.primary { background: var(--accent); color: #05080f; border-color: var(--accent); }
     .contact-link.primary:hover { background: #a5d0fb; color: #05080f; }
 
-    .art-grid {
-      columns: 3;
-      column-gap: 1rem;
-    }
+    /* ART GALLERY */
+    .art-grid { columns: 3; column-gap: 1rem; }
     .art-item {
-      break-inside: avoid;
-      margin-bottom: 1rem;
-      border-radius: 12px;
-      overflow: hidden;
-      border: 1px solid var(--border);
-      position: relative;
-      cursor: zoom-in;
+      break-inside: avoid; margin-bottom: 1rem; border-radius: 12px;
+      overflow: hidden; border: 1px solid var(--border);
+      position: relative; cursor: zoom-in;
       transition: border-color 0.25s, transform 0.25s;
     }
     .art-item:hover { border-color: rgba(167,139,250,0.4); transform: scale(1.01); }
+    .art-item:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 12px; }
     .art-item img { display: block; width: 100%; height: auto; }
-    .art-item .art-label {
+    .art-label {
       position: absolute; bottom: 0; left: 0; right: 0;
       padding: 0.6rem 0.9rem;
       background: linear-gradient(0deg, rgba(5,8,15,0.9), transparent);
-      font-size: 0.75rem; color: var(--muted);
+      font-size: 0.75rem; color: var(--text);
       opacity: 0; transition: opacity 0.2s;
     }
-    .art-item:hover .art-label { opacity: 1; }
+    .art-item:hover .art-label,
+    .art-item:focus-visible .art-label { opacity: 1; }
     .art-empty {
-      text-align: center; padding: 3rem;
-      color: var(--muted); font-size: 0.9rem; font-weight: 300;
+      text-align: center; padding: 3rem; color: var(--muted); font-size: 0.9rem; font-weight: 300;
       background: var(--surface); border: 1px dashed var(--border);
       border-radius: 14px; line-height: 1.8;
     }
-    .art-empty code { font-family: var(--font-mono, monospace); font-size: 0.8rem; color: var(--accent2); }
+    .art-empty code { font-family: monospace; font-size: 0.8rem; color: var(--accent2); }
 
-    /* Lightbox */
+    /* LIGHTBOX */
     .lightbox {
       display: none; position: fixed; inset: 0; z-index: 999;
       background: rgba(5,8,15,0.95);
@@ -258,15 +269,14 @@
     .lightbox img { max-width: 90vw; max-height: 88vh; border-radius: 10px; border: 1px solid var(--border); }
     .lightbox-close {
       position: absolute; top: 1.5rem; right: 1.5rem;
-      color: var(--muted); font-size: 1.5rem; cursor: pointer; line-height: 1;
+      color: var(--muted); cursor: pointer;
       background: var(--surface); border: 1px solid var(--border);
-      width: 36px; height: 36px; border-radius: 50%;
+      width: 44px; height: 44px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      transition: color 0.2s;
+      font-size: 1.2rem; transition: color 0.2s;
     }
     .lightbox-close:hover { color: var(--text); }
-
-    @media (max-width: 640px) { .art-grid { columns: 2; } }
+    .lightbox-close:focus-visible { outline: none; box-shadow: var(--focus-ring); }
 
     footer { text-align: center; padding: 2.5rem 3rem; color: var(--muted); font-size: 0.8rem; border-top: 1px solid var(--border); position: relative; z-index: 1; }
 
@@ -276,7 +286,7 @@
     h1 { animation-delay: 0.2s; }
     .hero-sub { animation-delay: 0.3s; }
     .hero-cta { animation-delay: 0.4s; }
-    .hero-stats { animation: fadeUp 0.6s ease 0.3s both; }
+    .hero-right { animation: fadeUp 0.6s ease 0.3s both; }
 
     @media (max-width: 768px) {
       nav { padding: 1rem 1.5rem; }
@@ -286,26 +296,31 @@
       .section-wrap { padding: 4rem 1.5rem; }
       .exp-item { grid-template-columns: 1fr; gap: 0.5rem; }
       .contact-box { padding: 2.5rem 1.5rem; }
+      .art-grid { columns: 2; }
     }
   </style>
 </head>
 <body>
 
-  <nav>
-    <span class="nav-name">Lora <span>Fanda</span></span>
-    <div class="nav-links">
-      <a href="#skills">Skills</a>
-      <a href="#projects">Projects</a>
-      <a href="#publications">Publications</a>
-      <a href="#experience">Experience</a>
-      <a href="#art">Art</a>
-      <a href="#contact">Contact</a>
+  <a href="#main" class="skip-link">Skip to main content</a>
+
+  <nav aria-label="Main navigation">
+    <span class="nav-name" aria-label="Lora Fanda">Lora <span>Fanda</span></span>
+    <div class="nav-links" role="list">
+      <a href="#skills" role="listitem">Skills</a>
+      <a href="#projects" role="listitem">Projects</a>
+      <a href="#publications" role="listitem">Publications</a>
+      <a href="#experience" role="listitem">Experience</a>
+      <a href="#art" role="listitem">Art</a>
+      <a href="#contact" role="listitem">Contact</a>
     </div>
   </nav>
 
-  <div class="hero">
+  <main id="main">
+
+  <div class="hero" aria-label="Introduction">
     <div class="hero-left">
-      <div class="hero-tag">PhD Candidate · University of Geneva</div>
+      <div class="hero-tag" aria-label="Current position">PhD Candidate · University of Geneva</div>
       <h1>Neuroscience &amp; <em>AI</em> researcher.</h1>
       <p class="hero-sub">
         I work at the intersection of clinical neuroscience and machine learning —
@@ -319,189 +334,193 @@
     </div>
     <div class="hero-right">
       <div class="hero-photo">
-        <img src="LoraFanda.png" alt="Lora Fanda" />
+        <img src="LoraFanda.png" alt="Portrait of Lora Fanda" />
       </div>
-      <div class="hero-stats">
-      <div class="stat-card">
-        <div class="stat-num">710<span>+</span></div>
-        <div class="stat-label">Total citations</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num">5</div>
-        <div class="stat-label">h-index</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num">5</div>
-        <div class="stat-label">Publications</div>
-      </div>
-      <div class="stat-card">
-        <div class="stat-num">4<span>+</span></div>
-        <div class="stat-label">Years in research</div>
-      </div>
+      <div class="hero-stats" role="list" aria-label="Research statistics">
+        <div class="stat-card" role="listitem">
+          <div class="stat-num" aria-label="710 plus total citations">710<span aria-hidden="true">+</span></div>
+          <div class="stat-label">Total citations</div>
+        </div>
+        <div class="stat-card" role="listitem">
+          <div class="stat-num">5</div>
+          <div class="stat-label">h-index</div>
+        </div>
+        <div class="stat-card" role="listitem">
+          <div class="stat-num">5</div>
+          <div class="stat-label">Publications</div>
+        </div>
+        <div class="stat-card" role="listitem">
+          <div class="stat-num" aria-label="4 plus years in research">4<span aria-hidden="true">+</span></div>
+          <div class="stat-label">Years in research</div>
+        </div>
       </div>
     </div>
   </div>
 
-  <div class="section-wrap" id="skills">
+  <!-- SKILLS -->
+  <section class="section-wrap" id="skills" aria-labelledby="skills-heading">
     <div class="section-header">
-      <h2>Skills</h2>
-      <div class="section-line"></div>
+      <h2 id="skills-heading">Skills</h2>
+      <div class="section-line" aria-hidden="true"></div>
     </div>
     <div class="skills-grid">
       <div class="skill-group">
         <div class="skill-group-title">Machine Learning</div>
-        <div class="skill-tags">
-          <span class="skill-tag">Deep Learning</span>
-          <span class="skill-tag">Neural Networks</span>
-          <span class="skill-tag">Classification</span>
-          <span class="skill-tag">NLP</span>
-          <span class="skill-tag">Explainable AI</span>
+        <div class="skill-tags" role="list">
+          <span class="skill-tag" role="listitem">Deep Learning</span>
+          <span class="skill-tag" role="listitem">Neural Networks</span>
+          <span class="skill-tag" role="listitem">Classification</span>
+          <span class="skill-tag" role="listitem">NLP</span>
+          <span class="skill-tag" role="listitem">Explainable AI</span>
         </div>
       </div>
       <div class="skill-group">
         <div class="skill-group-title">Neuroscience</div>
-        <div class="skill-tags">
-          <span class="skill-tag">EEG Analysis</span>
-          <span class="skill-tag">ECoG Analysis</span>
-          <span class="skill-tag">Brain Mapping</span>
-          <span class="skill-tag">Epilepsy Research</span>
-          <span class="skill-tag">Cognitive Neuro</span>
+        <div class="skill-tags" role="list">
+          <span class="skill-tag" role="listitem">EEG Analysis</span>
+          <span class="skill-tag" role="listitem">ECoG Analysis</span>
+          <span class="skill-tag" role="listitem">Brain Mapping</span>
+          <span class="skill-tag" role="listitem">Epilepsy Research</span>
+          <span class="skill-tag" role="listitem">Cognitive Neuro</span>
         </div>
       </div>
       <div class="skill-group">
         <div class="skill-group-title">Programming</div>
-        <div class="skill-tags">
-          <span class="skill-tag">Python</span>
-          <span class="skill-tag">Signal Processing</span>
-          <span class="skill-tag">Data Analysis</span>
-          <span class="skill-tag">Robotics</span>
+        <div class="skill-tags" role="list">
+          <span class="skill-tag" role="listitem">Python</span>
+          <span class="skill-tag" role="listitem">Signal Processing</span>
+          <span class="skill-tag" role="listitem">Data Analysis</span>
+          <span class="skill-tag" role="listitem">Robotics</span>
         </div>
       </div>
       <div class="skill-group">
         <div class="skill-group-title">Research</div>
-        <div class="skill-tags">
-          <span class="skill-tag">Clinical Research</span>
-          <span class="skill-tag">Grant Writing</span>
-          <span class="skill-tag">Teaching</span>
-          <span class="skill-tag">Prototyping</span>
+        <div class="skill-tags" role="list">
+          <span class="skill-tag" role="listitem">Clinical Research</span>
+          <span class="skill-tag" role="listitem">Grant Writing</span>
+          <span class="skill-tag" role="listitem">Teaching</span>
+          <span class="skill-tag" role="listitem">Prototyping</span>
         </div>
       </div>
     </div>
-  </div>
+  </section>
 
-  <div class="section-wrap" id="projects">
+  <!-- PROJECTS -->
+  <section class="section-wrap" id="projects" aria-labelledby="projects-heading">
     <div class="section-header">
-      <h2>Projects</h2>
-      <div class="section-line"></div>
-      <span class="section-count">05</span>
+      <h2 id="projects-heading">Projects</h2>
+      <div class="section-line" aria-hidden="true"></div>
+      <span class="section-count" aria-label="5 projects">05</span>
     </div>
     <div class="projects-grid">
 
-      <div class="project-card">
-        <div class="project-icon">🗺️</div>
+      <article class="project-card">
+        <div class="project-icon" aria-hidden="true">🗺️</div>
         <h3>Functional Brain Mapping (FBM)</h3>
         <p>Mapping eloquent cortex in epilepsy patients using intracranial recordings and stimulation to guide surgical planning and preserve critical brain functions.</p>
-        <div class="project-tech">
-          <span class="tech-badge">stereo-EEG</span>
-          <span class="tech-badge">Epilepsy</span>
-          <span class="tech-badge">Clustering</span>
-          <span class="tech-badge">Clinical Research</span>
+        <div class="project-tech" role="list" aria-label="Technologies">
+          <span class="tech-badge" role="listitem">stereo-EEG</span>
+          <span class="tech-badge" role="listitem">Epilepsy</span>
+          <span class="tech-badge" role="listitem">Clustering</span>
+          <span class="tech-badge" role="listitem">Clinical Research</span>
         </div>
-      </div>
+      </article>
 
-      <div class="project-card">
-        <div class="project-icon">🧠</div>
+      <article class="project-card">
+        <div class="project-icon" aria-hidden="true">🧠</div>
         <h3>Voxeloc</h3>
         <p>A graphical user interface for localizing and visualizing stereo-EEG electrodes, reducing time and effort in clinical neuroscience workflows.</p>
-        <div class="project-tech">
-          <span class="tech-badge">stereo-EEG</span>
-          <span class="tech-badge">Brain Mapping</span>
-          <span class="tech-badge">GUI</span>
+        <div class="project-tech" role="list" aria-label="Technologies">
+          <span class="tech-badge" role="listitem">stereo-EEG</span>
+          <span class="tech-badge" role="listitem">Brain Mapping</span>
+          <span class="tech-badge" role="listitem">GUI</span>
         </div>
-      </div>
+      </article>
 
-      <div class="project-card">
-        <div class="project-icon">👁</div>
+      <article class="project-card">
+        <div class="project-icon" aria-hidden="true">👁️</div>
         <h3>AMBER &amp; ReGraD</h3>
         <p>Data analysis and experiment programming for amblyopia and selective attention studies at HES-SO Switzerland.</p>
-        <div class="project-tech">
-          <span class="tech-badge">EEG</span>
-          <span class="tech-badge">Amblyopia</span>
-          <span class="tech-badge">Attention</span>
+        <div class="project-tech" role="list" aria-label="Technologies">
+          <span class="tech-badge" role="listitem">EEG</span>
+          <span class="tech-badge" role="listitem">Amblyopia</span>
+          <span class="tech-badge" role="listitem">Attention</span>
         </div>
-      </div>
+      </article>
 
-      <div class="project-card">
-        <div class="project-icon">⚡</div>
+      <article class="project-card">
+        <div class="project-icon" aria-hidden="true">⚡</div>
         <h3>24/7 Project</h3>
         <p>Neural data acquisition and analysis for predicting cognition — a collaboration with Google and Princeton University.</p>
-        <div class="project-tech">
-          <span class="tech-badge">ECoG</span>
-          <span class="tech-badge">Epilepsy</span>
-          <span class="tech-badge">Google</span>
-          <span class="tech-badge">Princeton</span>
+        <div class="project-tech" role="list" aria-label="Technologies">
+          <span class="tech-badge" role="listitem">ECoG</span>
+          <span class="tech-badge" role="listitem">Epilepsy</span>
+          <span class="tech-badge" role="listitem">Google</span>
+          <span class="tech-badge" role="listitem">Princeton</span>
         </div>
-      </div>
+      </article>
 
-      <div class="project-card">
-        <div class="project-icon">🎵</div>
+      <article class="project-card">
+        <div class="project-icon" aria-hidden="true">🎵</div>
         <h3>Music in Motion</h3>
         <p>Designer and developer of a biomedical interface using surface EMG signals to control music applications via gesture.</p>
-        <div class="project-tech">
-          <span class="tech-badge">sEMG</span>
-          <span class="tech-badge">Device Design</span>
-          <span class="tech-badge">Prototyping</span>
+        <div class="project-tech" role="list" aria-label="Technologies">
+          <span class="tech-badge" role="listitem">sEMG</span>
+          <span class="tech-badge" role="listitem">Device Design</span>
+          <span class="tech-badge" role="listitem">Prototyping</span>
         </div>
-      </div>
+      </article>
 
     </div>
-  </div>
+  </section>
 
-  <div class="section-wrap" id="publications">
+  <!-- PUBLICATIONS -->
+  <section class="section-wrap" id="publications" aria-labelledby="pub-heading">
     <div class="section-header">
-      <h2>Publications</h2>
-      <div class="section-line"></div>
+      <h2 id="pub-heading">Publications</h2>
+      <div class="section-line" aria-hidden="true"></div>
       <span class="section-count">710+ citations · h-index 5</span>
     </div>
-    <div class="pub-list">
+    <div class="pub-list" role="list">
 
-      <div class="pub-card">
+      <article class="pub-card" role="listitem">
         <div class="pub-year">2024</div>
         <div class="pub-title">Voxeloc: A time-saving graphical user interface for localizing and visualizing stereo-EEG electrodes</div>
         <div class="pub-venue">Journal of Neuroscience Methods 407, 110154 — Monney, Dallaire, Stoutah, Fanda, Megevand</div>
-      </div>
+      </article>
 
-      <div class="pub-card">
+      <article class="pub-card" role="listitem">
         <div class="pub-year">2023</div>
         <div class="pub-title">Shared computational principles for language processing in humans and deep language models</div>
         <div class="pub-venue">Nature Neuroscience, Nature Publishing Group — Goldstein, Zada, Buchnik, et al. (incl. Fanda)</div>
-      </div>
+      </article>
 
-      <div class="pub-card">
+      <article class="pub-card" role="listitem">
         <div class="pub-year">2021</div>
         <div class="pub-title">To Pay or Not to Pay Attention: Classifying and Interpreting Visual Selective Attention Frequency Features</div>
         <div class="pub-venue">EXTRAAMAS 2021, Lecture Notes in Computer Science vol 12688, Springer — Fanda, Cid, Matusz, Calvaresi</div>
-      </div>
+      </article>
 
-      <div class="pub-card">
+      <article class="pub-card" role="listitem">
         <div class="pub-year">2021</div>
         <div class="pub-title">Thinking ahead: prediction in context as a keystone of language in humans and machines</div>
         <div class="pub-venue">Goldstein, Zada, Buchnik, et al. (incl. Fanda)</div>
-      </div>
+      </article>
 
-      <div class="pub-card">
+      <article class="pub-card" role="listitem">
         <div class="pub-year">2020</div>
         <div class="pub-title">Neural correlates of sign language production revealed by electrocorticography</div>
         <div class="pub-venue">Neurology, Aug 2020 — Shum, Fanda, Dugan, Doyle, Devinsky, Flinker</div>
-      </div>
+      </article>
 
     </div>
-  </div>
+  </section>
 
-  <div class="section-wrap" id="experience">
+  <!-- EXPERIENCE — chronological, most recent first, parallel roles grouped -->
+  <section class="section-wrap" id="experience" aria-labelledby="exp-heading">
     <div class="section-header">
-      <h2>Experience</h2>
-      <div class="section-line"></div>
+      <h2 id="exp-heading">Experience</h2>
+      <div class="section-line" aria-hidden="true"></div>
     </div>
     <div class="exp-list">
 
@@ -515,9 +534,18 @@
       </div>
 
       <div class="exp-item">
+        <div class="exp-date">Jan 2019 — Sep 2020</div>
+        <div class="exp-content">
+          <h3>M.Sc. in Artificial Intelligence <span style="font-weight:300;color:var(--muted);">· parallel with HES-SO</span></h3>
+          <div class="exp-org">IDIAP Research Institute / Swiss Distance Learning University, Martigny</div>
+          <p>Thesis: Classifying Attentional Dynamics in Adults from EEG signals. Topics included ML, deep learning, neural signal classification, robotics, and NLP.</p>
+        </div>
+      </div>
+
+      <div class="exp-item">
         <div class="exp-date">Aug 2019 — Aug 2021</div>
         <div class="exp-content">
-          <h3>Clinical Research Assistant</h3>
+          <h3>Clinical Research Assistant <span style="font-weight:300;color:var(--muted);">· parallel with M.Sc.</span></h3>
           <div class="exp-org">HES-SO, University of Applied Science Western Switzerland, Sierre</div>
           <p>Research on amblyopia, selective attention, EEG data analysis, and cognitive neuroscience.</p>
         </div>
@@ -533,15 +561,6 @@
       </div>
 
       <div class="exp-item">
-        <div class="exp-date">Jan 2019 — Sep 2020</div>
-        <div class="exp-content">
-          <h3>M.Sc. in Artificial Intelligence</h3>
-          <div class="exp-org">IDIAP Research Institute / Swiss Distance Learning University, Martigny</div>
-          <p>Thesis: Classifying Attentional Dynamics in Adults from EEG signals. Topics included ML, deep learning, neural signal classification, robotics, and NLP.</p>
-        </div>
-      </div>
-
-      <div class="exp-item">
         <div class="exp-date">Jun 2016 — Dec 2016</div>
         <div class="exp-content">
           <h3>System Verification Engineer</h3>
@@ -551,40 +570,52 @@
       </div>
 
     </div>
-  </div>
+  </section>
 
-  <div class="section-wrap" id="art">
+  <!-- ART -->
+  <section class="section-wrap" id="art" aria-labelledby="art-heading">
     <div class="section-header">
-      <h2>Art</h2>
-      <div class="section-line"></div>
+      <h2 id="art-heading">Art</h2>
+      <div class="section-line" aria-hidden="true"></div>
     </div>
-    <div class="art-grid" id="artGrid">
+    <div class="art-grid" id="artGrid" role="list" aria-label="Paintings gallery">
       <div class="art-empty">
         Paintings will appear here automatically.<br>
         Add <code>.png</code> files to your <code>paintings/</code> folder and push — no code changes needed.
       </div>
     </div>
+  </section>
+
+  <!-- LIGHTBOX -->
+  <div
+    class="lightbox"
+    id="lightbox"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Painting lightbox"
+    aria-hidden="true"
+  >
+    <button class="lightbox-close" id="lightboxClose" aria-label="Close lightbox">&#x2715;</button>
+    <img id="lightboxImg" src="" alt="" />
   </div>
 
-  <div class="lightbox" id="lightbox">
-    <div class="lightbox-close" id="lightboxClose">&#x2715;</div>
-    <img id="lightboxImg" src="" alt="painting" />
-  </div>
-
-  <div class="section-wrap" id="contact" style="padding-bottom:6rem;">
+  <!-- CONTACT -->
+  <section class="section-wrap" id="contact" style="padding-bottom:6rem;" aria-labelledby="contact-heading">
     <div class="contact-box">
-      <h2>Let's connect</h2>
+      <h2 id="contact-heading">Let's connect</h2>
       <p>Whether it's research collaboration, a speaking opportunity, or just a conversation — I'd love to hear from you.</p>
       <div class="contact-links">
         <a href="mailto:lorafanda@gmail.com" class="contact-link primary">lorafanda@gmail.com</a>
-        <a href="https://github.com/lorafanda" class="contact-link">GitHub</a>
-        <a href="https://www.linkedin.com/in/lorafanda/" class="contact-link">LinkedIn</a>
+        <a href="https://github.com/lorafanda" class="contact-link" target="_blank" rel="noopener noreferrer">GitHub <span aria-label="opens in new tab">(↗)</span></a>
+        <a href="https://www.linkedin.com/in/lorafanda/" class="contact-link" target="_blank" rel="noopener noreferrer">LinkedIn <span aria-label="opens in new tab">(↗)</span></a>
       </div>
     </div>
-  </div>
+  </section>
+
+  </main>
 
   <footer>
-    &copy; 2026 Lora Fanda, M.Sc. &nbsp;·&nbsp; PhD Candidate, University of Geneva
+    <p>&copy; 2026 Lora Fanda, M.Sc. &nbsp;·&nbsp; PhD Candidate, University of Geneva</p>
   </footer>
 
 <script>
@@ -592,29 +623,67 @@
   const lightbox = document.getElementById('lightbox');
   const lbImg = document.getElementById('lightboxImg');
   const lbClose = document.getElementById('lightboxClose');
+  let lastFocused = null;
 
-  function openLightbox(src) { lbImg.src = src; lightbox.classList.add('open'); }
-  function closeLightbox() { lightbox.classList.remove('open'); lbImg.src = ''; }
-  lightbox.addEventListener('click', closeLightbox);
+  function openLightbox(src, alt) {
+    lastFocused = document.activeElement;
+    lbImg.src = src;
+    lbImg.alt = alt;
+    lightbox.classList.add('open');
+    lightbox.setAttribute('aria-hidden', 'false');
+    lbClose.focus();
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    lightbox.setAttribute('aria-hidden', 'true');
+    lbImg.src = '';
+    lbImg.alt = '';
+    document.body.style.overflow = '';
+    if (lastFocused) lastFocused.focus();
+  }
+
+  lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
   lbClose.addEventListener('click', closeLightbox);
-  document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox();
+    // Trap focus inside lightbox
+    if (e.key === 'Tab' && lightbox.classList.contains('open')) {
+      e.preventDefault();
+      lbClose.focus();
+    }
+  });
 
   function renderPaintings(files) {
     if (!files || files.length === 0) return;
     grid.innerHTML = '';
     files.forEach(name => {
+      const cleanName = name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
       const item = document.createElement('div');
       item.className = 'art-item';
+      item.setAttribute('role', 'listitem');
+      item.setAttribute('tabindex', '0');
+      item.setAttribute('aria-label', 'Painting: ' + cleanName + '. Press Enter to view full size.');
+
       const img = document.createElement('img');
       img.src = 'paintings/' + name;
-      img.alt = name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
+      img.alt = 'Painting by Lora Fanda: ' + cleanName;
       img.loading = 'lazy';
+
       const label = document.createElement('div');
       label.className = 'art-label';
-      label.textContent = img.alt;
+      label.textContent = cleanName;
+      label.setAttribute('aria-hidden', 'true');
+
       item.appendChild(img);
       item.appendChild(label);
-      item.addEventListener('click', () => openLightbox(img.src));
+
+      item.addEventListener('click', () => openLightbox(img.src, img.alt));
+      item.addEventListener('keydown', e => {
+        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(img.src, img.alt); }
+      });
+
       grid.appendChild(item);
     });
   }

@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Lora Fanda — Research Results</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f0ebe4;
+      --surface: #e8e0d8;
+      --text: #3a2e2a;
+      --muted: #7a6560;
+      --accent: #b85c6e;
+      --accent2: #c47a5a;
+      --border: rgba(90,60,50,0.1);
+      --focus-ring: 0 0 0 3px rgba(184,92,110,0.4);
+    }
+
+    body {
+      font-family: 'Instrument Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      font-size: 17px;
+      line-height: 1.75;
+      min-height: 100vh;
+    }
+
+    a:focus-visible, button:focus-visible {
+      outline: none; box-shadow: var(--focus-ring); border-radius: 4px;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed; top: 0; left: 0; right: 0;
+      padding: 1.25rem 3rem;
+      display: flex; justify-content: space-between; align-items: center;
+      background: rgba(240,235,228,0.88);
+      backdrop-filter: blur(20px);
+      border-bottom: 1px solid var(--border);
+      z-index: 200;
+    }
+    .nav-name {
+      font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--text);
+      text-decoration: none;
+    }
+    .nav-name span { color: var(--accent); }
+    .nav-back {
+      font-size: 0.78rem; font-weight: 500; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--muted); text-decoration: none;
+      transition: color 0.2s; padding: 2px 4px; border-radius: 4px;
+    }
+    .nav-back:hover { color: var(--text); }
+
+    /* ── GATE (password screen) ── */
+    #gate {
+      min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      padding: 2rem;
+    }
+    .gate-box {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 3rem 3.5rem;
+      text-align: center;
+      max-width: 420px; width: 100%;
+      position: relative; overflow: hidden;
+    }
+    .gate-box::before {
+      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+      background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
+    }
+    .gate-icon { font-size: 2.5rem; margin-bottom: 1.25rem; }
+    .gate-box h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.6rem; font-weight: 600;
+      letter-spacing: -0.02em; margin-bottom: 0.5rem;
+    }
+    .gate-box p { color: var(--muted); font-size: 0.95rem; margin-bottom: 2rem; font-weight: 400; }
+    .gate-input {
+      width: 100%; padding: 0.75rem 1rem;
+      font-family: 'Instrument Sans', sans-serif; font-size: 1rem;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 8px;
+      text-align: center; letter-spacing: 0.15em;
+      margin-bottom: 1rem; transition: border-color 0.2s;
+    }
+    .gate-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+    .gate-input.error { border-color: #b85c6e; animation: shake 0.3s ease; }
+    @keyframes shake {
+      0%, 100% { transform: translateX(0); }
+      25% { transform: translateX(-8px); }
+      75% { transform: translateX(8px); }
+    }
+    .gate-btn {
+      width: 100%; padding: 0.75rem;
+      background: var(--accent); color: #fff;
+      border: none; border-radius: 8px;
+      font-family: 'Instrument Sans', sans-serif; font-size: 0.95rem; font-weight: 500;
+      cursor: pointer; transition: background 0.2s;
+    }
+    .gate-btn:hover { background: #a04560; }
+    .gate-error { color: var(--accent); font-size: 0.85rem; margin-top: 0.75rem; min-height: 1.2em; }
+
+    /* ── RESULTS (hidden until unlocked) ── */
+    #results { display: none; padding-top: 5rem; }
+
+    .results-header {
+      max-width: 900px; margin: 0 auto;
+      padding: 4rem 3rem 2rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .results-header h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(2rem, 4vw, 3rem);
+      font-weight: 600; letter-spacing: -0.02em;
+      margin-bottom: 0.5rem;
+    }
+    .results-header p { color: var(--muted); font-size: 1rem; font-weight: 400; }
+
+    /* Section */
+    .results-section {
+      max-width: 900px; margin: 0 auto;
+      padding: 3rem 3rem;
+      border-bottom: 1px solid var(--border);
+    }
+    .results-section:last-child { border-bottom: none; padding-bottom: 6rem; }
+    .results-section h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.5rem; font-weight: 600;
+      letter-spacing: -0.01em; margin-bottom: 0.4rem;
+    }
+    .results-section .section-sub {
+      color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; font-weight: 400;
+    }
+
+    /* Image grid */
+    .img-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 1.5rem;
+    }
+    .img-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px; overflow: hidden;
+      transition: transform 0.2s, border-color 0.2s;
+      cursor: zoom-in;
+    }
+    .img-card:hover { transform: translateY(-2px); border-color: rgba(184,92,110,0.3); }
+    .img-card:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 12px; }
+    .img-card img { width: 100%; height: 220px; object-fit: contain; display: block; background: var(--bg); padding: 1rem; }
+    .img-card .img-caption {
+      padding: 0.75rem 1rem;
+      font-size: 0.85rem; color: var(--muted); font-weight: 400;
+      border-top: 1px solid var(--border);
+    }
+
+    /* Upload zone */
+    .upload-zone {
+      border: 2px dashed var(--border);
+      border-radius: 12px; padding: 3rem;
+      text-align: center; color: var(--muted);
+      font-size: 0.9rem; line-height: 1.8;
+    }
+    .upload-zone code {
+      font-family: monospace; font-size: 0.85rem;
+      color: var(--accent2);
+    }
+
+    /* Notes / text block */
+    .notes-block {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-left: 3px solid var(--accent);
+      border-radius: 0 12px 12px 0;
+      padding: 1.4rem 1.6rem;
+      font-size: 0.95rem; color: var(--muted);
+      line-height: 1.8;
+    }
+    .notes-block strong { color: var(--text); font-weight: 500; }
+
+    /* ── LIGHTBOX ── */
+    .lightbox {
+      display: none; position: fixed; inset: 0; z-index: 999;
+      background: rgba(30,20,18,0.92);
+      align-items: center; justify-content: center; cursor: zoom-out;
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 92vw; max-height: 90vh; border-radius: 10px; }
+    .lightbox-close {
+      position: absolute; top: 1.5rem; right: 1.5rem;
+      color: #e8e0d8; cursor: pointer;
+      background: #3a2e2a; border: 1px solid rgba(255,255,255,0.15);
+      width: 44px; height: 44px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 1.2rem; transition: color 0.2s; border: none;
+    }
+    .lightbox-close:hover { color: #fff; }
+
+    @media (max-width: 768px) {
+      nav { padding: 1rem 1.5rem; }
+      .gate-box { padding: 2.5rem 1.75rem; }
+      .results-header, .results-section { padding-left: 1.5rem; padding-right: 1.5rem; }
+      .img-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <a href="index.html" class="nav-name">Lora <span>Fanda</span></a>
+    <a href="index.html" class="nav-back">← Back to portfolio</a>
+  </nav>
+
+  <!-- PASSWORD GATE -->
+  <div id="gate" role="main">
+    <div class="gate-box">
+      <div class="gate-icon" aria-hidden="true">🔬</div>
+      <h1>Research Results</h1>
+      <p>This page is private. Enter the access code to continue.</p>
+      <input
+        type="password"
+        id="gateInput"
+        class="gate-input"
+        placeholder="access code"
+        aria-label="Access code"
+        autocomplete="off"
+        autocorrect="off"
+        spellcheck="false"
+      />
+      <button class="gate-btn" id="gateBtn" onclick="checkCode()">Enter</button>
+      <div class="gate-error" id="gateError" role="alert" aria-live="polite"></div>
+    </div>
+  </div>
+
+  <!-- RESULTS PAGE (shown after unlock) -->
+  <main id="results" aria-label="Research results">
+
+    <div class="results-header">
+      <h1>Research Results</h1>
+      <p>Visualizations, brain maps, signal analyses, and clustering outputs — work in progress.</p>
+    </div>
+
+    <!-- BRAIN MAPS -->
+    <div class="results-section">
+      <h2>Brain Maps &amp; Electrode Localizations</h2>
+      <div class="section-sub">Stereo-EEG electrode placement and functional mapping results</div>
+
+      <div class="img-grid" id="brainMapsGrid">
+        <!-- Drop your images into results/brain-maps/ and list them in results/brain-maps.json -->
+      </div>
+      <div class="upload-zone" id="brainMapsEmpty">
+        Add images to <code>results/brain-maps/</code> and list filenames in <code>results/brain-maps.json</code>
+      </div>
+
+      <div class="notes-block" style="margin-top:1.5rem;">
+        <strong>Notes:</strong> Add your notes about these results here — methods, observations, what to discuss with collaborators.
+      </div>
+    </div>
+
+    <!-- EEG SIGNALS -->
+    <div class="results-section">
+      <h2>EEG Signal Analyses</h2>
+      <div class="section-sub">Time series, spectral analyses, attentional dynamics</div>
+
+      <div class="img-grid" id="eegGrid">
+      </div>
+      <div class="upload-zone" id="eegEmpty">
+        Add images to <code>results/eeg/</code> and list filenames in <code>results/eeg.json</code>
+      </div>
+
+      <div class="notes-block" style="margin-top:1.5rem;">
+        <strong>Notes:</strong> Add your notes about these results here.
+      </div>
+    </div>
+
+    <!-- CLUSTERING -->
+    <div class="results-section">
+      <h2>Clustering Results</h2>
+      <div class="section-sub">Brain mapping data clustering, group analyses</div>
+
+      <div class="img-grid" id="clusterGrid">
+      </div>
+      <div class="upload-zone" id="clusterEmpty">
+        Add images to <code>results/clustering/</code> and list filenames in <code>results/clustering.json</code>
+      </div>
+
+      <div class="notes-block" style="margin-top:1.5rem;">
+        <strong>Notes:</strong> Add your notes about these results here.
+      </div>
+    </div>
+
+  </main>
+
+  <!-- LIGHTBOX -->
+  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer" aria-hidden="true">
+    <button class="lightbox-close" id="lightboxClose" aria-label="Close">&#x2715;</button>
+    <img id="lightboxImg" src="" alt="" />
+  </div>
+
+<script>
+  // ── PASSWORD ──
+  const CODE = 'LiLo';
+
+  function checkCode() {
+    const input = document.getElementById('gateInput');
+    const error = document.getElementById('gateError');
+    if (input.value === CODE) {
+      document.getElementById('gate').style.display = 'none';
+      document.getElementById('results').style.display = 'block';
+      sessionStorage.setItem('lf_results_auth', '1');
+      loadAllResults();
+    } else {
+      error.textContent = 'Incorrect code — try again.';
+      input.classList.add('error');
+      input.value = '';
+      setTimeout(() => input.classList.remove('error'), 400);
+      input.focus();
+    }
+  }
+
+  // Allow Enter key to submit
+  document.getElementById('gateInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') checkCode();
+  });
+
+  // Persist within session so you don't re-enter on refresh
+  if (sessionStorage.getItem('lf_results_auth') === '1') {
+    document.getElementById('gate').style.display = 'none';
+    document.getElementById('results').style.display = 'block';
+    loadAllResults();
+  }
+
+  // ── LIGHTBOX ──
+  const lightbox  = document.getElementById('lightbox');
+  const lbImg     = document.getElementById('lightboxImg');
+  const lbClose   = document.getElementById('lightboxClose');
+  let lastFocused = null;
+
+  function openLightbox(src, alt) {
+    lastFocused = document.activeElement;
+    lbImg.src = src; lbImg.alt = alt;
+    lightbox.classList.add('open');
+    lightbox.setAttribute('aria-hidden', 'false');
+    lbClose.focus();
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLightbox() {
+    lightbox.classList.remove('open');
+    lightbox.setAttribute('aria-hidden', 'true');
+    lbImg.src = ''; lbImg.alt = '';
+    document.body.style.overflow = '';
+    if (lastFocused) lastFocused.focus();
+  }
+  lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
+  lbClose.addEventListener('click', closeLightbox);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox();
+  });
+
+  // ── IMAGE LOADER ──
+  function loadImageSection(jsonPath, folder, gridId, emptyId) {
+    fetch(jsonPath)
+      .then(r => r.json())
+      .then(files => {
+        if (!files || !files.length) return;
+        const grid  = document.getElementById(gridId);
+        const empty = document.getElementById(emptyId);
+        if (empty) empty.style.display = 'none';
+        grid.innerHTML = '';
+        files.forEach(item => {
+          const src     = typeof item === 'string' ? folder + item : folder + item.file;
+          const caption = typeof item === 'string' ? item.replace(/[-_]/g, ' ').replace(/\.[^.]+$/, '') : (item.caption || '');
+          const card = document.createElement('div');
+          card.className = 'img-card';
+          card.setAttribute('tabindex', '0');
+          card.setAttribute('aria-label', caption + ' — press Enter to enlarge');
+          const img = document.createElement('img');
+          img.src = src; img.alt = caption; img.loading = 'lazy';
+          const cap = document.createElement('div');
+          cap.className = 'img-caption';
+          cap.textContent = caption;
+          card.appendChild(img); card.appendChild(cap);
+          card.addEventListener('click', () => openLightbox(src, caption));
+          card.addEventListener('keydown', e => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(src, caption); }
+          });
+          grid.appendChild(card);
+        });
+      })
+      .catch(() => {});
+  }
+
+  function loadAllResults() {
+    loadImageSection('results/brain-maps.json', 'results/brain-maps/', 'brainMapsGrid', 'brainMapsEmpty');
+    loadImageSection('results/eeg.json',        'results/eeg/',        'eegGrid',        'eegEmpty');
+    loadImageSection('results/clustering.json', 'results/clustering/', 'clusterGrid',    'clusterEmpty');
+  }
+</script>
+
+</body>
+</html>

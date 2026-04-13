@@ -1,408 +1,982 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Lora Fanda — Research Results</title>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Lora Fanda — Research Notebook</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Instrument+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Instrument+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <!-- Syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/atelier-cave-light.min.css">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
     :root {
       --bg: #f0ebe4;
       --surface: #e8e0d8;
+      --surface2: #dfd6cc;
+      --surface3: #d5ccc2;
       --text: #3a2e2a;
       --muted: #7a6560;
       --accent: #b85c6e;
       --accent2: #c47a5a;
+      --accent3: #7a8c6e;
       --border: rgba(90,60,50,0.1);
+      --border-strong: rgba(90,60,50,0.18);
       --focus-ring: 0 0 0 3px rgba(184,92,110,0.4);
+      --sidebar-w: 240px;
+      --nav-h: 56px;
     }
-
+    @media (prefers-reduced-motion: reduce) {
+      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
+    }
+    html, body { height: 100%; }
     body {
       font-family: 'Instrument Sans', sans-serif;
-      background: var(--bg);
-      color: var(--text);
-      font-size: 17px;
-      line-height: 1.75;
-      min-height: 100vh;
+      background: var(--bg); color: var(--text);
+      font-size: 16px; line-height: 1.7;
+      overflow: hidden;
     }
-
     a:focus-visible, button:focus-visible {
       outline: none; box-shadow: var(--focus-ring); border-radius: 4px;
     }
 
     /* ── NAV ── */
-    nav {
-      position: fixed; top: 0; left: 0; right: 0;
-      padding: 1.25rem 3rem;
-      display: flex; justify-content: space-between; align-items: center;
-      background: rgba(240,235,228,0.88);
-      backdrop-filter: blur(20px);
-      border-bottom: 1px solid var(--border);
-      z-index: 200;
+    .topnav {
+      position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 0 1.5rem;
+      background: rgba(240,235,228,0.95); backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border); z-index: 300;
     }
-    .nav-name {
-      font-family: 'Playfair Display', serif; font-size: 1.1rem; color: var(--text);
-      text-decoration: none;
-    }
+    .nav-name { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--text); text-decoration: none; }
     .nav-name span { color: var(--accent); }
-    .nav-back {
-      font-size: 0.78rem; font-weight: 500; letter-spacing: 0.08em;
-      text-transform: uppercase; color: var(--muted); text-decoration: none;
-      transition: color 0.2s; padding: 2px 4px; border-radius: 4px;
-    }
+    .nav-right { display: flex; align-items: center; gap: 1rem; }
+    .nav-back { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); text-decoration: none; transition: color 0.2s; }
     .nav-back:hover { color: var(--text); }
+    .nav-tag { font-size: 0.72rem; font-weight: 500; background: rgba(184,92,110,0.1); color: var(--accent); border: 1px solid rgba(184,92,110,0.2); border-radius: 20px; padding: 2px 10px; }
 
-    /* ── GATE (password screen) ── */
+    /* ── GATE ── */
     #gate {
-      min-height: 100vh;
+      position: fixed; inset: 0; z-index: 400;
       display: flex; align-items: center; justify-content: center;
-      padding: 2rem;
+      background: var(--bg);
     }
     .gate-box {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 20px;
-      padding: 3rem 3.5rem;
-      text-align: center;
-      max-width: 420px; width: 100%;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 20px; padding: 3rem 3.5rem;
+      text-align: center; max-width: 400px; width: 90%;
       position: relative; overflow: hidden;
     }
     .gate-box::before {
       content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
       background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
     }
-    .gate-icon { font-size: 2.5rem; margin-bottom: 1.25rem; }
-    .gate-box h1 {
-      font-family: 'Playfair Display', serif;
-      font-size: 1.6rem; font-weight: 600;
-      letter-spacing: -0.02em; margin-bottom: 0.5rem;
-    }
-    .gate-box p { color: var(--muted); font-size: 0.95rem; margin-bottom: 2rem; font-weight: 400; }
+    .gate-icon { font-size: 2.2rem; margin-bottom: 1rem; }
+    .gate-box h1 { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 0.4rem; }
+    .gate-box p { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.75rem; }
     .gate-input {
-      width: 100%; padding: 0.75rem 1rem;
+      width: 100%; padding: 0.7rem 1rem;
       font-family: 'Instrument Sans', sans-serif; font-size: 1rem;
       background: var(--bg); color: var(--text);
       border: 1px solid var(--border); border-radius: 8px;
-      text-align: center; letter-spacing: 0.15em;
-      margin-bottom: 1rem; transition: border-color 0.2s;
+      text-align: center; letter-spacing: 0.15em; margin-bottom: 0.85rem;
     }
     .gate-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
-    .gate-input.error { border-color: #b85c6e; animation: shake 0.3s ease; }
-    @keyframes shake {
-      0%, 100% { transform: translateX(0); }
-      25% { transform: translateX(-8px); }
-      75% { transform: translateX(8px); }
-    }
+    .gate-input.error { border-color: var(--accent); animation: shake 0.3s ease; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
     .gate-btn {
-      width: 100%; padding: 0.75rem;
-      background: var(--accent); color: #fff;
+      width: 100%; padding: 0.7rem; background: var(--accent); color: #fff;
       border: none; border-radius: 8px;
       font-family: 'Instrument Sans', sans-serif; font-size: 0.95rem; font-weight: 500;
       cursor: pointer; transition: background 0.2s;
     }
     .gate-btn:hover { background: #a04560; }
-    .gate-error { color: var(--accent); font-size: 0.85rem; margin-top: 0.75rem; min-height: 1.2em; }
+    .gate-error { color: var(--accent); font-size: 0.82rem; margin-top: 0.65rem; min-height: 1.1em; }
 
-    /* ── RESULTS (hidden until unlocked) ── */
-    #results { display: none; padding-top: 5rem; }
-
-    .results-header {
-      max-width: 900px; margin: 0 auto;
-      padding: 4rem 3rem 2rem;
-      border-bottom: 1px solid var(--border);
-    }
-    .results-header h1 {
-      font-family: 'Playfair Display', serif;
-      font-size: clamp(2rem, 4vw, 3rem);
-      font-weight: 600; letter-spacing: -0.02em;
-      margin-bottom: 0.5rem;
-    }
-    .results-header p { color: var(--muted); font-size: 1rem; font-weight: 400; }
-
-    /* Section */
-    .results-section {
-      max-width: 900px; margin: 0 auto;
-      padding: 3rem 3rem;
-      border-bottom: 1px solid var(--border);
-    }
-    .results-section:last-child { border-bottom: none; padding-bottom: 6rem; }
-    .results-section h2 {
-      font-family: 'Playfair Display', serif;
-      font-size: 1.5rem; font-weight: 600;
-      letter-spacing: -0.01em; margin-bottom: 0.4rem;
-    }
-    .results-section .section-sub {
-      color: var(--muted); font-size: 0.9rem; margin-bottom: 2rem; font-weight: 400;
+    /* ── LAYOUT ── */
+    #app {
+      display: none;
+      position: fixed; inset: 0;
+      top: var(--nav-h);
     }
 
-    /* Image grid */
-    .img-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-      gap: 1.25rem;
-      margin-bottom: 1.5rem;
-    }
-    .img-card {
+    /* ── SIDEBAR ── */
+    .sidebar {
+      position: absolute; left: 0; top: 0; bottom: 0;
+      width: var(--sidebar-w);
       background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: 12px; overflow: hidden;
-      transition: transform 0.2s, border-color 0.2s;
-      cursor: zoom-in;
+      border-right: 1px solid var(--border);
+      overflow-y: auto; overflow-x: hidden;
+      display: flex; flex-direction: column;
     }
-    .img-card:hover { transform: translateY(-2px); border-color: rgba(184,92,110,0.3); }
-    .img-card:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 12px; }
-    .img-card img { width: 100%; height: 220px; object-fit: contain; display: block; background: var(--bg); padding: 1rem; }
-    .img-card .img-caption {
-      padding: 0.75rem 1rem;
-      font-size: 0.85rem; color: var(--muted); font-weight: 400;
+    .sidebar::-webkit-scrollbar { width: 4px; }
+    .sidebar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+
+    .sidebar-header {
+      padding: 1rem 1rem 0.5rem;
+      font-size: 0.68rem; font-weight: 500; letter-spacing: 0.1em;
+      text-transform: uppercase; color: var(--muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    /* Part group */
+    .part-group { border-bottom: 1px solid var(--border); }
+    .part-toggle {
+      width: 100%; display: flex; align-items: center; gap: 8px;
+      padding: 0.75rem 1rem; background: none; border: none;
+      text-align: left; cursor: pointer;
+      font-family: 'Instrument Sans', sans-serif;
+      color: var(--text); font-size: 0.82rem; font-weight: 500;
+      transition: background 0.15s;
+    }
+    .part-toggle:hover { background: var(--surface2); }
+    .part-num { font-size: 0.68rem; color: var(--accent); font-weight: 500; letter-spacing: 0.08em; min-width: 28px; }
+    .part-label { flex: 1; }
+    .part-chevron { font-size: 0.6rem; color: var(--muted); transition: transform 0.2s; }
+    .part-group.open .part-chevron { transform: rotate(90deg); }
+
+    .part-items { display: none; }
+    .part-group.open .part-items { display: block; }
+
+    /* Nav items */
+    .nav-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0.45rem 1rem 0.45rem 1.75rem;
+      cursor: pointer; font-size: 0.8rem; color: var(--muted);
+      transition: background 0.15s, color 0.15s;
+      border: none; background: none; width: 100%; text-align: left;
+      font-family: 'Instrument Sans', sans-serif;
+    }
+    .nav-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-item.active { background: rgba(184,92,110,0.08); color: var(--accent); font-weight: 500; }
+    .nav-item.active .nav-icon { opacity: 1; }
+    .nav-icon { font-size: 0.75rem; opacity: 0.6; min-width: 14px; }
+    .nav-item-label { flex: 1; line-height: 1.3; }
+    .nav-item-num { font-size: 0.68rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; min-width: 26px; }
+
+    /* Status badges */
+    .status { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+    .status-done { background: var(--accent3); }
+    .status-wip  { background: var(--accent2); }
+    .status-draft { background: var(--muted); }
+
+    /* Special items: Functions, Outputs */
+    .nav-section-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0.4rem 1rem 0.4rem 1.75rem;
+      cursor: pointer; font-size: 0.75rem; color: var(--muted);
+      font-weight: 500; letter-spacing: 0.04em;
+      transition: background 0.15s, color 0.15s;
+      border: none; background: none; width: 100%; text-align: left;
+      font-family: 'Instrument Sans', sans-serif;
+    }
+    .nav-section-item:hover { background: var(--surface2); color: var(--text); }
+    .nav-section-item.active { background: rgba(184,92,110,0.08); color: var(--accent); }
+
+    /* ── MAIN PANEL ── */
+    .main {
+      position: absolute;
+      left: var(--sidebar-w); top: 0; right: 0; bottom: 0;
+      display: flex; flex-direction: column;
+    }
+
+    /* Tab bar */
+    .tab-bar {
+      display: flex; align-items: center; gap: 0;
+      border-bottom: 1px solid var(--border);
+      background: var(--bg); flex-shrink: 0;
+      padding: 0 1.5rem;
+    }
+    .tab-btn {
+      padding: 0.7rem 1.1rem; font-size: 0.8rem; font-weight: 500;
+      color: var(--muted); background: none; border: none;
+      border-bottom: 2px solid transparent; margin-bottom: -1px;
+      cursor: pointer; transition: color 0.15s, border-color 0.15s;
+      font-family: 'Instrument Sans', sans-serif;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .tab-btn:hover { color: var(--text); }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-spacer { flex: 1; }
+    .copy-link-btn {
+      font-size: 0.72rem; color: var(--muted); background: none; border: 1px solid var(--border);
+      border-radius: 6px; padding: 3px 10px; cursor: pointer;
+      font-family: 'Instrument Sans', sans-serif; transition: all 0.2s;
+    }
+    .copy-link-btn:hover { color: var(--accent); border-color: rgba(184,92,110,0.3); }
+
+    /* Panel area */
+    .panel-area { flex: 1; overflow: hidden; position: relative; }
+
+    /* Preface panel */
+    .preface-panel {
+      flex: 1; overflow-y: auto; padding: 3rem 4rem;
+    }
+    .preface-panel::-webkit-scrollbar { width: 6px; }
+    .preface-panel::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    .preface-content { max-width: 680px; }
+    .preface-content h1 {
+      font-family: 'Playfair Display', serif;
+      font-size: clamp(1.8rem, 3vw, 2.4rem); font-weight: 600;
+      letter-spacing: -0.02em; margin-bottom: 1.5rem;
+    }
+    .preface-content h2 {
+      font-family: 'Playfair Display', serif;
+      font-size: 1.3rem; font-weight: 600; margin: 2rem 0 0.75rem;
+    }
+    .preface-content h3 { font-size: 1rem; font-weight: 500; margin: 1.5rem 0 0.5rem; }
+    .preface-content p { margin-bottom: 1.1rem; font-size: 1rem; line-height: 1.85; }
+    .preface-content ul, .preface-content ol { margin: 0.75rem 0 1rem 1.5rem; }
+    .preface-content li { margin-bottom: 0.35rem; line-height: 1.75; }
+    .preface-content strong { font-weight: 500; }
+    .preface-content em { font-style: italic; color: var(--muted); }
+    .preface-content code {
+      font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
+      background: var(--surface2); padding: 2px 6px; border-radius: 4px; color: var(--accent2);
+    }
+    .preface-content blockquote {
+      border-left: 3px solid var(--accent); padding: 0.5rem 0 0.5rem 1.25rem;
+      margin: 1.25rem 0; color: var(--muted); font-style: italic;
+    }
+    .preface-content hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
+    .preface-content a { color: var(--accent); }
+    .preface-loading { color: var(--muted); font-size: 0.9rem; }
+
+    /* Preface nav button */
+    .preface-nav {
+      display: flex; align-items: center; gap: 8px;
+      padding: 0.75rem 1rem; cursor: pointer;
+      font-size: 0.82rem; color: var(--text); font-weight: 500;
+      transition: background 0.15s; border-bottom: 1px solid var(--border);
+      border-top: none; border-left: none; border-right: none;
+      background: none; width: 100%; text-align: left;
+      font-family: 'Instrument Sans', sans-serif;
+    }
+    .preface-nav:hover { background: var(--surface2); }
+    .preface-nav.active { background: rgba(184,92,110,0.08); color: var(--accent); }
+
+    /* Notebook panel */
+    .panel { display: none; position: absolute; inset: 0; }
+    .panel.active { display: flex; flex-direction: column; }
+
+    /* Notebook iframe */
+    .notebook-frame {
+      flex: 1; width: 100%; border: none;
+      background: #fff;
+    }
+    .notebook-placeholder {
+      flex: 1; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      color: var(--muted); gap: 0.75rem; padding: 3rem;
+      text-align: center;
+    }
+    .notebook-placeholder .big-icon { font-size: 3rem; opacity: 0.4; }
+    .notebook-placeholder h3 { font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 600; color: var(--text); }
+    .notebook-placeholder p { font-size: 0.88rem; max-width: 36ch; line-height: 1.7; }
+    .nb-open-btn {
+      margin-top: 0.5rem; padding: 0.6rem 1.4rem;
+      background: var(--accent); color: #fff; border: none;
+      border-radius: 8px; font-family: 'Instrument Sans', sans-serif;
+      font-size: 0.88rem; font-weight: 500; cursor: pointer;
+      text-decoration: none; display: inline-block; transition: background 0.2s;
+    }
+    .nb-open-btn:hover { background: #a04560; }
+    .nb-fallback { font-size: 0.78rem; color: var(--muted); margin-top: 0.5rem; }
+    .nb-fallback a { color: var(--accent); }
+
+    /* Functions panel */
+    .functions-panel {
+      flex: 1; overflow: hidden; display: flex; flex-direction: column;
+    }
+    .file-picker {
+      display: flex; gap: 0.5rem; flex-wrap: wrap;
+      padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border);
+      background: var(--surface); flex-shrink: 0;
+    }
+    .file-tab {
+      padding: 3px 12px; font-size: 0.75rem; font-weight: 500;
+      font-family: 'JetBrains Mono', monospace;
+      background: var(--bg); border: 1px solid var(--border);
+      border-radius: 6px; cursor: pointer; transition: all 0.15s;
+      color: var(--muted);
+    }
+    .file-tab:hover { color: var(--text); border-color: var(--border-strong); }
+    .file-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .code-wrap {
+      flex: 1; overflow: auto; padding: 1.25rem 1.5rem;
+      background: #f5f0eb;
+    }
+    .code-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+    .code-wrap::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    .code-wrap pre {
+      margin: 0; font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem; line-height: 1.65;
+    }
+    .code-wrap code { font-family: inherit !important; }
+    .code-loading { padding: 2rem; color: var(--muted); font-size: 0.88rem; }
+
+    /* Outputs panel */
+    .outputs-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    .outputs-filters {
+      display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;
+      padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border);
+      background: var(--surface); flex-shrink: 0;
+    }
+    .filter-label { font-size: 0.72rem; color: var(--muted); font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
+    .filter-select {
+      padding: 4px 10px; font-size: 0.8rem;
+      font-family: 'Instrument Sans', sans-serif;
+      background: var(--bg); color: var(--text);
+      border: 1px solid var(--border); border-radius: 6px;
+      cursor: pointer;
+    }
+    .filter-select:focus { outline: none; border-color: var(--accent); }
+    .outputs-count { font-size: 0.75rem; color: var(--muted); margin-left: auto; }
+
+    .outputs-grid {
+      flex: 1; overflow-y: auto; padding: 1rem 1.25rem;
+      display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 0.75rem; align-content: start;
+    }
+    .outputs-grid::-webkit-scrollbar { width: 6px; }
+    .outputs-grid::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    .output-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; overflow: hidden; cursor: zoom-in;
+      transition: border-color 0.2s, transform 0.2s;
+      display: flex; flex-direction: column;
+    }
+    .output-card:hover { border-color: rgba(184,92,110,0.3); transform: scale(1.02); }
+    .output-card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+    .output-card img {
+      width: 100%; height: 160px;
+      object-fit: contain; display: block;
+      background: #fff; padding: 6px;
+      flex-shrink: 0;
+    }
+    .output-caption {
+      padding: 5px 8px 7px;
+      font-size: 0.65rem; color: var(--muted); line-height: 1.4;
+      word-break: break-all; white-space: normal;
       border-top: 1px solid var(--border);
     }
+    .outputs-empty { padding: 3rem; text-align: center; color: var(--muted); font-size: 0.88rem; line-height: 1.8; }
+    .outputs-empty code { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent2); }
 
-    /* Upload zone */
-    .upload-zone {
-      border: 2px dashed var(--border);
-      border-radius: 12px; padding: 3rem;
-      text-align: center; color: var(--muted);
-      font-size: 0.9rem; line-height: 1.8;
+    /* Notes drawer */
+    .notes-drawer {
+      border-top: 1px solid var(--border);
+      background: var(--surface); flex-shrink: 0;
+      transition: max-height 0.25s ease;
+      max-height: 36px; overflow: hidden;
     }
-    .upload-zone code {
-      font-family: monospace; font-size: 0.85rem;
-      color: var(--accent2);
+    .notes-drawer.open { max-height: 200px; }
+    .notes-toggle {
+      width: 100%; display: flex; align-items: center; gap: 6px;
+      padding: 0.5rem 1.25rem; background: none; border: none;
+      cursor: pointer; font-size: 0.75rem; color: var(--muted);
+      font-family: 'Instrument Sans', sans-serif; font-weight: 500;
+      text-align: left; transition: color 0.15s;
+    }
+    .notes-toggle:hover { color: var(--text); }
+    .notes-toggle .chevron { font-size: 0.6rem; transition: transform 0.2s; }
+    .notes-drawer.open .chevron { transform: rotate(180deg); }
+    .notes-body {
+      padding: 0.5rem 1.25rem 0.75rem;
+      font-size: 0.82rem; color: var(--muted); line-height: 1.7;
     }
 
-    /* Notes / text block */
-    .notes-block {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-left: 3px solid var(--accent);
-      border-radius: 0 12px 12px 0;
-      padding: 1.4rem 1.6rem;
-      font-size: 0.95rem; color: var(--muted);
-      line-height: 1.8;
-    }
-    .notes-block strong { color: var(--text); font-weight: 500; }
-
-    /* ── LIGHTBOX ── */
+    /* Lightbox */
     .lightbox {
       display: none; position: fixed; inset: 0; z-index: 999;
-      background: rgba(30,20,18,0.92);
+      background: rgba(30,20,18,0.93);
       align-items: center; justify-content: center; cursor: zoom-out;
     }
     .lightbox.open { display: flex; }
-    .lightbox img { max-width: 92vw; max-height: 90vh; border-radius: 10px; }
+    .lightbox img { max-width: 92vw; max-height: 90vh; border-radius: 8px; }
     .lightbox-close {
-      position: absolute; top: 1.5rem; right: 1.5rem;
-      color: #e8e0d8; cursor: pointer;
-      background: #3a2e2a; border: 1px solid rgba(255,255,255,0.15);
-      width: 44px; height: 44px; border-radius: 50%;
+      position: absolute; top: 1.25rem; right: 1.25rem;
+      color: #e8e0d8; background: #3a2e2a; border: none;
+      width: 40px; height: 40px; border-radius: 50%;
       display: flex; align-items: center; justify-content: center;
-      font-size: 1.2rem; transition: color 0.2s; border: none;
+      font-size: 1.1rem; cursor: pointer; transition: color 0.2s;
     }
     .lightbox-close:hover { color: #fff; }
-
-    @media (max-width: 768px) {
-      nav { padding: 1rem 1.5rem; }
-      .gate-box { padding: 2.5rem 1.75rem; }
-      .results-header, .results-section { padding-left: 1.5rem; padding-right: 1.5rem; }
-      .img-grid { grid-template-columns: 1fr; }
+    .lightbox-caption {
+      position: absolute; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+      background: rgba(30,20,18,0.8); color: #e8e0d8;
+      font-size: 0.78rem; padding: 5px 14px; border-radius: 20px;
+      font-family: 'JetBrains Mono', monospace; max-width: 80vw;
+      text-align: center; word-break: break-all;
     }
   </style>
 </head>
 <body>
 
-  <nav>
+  <nav class="topnav">
     <a href="index.html" class="nav-name">Lora <span>Fanda</span></a>
-    <a href="index.html" class="nav-back">← Back to portfolio</a>
+    <div class="nav-right">
+      <span class="nav-tag">🔬 Research Notebook</span>
+      <a href="index.html" class="nav-back">← Portfolio</a>
+    </div>
   </nav>
 
-  <!-- PASSWORD GATE -->
-  <div id="gate" role="main">
+  <!-- GATE -->
+  <div id="gate">
     <div class="gate-box">
-      <div class="gate-icon" aria-hidden="true">🔬</div>
-      <h1>Research Results</h1>
-      <p>This page is private. Enter the access code to continue.</p>
-      <input
-        type="password"
-        id="gateInput"
-        class="gate-input"
-        placeholder="access code"
-        aria-label="Access code"
-        autocomplete="off"
-        autocorrect="off"
-        spellcheck="false"
-      />
-      <button class="gate-btn" id="gateBtn" onclick="checkCode()">Enter</button>
+      <div class="gate-icon">🔬</div>
+      <h1>Research Notebook</h1>
+      <p>Private access — enter the code to continue.</p>
+      <input type="password" id="gateInput" class="gate-input"
+        placeholder="access code" aria-label="Access code"
+        autocomplete="off" spellcheck="false"/>
+      <button class="gate-btn" onclick="checkCode()">Enter</button>
       <div class="gate-error" id="gateError" role="alert" aria-live="polite"></div>
     </div>
   </div>
 
-  <!-- RESULTS PAGE (shown after unlock) -->
-  <main id="results" aria-label="Research results">
+  <!-- APP -->
+  <div id="app">
 
-    <div class="results-header">
-      <h1>Research Results</h1>
-      <p>Visualizations, brain maps, signal analyses, and clustering outputs — work in progress.</p>
+    <!-- SIDEBAR -->
+    <aside class="sidebar" aria-label="Research navigation">
+      <div class="sidebar-header">Analysis — LoraFanda</div>
+
+      <!-- PREFACE -->
+      <button class="preface-nav" onclick="loadPreface()" id="nav-preface">
+        <span style="font-size:0.85rem">📖</span> PhD Story
+      </button>
+
+      <!-- PART 01 -->
+      <div class="part-group open" id="part-01">
+        <button class="part-toggle" onclick="togglePart('part-01')" aria-expanded="true">
+          <span class="part-num">01</span>
+          <span class="part-label">FBM Analysis</span>
+          <span class="part-chevron">▶</span>
+        </button>
+        <div class="part-items">
+          <button class="nav-item" onclick="loadNotebook('01','140','ERSP Analysis Pipeline','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/01_FBM_Analysis/140_ERSP_analysis_pipeline.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/01_FBM_Analysis/140_ERSP_analysis_pipeline.ipynb','in-progress')" id="nav-01-140">
+            <span class="nav-item-num">140</span>
+            <span class="nav-icon">📓</span>
+            <span class="nav-item-label">ERSP Analysis Pipeline</span>
+            <span class="status status-wip" title="In progress"></span>
+          </button>
+          <button class="nav-section-item" onclick="loadFunctions('01')" id="nav-01-fn">
+            <span class="nav-icon">🐍</span> Functions
+          </button>
+          <button class="nav-section-item" onclick="loadOutputs('01')" id="nav-01-out">
+            <span class="nav-icon">📊</span> Outputs
+          </button>
+        </div>
+      </div>
+
+      <!-- PART 02 -->
+      <div class="part-group" id="part-02">
+        <button class="part-toggle" onclick="togglePart('part-02')" aria-expanded="false">
+          <span class="part-num">02</span>
+          <span class="part-label">FBM Clustering</span>
+          <span class="part-chevron">▶</span>
+        </button>
+        <div class="part-items">
+          <button class="nav-item" onclick="loadNotebook('02','230','Blob Clustering','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/230_blob_clustering.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/230_blob_clustering.ipynb','done')" id="nav-02-230">
+            <span class="nav-item-num">230</span>
+            <span class="nav-icon">📓</span>
+            <span class="nav-item-label">Blob Clustering</span>
+            <span class="status status-done" title="Complete"></span>
+          </button>
+          <button class="nav-item" onclick="loadNotebook('02','231','Minus101 Clustering','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/231_minus101_clustering.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/231_minus101_clustering.ipynb','done')" id="nav-02-231">
+            <span class="nav-item-num">231</span>
+            <span class="nav-icon">📓</span>
+            <span class="nav-item-label">Minus101 Clustering</span>
+            <span class="status status-done" title="Complete"></span>
+          </button>
+          <button class="nav-item" onclick="loadNotebook('02','240','Blob Cluster Reconstruction','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/240_blob_cluster_recon.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/240_blob_cluster_recon.ipynb','wip')" id="nav-02-240">
+            <span class="nav-item-num">240</span>
+            <span class="nav-icon">📓</span>
+            <span class="nav-item-label">Blob Cluster Reconstruction</span>
+            <span class="status status-wip" title="In progress"></span>
+          </button>
+          <button class="nav-item" onclick="loadNotebook('02','241','Atlas Activity Plots','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/241_atlas_activity_plots.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/241_atlas_activity_plots.ipynb','done')" id="nav-02-241">
+            <span class="nav-item-num">241</span>
+            <span class="nav-icon">📓</span>
+            <span class="nav-item-label">Atlas Activity Plots</span>
+            <span class="status status-done" title="Complete"></span>
+          </button>
+          <button class="nav-item" onclick="loadNotebook('02','250a','Recon — Explanations &amp; Viz','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/250_Recon_ExplanationsVisualization.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/250_Recon_ExplanationsVisualization.ipynb','wip')" id="nav-02-250a">
+            <span class="nav-item-num">250</span>
+            <span class="nav-icon">📓</span>
+            <span class="nav-item-label">Recon — Explanations &amp; Viz</span>
+            <span class="status status-wip" title="In progress"></span>
+          </button>
+          <button class="nav-item" onclick="loadNotebook('02','250b','Recon — Shared Data WM','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/250_recon_shared_data_WM.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/250_recon_shared_data_WM.ipynb','wip')" id="nav-02-250b">
+            <span class="nav-item-num">250</span>
+            <span class="nav-icon">📓</span>
+            <span class="nav-item-label">Recon — Shared Data WM</span>
+            <span class="status status-wip" title="In progress"></span>
+          </button>
+          <button class="nav-item" onclick="loadNotebook('02','251','Recon — Shared Data','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/251_recon_shared_data.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/251_recon_shared_data.ipynb','done')" id="nav-02-251">
+            <span class="nav-item-num">251</span>
+            <span class="nav-icon">📓</span>
+            <span class="nav-item-label">Recon — Shared Data</span>
+            <span class="status status-done" title="Complete"></span>
+          </button>
+          <button class="nav-item" onclick="loadNotebook('02','310','K-Means Clustering','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/310_kmeans_clustering.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/310_kmeans_clustering.ipynb','done')" id="nav-02-310">
+            <span class="nav-item-num">310</span>
+            <span class="nav-icon">📓</span>
+            <span class="nav-item-label">K-Means Clustering</span>
+            <span class="status status-done" title="Complete"></span>
+          </button>
+          <button class="nav-section-item" onclick="loadFunctions('02')" id="nav-02-fn">
+            <span class="nav-icon">🐍</span> Functions
+          </button>
+        </div>
+      </div>
+
+    </aside>
+
+    <!-- MAIN -->
+    <div class="main">
+      <!-- Tab bar -->
+      <div class="tab-bar" id="tabBar">
+        <button class="tab-btn active" id="tab-notebook" onclick="switchTab('notebook')">📓 Notebook</button>
+        <button class="tab-btn" id="tab-functions" onclick="switchTab('functions')">🐍 Functions</button>
+        <button class="tab-btn" id="tab-outputs" onclick="switchTab('outputs')" style="display:none">📊 Outputs</button>
+        <button class="tab-btn" id="tab-preface" onclick="switchTab('preface')" style="display:none">📖 PhD Story</button>
+        <div class="tab-spacer"></div>
+        <button class="copy-link-btn" onclick="copyLink()" title="Copy link to this chapter">⎘ Copy link</button>
+      </div>
+
+      <!-- Panel area -->
+      <div class="panel-area">
+
+        <!-- NOTEBOOK PANEL -->
+        <div class="panel active" id="panel-notebook">
+          <div class="notebook-placeholder" id="nb-placeholder">
+            <div class="big-icon">📓</div>
+            <h3>Select a chapter</h3>
+            <p>Choose a notebook from the sidebar to load it here.</p>
+          </div>
+          <iframe class="notebook-frame" id="nb-frame" style="display:none" title="Notebook viewer" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+          <div class="notes-drawer" id="notesDrawer">
+            <button class="notes-toggle" onclick="toggleNotes()">
+              📝 Notes <span class="chevron">▼</span>
+            </button>
+            <div class="notes-body" id="notesBody">
+              No notes for this chapter yet. Add them in <code>results.html</code> inside the <code>NOTES</code> object below.
+            </div>
+          </div>
+        </div>
+
+        <!-- FUNCTIONS PANEL -->
+        <div class="panel" id="panel-functions">
+          <div class="functions-panel">
+            <div class="file-picker" id="filePicker"></div>
+            <div class="code-wrap" id="codeWrap">
+              <div class="code-loading">Select a function file above.</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PREFACE PANEL -->
+        <div class="panel" id="panel-preface">
+          <div class="preface-panel">
+            <div class="preface-content" id="prefaceContent">
+              <div class="preface-loading">Loading PhD story...</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- OUTPUTS PANEL -->
+        <div class="panel" id="panel-outputs">
+          <div class="outputs-panel">
+            <div class="outputs-filters">
+              <span class="filter-label">Condition</span>
+              <select class="filter-select" id="condFilter" onchange="filterOutputs()">
+                <option value="">All</option>
+                <option value="audio">Audio</option>
+                <option value="picture">Picture</option>
+                <option value="reading">Reading</option>
+              </select>
+              <span class="filter-label" style="margin-left:0.5rem">Region</span>
+              <select class="filter-select" id="regionFilter" onchange="filterOutputs()">
+                <option value="">All</option>
+              </select>
+              <span class="outputs-count" id="outputsCount"></span>
+            </div>
+            <div class="outputs-grid" id="outputsGrid">
+              <div class="outputs-empty">
+                Outputs load from <code>https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/main/</code><br>
+                Make sure the repo is public.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
     </div>
-
-    <!-- BRAIN MAPS -->
-    <div class="results-section">
-      <h2>Brain Maps &amp; Electrode Localizations</h2>
-      <div class="section-sub">Stereo-EEG electrode placement and functional mapping results</div>
-
-      <div class="img-grid" id="brainMapsGrid">
-        <!-- Drop your images into results/brain-maps/ and list them in results/brain-maps.json -->
-      </div>
-      <div class="upload-zone" id="brainMapsEmpty">
-        Add images to <code>results/brain-maps/</code> and list filenames in <code>results/brain-maps.json</code>
-      </div>
-
-      <div class="notes-block" style="margin-top:1.5rem;">
-        <strong>Notes:</strong> Add your notes about these results here — methods, observations, what to discuss with collaborators.
-      </div>
-    </div>
-
-    <!-- EEG SIGNALS -->
-    <div class="results-section">
-      <h2>EEG Signal Analyses</h2>
-      <div class="section-sub">Time series, spectral analyses, attentional dynamics</div>
-
-      <div class="img-grid" id="eegGrid">
-      </div>
-      <div class="upload-zone" id="eegEmpty">
-        Add images to <code>results/eeg/</code> and list filenames in <code>results/eeg.json</code>
-      </div>
-
-      <div class="notes-block" style="margin-top:1.5rem;">
-        <strong>Notes:</strong> Add your notes about these results here.
-      </div>
-    </div>
-
-    <!-- CLUSTERING -->
-    <div class="results-section">
-      <h2>Clustering Results</h2>
-      <div class="section-sub">Brain mapping data clustering, group analyses</div>
-
-      <div class="img-grid" id="clusterGrid">
-      </div>
-      <div class="upload-zone" id="clusterEmpty">
-        Add images to <code>results/clustering/</code> and list filenames in <code>results/clustering.json</code>
-      </div>
-
-      <div class="notes-block" style="margin-top:1.5rem;">
-        <strong>Notes:</strong> Add your notes about these results here.
-      </div>
-    </div>
-
-  </main>
+  </div>
 
   <!-- LIGHTBOX -->
   <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer" aria-hidden="true">
-    <button class="lightbox-close" id="lightboxClose" aria-label="Close">&#x2715;</button>
-    <img id="lightboxImg" src="" alt="" />
+    <button class="lightbox-close" id="lightboxClose" aria-label="Close">✕</button>
+    <img id="lightboxImg" src="" alt=""/>
+    <div class="lightbox-caption" id="lightboxCaption"></div>
   </div>
 
 <script>
-  // ── PASSWORD ──
-  const CODE = 'LiLo';
+// ── CONFIG ──────────────────────────────────────────────────────────────────
 
-  function checkCode() {
-    const input = document.getElementById('gateInput');
-    const error = document.getElementById('gateError');
-    if (input.value === CODE) {
-      document.getElementById('gate').style.display = 'none';
-      document.getElementById('results').style.display = 'block';
-      sessionStorage.setItem('lf_results_auth', '1');
-      loadAllResults();
-    } else {
-      error.textContent = 'Incorrect code — try again.';
-      input.classList.add('error');
-      input.value = '';
-      setTimeout(() => input.classList.remove('error'), 400);
-      input.focus();
-    }
-  }
+const CODE = 'LiLo';
+const REPO_RAW = 'https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/main';
+const PATIENT = 'EL030'; // Part 01 outputs scoped to this patient
 
-  // Allow Enter key to submit
-  document.getElementById('gateInput').addEventListener('keydown', e => {
-    if (e.key === 'Enter') checkCode();
-  });
+// Notes per chapter — key is part+chapterNum
+const NOTES = {
+  '01-140': 'ERSP pipeline for functional language mapping. Uses lf_ersp.py for signal processing. Patient cohort: language mapping group.',
+  '02-230': 'Initial blob clustering approach. See lf_recon.py for reconstruction utilities.',
+  '02-240': 'Reconstruction of blob clusters. Work in progress — some edge cases with small clusters.',
+  // Add more as needed
+};
 
-  // Persist within session so you don't re-enter on refresh
-  if (sessionStorage.getItem('lf_results_auth') === '1') {
+// Functions per part
+const FUNCTIONS = {
+  '01': ['__init__.py','config.py','lf_ersp.py','lf_io_utils.py','lf_recon.py','lf_trials.py'],
+  '02': ['__init__.py','config.py','lf_ersp.py','lf_io_utils.py','lf_recon.py','lf_trials.py'],
+};
+const FUNCTIONS_PATH = {
+  '01': '01_FBM_Analysis/functions',
+  '02': '02_FBM_Clustering/functions',
+};
+
+// ── STATE ────────────────────────────────────────────────────────────────────
+let state = { part: null, chapter: null, nbviewerUrl: null, githubUrl: null, tab: 'notebook' };
+
+// ── GATE ─────────────────────────────────────────────────────────────────────
+function checkCode() {
+  const input = document.getElementById('gateInput');
+  const error = document.getElementById('gateError');
+  if (input.value === CODE) {
     document.getElementById('gate').style.display = 'none';
-    document.getElementById('results').style.display = 'block';
-    loadAllResults();
+    document.getElementById('app').style.display = 'block';
+    sessionStorage.setItem('lf_auth','1');
+    handleHash();
+  } else {
+    error.textContent = 'Incorrect — try again.';
+    input.classList.add('error');
+    input.value = '';
+    setTimeout(() => input.classList.remove('error'), 400);
+    input.focus();
   }
+}
+document.getElementById('gateInput').addEventListener('keydown', e => { if (e.key === 'Enter') checkCode(); });
+if (sessionStorage.getItem('lf_auth') === '1') {
+  document.getElementById('gate').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  handleHash();
+}
 
-  // ── LIGHTBOX ──
-  const lightbox  = document.getElementById('lightbox');
-  const lbImg     = document.getElementById('lightboxImg');
-  const lbClose   = document.getElementById('lightboxClose');
-  let lastFocused = null;
+// ── SIDEBAR ──────────────────────────────────────────────────────────────────
+function togglePart(id) {
+  const el = document.getElementById(id);
+  el.classList.toggle('open');
+  el.querySelector('.part-toggle').setAttribute('aria-expanded', el.classList.contains('open'));
+}
 
-  function openLightbox(src, alt) {
-    lastFocused = document.activeElement;
-    lbImg.src = src; lbImg.alt = alt;
-    lightbox.classList.add('open');
-    lightbox.setAttribute('aria-hidden', 'false');
-    lbClose.focus();
-    document.body.style.overflow = 'hidden';
-  }
-  function closeLightbox() {
-    lightbox.classList.remove('open');
-    lightbox.setAttribute('aria-hidden', 'true');
-    lbImg.src = ''; lbImg.alt = '';
-    document.body.style.overflow = '';
-    if (lastFocused) lastFocused.focus();
-  }
-  lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
-  lbClose.addEventListener('click', closeLightbox);
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox();
+function clearActive() {
+  document.querySelectorAll('.nav-item, .nav-section-item').forEach(el => el.classList.remove('active'));
+}
+
+// ── NOTEBOOK ─────────────────────────────────────────────────────────────────
+function loadNotebook(part, chapterKey, title, nbviewerUrl, githubUrl, status) {
+  clearActive();
+  const navEl = document.getElementById(`nav-${part}-${chapterKey}`);
+  if (navEl) navEl.classList.add('active');
+
+  state = { part, chapter: chapterKey, nbviewerUrl, githubUrl, tab: 'notebook' };
+
+  // Restore normal tabs, hide preface tab
+  document.getElementById('tab-notebook').style.display = '';
+  document.getElementById('tab-functions').style.display = '';
+  document.getElementById('tab-preface').style.display = 'none';
+  // Show outputs tab only for part 01
+  document.getElementById('tab-outputs').style.display = part === '01' ? '' : 'none';
+
+  switchTab('notebook');
+
+  // Show iframe
+  const placeholder = document.getElementById('nb-placeholder');
+  const frame = document.getElementById('nb-frame');
+
+  placeholder.style.display = 'none';
+  frame.style.display = 'none';
+
+  // Try nbviewer first — show placeholder with open button
+  placeholder.style.display = 'flex';
+  placeholder.innerHTML = `
+    <div class="big-icon">📓</div>
+    <h3>${title}</h3>
+    <p>Opens in nbviewer for the best rendering experience.</p>
+    <a href="${nbviewerUrl}" target="_blank" rel="noopener noreferrer" class="nb-open-btn">Open in nbviewer ↗</a>
+    <div class="nb-fallback">nbviewer not working? <a href="${githubUrl}" target="_blank" rel="noopener noreferrer">Open on GitHub</a></div>
+  `;
+
+  // Notes
+  const notesBody = document.getElementById('notesBody');
+  const key = `${part}-${chapterKey}`;
+  notesBody.textContent = NOTES[key] || 'No notes for this chapter yet.';
+
+  // Update URL hash
+  history.replaceState(null, '', `#${part}-${chapterKey}`);
+}
+
+// ── FUNCTIONS ─────────────────────────────────────────────────────────────────
+function loadFunctions(part) {
+  clearActive();
+  const navEl = document.getElementById(`nav-${part}-fn`);
+  if (navEl) navEl.classList.add('active');
+  state.part = part;
+  document.getElementById('tab-notebook').style.display = '';
+  document.getElementById('tab-functions').style.display = '';
+  document.getElementById('tab-preface').style.display = 'none';
+  document.getElementById('tab-outputs').style.display = part === '01' ? '' : 'none';
+  switchTab('functions');
+  buildFilePicker(part);
+}
+
+function buildFilePicker(part) {
+  const files = FUNCTIONS[part] || [];
+  const picker = document.getElementById('filePicker');
+  picker.innerHTML = '';
+  files.forEach((f, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'file-tab' + (i === 0 ? ' active' : '');
+    btn.textContent = f;
+    btn.onclick = () => {
+      document.querySelectorAll('.file-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      loadFile(part, f);
+    };
+    picker.appendChild(btn);
   });
+  if (files.length) loadFile(part, files[0]);
+}
 
-  // ── IMAGE LOADER ──
-  function loadImageSection(jsonPath, folder, gridId, emptyId) {
-    fetch(jsonPath)
-      .then(r => r.json())
-      .then(files => {
-        if (!files || !files.length) return;
-        const grid  = document.getElementById(gridId);
-        const empty = document.getElementById(emptyId);
-        if (empty) empty.style.display = 'none';
-        grid.innerHTML = '';
-        files.forEach(item => {
-          const src     = typeof item === 'string' ? folder + item : folder + item.file;
-          const caption = typeof item === 'string' ? item.replace(/[-_]/g, ' ').replace(/\.[^.]+$/, '') : (item.caption || '');
-          const card = document.createElement('div');
-          card.className = 'img-card';
-          card.setAttribute('tabindex', '0');
-          card.setAttribute('aria-label', caption + ' — press Enter to enlarge');
-          const img = document.createElement('img');
-          img.src = src; img.alt = caption; img.loading = 'lazy';
-          const cap = document.createElement('div');
-          cap.className = 'img-caption';
-          cap.textContent = caption;
-          card.appendChild(img); card.appendChild(cap);
-          card.addEventListener('click', () => openLightbox(src, caption));
-          card.addEventListener('keydown', e => {
-            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(src, caption); }
-          });
-          grid.appendChild(card);
+async function loadFile(part, filename) {
+  const path = `${FUNCTIONS_PATH[part]}/${filename}`;
+  const url = `${REPO_RAW}/${path}`;
+  const wrap = document.getElementById('codeWrap');
+  wrap.innerHTML = '<div class="code-loading">Loading...</div>';
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(res.status);
+    const text = await res.text();
+    const pre = document.createElement('pre');
+    const code = document.createElement('code');
+    code.className = 'language-python';
+    code.textContent = text;
+    pre.appendChild(code);
+    wrap.innerHTML = '';
+    wrap.appendChild(pre);
+    hljs.highlightElement(code);
+  } catch(e) {
+    wrap.innerHTML = `<div class="code-loading" style="color:var(--accent)">Could not load ${filename}. Make sure the repo is public.<br><small>${e.message}</small></div>`;
+  }
+}
+
+// ── OUTPUTS ───────────────────────────────────────────────────────────────────
+let allOutputs = [];
+
+function loadOutputs(part) {
+  clearActive();
+  const navEl = document.getElementById(`nav-${part}-out`);
+  if (navEl) navEl.classList.add('active');
+  state.part = part;
+  document.getElementById('tab-outputs').style.display = '';
+  switchTab('outputs');
+  if (part === '01') fetchOutputs01();
+}
+
+// For Part 01 — build output list from known structure
+// Pattern: 01_FBM_Analysis/outputs/04_ersp_LM_RAWONLY/EL030/LM/ERSP_clean/{condition}/{filename}
+async function fetchOutputs01() {
+  const grid = document.getElementById('outputsGrid');
+  grid.innerHTML = '<div class="outputs-empty">Loading outputs...</div>';
+
+  // We can't ls a GitHub directory, so we use the GitHub API (works on public repo)
+  const conditions = ['audio', 'picture', 'reading'];
+  const base = `01_FBM_Analysis/outputs/04_ersp_LM_RAWONLY/${PATIENT}/LM/ERSP_clean`;
+  const apiBase = `https://api.github.com/repos/lorafanda/Analysis_LoraFanda/contents/${base}`;
+
+  allOutputs = [];
+  const regionSet = new Set();
+
+  try {
+    for (const cond of conditions) {
+      const res = await fetch(`${apiBase}/${cond}`);
+      if (!res.ok) continue;
+      const files = await res.json();
+      for (const f of files) {
+        if (!f.name.endsWith('.png')) continue;
+        // Extract region from filename: e.g. EL030_reading_WM_ERSP_STG_L1_TN_CLEAN.png → region = STG
+        const regionMatch = f.name.match(/_ERSP_([A-Za-z]+)_/);
+        const region = regionMatch ? regionMatch[1] : 'Other';
+        regionSet.add(region);
+        allOutputs.push({
+          condition: cond,
+          region,
+          name: f.name,
+          url: `${REPO_RAW}/${base}/${cond}/${f.name}`,
         });
-      })
-      .catch(() => {});
+      }
+    }
+
+    // Populate region filter
+    const regionFilter = document.getElementById('regionFilter');
+    regionFilter.innerHTML = '<option value="">All</option>';
+    [...regionSet].sort().forEach(r => {
+      const opt = document.createElement('option');
+      opt.value = r; opt.textContent = r;
+      regionFilter.appendChild(opt);
+    });
+
+    filterOutputs();
+  } catch(e) {
+    grid.innerHTML = `<div class="outputs-empty">Could not load outputs. Make sure the repo is public.<br><small style="color:var(--accent)">${e.message}</small></div>`;
+  }
+}
+
+function filterOutputs() {
+  const cond = document.getElementById('condFilter').value;
+  const region = document.getElementById('regionFilter').value;
+  const grid = document.getElementById('outputsGrid');
+  const count = document.getElementById('outputsCount');
+
+  const filtered = allOutputs.filter(o =>
+    (!cond || o.condition === cond) && (!region || o.region === region)
+  );
+
+  count.textContent = `${filtered.length} image${filtered.length !== 1 ? 's' : ''}`;
+
+  if (!filtered.length) {
+    grid.innerHTML = '<div class="outputs-empty">No images match this filter.</div>';
+    return;
   }
 
-  function loadAllResults() {
-    loadImageSection('results/brain-maps.json', 'results/brain-maps/', 'brainMapsGrid', 'brainMapsEmpty');
-    loadImageSection('results/eeg.json',        'results/eeg/',        'eegGrid',        'eegEmpty');
-    loadImageSection('results/clustering.json', 'results/clustering/', 'clusterGrid',    'clusterEmpty');
+  grid.innerHTML = '';
+  filtered.forEach(o => {
+    const card = document.createElement('div');
+    card.className = 'output-card';
+    card.setAttribute('tabindex', '0');
+    const img = document.createElement('img');
+    img.src = o.url;
+    img.alt = o.name;
+    img.loading = 'lazy';
+    const cap = document.createElement('div');
+    cap.className = 'output-caption';
+    cap.textContent = o.name;
+    card.appendChild(img); card.appendChild(cap);
+    card.addEventListener('click', () => openLightbox(o.url, o.name));
+    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(o.url, o.name); } });
+    grid.appendChild(card);
+  });
+}
+
+// ── PREFACE ───────────────────────────────────────────────────────────────────
+let prefaceLoaded = false;
+
+async function loadPreface() {
+  clearActive();
+  document.getElementById('nav-preface').classList.add('active');
+
+  // Show/hide tabs
+  document.getElementById('tab-preface').style.display = '';
+  document.getElementById('tab-notebook').style.display = 'none';
+  document.getElementById('tab-functions').style.display = 'none';
+  document.getElementById('tab-outputs').style.display = 'none';
+
+  switchTab('preface');
+  history.replaceState(null, '', '#preface');
+
+  if (prefaceLoaded) return;
+
+  const url = `${REPO_RAW}/PhD_story/phd_story.md`;
+  const container = document.getElementById('prefaceContent');
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const md = await res.text();
+    container.innerHTML = marked.parse(md);
+    prefaceLoaded = true;
+  } catch(e) {
+    container.innerHTML = `<p style="color:var(--accent)">Could not load phd_story.md. Make sure the repo is public and the file is at <code>PhD_story/phd_story.md</code>.<br><small>${e.message}</small></p>`;
   }
+}
+
+// ── TABS ──────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  state.tab = tab;
+  ['notebook','functions','outputs','preface'].forEach(t => {
+    document.getElementById(`tab-${t}`)?.classList.toggle('active', t === tab);
+    document.getElementById(`panel-${t}`)?.classList.toggle('active', t === tab);
+  });
+}
+
+// ── NOTES ─────────────────────────────────────────────────────────────────────
+function toggleNotes() {
+  document.getElementById('notesDrawer').classList.toggle('open');
+}
+
+// ── COPY LINK ─────────────────────────────────────────────────────────────────
+function copyLink() {
+  const url = window.location.href.split('#')[0] + (state.chapter ? `#${state.part}-${state.chapter}` : '');
+  navigator.clipboard.writeText(url).then(() => {
+    const btn = document.querySelector('.copy-link-btn');
+    const orig = btn.textContent;
+    btn.textContent = '✓ Copied';
+    setTimeout(() => btn.textContent = orig, 1800);
+  });
+}
+
+// ── HASH ROUTING ─────────────────────────────────────────────────────────────
+function handleHash() {
+  const hash = window.location.hash.slice(1);
+  if (!hash) return;
+  if (hash === 'preface') { loadPreface(); return; }
+  const btn = document.getElementById(`nav-${hash}`);
+  if (btn) btn.click();
+}
+window.addEventListener('hashchange', handleHash);
+
+// ── LIGHTBOX ──────────────────────────────────────────────────────────────────
+const lightbox  = document.getElementById('lightbox');
+const lbImg     = document.getElementById('lightboxImg');
+const lbCaption = document.getElementById('lightboxCaption');
+const lbClose   = document.getElementById('lightboxClose');
+let lastFocused = null;
+
+function openLightbox(src, caption) {
+  lastFocused = document.activeElement;
+  lbImg.src = src; lbImg.alt = caption;
+  lbCaption.textContent = caption;
+  lightbox.classList.add('open');
+  lightbox.setAttribute('aria-hidden','false');
+  lbClose.focus();
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  lightbox.classList.remove('open');
+  lightbox.setAttribute('aria-hidden','true');
+  lbImg.src = ''; document.body.style.overflow = '';
+  if (lastFocused) lastFocused.focus();
+}
+lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
+lbClose.addEventListener('click', closeLightbox);
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox();
+});
 </script>
-
 </body>
 </html>

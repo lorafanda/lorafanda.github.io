@@ -122,7 +122,7 @@
     .btn-secondary:hover { border-color: rgba(90,60,50,0.25); background: var(--surface); }
 
     .hero-photo {
-      width: 100%; aspect-ratio: 1; border-radius: 16px; overflow: hidden;
+      width: 100%; aspect-ratio: 3/4; border-radius: 16px; overflow: hidden;
       border: 1px solid var(--border); margin-bottom: 1rem; position: relative;
     }
     .hero-photo img { width: 100%; height: 100%; object-fit: cover; object-position: center top; display: block; }
@@ -265,52 +265,6 @@
     .exp-org { font-size: 0.9rem; color: var(--sec-accent, var(--accent)); font-weight: 400; margin-bottom: 0.4rem; transition: color 0.8s; }
     .exp-content p { font-size: 0.9rem; color: var(--sec-muted, var(--muted)); font-weight: 400; line-height: 1.75; transition: color 0.8s; }
 
-    /* ── ART (no painting panel — this IS the art) ── */
-    .art-section-wrap { max-width: 1000px; margin: 0 auto; padding: 5rem 3rem; position: relative; z-index: 1; }
-    .art-grid { columns: 3; column-gap: 1rem; }
-    .art-item {
-      break-inside: avoid; margin-bottom: 1rem; border-radius: 12px;
-      overflow: hidden; border: 1px solid var(--border);
-      position: relative; cursor: zoom-in;
-      transition: border-color 0.25s, transform 0.25s;
-    }
-    .art-item:hover { border-color: rgba(167,139,250,0.4); transform: scale(1.01); }
-    .art-item:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 12px; }
-    .art-item img { display: block; width: 100%; height: auto; }
-    .art-label {
-      position: absolute; bottom: 0; left: 0; right: 0;
-      padding: 0.6rem 0.9rem;
-      background: linear-gradient(0deg, rgba(240,235,228,0.92), transparent);
-      font-size: 0.75rem; color: var(--text);
-      opacity: 0; transition: opacity 0.2s;
-    }
-    .art-item:hover .art-label,
-    .art-item:focus-visible .art-label { opacity: 1; }
-    .art-empty {
-      text-align: center; padding: 3rem; color: var(--muted); font-size: 0.9rem; font-weight: 300;
-      background: var(--surface); border: 1px dashed var(--border); border-radius: 14px; line-height: 1.8;
-    }
-    .art-empty code { font-family: monospace; font-size: 0.8rem; color: var(--accent2); }
-
-    /* ── LIGHTBOX ── */
-    .lightbox {
-      display: none; position: fixed; inset: 0; z-index: 999;
-      background: rgba(30,20,18,0.92);
-      align-items: center; justify-content: center; cursor: zoom-out;
-    }
-    .lightbox.open { display: flex; }
-    .lightbox img { max-width: 90vw; max-height: 88vh; border-radius: 10px; border: 1px solid var(--border); }
-    .lightbox-close {
-      position: absolute; top: 1.5rem; right: 1.5rem;
-      color: #e8e0d8; cursor: pointer;
-      background: #3a2e2a; border: 1px solid rgba(255,255,255,0.15);
-      width: 44px; height: 44px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.2rem; transition: color 0.2s;
-    }
-    .lightbox-close:hover { color: #fff; }
-    .lightbox-close:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-
     /* ── CONTACT ── */
     .contact-wrap { max-width: 1000px; margin: 0 auto; padding: 5rem 3rem 6rem; position: relative; z-index: 1; }
     .contact-box {
@@ -362,8 +316,8 @@
       <a href="#projects" role="listitem">Projects</a>
       <a href="#publications" role="listitem">Publications</a>
       <a href="#experience" role="listitem">Experience</a>
-      <a href="#art" role="listitem">Art</a>
       <a href="#contact" role="listitem">Contact</a>
+      <a href="results.html" role="listitem" style="color:var(--accent);">Research ↗</a>
     </div>
   </nav>
 
@@ -639,33 +593,15 @@
     </div>
   </div>
 
-  <!-- ART -->
-  <div class="art-section-wrap" id="art">
-    <div class="section-header">
-      <h2>Art</h2>
-      <div class="section-line" aria-hidden="true"></div>
-    </div>
-    <div class="art-grid" id="artGrid" role="list" aria-label="Paintings gallery">
-      <div class="art-empty">
-        Paintings will appear here automatically once you add your <code>paintings/</code> folder.
-      </div>
-    </div>
-  </div>
-
-  <!-- LIGHTBOX -->
-  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Painting lightbox" aria-hidden="true">
-    <button class="lightbox-close" id="lightboxClose" aria-label="Close lightbox">&#x2715;</button>
-    <img id="lightboxImg" src="" alt="" />
-  </div>
-
   <!-- CONTACT -->
   <div class="contact-wrap" id="contact">
     <div class="contact-box">
       <h2 id="contact-heading">Let's connect</h2>
       <div class="contact-links" style="margin-top:1.5rem;">
-        <a href="/cdn-cgi/l/email-protection#0e62617c6f686f606a6f4e69636f6762206d6163" class="contact-link primary"><span class="__cf_email__" data-cfemail="91fdfee3f0f7f0fff5f0d1f6fcf0f8fdbff2fefc">[email&#160;protected]</span></a>
+        <a href="mailto:lorafanda@gmail.com" class="contact-link primary">lorafanda@gmail.com</a>
         <a href="https://github.com/lorafanda" class="contact-link" target="_blank" rel="noopener noreferrer">GitHub <span aria-label="opens in new tab">(↗)</span></a>
         <a href="https://www.linkedin.com/in/lorafanda/" class="contact-link" target="_blank" rel="noopener noreferrer">LinkedIn <span aria-label="opens in new tab">(↗)</span></a>
+        <a href="results.html" class="contact-link">Research Notebook</a>
       </div>
     </div>
   </div>
@@ -677,72 +613,13 @@
   </footer>
 
   <!-- LIGHTBOX + COLOR EXTRACTION -->
-  <script data-cfasync="false" src="/cdn-cgi/scripts/5c5dd728/cloudflare-static/email-decode.min.js"></script><script>
+  <script>
   // ── AUTO YEARS IN RESEARCH ──
-  // Start date: June 2016 (Philips Healthcare Systems)
   const startYear = 2016, startMonth = 6;
   const now = new Date();
   const years = Math.floor((now.getFullYear() - startYear) + (now.getMonth() + 1 - startMonth) / 12);
   const el = document.getElementById('years-research');
   if (el) el.innerHTML = years + '<span aria-hidden="true">+</span>';
-
-  // ── LIGHTBOX ──
-  const lightbox = document.getElementById('lightbox');
-  const lbImg    = document.getElementById('lightboxImg');
-  const lbClose  = document.getElementById('lightboxClose');
-  let lastFocused = null;
-
-  function openLightbox(src, alt) {
-    lastFocused = document.activeElement;
-    lbImg.src = src; lbImg.alt = alt;
-    lightbox.classList.add('open');
-    lightbox.setAttribute('aria-hidden', 'false');
-    lbClose.focus();
-    document.body.style.overflow = 'hidden';
-  }
-  function closeLightbox() {
-    lightbox.classList.remove('open');
-    lightbox.setAttribute('aria-hidden', 'true');
-    lbImg.src = ''; lbImg.alt = '';
-    document.body.style.overflow = '';
-    if (lastFocused) lastFocused.focus();
-  }
-  lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
-  lbClose.addEventListener('click', closeLightbox);
-  document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox();
-    if (e.key === 'Tab'    && lightbox.classList.contains('open')) { e.preventDefault(); lbClose.focus(); }
-  });
-
-  // ── ART GALLERY ──
-  const grid = document.getElementById('artGrid');
-  function renderPaintings(files) {
-    if (!files || !files.length) return;
-    grid.innerHTML = '';
-    files.forEach(name => {
-      const cleanName = name.replace(/\.[^.]+$/, '').replace(/[-_]/g, ' ');
-      const item = document.createElement('div');
-      item.className = 'art-item';
-      item.setAttribute('role', 'listitem');
-      item.setAttribute('tabindex', '0');
-      item.setAttribute('aria-label', 'Painting: ' + cleanName + '. Press Enter to view full size.');
-      const img = document.createElement('img');
-      img.src = 'paintings/' + name;
-      img.alt = 'Painting by Lora Fanda: ' + cleanName;
-      img.loading = 'lazy';
-      const label = document.createElement('div');
-      label.className = 'art-label';
-      label.textContent = cleanName;
-      label.setAttribute('aria-hidden', 'true');
-      item.appendChild(img); item.appendChild(label);
-      item.addEventListener('click', () => openLightbox(img.src, img.alt));
-      item.addEventListener('keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(img.src, img.alt); }
-      });
-      grid.appendChild(item);
-    });
-  }
-  fetch('paintings/paintings.json').then(r => r.json()).then(renderPaintings).catch(() => {});
 
   // ── COLOR EXTRACTION & THEMING ──
   // For each painted section, sample the painting with a canvas,

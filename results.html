@@ -341,39 +341,36 @@
     .outputs-grid {
       flex: 1; min-height: 0;
       overflow-y: auto; padding: 1rem 1.25rem;
-      display: flex; flex-wrap: wrap; gap: 6px; align-content: start;
+      display: flex; flex-wrap: wrap; gap: 8px; align-content: start;
     }
     .outputs-grid::-webkit-scrollbar { width: 6px; }
     .outputs-grid::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
     .output-card {
-      width: 100px; height: 116px;
-      min-width: 100px; max-width: 100px;
-      min-height: 116px; max-height: 116px;
+      width: 150px;
+      min-width: 150px; max-width: 150px;
       flex-shrink: 0; flex-grow: 0;
       background: #fff; border: 1px solid var(--border);
       border-radius: 6px; overflow: hidden; cursor: zoom-in;
       transition: border-color 0.2s, transform 0.15s;
       display: flex; flex-direction: column;
     }
-    .output-card:hover { border-color: rgba(184,92,110,0.5); transform: scale(1.04); }
+    .output-card:hover { border-color: rgba(184,92,110,0.5); transform: scale(1.03); }
     .output-card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
     .output-card img {
-      width: 100px; height: 100px;
-      min-width: 100px; max-width: 100px;
-      min-height: 100px; max-height: 100px;
+      width: 150px; height: 150px;
+      min-width: 150px; max-width: 150px;
+      min-height: 150px; max-height: 150px;
       object-fit: cover; display: block;
       flex-shrink: 0; flex-grow: 0;
     }
     .output-caption {
-      width: 100px; height: 16px;
-      min-height: 16px; max-height: 16px;
-      padding: 0 5px;
-      display: flex; align-items: center;
-      font-size: 0.52rem; color: var(--muted);
+      width: 150px;
+      padding: 4px 6px 5px;
+      font-size: 0.6rem; color: var(--muted);
       border-top: 1px solid var(--border);
       font-family: 'JetBrains Mono', monospace;
-      overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
-      flex-shrink: 0; flex-grow: 0;
+      white-space: normal; word-break: break-all; line-height: 1.4;
+      flex-shrink: 0;
     }
     .outputs-empty { padding: 3rem; text-align: center; color: var(--muted); font-size: 0.88rem; line-height: 1.8; }
     .outputs-empty code { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent2); }

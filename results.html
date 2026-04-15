@@ -111,7 +111,30 @@
       border-right: 1px solid var(--border);
       overflow-y: auto; overflow-x: hidden;
       display: flex; flex-direction: column;
+      transition: width 0.25s ease, opacity 0.25s ease;
     }
+    .sidebar.collapsed {
+      width: 0; opacity: 0; pointer-events: none; overflow: hidden;
+    }
+    .main {
+      position: absolute;
+      left: var(--sidebar-w); top: 0; right: 0; bottom: 0;
+      display: flex; flex-direction: column;
+      transition: left 0.25s ease;
+    }
+    .main.expanded { left: 0; }
+    .sidebar-toggle {
+      position: absolute; left: var(--sidebar-w); top: 50%;
+      transform: translateY(-50%) translateX(-50%);
+      width: 20px; height: 40px;
+      background: var(--surface2); border: 1px solid var(--border);
+      border-radius: 0 6px 6px 0;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; z-index: 50; font-size: 0.6rem; color: var(--muted);
+      transition: left 0.25s ease, color 0.15s, background 0.15s;
+    }
+    .sidebar-toggle:hover { background: var(--surface3); color: var(--text); }
+    .sidebar-toggle.collapsed { left: 0; border-radius: 0 6px 6px 0; }
     .sidebar::-webkit-scrollbar { width: 4px; }
     .sidebar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
 
@@ -450,6 +473,9 @@
   <!-- APP -->
   <div id="app">
 
+    <!-- SIDEBAR TOGGLE -->
+    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">◀</button>
+
     <!-- SIDEBAR -->
     <aside class="sidebar" aria-label="Research navigation">
       <div class="sidebar-header">Analysis — LoraFanda</div>
@@ -602,7 +628,19 @@
         <div class="panel" id="panel-outputs">
           <div class="outputs-panel">
             <div class="outputs-filters">
-              <span class="filter-label">Condition</span>
+              <span class="filter-label">Analysis</span>
+              <select class="filter-select" id="analysisFilter" onchange="reloadOutputs()">
+                <option value="04_ersp_LM_RAWONLY">04_ersp_LM_RAWONLY</option>
+                <option value="04_ersp_LM">04_ersp_LM</option>
+              </select>
+              <span class="filter-label" style="margin-left:0.5rem">Hemisphere</span>
+              <select class="filter-select" id="hemiFilter" onchange="reloadOutputs()">
+                <option value="LM">LM</option>
+                <option value="CLV">CLV</option>
+                <option value="CLA">CLA</option>
+                <option value="MM">MM</option>
+              </select>
+              <span class="filter-label" style="margin-left:0.5rem">Condition</span>
               <select class="filter-select" id="condFilter" onchange="filterOutputs()">
                 <option value="">All</option>
                 <option value="audio">Audio</option>
@@ -803,20 +841,30 @@ function loadOutputs(part) {
   const navEl = document.getElementById(`nav-${part}-out`);
   if (navEl) navEl.classList.add('active');
   state.part = part;
+  document.getElementById('tab-notebook').style.display = '';
+  document.getElementById('tab-functions').style.display = '';
+  document.getElementById('tab-preface').style.display = 'none';
   document.getElementById('tab-outputs').style.display = '';
   switchTab('outputs');
   if (part === '01') fetchOutputs01();
 }
 
-// For Part 01 — build output list from known structure
-// Pattern: 01_FBM_Analysis/outputs/04_ersp_LM_RAWONLY/EL030/LM/ERSP_clean/{condition}/{filename}
+// Reload when analysis folder or hemisphere changes
+function reloadOutputs() {
+  allOutputs = [];
+  document.getElementById('regionFilter').innerHTML = '<option value="">All</option>';
+  fetchOutputs01();
+}
+
+// For Part 01 — build output list dynamically from selected analysis folder + hemisphere
 async function fetchOutputs01() {
   const grid = document.getElementById('outputsGrid');
   grid.innerHTML = '<div class="outputs-empty">Loading outputs...</div>';
 
-  // We can't ls a GitHub directory, so we use the GitHub API (works on public repo)
+  const analysisFolder = document.getElementById('analysisFilter').value;
+  const hemi = document.getElementById('hemiFilter').value;
   const conditions = ['audio', 'picture', 'reading'];
-  const base = `01_FBM_Analysis/outputs/04_ersp_LM_RAWONLY/${PATIENT}/LM/ERSP_clean`;
+  const base = `01_FBM_Analysis/outputs/${analysisFolder}/${PATIENT}/${hemi}/ERSP_clean`;
   const apiBase = `https://api.github.com/repos/lorafanda/Analysis_LoraFanda/contents/${base}`;
 
   allOutputs = [];
@@ -829,20 +877,17 @@ async function fetchOutputs01() {
       const files = await res.json();
       for (const f of files) {
         if (!f.name.endsWith('.png')) continue;
-        // Extract region from filename: e.g. EL030_reading_WM_ERSP_STG_L1_TN_CLEAN.png → region = STG
         const regionMatch = f.name.match(/_ERSP_([A-Za-z]+)_/);
         const region = regionMatch ? regionMatch[1] : 'Other';
         regionSet.add(region);
         allOutputs.push({
-          condition: cond,
-          region,
+          condition: cond, region,
           name: f.name,
           url: `${REPO_RAW}/${base}/${cond}/${f.name}`,
         });
       }
     }
 
-    // Populate region filter
     const regionFilter = document.getElementById('regionFilter');
     regionFilter.innerHTML = '<option value="">All</option>';
     [...regionSet].sort().forEach(r => {
@@ -853,8 +898,22 @@ async function fetchOutputs01() {
 
     filterOutputs();
   } catch(e) {
-    grid.innerHTML = `<div class="outputs-empty">Could not load outputs. Make sure the repo is public.<br><small style="color:var(--accent)">${e.message}</small></div>`;
+    grid.innerHTML = `<div class="outputs-empty">Could not load outputs — folder may not exist yet for this combination.<br><small style="color:var(--accent)">${e.message}</small></div>`;
   }
+}
+
+// ── SIDEBAR TOGGLE ────────────────────────────────────────────────────────────
+let sidebarOpen = true;
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  const sidebar = document.querySelector('.sidebar');
+  const main = document.querySelector('.main');
+  const btn = document.getElementById('sidebarToggle');
+  sidebar.classList.toggle('collapsed', !sidebarOpen);
+  main.classList.toggle('expanded', !sidebarOpen);
+  btn.classList.toggle('collapsed', !sidebarOpen);
+  btn.textContent = sidebarOpen ? '◀' : '▶';
+  btn.style.left = sidebarOpen ? 'var(--sidebar-w)' : '0';
 }
 
 function filterOutputs() {

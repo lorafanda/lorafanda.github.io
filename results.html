@@ -256,6 +256,26 @@
     .detail-count { font-size: 0.72rem; color: var(--muted); min-width: 28px; text-align: right; font-family: 'JetBrains Mono', monospace; }
     .detail-section-title { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 500; margin: 0.75rem 0 0.35rem; }
 
+    /* UMAP */
+    .umap-controls { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+    .color-mode-btn { padding: 3px 12px; font-size: 0.75rem; font-weight: 500; font-family: 'Instrument Sans', sans-serif; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; cursor: pointer; color: var(--muted); transition: all 0.15s; }
+    .color-mode-btn:hover { color: var(--text); border-color: var(--border-strong); }
+    .color-mode-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .umap-hint { font-size: 0.72rem; color: var(--muted); margin-left: auto; }
+    .umap-wrap { flex: 1; min-height: 0; position: relative; overflow: hidden; }
+    #umapCanvas { width: 100%; height: 100%; display: block; cursor: crosshair; }
+    .umap-tooltip {
+      position: absolute; background: rgba(30,20,18,0.88); color: #f0ebe4;
+      font-size: 0.72rem; font-family: 'JetBrains Mono', monospace;
+      padding: 5px 10px; border-radius: 6px; pointer-events: none;
+      display: none; white-space: nowrap; z-index: 10;
+    }
+    .umap-legend { display: flex; flex-wrap: wrap; gap: 6px; padding: 0.5rem 1.25rem; border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; max-height: 80px; overflow-y: auto; }
+    .legend-item { display: flex; align-items: center; gap: 4px; font-size: 0.65rem; font-family: 'JetBrains Mono', monospace; color: var(--muted); cursor: pointer; padding: 1px 4px; border-radius: 4px; transition: background 0.15s; }
+    .legend-item:hover { background: var(--surface2); color: var(--text); }
+    .legend-item.faded { opacity: 0.35; }
+    .legend-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
     /* LIGHTBOX */
     .lightbox { display: none; position: fixed; inset: 0; z-index: 999; background: rgba(30,20,18,0.93); align-items: center; justify-content: center; cursor: zoom-out; }
     .lightbox.open { display: flex; }
@@ -432,6 +452,7 @@
           <div class="sub-tab-bar">
             <button class="sub-tab active" id="subtab-clusters" onclick="switchSubTab('clusters')">🔵 Clusters</button>
             <button class="sub-tab" id="subtab-metrics" onclick="switchSubTab('metrics')">📈 Metrics</button>
+            <button class="sub-tab" id="subtab-umap" onclick="switchSubTab('umap')">🗺 UMAP</button>
           </div>
 
           <!-- Run picker (shared) -->
@@ -460,6 +481,22 @@
             <div class="metrics-panel-inner" id="metricsContent">
               <div class="cluster-empty">Select a run above to view metrics.</div>
             </div>
+          </div>
+
+          <!-- UMAP sub-panel -->
+          <div class="sub-panel" id="subpanel-umap">
+            <div class="umap-controls">
+              <span class="filter-label">Color by</span>
+              <button class="color-mode-btn active" id="umapmode-cluster" onclick="setUmapMode('cluster')">Cluster</button>
+              <button class="color-mode-btn" id="umapmode-patient" onclick="setUmapMode('patient')">Patient</button>
+              <button class="color-mode-btn" id="umapmode-condition" onclick="setUmapMode('condition')">Condition</button>
+              <span class="umap-hint" id="umapHint">Hover a point for details</span>
+            </div>
+            <div class="umap-wrap">
+              <canvas id="umapCanvas"></canvas>
+              <div class="umap-tooltip" id="umapTooltip"></div>
+            </div>
+            <div class="umap-legend" id="umapLegend"></div>
           </div>
         </div>
       </div>
@@ -554,10 +591,13 @@ function showTabs(...tabs) {
   });
 }
 function switchSubTab(tab) {
-  ['clusters','metrics'].forEach(t => {
+  ['clusters','metrics','umap'].forEach(t => {
     document.getElementById(`subtab-${t}`)?.classList.toggle('active', t === tab);
     document.getElementById(`subpanel-${t}`)?.classList.toggle('active', t === tab);
   });
+  if (tab === 'umap' && clusterData.labels.length) {
+    requestAnimationFrame(renderUmap);
+  }
 }
 
 // ── NOTEBOOK ─────────────────────────────────────────────────────────────────
@@ -1056,6 +1096,159 @@ function showClusterDetail(i) {
   `;
   detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
+
+// ── UMAP ─────────────────────────────────────────────────────────────────────
+let umapMode = 'cluster';
+let umapHighlight = null;
+
+// Generate distinct colors for N clusters
+function clusterColor(i, n) {
+  const hue = Math.round((i / n) * 360);
+  return `hsl(${hue}, 65%, 52%)`;
+}
+
+const COND_COLORS = { audio: '#b85c6e', picture: '#c47a5a', reading: '#7a8c6e' };
+
+function getUmapColor(row) {
+  if (umapMode === 'cluster') return clusterColor(parseInt(row.cluster_kmeans_raw), clusterData.metrics?.n_clusters || 25);
+  if (umapMode === 'patient') return getPatientColor(row.patient_id);
+  if (umapMode === 'condition') return COND_COLORS[row.condition] || '#888';
+  return '#888';
+}
+
+function getUmapKey(row) {
+  if (umapMode === 'cluster') return `Cluster ${parseInt(row.cluster_kmeans_raw)+1}`;
+  if (umapMode === 'patient') return row.patient_id;
+  if (umapMode === 'condition') return row.condition;
+}
+
+function setUmapMode(mode) {
+  umapMode = mode;
+  umapHighlight = null;
+  ['cluster','patient','condition'].forEach(m => {
+    document.getElementById(`umapmode-${m}`)?.classList.toggle('active', m === mode);
+  });
+  renderUmap();
+}
+
+function renderUmap() {
+  const canvas = document.getElementById('umapCanvas');
+  if (!canvas) return;
+  const rows = clusterData.labels;
+  if (!rows.length) return;
+
+  const wrap = canvas.parentElement;
+  const W = wrap.clientWidth;
+  const H = wrap.clientHeight;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  // Parse UMAP coords
+  const xs = rows.map(r => parseFloat(r.UMAP_1));
+  const ys = rows.map(r => parseFloat(r.UMAP_2));
+  const pad = 40;
+  const minX = Math.min(...xs), maxX = Math.max(...xs);
+  const minY = Math.min(...ys), maxY = Math.max(...ys);
+  const scaleX = (W - pad*2) / (maxX - minX);
+  const scaleY = (H - pad*2) / (maxY - minY);
+
+  function toCanvas(x, y) {
+    return [ pad + (x - minX) * scaleX, H - pad - (y - minY) * scaleY ];
+  }
+
+  // Store screen coords for hover
+  canvas._points = rows.map((r, i) => {
+    const [cx, cy] = toCanvas(xs[i], ys[i]);
+    return { cx, cy, row: r };
+  });
+
+  // Draw points — dim if highlight active
+  ctx.clearRect(0, 0, W, H);
+  canvas._points.forEach(({ cx, cy, row }) => {
+    const key = getUmapKey(row);
+    const isHL = umapHighlight === null || umapHighlight === key;
+    ctx.globalAlpha = isHL ? 0.85 : 0.12;
+    ctx.fillStyle = getUmapColor(row);
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.fill();
+  });
+  ctx.globalAlpha = 1;
+
+  // Legend
+  const keys = [...new Set(rows.map(r => getUmapKey(r)))].sort((a,b) => {
+    const na = parseInt(a.replace(/\D/g,'')), nb = parseInt(b.replace(/\D/g,''));
+    return isNaN(na) ? a.localeCompare(b) : na - nb;
+  });
+  const legend = document.getElementById('umapLegend');
+  legend.innerHTML = keys.map(k => {
+    const sampleRow = rows.find(r => getUmapKey(r) === k);
+    const col = getUmapColor(sampleRow);
+    const faded = umapHighlight && umapHighlight !== k ? ' faded' : '';
+    return `<div class="legend-item${faded}" onclick="toggleUmapHighlight('${k}')" style="color:var(--text)">
+      <div class="legend-dot" style="background:${col}"></div>${k}
+    </div>`;
+  }).join('');
+}
+
+function toggleUmapHighlight(key) {
+  umapHighlight = umapHighlight === key ? null : key;
+  renderUmap();
+}
+
+// Hover tooltip
+document.addEventListener('DOMContentLoaded', () => {
+  const canvas = document.getElementById('umapCanvas');
+  const tooltip = document.getElementById('umapTooltip');
+  if (!canvas) return;
+
+  canvas.addEventListener('mousemove', e => {
+    if (!canvas._points) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    let closest = null, minD = 12;
+    canvas._points.forEach(p => {
+      const d = Math.hypot(p.cx - mx, p.cy - my);
+      if (d < minD) { minD = d; closest = p; }
+    });
+    if (closest) {
+      const r = closest.row;
+      tooltip.style.display = 'block';
+      tooltip.style.left = (mx + 14) + 'px';
+      tooltip.style.top  = (my - 10) + 'px';
+      tooltip.textContent = `${r.patient_id} · ${r.condition} · ${r.electrode} · C${parseInt(r.cluster_kmeans_raw)+1}`;
+    } else {
+      tooltip.style.display = 'none';
+    }
+  });
+  canvas.addEventListener('mouseleave', () => {
+    if (tooltip) tooltip.style.display = 'none';
+  });
+  canvas.addEventListener('click', e => {
+    if (!canvas._points) return;
+    const rect = canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+    let closest = null, minD = 12;
+    canvas._points.forEach(p => {
+      const d = Math.hypot(p.cx - mx, p.cy - my);
+      if (d < minD) { minD = d; closest = p; }
+    });
+    if (closest) {
+      const key = getUmapKey(closest.row);
+      toggleUmapHighlight(key);
+    }
+  });
+});
+
+window.addEventListener('resize', () => {
+  if (document.getElementById('subpanel-umap')?.classList.contains('active')) renderUmap();
+});
 
 // ── NOTES / COPY / HASH ───────────────────────────────────────────────────────
 function toggleNotes() { document.getElementById('notesDrawer').classList.toggle('open'); }

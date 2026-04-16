@@ -6,7 +6,6 @@
   <title>Lora Fanda — Research Notebook</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Instrument+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <!-- Syntax highlighting -->
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/base16/atelier-cave-light.min.css">
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/languages/python.min.js"></script>
@@ -14,43 +13,19 @@
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
-      --bg: #f0ebe4;
-      --surface: #e8e0d8;
-      --surface2: #dfd6cc;
-      --surface3: #d5ccc2;
-      --text: #3a2e2a;
-      --muted: #7a6560;
-      --accent: #b85c6e;
-      --accent2: #c47a5a;
-      --accent3: #7a8c6e;
-      --border: rgba(90,60,50,0.1);
-      --border-strong: rgba(90,60,50,0.18);
+      --bg: #f0ebe4; --surface: #e8e0d8; --surface2: #dfd6cc; --surface3: #d5ccc2;
+      --text: #3a2e2a; --muted: #7a6560; --accent: #b85c6e; --accent2: #c47a5a; --accent3: #7a8c6e;
+      --border: rgba(90,60,50,0.1); --border-strong: rgba(90,60,50,0.18);
       --focus-ring: 0 0 0 3px rgba(184,92,110,0.4);
-      --sidebar-w: 240px;
-      --nav-h: 56px;
+      --sidebar-w: 240px; --nav-h: 56px;
     }
-    @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; }
-    }
+    @media (prefers-reduced-motion: reduce) { *, *::before, *::after { transition-duration: 0.01ms !important; animation-duration: 0.01ms !important; } }
     html, body { height: 100%; }
-    body {
-      font-family: 'Instrument Sans', sans-serif;
-      background: var(--bg); color: var(--text);
-      font-size: 16px; line-height: 1.7;
-      overflow: hidden;
-    }
-    a:focus-visible, button:focus-visible {
-      outline: none; box-shadow: var(--focus-ring); border-radius: 4px;
-    }
+    body { font-family: 'Instrument Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.7; overflow: hidden; }
+    a:focus-visible, button:focus-visible { outline: none; box-shadow: var(--focus-ring); border-radius: 4px; }
 
-    /* ── NAV ── */
-    .topnav {
-      position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h);
-      display: flex; align-items: center; justify-content: space-between;
-      padding: 0 1.5rem;
-      background: rgba(240,235,228,0.95); backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border); z-index: 300;
-    }
+    /* NAV */
+    .topnav { position: fixed; top: 0; left: 0; right: 0; height: var(--nav-h); display: flex; align-items: center; justify-content: space-between; padding: 0 1.5rem; background: rgba(240,235,228,0.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); z-index: 300; }
     .nav-name { font-family: 'Playfair Display', serif; font-size: 1rem; color: var(--text); text-decoration: none; }
     .nav-name span { color: var(--accent); }
     .nav-right { display: flex; align-items: center; gap: 1rem; }
@@ -58,641 +33,450 @@
     .nav-back:hover { color: var(--text); }
     .nav-tag { font-size: 0.72rem; font-weight: 500; background: rgba(184,92,110,0.1); color: var(--accent); border: 1px solid rgba(184,92,110,0.2); border-radius: 20px; padding: 2px 10px; }
 
-    /* ── GATE ── */
-    #gate {
-      position: fixed; inset: 0; z-index: 400;
-      display: flex; align-items: center; justify-content: center;
-      background: var(--bg);
-    }
-    .gate-box {
-      background: var(--surface); border: 1px solid var(--border);
-      border-radius: 20px; padding: 3rem 3.5rem;
-      text-align: center; max-width: 400px; width: 90%;
-      position: relative; overflow: hidden;
-    }
-    .gate-box::before {
-      content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-      background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent);
-    }
+    /* GATE */
+    #gate { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+    .gate-box { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 3rem 3.5rem; text-align: center; max-width: 400px; width: 90%; position: relative; overflow: hidden; }
+    .gate-box::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent); }
     .gate-icon { font-size: 2.2rem; margin-bottom: 1rem; }
     .gate-box h1 { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 0.4rem; }
     .gate-box p { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.75rem; }
-    .gate-input {
-      width: 100%; padding: 0.7rem 1rem;
-      font-family: 'Instrument Sans', sans-serif; font-size: 1rem;
-      background: var(--bg); color: var(--text);
-      border: 1px solid var(--border); border-radius: 8px;
-      text-align: center; letter-spacing: 0.15em; margin-bottom: 0.85rem;
-    }
+    .gate-input { width: 100%; padding: 0.7rem 1rem; font-family: 'Instrument Sans', sans-serif; font-size: 1rem; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; text-align: center; letter-spacing: 0.15em; margin-bottom: 0.85rem; }
     .gate-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
     .gate-input.error { border-color: var(--accent); animation: shake 0.3s ease; }
     @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
-    .gate-btn {
-      width: 100%; padding: 0.7rem; background: var(--accent); color: #fff;
-      border: none; border-radius: 8px;
-      font-family: 'Instrument Sans', sans-serif; font-size: 0.95rem; font-weight: 500;
-      cursor: pointer; transition: background 0.2s;
-    }
+    .gate-btn { width: 100%; padding: 0.7rem; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-family: 'Instrument Sans', sans-serif; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
     .gate-btn:hover { background: #a04560; }
     .gate-error { color: var(--accent); font-size: 0.82rem; margin-top: 0.65rem; min-height: 1.1em; }
 
-    /* ── LAYOUT ── */
-    #app {
-      display: none;
-      position: fixed; inset: 0;
-      top: var(--nav-h);
-    }
+    /* LAYOUT */
+    #app { display: none; position: fixed; inset: 0; top: var(--nav-h); }
 
-    /* ── SIDEBAR ── */
-    .sidebar {
-      position: absolute; left: 0; top: 0; bottom: 0;
-      width: var(--sidebar-w);
-      background: var(--surface);
-      border-right: 1px solid var(--border);
-      overflow-y: auto; overflow-x: hidden;
-      display: flex; flex-direction: column;
-      transition: width 0.25s ease, opacity 0.25s ease;
-    }
-    .sidebar.collapsed {
-      width: 0; opacity: 0; pointer-events: none; overflow: hidden;
-    }
-    .main {
-      position: absolute;
-      left: var(--sidebar-w); top: 0; right: 0; bottom: 0;
-      display: flex; flex-direction: column;
-      transition: left 0.25s ease;
-    }
-    .main.expanded { left: 0; }
-    .sidebar-toggle {
-      position: absolute; left: var(--sidebar-w); top: 50%;
-      transform: translateY(-50%) translateX(-50%);
-      width: 20px; height: 40px;
-      background: var(--surface2); border: 1px solid var(--border);
-      border-radius: 0 6px 6px 0;
-      display: flex; align-items: center; justify-content: center;
-      cursor: pointer; z-index: 50; font-size: 0.6rem; color: var(--muted);
-      transition: left 0.25s ease, color 0.15s, background 0.15s;
-    }
-    .sidebar-toggle:hover { background: var(--surface3); color: var(--text); }
-    .sidebar-toggle.collapsed { left: 0; border-radius: 0 6px 6px 0; }
+    /* SIDEBAR */
+    .sidebar { position: absolute; left: 0; top: 0; bottom: 0; width: var(--sidebar-w); background: var(--surface); border-right: 1px solid var(--border); overflow-y: auto; overflow-x: hidden; display: flex; flex-direction: column; transition: width 0.25s ease, opacity 0.25s ease; }
+    .sidebar.collapsed { width: 0; opacity: 0; pointer-events: none; overflow: hidden; }
     .sidebar::-webkit-scrollbar { width: 4px; }
     .sidebar::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+    .sidebar-header { padding: 1rem 1rem 0.5rem; font-size: 0.68rem; font-weight: 500; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid var(--border); }
+    .sidebar-toggle { position: absolute; left: var(--sidebar-w); top: 50%; transform: translateY(-50%) translateX(-50%); width: 20px; height: 40px; background: var(--surface2); border: 1px solid var(--border); border-radius: 0 6px 6px 0; display: flex; align-items: center; justify-content: center; cursor: pointer; z-index: 50; font-size: 0.6rem; color: var(--muted); transition: left 0.25s ease, color 0.15s, background 0.15s; }
+    .sidebar-toggle:hover { background: var(--surface3); color: var(--text); }
 
-    .sidebar-header {
-      padding: 1rem 1rem 0.5rem;
-      font-size: 0.68rem; font-weight: 500; letter-spacing: 0.1em;
-      text-transform: uppercase; color: var(--muted);
-      border-bottom: 1px solid var(--border);
-    }
+    /* MAIN */
+    .main { position: absolute; left: var(--sidebar-w); top: 0; right: 0; bottom: 0; display: flex; flex-direction: column; transition: left 0.25s ease; }
+    .main.expanded { left: 0; }
 
-    /* Part group */
+    /* PART groups */
     .part-group { border-bottom: 1px solid var(--border); }
-    .part-toggle {
-      width: 100%; display: flex; align-items: center; gap: 8px;
-      padding: 0.75rem 1rem; background: none; border: none;
-      text-align: left; cursor: pointer;
-      font-family: 'Instrument Sans', sans-serif;
-      color: var(--text); font-size: 0.82rem; font-weight: 500;
-      transition: background 0.15s;
-    }
+    .part-toggle { width: 100%; display: flex; align-items: center; gap: 8px; padding: 0.75rem 1rem; background: none; border: none; text-align: left; cursor: pointer; font-family: 'Instrument Sans', sans-serif; color: var(--text); font-size: 0.82rem; font-weight: 500; transition: background 0.15s; }
     .part-toggle:hover { background: var(--surface2); }
     .part-num { font-size: 0.68rem; color: var(--accent); font-weight: 500; letter-spacing: 0.08em; min-width: 28px; }
     .part-label { flex: 1; }
     .part-chevron { font-size: 0.6rem; color: var(--muted); transition: transform 0.2s; }
     .part-group.open .part-chevron { transform: rotate(90deg); }
-
     .part-items { display: none; }
     .part-group.open .part-items { display: block; }
-
-    /* Nav items */
-    .nav-item {
-      display: flex; align-items: center; gap: 8px;
-      padding: 0.45rem 1rem 0.45rem 1.75rem;
-      cursor: pointer; font-size: 0.8rem; color: var(--muted);
-      transition: background 0.15s, color 0.15s;
-      border: none; background: none; width: 100%; text-align: left;
-      font-family: 'Instrument Sans', sans-serif;
-    }
+    .nav-item { display: flex; align-items: center; gap: 8px; padding: 0.45rem 1rem 0.45rem 1.75rem; cursor: pointer; font-size: 0.8rem; color: var(--muted); transition: background 0.15s, color 0.15s; border: none; background: none; width: 100%; text-align: left; font-family: 'Instrument Sans', sans-serif; }
     .nav-item:hover { background: var(--surface2); color: var(--text); }
     .nav-item.active { background: rgba(184,92,110,0.08); color: var(--accent); font-weight: 500; }
-    .nav-item.active .nav-icon { opacity: 1; }
     .nav-icon { font-size: 0.75rem; opacity: 0.6; min-width: 14px; }
     .nav-item-label { flex: 1; line-height: 1.3; }
     .nav-item-num { font-size: 0.68rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; min-width: 26px; }
-
-    /* Status badges */
     .status { display: inline-block; width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
     .status-done { background: var(--accent3); }
-    .status-wip  { background: var(--accent2); }
+    .status-wip { background: var(--accent2); }
     .status-draft { background: var(--muted); }
-
-    /* Special items: Functions, Outputs */
-    .nav-section-item {
-      display: flex; align-items: center; gap: 8px;
-      padding: 0.4rem 1rem 0.4rem 1.75rem;
-      cursor: pointer; font-size: 0.75rem; color: var(--muted);
-      font-weight: 500; letter-spacing: 0.04em;
-      transition: background 0.15s, color 0.15s;
-      border: none; background: none; width: 100%; text-align: left;
-      font-family: 'Instrument Sans', sans-serif;
-    }
+    .nav-section-item { display: flex; align-items: center; gap: 8px; padding: 0.4rem 1rem 0.4rem 1.75rem; cursor: pointer; font-size: 0.75rem; color: var(--muted); font-weight: 500; letter-spacing: 0.04em; transition: background 0.15s, color 0.15s; border: none; background: none; width: 100%; text-align: left; font-family: 'Instrument Sans', sans-serif; }
     .nav-section-item:hover { background: var(--surface2); color: var(--text); }
     .nav-section-item.active { background: rgba(184,92,110,0.08); color: var(--accent); }
+    .preface-nav { display: flex; align-items: center; gap: 8px; padding: 0.75rem 1rem; cursor: pointer; font-size: 0.82rem; color: var(--text); font-weight: 500; transition: background 0.15s; border-bottom: 1px solid var(--border); border-top: none; border-left: none; border-right: none; background: none; width: 100%; text-align: left; font-family: 'Instrument Sans', sans-serif; }
+    .preface-nav:hover { background: var(--surface2); }
+    .preface-nav.active { background: rgba(184,92,110,0.08); color: var(--accent); }
 
-    /* ── MAIN PANEL ── */
-    .main {
-      position: absolute;
-      left: var(--sidebar-w); top: 0; right: 0; bottom: 0;
-      display: flex; flex-direction: column;
-    }
-
-    /* Tab bar */
-    .tab-bar {
-      display: flex; align-items: center; gap: 0;
-      border-bottom: 1px solid var(--border);
-      background: var(--bg); flex-shrink: 0;
-      padding: 0 1.5rem;
-    }
-    .tab-btn {
-      padding: 0.7rem 1.1rem; font-size: 0.8rem; font-weight: 500;
-      color: var(--muted); background: none; border: none;
-      border-bottom: 2px solid transparent; margin-bottom: -1px;
-      cursor: pointer; transition: color 0.15s, border-color 0.15s;
-      font-family: 'Instrument Sans', sans-serif;
-      display: flex; align-items: center; gap: 6px;
-    }
+    /* TAB BAR */
+    .tab-bar { display: flex; align-items: center; border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0; padding: 0 1.5rem; }
+    .tab-btn { padding: 0.7rem 1.1rem; font-size: 0.8rem; font-weight: 500; color: var(--muted); background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; transition: color 0.15s, border-color 0.15s; font-family: 'Instrument Sans', sans-serif; display: flex; align-items: center; gap: 6px; }
     .tab-btn:hover { color: var(--text); }
     .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
     .tab-spacer { flex: 1; }
-    .copy-link-btn {
-      font-size: 0.72rem; color: var(--muted); background: none; border: 1px solid var(--border);
-      border-radius: 6px; padding: 3px 10px; cursor: pointer;
-      font-family: 'Instrument Sans', sans-serif; transition: all 0.2s;
-    }
+    .copy-link-btn { font-size: 0.72rem; color: var(--muted); background: none; border: 1px solid var(--border); border-radius: 6px; padding: 3px 10px; cursor: pointer; font-family: 'Instrument Sans', sans-serif; transition: all 0.2s; }
     .copy-link-btn:hover { color: var(--accent); border-color: rgba(184,92,110,0.3); }
 
-    /* Panel area */
+    /* PANEL AREA */
     .panel-area { flex: 1; overflow: hidden; position: relative; }
+    .panel { display: none; position: absolute; inset: 0; }
+    .panel.active { display: flex; flex-direction: column; }
 
-    /* Preface panel */
-    .preface-panel {
-      flex: 1; overflow-y: auto; padding: 3rem 4rem;
-    }
+    /* NOTEBOOK */
+    .notebook-frame { flex: 1; width: 100%; border: none; background: #fff; }
+    .notebook-placeholder { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--muted); gap: 0.75rem; padding: 3rem; text-align: center; }
+    .notebook-placeholder .big-icon { font-size: 3rem; opacity: 0.4; }
+    .notebook-placeholder h3 { font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 600; color: var(--text); }
+    .notebook-placeholder p { font-size: 0.88rem; max-width: 36ch; line-height: 1.7; }
+    .nb-open-btn { margin-top: 0.5rem; padding: 0.6rem 1.4rem; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-family: 'Instrument Sans', sans-serif; font-size: 0.88rem; font-weight: 500; cursor: pointer; text-decoration: none; display: inline-block; transition: background 0.2s; }
+    .nb-open-btn:hover { background: #a04560; }
+    .nb-fallback { font-size: 0.78rem; color: var(--muted); margin-top: 0.5rem; }
+    .nb-fallback a { color: var(--accent); }
+    .notes-drawer { border-top: 1px solid var(--border); background: var(--surface); flex-shrink: 0; transition: max-height 0.25s ease; max-height: 36px; overflow: hidden; }
+    .notes-drawer.open { max-height: 200px; }
+    .notes-toggle { width: 100%; display: flex; align-items: center; gap: 6px; padding: 0.5rem 1.25rem; background: none; border: none; cursor: pointer; font-size: 0.75rem; color: var(--muted); font-family: 'Instrument Sans', sans-serif; font-weight: 500; text-align: left; transition: color 0.15s; }
+    .notes-toggle:hover { color: var(--text); }
+    .notes-toggle .chevron { font-size: 0.6rem; transition: transform 0.2s; }
+    .notes-drawer.open .chevron { transform: rotate(180deg); }
+    .notes-body { padding: 0.5rem 1.25rem 0.75rem; font-size: 0.82rem; color: var(--muted); line-height: 1.7; }
+
+    /* FUNCTIONS */
+    .functions-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+    .file-picker { display: flex; gap: 0.5rem; flex-wrap: wrap; padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+    .file-tab { padding: 3px 12px; font-size: 0.75rem; font-weight: 500; font-family: 'JetBrains Mono', monospace; background: var(--bg); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; transition: all 0.15s; color: var(--muted); }
+    .file-tab:hover { color: var(--text); border-color: var(--border-strong); }
+    .file-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .code-wrap { flex: 1; overflow: auto; padding: 1.25rem 1.5rem; background: #f5f0eb; }
+    .code-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+    .code-wrap::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    .code-wrap pre { margin: 0; font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; line-height: 1.65; }
+    .code-wrap code { font-family: inherit !important; }
+    .code-loading { padding: 2rem; color: var(--muted); font-size: 0.88rem; }
+
+    /* PREFACE */
+    .preface-panel { flex: 1; overflow-y: auto; padding: 3rem 4rem; }
     .preface-panel::-webkit-scrollbar { width: 6px; }
     .preface-panel::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
     .preface-content { max-width: 680px; }
-    .preface-content h1 {
-      font-family: 'Playfair Display', serif;
-      font-size: clamp(1.8rem, 3vw, 2.4rem); font-weight: 600;
-      letter-spacing: -0.02em; margin-bottom: 1.5rem;
-    }
-    .preface-content h2 {
-      font-family: 'Playfair Display', serif;
-      font-size: 1.3rem; font-weight: 600; margin: 2rem 0 0.75rem;
-    }
+    .preface-content h1 { font-family: 'Playfair Display', serif; font-size: clamp(1.8rem, 3vw, 2.4rem); font-weight: 600; letter-spacing: -0.02em; margin-bottom: 1.5rem; }
+    .preface-content h2 { font-family: 'Playfair Display', serif; font-size: 1.3rem; font-weight: 600; margin: 2rem 0 0.75rem; }
     .preface-content h3 { font-size: 1rem; font-weight: 500; margin: 1.5rem 0 0.5rem; }
     .preface-content p { margin-bottom: 1.1rem; font-size: 1rem; line-height: 1.85; }
     .preface-content ul, .preface-content ol { margin: 0.75rem 0 1rem 1.5rem; }
     .preface-content li { margin-bottom: 0.35rem; line-height: 1.75; }
     .preface-content strong { font-weight: 500; }
     .preface-content em { font-style: italic; color: var(--muted); }
-    .preface-content code {
-      font-family: 'JetBrains Mono', monospace; font-size: 0.82rem;
-      background: var(--surface2); padding: 2px 6px; border-radius: 4px; color: var(--accent2);
-    }
-    .preface-content blockquote {
-      border-left: 3px solid var(--accent); padding: 0.5rem 0 0.5rem 1.25rem;
-      margin: 1.25rem 0; color: var(--muted); font-style: italic;
-    }
+    .preface-content code { font-family: 'JetBrains Mono', monospace; font-size: 0.82rem; background: var(--surface2); padding: 2px 6px; border-radius: 4px; color: var(--accent2); }
+    .preface-content blockquote { border-left: 3px solid var(--accent); padding: 0.5rem 0 0.5rem 1.25rem; margin: 1.25rem 0; color: var(--muted); font-style: italic; }
     .preface-content hr { border: none; border-top: 1px solid var(--border); margin: 2rem 0; }
     .preface-content a { color: var(--accent); }
     .preface-loading { color: var(--muted); font-size: 0.9rem; }
 
-    /* Preface nav button */
-    .preface-nav {
-      display: flex; align-items: center; gap: 8px;
-      padding: 0.75rem 1rem; cursor: pointer;
-      font-size: 0.82rem; color: var(--text); font-weight: 500;
-      transition: background 0.15s; border-bottom: 1px solid var(--border);
-      border-top: none; border-left: none; border-right: none;
-      background: none; width: 100%; text-align: left;
-      font-family: 'Instrument Sans', sans-serif;
-    }
-    .preface-nav:hover { background: var(--surface2); }
-    .preface-nav.active { background: rgba(184,92,110,0.08); color: var(--accent); }
-
-    /* Notebook panel */
-    .panel { display: none; position: absolute; inset: 0; }
-    .panel.active { display: flex; flex-direction: column; }
-
-    /* Notebook iframe */
-    .notebook-frame {
-      flex: 1; width: 100%; border: none;
-      background: #fff;
-    }
-    .notebook-placeholder {
-      flex: 1; display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      color: var(--muted); gap: 0.75rem; padding: 3rem;
-      text-align: center;
-    }
-    .notebook-placeholder .big-icon { font-size: 3rem; opacity: 0.4; }
-    .notebook-placeholder h3 { font-family: 'Playfair Display', serif; font-size: 1.2rem; font-weight: 600; color: var(--text); }
-    .notebook-placeholder p { font-size: 0.88rem; max-width: 36ch; line-height: 1.7; }
-    .nb-open-btn {
-      margin-top: 0.5rem; padding: 0.6rem 1.4rem;
-      background: var(--accent); color: #fff; border: none;
-      border-radius: 8px; font-family: 'Instrument Sans', sans-serif;
-      font-size: 0.88rem; font-weight: 500; cursor: pointer;
-      text-decoration: none; display: inline-block; transition: background 0.2s;
-    }
-    .nb-open-btn:hover { background: #a04560; }
-    .nb-fallback { font-size: 0.78rem; color: var(--muted); margin-top: 0.5rem; }
-    .nb-fallback a { color: var(--accent); }
-
-    /* Functions panel */
-    .functions-panel {
-      flex: 1; overflow: hidden; display: flex; flex-direction: column;
-    }
-    .file-picker {
-      display: flex; gap: 0.5rem; flex-wrap: wrap;
-      padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border);
-      background: var(--surface); flex-shrink: 0;
-    }
-    .file-tab {
-      padding: 3px 12px; font-size: 0.75rem; font-weight: 500;
-      font-family: 'JetBrains Mono', monospace;
-      background: var(--bg); border: 1px solid var(--border);
-      border-radius: 6px; cursor: pointer; transition: all 0.15s;
-      color: var(--muted);
-    }
-    .file-tab:hover { color: var(--text); border-color: var(--border-strong); }
-    .file-tab.active { background: var(--accent); color: #fff; border-color: var(--accent); }
-    .code-wrap {
-      flex: 1; overflow: auto; padding: 1.25rem 1.5rem;
-      background: #f5f0eb;
-    }
-    .code-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
-    .code-wrap::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
-    .code-wrap pre {
-      margin: 0; font-family: 'JetBrains Mono', monospace;
-      font-size: 0.82rem; line-height: 1.65;
-    }
-    .code-wrap code { font-family: inherit !important; }
-    .code-loading { padding: 2rem; color: var(--muted); font-size: 0.88rem; }
-
-    /* Outputs panel */
-    .outputs-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; position: relative; }
-    .outputs-filters {
-      display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap;
-      padding: 0.75rem 1.25rem; border-bottom: 1px solid var(--border);
-      background: var(--surface); flex-shrink: 0;
-    }
-    .filter-label { font-size: 0.72rem; color: var(--muted); font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; }
-    .filter-select {
-      padding: 4px 10px; font-size: 0.8rem;
-      font-family: 'Instrument Sans', sans-serif;
-      background: var(--bg); color: var(--text);
-      border: 1px solid var(--border); border-radius: 6px;
-      cursor: pointer;
-    }
-    .filter-select:focus { outline: none; border-color: var(--accent); }
-    .outputs-count { font-size: 0.75rem; color: var(--muted); margin-left: auto; }
-
+    /* ── PART 01 OUTPUTS ── */
     .outputs-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
-
-    .outputs-grid {
-      flex: 1; min-height: 0;
-      overflow-y: auto; padding: 1rem 1.25rem;
-      display: flex; flex-wrap: wrap; gap: 8px; align-content: start;
+    .outputs-filters {
+      display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap;
+      padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--border);
+      background: var(--surface); flex-shrink: 0;
     }
+    .filter-label { font-size: 0.68rem; color: var(--muted); font-weight: 500; letter-spacing: 0.06em; text-transform: uppercase; white-space: nowrap; }
+    .filter-select { padding: 3px 8px; font-size: 0.78rem; font-family: 'Instrument Sans', sans-serif; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; max-width: 160px; }
+    .filter-select:focus { outline: none; border-color: var(--accent); }
+    .filter-select:disabled { opacity: 0.45; cursor: not-allowed; }
+    .load-btn { padding: 4px 14px; background: var(--accent); color: #fff; border: none; border-radius: 6px; font-family: 'Instrument Sans', sans-serif; font-size: 0.78rem; font-weight: 500; cursor: pointer; transition: background 0.2s; white-space: nowrap; margin-left: 0.5rem; }
+    .load-btn:hover { background: #a04560; }
+    .load-btn:disabled { opacity: 0.45; cursor: not-allowed; }
+    .outputs-count { font-size: 0.72rem; color: var(--muted); margin-left: auto; white-space: nowrap; }
+    .outputs-grid { flex: 1; min-height: 0; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-wrap: wrap; gap: 8px; align-content: start; }
     .outputs-grid::-webkit-scrollbar { width: 6px; }
     .outputs-grid::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
-    .output-card {
-      width: 150px;
-      min-width: 150px; max-width: 150px;
-      flex-shrink: 0; flex-grow: 0;
-      background: #fff; border: 1px solid var(--border);
-      border-radius: 6px; overflow: hidden; cursor: zoom-in;
-      transition: border-color 0.2s, transform 0.15s;
-      display: flex; flex-direction: column;
-    }
-    .output-card:hover { border-color: rgba(184,92,110,0.5); transform: scale(1.03); }
-    .output-card:focus-visible { outline: none; box-shadow: var(--focus-ring); }
-    .output-card img {
-      width: 150px; height: 150px;
-      min-width: 150px; max-width: 150px;
-      min-height: 150px; max-height: 150px;
-      object-fit: cover; display: block;
-      flex-shrink: 0; flex-grow: 0;
-    }
-    .output-caption {
-      width: 150px;
-      padding: 4px 6px 5px;
-      font-size: 0.6rem; color: var(--muted);
-      border-top: 1px solid var(--border);
-      font-family: 'JetBrains Mono', monospace;
-      white-space: normal; word-break: break-all; line-height: 1.4;
-      flex-shrink: 0;
-    }
-    .outputs-empty { padding: 3rem; text-align: center; color: var(--muted); font-size: 0.88rem; line-height: 1.8; }
+    .output-card { width: 150px; flex-shrink: 0; background: #fff; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: zoom-in; transition: border-color 0.2s, transform 0.15s; display: flex; flex-direction: column; }
+    .output-card:hover { border-color: rgba(184,92,110,0.4); transform: scale(1.03); }
+    .output-card img { width: 150px; height: 150px; object-fit: cover; display: block; }
+    .output-caption { padding: 4px 6px 5px; font-size: 0.6rem; color: var(--muted); border-top: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; white-space: normal; word-break: break-all; line-height: 1.4; }
+    .outputs-empty { padding: 2rem; text-align: center; color: var(--muted); font-size: 0.88rem; line-height: 1.8; }
     .outputs-empty code { font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; color: var(--accent2); }
+    .outputs-spinner { padding: 2rem; text-align: center; color: var(--muted); font-size: 0.88rem; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner-icon { display: inline-block; animation: spin 1s linear infinite; margin-right: 6px; }
 
-    /* Notes drawer */
-    .notes-drawer {
-      border-top: 1px solid var(--border);
-      background: var(--surface); flex-shrink: 0;
-      transition: max-height 0.25s ease;
-      max-height: 36px; overflow: hidden;
-    }
-    .notes-drawer.open { max-height: 200px; }
-    .notes-toggle {
-      width: 100%; display: flex; align-items: center; gap: 6px;
-      padding: 0.5rem 1.25rem; background: none; border: none;
-      cursor: pointer; font-size: 0.75rem; color: var(--muted);
-      font-family: 'Instrument Sans', sans-serif; font-weight: 500;
-      text-align: left; transition: color 0.15s;
-    }
-    .notes-toggle:hover { color: var(--text); }
-    .notes-toggle .chevron { font-size: 0.6rem; transition: transform 0.2s; }
-    .notes-drawer.open .chevron { transform: rotate(180deg); }
-    .notes-body {
-      padding: 0.5rem 1.25rem 0.75rem;
-      font-size: 0.82rem; color: var(--muted); line-height: 1.7;
-    }
+    /* ── PART 02 CLUSTERING ── */
+    .clustering-panel { flex: 1; overflow: hidden; display: flex; flex-direction: column; min-height: 0; }
 
-    /* Lightbox */
-    .lightbox {
-      display: none; position: fixed; inset: 0; z-index: 999;
-      background: rgba(30,20,18,0.93);
-      align-items: center; justify-content: center; cursor: zoom-out;
-    }
+    /* Sub tab bar inside clustering */
+    .sub-tab-bar { display: flex; gap: 0; padding: 0 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+    .sub-tab { padding: 0.55rem 1rem; font-size: 0.78rem; font-weight: 500; color: var(--muted); background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -1px; cursor: pointer; font-family: 'Instrument Sans', sans-serif; transition: color 0.15s, border-color 0.15s; }
+    .sub-tab:hover { color: var(--text); }
+    .sub-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .sub-panel { display: none; flex: 1; overflow: hidden; flex-direction: column; min-height: 0; }
+    .sub-panel.active { display: flex; }
+
+    /* Run picker */
+    .run-picker { display: flex; align-items: center; gap: 0.75rem; padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
+    .run-select { padding: 4px 10px; font-size: 0.8rem; font-family: 'JetBrains Mono', monospace; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; flex: 1; max-width: 320px; }
+    .run-select:focus { outline: none; border-color: var(--accent); }
+
+    /* Cluster browser */
+    .cluster-nav { display: flex; align-items: center; gap: 1rem; padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--bg); flex-shrink: 0; }
+    .cluster-nav-btn { width: 32px; height: 32px; border: 1px solid var(--border); border-radius: 6px; background: var(--surface); cursor: pointer; font-size: 1rem; display: flex; align-items: center; justify-content: center; transition: background 0.15s; }
+    .cluster-nav-btn:hover { background: var(--surface2); }
+    .cluster-nav-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .cluster-label { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 600; }
+    .cluster-info { font-size: 0.78rem; color: var(--muted); }
+    .cluster-grid { flex: 1; min-height: 0; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-wrap: wrap; gap: 8px; align-content: start; }
+    .cluster-grid::-webkit-scrollbar { width: 6px; }
+    .cluster-grid::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    .cluster-card { width: 150px; flex-shrink: 0; background: #fff; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: zoom-in; display: flex; flex-direction: column; transition: border-color 0.2s, transform 0.15s; }
+    .cluster-card:hover { border-color: rgba(184,92,110,0.4); transform: scale(1.03); }
+    .cluster-card img { width: 150px; height: 150px; object-fit: cover; display: block; }
+    .cluster-card-info { padding: 4px 6px 5px; font-size: 0.58rem; color: var(--muted); border-top: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; line-height: 1.4; }
+    .cluster-empty { padding: 2rem; text-align: center; color: var(--muted); font-size: 0.88rem; }
+
+    /* Metrics panel */
+    .metrics-panel-inner { flex: 1; overflow-y: auto; padding: 1.5rem 2rem; }
+    .metrics-panel-inner::-webkit-scrollbar { width: 6px; }
+    .metrics-panel-inner::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+    .metric-card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 1rem 1.25rem; }
+    .metric-label { font-size: 0.7rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 0.3rem; }
+    .metric-value { font-family: 'Playfair Display', serif; font-size: 1.6rem; font-weight: 600; color: var(--text); }
+    .metric-value small { font-size: 0.9rem; color: var(--muted); font-family: 'Instrument Sans', sans-serif; }
+    .metrics-section { margin-bottom: 1.5rem; }
+    .metrics-section h3 { font-size: 0.75rem; font-weight: 500; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); margin-bottom: 0.75rem; }
+    .patients-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+    .patient-tag { font-size: 0.75rem; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 2px 10px; font-family: 'JetBrains Mono', monospace; }
+    .note-box { background: var(--surface); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 0.75rem 1rem; font-size: 0.85rem; color: var(--muted); font-style: italic; }
+    /* Cluster bar chart */
+    .bar-chart { display: flex; align-items: flex-end; gap: 2px; height: 80px; margin-top: 0.5rem; }
+    .bar-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; }
+    .bar { width: 100%; background: var(--accent); border-radius: 2px 2px 0 0; min-height: 2px; transition: opacity 0.2s; cursor: pointer; }
+    .bar:hover { opacity: 0.7; }
+    .bar-num { font-size: 0.45rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+
+    /* LIGHTBOX */
+    .lightbox { display: none; position: fixed; inset: 0; z-index: 999; background: rgba(30,20,18,0.93); align-items: center; justify-content: center; cursor: zoom-out; }
     .lightbox.open { display: flex; }
     .lightbox img { max-width: 92vw; max-height: 90vh; border-radius: 8px; }
-    .lightbox-close {
-      position: absolute; top: 1.25rem; right: 1.25rem;
-      color: #e8e0d8; background: #3a2e2a; border: none;
-      width: 40px; height: 40px; border-radius: 50%;
-      display: flex; align-items: center; justify-content: center;
-      font-size: 1.1rem; cursor: pointer; transition: color 0.2s;
-    }
+    .lightbox-close { position: absolute; top: 1.25rem; right: 1.25rem; color: #e8e0d8; background: #3a2e2a; border: none; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; cursor: pointer; transition: color 0.2s; }
     .lightbox-close:hover { color: #fff; }
-    .lightbox-caption {
-      position: absolute; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
-      background: rgba(30,20,18,0.8); color: #e8e0d8;
-      font-size: 0.78rem; padding: 5px 14px; border-radius: 20px;
-      font-family: 'JetBrains Mono', monospace; max-width: 80vw;
-      text-align: center; word-break: break-all;
-    }
+    .lightbox-caption { position: absolute; bottom: 1.5rem; left: 50%; transform: translateX(-50%); background: rgba(30,20,18,0.8); color: #e8e0d8; font-size: 0.78rem; padding: 5px 14px; border-radius: 20px; font-family: 'JetBrains Mono', monospace; max-width: 80vw; text-align: center; word-break: break-all; }
   </style>
 </head>
 <body>
 
-  <nav class="topnav">
-    <a href="index.html" class="nav-name">Lora <span>Fanda</span></a>
-    <div class="nav-right">
-      <span class="nav-tag">🔬 Research Notebook</span>
-      <a href="index.html" class="nav-back">← Portfolio</a>
-    </div>
-  </nav>
-
-  <!-- GATE -->
-  <div id="gate">
-    <div class="gate-box">
-      <div class="gate-icon">🔬</div>
-      <h1>Research Notebook</h1>
-      <p>Private access — enter the code to continue.</p>
-      <input type="password" id="gateInput" class="gate-input"
-        placeholder="access code" aria-label="Access code"
-        autocomplete="off" spellcheck="false"/>
-      <button class="gate-btn" onclick="checkCode()">Enter</button>
-      <div class="gate-error" id="gateError" role="alert" aria-live="polite"></div>
-    </div>
+<nav class="topnav">
+  <a href="index.html" class="nav-name">Lora <span>Fanda</span></a>
+  <div class="nav-right">
+    <span class="nav-tag">🔬 Research Notebook</span>
+    <a href="index.html" class="nav-back">← Portfolio</a>
   </div>
+</nav>
 
-  <!-- APP -->
-  <div id="app">
+<!-- GATE -->
+<div id="gate">
+  <div class="gate-box">
+    <div class="gate-icon">🔬</div>
+    <h1>Research Notebook</h1>
+    <p>Private access — enter the code to continue.</p>
+    <input type="password" id="gateInput" class="gate-input" placeholder="access code" aria-label="Access code" autocomplete="off" spellcheck="false"/>
+    <button class="gate-btn" onclick="checkCode()">Enter</button>
+    <div class="gate-error" id="gateError" role="alert" aria-live="polite"></div>
+  </div>
+</div>
 
-    <!-- SIDEBAR TOGGLE -->
-    <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">◀</button>
+<!-- APP -->
+<div id="app">
 
-    <!-- SIDEBAR -->
-    <aside class="sidebar" aria-label="Research navigation">
-      <div class="sidebar-header">Analysis — LoraFanda</div>
+  <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()" aria-label="Toggle sidebar">◀</button>
+
+  <aside class="sidebar" aria-label="Research navigation">
+    <div class="sidebar-header">Analysis — LoraFanda</div>
+
+    <button class="preface-nav" onclick="loadPreface()" id="nav-preface">
+      <span style="font-size:0.85rem">📖</span> PhD Story
+    </button>
+
+    <!-- PART 01 -->
+    <div class="part-group open" id="part-01">
+      <button class="part-toggle" onclick="togglePart('part-01')" aria-expanded="true">
+        <span class="part-num">01</span><span class="part-label">FBM Analysis</span><span class="part-chevron">▶</span>
+      </button>
+      <div class="part-items">
+        <button class="nav-item" onclick="loadNotebook('01','140','ERSP Analysis Pipeline','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/01_FBM_Analysis/140_ERSP_analysis_pipeline.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/01_FBM_Analysis/140_ERSP_analysis_pipeline.ipynb')" id="nav-01-140">
+          <span class="nav-item-num">140</span><span class="nav-icon">📓</span><span class="nav-item-label">ERSP Analysis Pipeline</span><span class="status status-wip"></span>
+        </button>
+        <button class="nav-section-item" onclick="loadFunctions('01')" id="nav-01-fn"><span class="nav-icon">🐍</span> Functions</button>
+        <button class="nav-section-item" onclick="loadOutputs('01')" id="nav-01-out"><span class="nav-icon">📊</span> Outputs</button>
+      </div>
+    </div>
+
+    <!-- PART 02 -->
+    <div class="part-group" id="part-02">
+      <button class="part-toggle" onclick="togglePart('part-02')" aria-expanded="false">
+        <span class="part-num">02</span><span class="part-label">FBM Clustering</span><span class="part-chevron">▶</span>
+      </button>
+      <div class="part-items">
+        <button class="nav-item" onclick="loadNotebook('02','230','Blob Clustering','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/230_blob_clustering.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/230_blob_clustering.ipynb')" id="nav-02-230">
+          <span class="nav-item-num">230</span><span class="nav-icon">📓</span><span class="nav-item-label">Blob Clustering</span><span class="status status-done"></span>
+        </button>
+        <button class="nav-item" onclick="loadNotebook('02','231','Minus101 Clustering','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/231_minus101_clustering.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/231_minus101_clustering.ipynb')" id="nav-02-231">
+          <span class="nav-item-num">231</span><span class="nav-icon">📓</span><span class="nav-item-label">Minus101 Clustering</span><span class="status status-done"></span>
+        </button>
+        <button class="nav-item" onclick="loadNotebook('02','240','Blob Cluster Reconstruction','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/240_blob_cluster_recon.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/240_blob_cluster_recon.ipynb')" id="nav-02-240">
+          <span class="nav-item-num">240</span><span class="nav-icon">📓</span><span class="nav-item-label">Blob Cluster Reconstruction</span><span class="status status-wip"></span>
+        </button>
+        <button class="nav-item" onclick="loadNotebook('02','241','Atlas Activity Plots','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/241_atlas_activity_plots.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/241_atlas_activity_plots.ipynb')" id="nav-02-241">
+          <span class="nav-item-num">241</span><span class="nav-icon">📓</span><span class="nav-item-label">Atlas Activity Plots</span><span class="status status-done"></span>
+        </button>
+        <button class="nav-item" onclick="loadNotebook('02','250a','Recon — Explanations &amp; Viz','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/250_Recon_ExplanationsVisualization.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/250_Recon_ExplanationsVisualization.ipynb')" id="nav-02-250a">
+          <span class="nav-item-num">250</span><span class="nav-icon">📓</span><span class="nav-item-label">Recon — Explanations &amp; Viz</span><span class="status status-wip"></span>
+        </button>
+        <button class="nav-item" onclick="loadNotebook('02','250b','Recon — Shared Data WM','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/250_recon_shared_data_WM.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/250_recon_shared_data_WM.ipynb')" id="nav-02-250b">
+          <span class="nav-item-num">250</span><span class="nav-icon">📓</span><span class="nav-item-label">Recon — Shared Data WM</span><span class="status status-wip"></span>
+        </button>
+        <button class="nav-item" onclick="loadNotebook('02','251','Recon — Shared Data','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/251_recon_shared_data.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/251_recon_shared_data.ipynb')" id="nav-02-251">
+          <span class="nav-item-num">251</span><span class="nav-icon">📓</span><span class="nav-item-label">Recon — Shared Data</span><span class="status status-done"></span>
+        </button>
+        <button class="nav-item" onclick="loadNotebook('02','310','K-Means Clustering','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/310_kmeans_clustering.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/scripts/310_kmeans_clustering.ipynb')" id="nav-02-310">
+          <span class="nav-item-num">310</span><span class="nav-icon">📓</span><span class="nav-item-label">K-Means Clustering</span><span class="status status-done"></span>
+        </button>
+        <button class="nav-section-item" onclick="loadFunctions('02')" id="nav-02-fn"><span class="nav-icon">🐍</span> Functions</button>
+        <button class="nav-section-item" onclick="loadClustering()" id="nav-02-out"><span class="nav-icon">🔵</span> Clustering Results</button>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- MAIN -->
+  <div class="main">
+    <div class="tab-bar" id="tabBar">
+      <button class="tab-btn active" id="tab-notebook" onclick="switchTab('notebook')">📓 Notebook</button>
+      <button class="tab-btn" id="tab-functions" onclick="switchTab('functions')">🐍 Functions</button>
+      <button class="tab-btn" id="tab-outputs" onclick="switchTab('outputs')" style="display:none">📊 Outputs</button>
+      <button class="tab-btn" id="tab-clustering" onclick="switchTab('clustering')" style="display:none">🔵 Clustering</button>
+      <button class="tab-btn" id="tab-preface" onclick="switchTab('preface')" style="display:none">📖 PhD Story</button>
+      <div class="tab-spacer"></div>
+      <button class="copy-link-btn" onclick="copyLink()">⎘ Copy link</button>
+    </div>
+
+    <div class="panel-area">
+
+      <!-- NOTEBOOK -->
+      <div class="panel active" id="panel-notebook">
+        <div class="notebook-placeholder" id="nb-placeholder">
+          <div class="big-icon">📓</div>
+          <h3>Select a chapter</h3>
+          <p>Choose a notebook from the sidebar to load it here.</p>
+        </div>
+        <iframe class="notebook-frame" id="nb-frame" style="display:none" title="Notebook viewer" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
+        <div class="notes-drawer" id="notesDrawer">
+          <button class="notes-toggle" onclick="toggleNotes()">📝 Notes <span class="chevron">▼</span></button>
+          <div class="notes-body" id="notesBody">No notes for this chapter yet.</div>
+        </div>
+      </div>
+
+      <!-- FUNCTIONS -->
+      <div class="panel" id="panel-functions">
+        <div class="functions-panel">
+          <div class="file-picker" id="filePicker"></div>
+          <div class="code-wrap" id="codeWrap"><div class="code-loading">Select a function file above.</div></div>
+        </div>
+      </div>
 
       <!-- PREFACE -->
-      <button class="preface-nav" onclick="loadPreface()" id="nav-preface">
-        <span style="font-size:0.85rem">📖</span> PhD Story
-      </button>
-
-      <!-- PART 01 -->
-      <div class="part-group open" id="part-01">
-        <button class="part-toggle" onclick="togglePart('part-01')" aria-expanded="true">
-          <span class="part-num">01</span>
-          <span class="part-label">FBM Analysis</span>
-          <span class="part-chevron">▶</span>
-        </button>
-        <div class="part-items">
-          <button class="nav-item" onclick="loadNotebook('01','140','ERSP Analysis Pipeline','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/01_FBM_Analysis/140_ERSP_analysis_pipeline.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/01_FBM_Analysis/140_ERSP_analysis_pipeline.ipynb','in-progress')" id="nav-01-140">
-            <span class="nav-item-num">140</span>
-            <span class="nav-icon">📓</span>
-            <span class="nav-item-label">ERSP Analysis Pipeline</span>
-            <span class="status status-wip" title="In progress"></span>
-          </button>
-          <button class="nav-section-item" onclick="loadFunctions('01')" id="nav-01-fn">
-            <span class="nav-icon">🐍</span> Functions
-          </button>
-          <button class="nav-section-item" onclick="loadOutputs('01')" id="nav-01-out">
-            <span class="nav-icon">📊</span> Outputs
-          </button>
+      <div class="panel" id="panel-preface">
+        <div class="preface-panel">
+          <div class="preface-content" id="prefaceContent"><div class="preface-loading">Loading...</div></div>
         </div>
       </div>
 
-      <!-- PART 02 -->
-      <div class="part-group" id="part-02">
-        <button class="part-toggle" onclick="togglePart('part-02')" aria-expanded="false">
-          <span class="part-num">02</span>
-          <span class="part-label">FBM Clustering</span>
-          <span class="part-chevron">▶</span>
-        </button>
-        <div class="part-items">
-          <button class="nav-item" onclick="loadNotebook('02','230','Blob Clustering','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/230_blob_clustering.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/230_blob_clustering.ipynb','done')" id="nav-02-230">
-            <span class="nav-item-num">230</span>
-            <span class="nav-icon">📓</span>
-            <span class="nav-item-label">Blob Clustering</span>
-            <span class="status status-done" title="Complete"></span>
-          </button>
-          <button class="nav-item" onclick="loadNotebook('02','231','Minus101 Clustering','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/231_minus101_clustering.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/231_minus101_clustering.ipynb','done')" id="nav-02-231">
-            <span class="nav-item-num">231</span>
-            <span class="nav-icon">📓</span>
-            <span class="nav-item-label">Minus101 Clustering</span>
-            <span class="status status-done" title="Complete"></span>
-          </button>
-          <button class="nav-item" onclick="loadNotebook('02','240','Blob Cluster Reconstruction','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/240_blob_cluster_recon.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/240_blob_cluster_recon.ipynb','wip')" id="nav-02-240">
-            <span class="nav-item-num">240</span>
-            <span class="nav-icon">📓</span>
-            <span class="nav-item-label">Blob Cluster Reconstruction</span>
-            <span class="status status-wip" title="In progress"></span>
-          </button>
-          <button class="nav-item" onclick="loadNotebook('02','241','Atlas Activity Plots','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/241_atlas_activity_plots.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/241_atlas_activity_plots.ipynb','done')" id="nav-02-241">
-            <span class="nav-item-num">241</span>
-            <span class="nav-icon">📓</span>
-            <span class="nav-item-label">Atlas Activity Plots</span>
-            <span class="status status-done" title="Complete"></span>
-          </button>
-          <button class="nav-item" onclick="loadNotebook('02','250a','Recon — Explanations &amp; Viz','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/250_Recon_ExplanationsVisualization.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/250_Recon_ExplanationsVisualization.ipynb','wip')" id="nav-02-250a">
-            <span class="nav-item-num">250</span>
-            <span class="nav-icon">📓</span>
-            <span class="nav-item-label">Recon — Explanations &amp; Viz</span>
-            <span class="status status-wip" title="In progress"></span>
-          </button>
-          <button class="nav-item" onclick="loadNotebook('02','250b','Recon — Shared Data WM','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/250_recon_shared_data_WM.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/250_recon_shared_data_WM.ipynb','wip')" id="nav-02-250b">
-            <span class="nav-item-num">250</span>
-            <span class="nav-icon">📓</span>
-            <span class="nav-item-label">Recon — Shared Data WM</span>
-            <span class="status status-wip" title="In progress"></span>
-          </button>
-          <button class="nav-item" onclick="loadNotebook('02','251','Recon — Shared Data','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/251_recon_shared_data.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/251_recon_shared_data.ipynb','done')" id="nav-02-251">
-            <span class="nav-item-num">251</span>
-            <span class="nav-icon">📓</span>
-            <span class="nav-item-label">Recon — Shared Data</span>
-            <span class="status status-done" title="Complete"></span>
-          </button>
-          <button class="nav-item" onclick="loadNotebook('02','310','K-Means Clustering','https://nbviewer.org/github/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/310_kmeans_clustering.ipynb','https://github.com/lorafanda/Analysis_LoraFanda/blob/main/02_FBM_Clustering/310_kmeans_clustering.ipynb','done')" id="nav-02-310">
-            <span class="nav-item-num">310</span>
-            <span class="nav-icon">📓</span>
-            <span class="nav-item-label">K-Means Clustering</span>
-            <span class="status status-done" title="Complete"></span>
-          </button>
-          <button class="nav-section-item" onclick="loadFunctions('02')" id="nav-02-fn">
-            <span class="nav-icon">🐍</span> Functions
-          </button>
+      <!-- PART 01 OUTPUTS -->
+      <div class="panel" id="panel-outputs">
+        <div class="outputs-panel">
+          <div class="outputs-filters">
+            <span class="filter-label">Analysis</span>
+            <select class="filter-select" id="analysisFilter" onchange="onAnalysisChange()">
+              <option value="">Loading...</option>
+            </select>
+            <span class="filter-label">Patient</span>
+            <select class="filter-select" id="patientFilter" onchange="onPatientChange()" disabled>
+              <option value="">—</option>
+            </select>
+            <span class="filter-label">Exp type</span>
+            <select class="filter-select" id="hemiFilter" disabled>
+              <option value="">—</option>
+            </select>
+            <span class="filter-label">Condition</span>
+            <select class="filter-select" id="condFilter" onchange="filterOutputs()" disabled>
+              <option value="">All</option>
+            </select>
+            <span class="filter-label">Region</span>
+            <select class="filter-select" id="regionFilter" onchange="filterOutputs()" disabled>
+              <option value="">All</option>
+            </select>
+            <button class="load-btn" id="loadBtn" onclick="doLoadOutputs()" disabled>Load ↓</button>
+            <span class="outputs-count" id="outputsCount"></span>
+          </div>
+          <div class="outputs-grid" id="outputsGrid">
+            <div class="outputs-empty">Select filters above then click <strong>Load</strong>.</div>
+          </div>
         </div>
       </div>
 
-    </aside>
+      <!-- PART 02 CLUSTERING -->
+      <div class="panel" id="panel-clustering">
+        <div class="clustering-panel">
+          <div class="sub-tab-bar">
+            <button class="sub-tab active" id="subtab-clusters" onclick="switchSubTab('clusters')">🔵 Clusters</button>
+            <button class="sub-tab" id="subtab-metrics" onclick="switchSubTab('metrics')">📈 Metrics</button>
+          </div>
 
-    <!-- MAIN -->
-    <div class="main">
-      <!-- Tab bar -->
-      <div class="tab-bar" id="tabBar">
-        <button class="tab-btn active" id="tab-notebook" onclick="switchTab('notebook')">📓 Notebook</button>
-        <button class="tab-btn" id="tab-functions" onclick="switchTab('functions')">🐍 Functions</button>
-        <button class="tab-btn" id="tab-outputs" onclick="switchTab('outputs')" style="display:none">📊 Outputs</button>
-        <button class="tab-btn" id="tab-preface" onclick="switchTab('preface')" style="display:none">📖 PhD Story</button>
-        <div class="tab-spacer"></div>
-        <button class="copy-link-btn" onclick="copyLink()" title="Copy link to this chapter">⎘ Copy link</button>
+          <!-- Run picker (shared) -->
+          <div class="run-picker">
+            <span class="filter-label">Run</span>
+            <select class="run-select" id="runSelect" onchange="onRunChange()">
+              <option value="">Loading runs...</option>
+            </select>
+          </div>
+
+          <!-- CLUSTERS sub-panel -->
+          <div class="sub-panel active" id="subpanel-clusters">
+            <div class="cluster-nav" id="clusterNav" style="display:none">
+              <button class="cluster-nav-btn" id="prevCluster" onclick="navigateCluster(-1)">◀</button>
+              <span class="cluster-label" id="clusterLabel">Cluster 1</span>
+              <span class="cluster-info" id="clusterInfo"></span>
+              <button class="cluster-nav-btn" id="nextCluster" onclick="navigateCluster(1)">▶</button>
+            </div>
+            <div class="cluster-grid" id="clusterGrid">
+              <div class="cluster-empty">Select a run above to browse clusters.</div>
+            </div>
+          </div>
+
+          <!-- METRICS sub-panel -->
+          <div class="sub-panel" id="subpanel-metrics">
+            <div class="metrics-panel-inner" id="metricsContent">
+              <div class="cluster-empty">Select a run above to view metrics.</div>
+            </div>
+          </div>
+        </div>
       </div>
 
-      <!-- Panel area -->
-      <div class="panel-area">
-
-        <!-- NOTEBOOK PANEL -->
-        <div class="panel active" id="panel-notebook">
-          <div class="notebook-placeholder" id="nb-placeholder">
-            <div class="big-icon">📓</div>
-            <h3>Select a chapter</h3>
-            <p>Choose a notebook from the sidebar to load it here.</p>
-          </div>
-          <iframe class="notebook-frame" id="nb-frame" style="display:none" title="Notebook viewer" sandbox="allow-scripts allow-same-origin allow-popups"></iframe>
-          <div class="notes-drawer" id="notesDrawer">
-            <button class="notes-toggle" onclick="toggleNotes()">
-              📝 Notes <span class="chevron">▼</span>
-            </button>
-            <div class="notes-body" id="notesBody">
-              No notes for this chapter yet. Add them in <code>results.html</code> inside the <code>NOTES</code> object below.
-            </div>
-          </div>
-        </div>
-
-        <!-- FUNCTIONS PANEL -->
-        <div class="panel" id="panel-functions">
-          <div class="functions-panel">
-            <div class="file-picker" id="filePicker"></div>
-            <div class="code-wrap" id="codeWrap">
-              <div class="code-loading">Select a function file above.</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- PREFACE PANEL -->
-        <div class="panel" id="panel-preface">
-          <div class="preface-panel">
-            <div class="preface-content" id="prefaceContent">
-              <div class="preface-loading">Loading PhD story...</div>
-            </div>
-          </div>
-        </div>
-
-        <!-- OUTPUTS PANEL -->
-        <div class="panel" id="panel-outputs">
-          <div class="outputs-panel">
-            <div class="outputs-filters">
-              <span class="filter-label">Analysis</span>
-              <select class="filter-select" id="analysisFilter" onchange="onAnalysisChange()">
-                <option value="">Loading...</option>
-              </select>
-              <span class="filter-label" style="margin-left:0.5rem">Patient</span>
-              <select class="filter-select" id="patientFilter" onchange="onPatientChange()" disabled>
-                <option value="">—</option>
-              </select>
-              <span class="filter-label" style="margin-left:0.5rem">Experiment type</span>
-              <select class="filter-select" id="hemiFilter" onchange="onExpTypeChange()" disabled>
-                <option value="">—</option>
-              </select>
-              <span class="filter-label" style="margin-left:0.5rem">Condition</span>
-              <select class="filter-select" id="condFilter" onchange="filterOutputs()" disabled>
-                <option value="">All</option>
-              </select>
-              <span class="filter-label" style="margin-left:0.5rem">Region</span>
-              <select class="filter-select" id="regionFilter" onchange="filterOutputs()" disabled>
-                <option value="">All</option>
-              </select>
-              <span class="outputs-count" id="outputsCount"></span>
-            </div>
-            <div class="outputs-grid" id="outputsGrid">
-              <div class="outputs-empty">Select an analysis folder to load outputs.</div>
-            </div>
-          </div>
-        </div>
-
-      </div>
     </div>
   </div>
+</div>
 
-  <!-- LIGHTBOX -->
-  <div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer" aria-hidden="true">
-    <button class="lightbox-close" id="lightboxClose" aria-label="Close">✕</button>
-    <img id="lightboxImg" src="" alt=""/>
-    <div class="lightbox-caption" id="lightboxCaption"></div>
-  </div>
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true" aria-label="Image viewer" aria-hidden="true">
+  <button class="lightbox-close" id="lightboxClose" aria-label="Close">✕</button>
+  <img id="lightboxImg" src="" alt=""/>
+  <div class="lightbox-caption" id="lightboxCaption"></div>
+</div>
 
 <script>
-// ── CONFIG ──────────────────────────────────────────────────────────────────
-
+// ── CONFIG ───────────────────────────────────────────────────────────────────
 const CODE = 'LiLo';
 const REPO_RAW = 'https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/main';
+const GITHUB_API = 'https://api.github.com/repos/lorafanda/Analysis_LoraFanda/contents';
 
-// Notes per chapter — key is part+chapterNum
 const NOTES = {
-  '01-140': 'ERSP pipeline for functional language mapping. Uses lf_ersp.py for signal processing. Patient cohort: language mapping group.',
+  '01-140': 'ERSP pipeline for functional language mapping. Uses lf_ersp.py for signal processing.',
   '02-230': 'Initial blob clustering approach. See lf_recon.py for reconstruction utilities.',
   '02-240': 'Reconstruction of blob clusters. Work in progress — some edge cases with small clusters.',
-  // Add more as needed
 };
 
-// Functions per part
 const FUNCTIONS = {
   '01': ['__init__.py','config.py','lf_ersp.py','lf_io_utils.py','lf_recon.py','lf_trials.py'],
   '02': ['__init__.py','config.py','lf_ersp.py','lf_io_utils.py','lf_recon.py','lf_trials.py'],
 };
-const FUNCTIONS_PATH = {
-  '01': '01_FBM_Analysis/functions',
-  '02': '02_FBM_Clustering/functions',
-};
+const FUNCTIONS_PATH = { '01': '01_FBM_Analysis/functions', '02': '02_FBM_Clustering/functions' };
 
 // ── STATE ────────────────────────────────────────────────────────────────────
-let state = { part: null, chapter: null, nbviewerUrl: null, githubUrl: null, tab: 'notebook' };
+let state = { part: null, chapter: null, tab: 'notebook' };
+let allOutputs = [];
+let clusterData = { labels: [], metrics: null, currentCluster: 0, runs: [] };
 
 // ── GATE ─────────────────────────────────────────────────────────────────────
 function checkCode() {
@@ -724,69 +508,66 @@ function togglePart(id) {
   el.classList.toggle('open');
   el.querySelector('.part-toggle').setAttribute('aria-expanded', el.classList.contains('open'));
 }
+function clearActive() { document.querySelectorAll('.nav-item, .nav-section-item, .preface-nav').forEach(el => el.classList.remove('active')); }
+let sidebarOpen = true;
+function toggleSidebar() {
+  sidebarOpen = !sidebarOpen;
+  document.querySelector('.sidebar').classList.toggle('collapsed', !sidebarOpen);
+  document.querySelector('.main').classList.toggle('expanded', !sidebarOpen);
+  const btn = document.getElementById('sidebarToggle');
+  btn.textContent = sidebarOpen ? '◀' : '▶';
+  btn.style.left = sidebarOpen ? 'var(--sidebar-w)' : '0';
+}
 
-function clearActive() {
-  document.querySelectorAll('.nav-item, .nav-section-item').forEach(el => el.classList.remove('active'));
+// ── TABS ─────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  state.tab = tab;
+  ['notebook','functions','outputs','clustering','preface'].forEach(t => {
+    document.getElementById(`tab-${t}`)?.classList.toggle('active', t === tab);
+    document.getElementById(`panel-${t}`)?.classList.toggle('active', t === tab);
+  });
+}
+function showTabs(...tabs) {
+  ['notebook','functions','outputs','clustering','preface'].forEach(t => {
+    const el = document.getElementById(`tab-${t}`);
+    if (el) el.style.display = tabs.includes(t) ? '' : 'none';
+  });
+}
+function switchSubTab(tab) {
+  ['clusters','metrics'].forEach(t => {
+    document.getElementById(`subtab-${t}`)?.classList.toggle('active', t === tab);
+    document.getElementById(`subpanel-${t}`)?.classList.toggle('active', t === tab);
+  });
 }
 
 // ── NOTEBOOK ─────────────────────────────────────────────────────────────────
-function loadNotebook(part, chapterKey, title, nbviewerUrl, githubUrl, status) {
+function loadNotebook(part, chapterKey, title, nbviewerUrl, githubUrl) {
   clearActive();
-  const navEl = document.getElementById(`nav-${part}-${chapterKey}`);
-  if (navEl) navEl.classList.add('active');
-
-  state = { part, chapter: chapterKey, nbviewerUrl, githubUrl, tab: 'notebook' };
-
-  // Restore normal tabs, hide preface tab
-  document.getElementById('tab-notebook').style.display = '';
-  document.getElementById('tab-functions').style.display = '';
-  document.getElementById('tab-preface').style.display = 'none';
-  // Show outputs tab only for part 01
-  document.getElementById('tab-outputs').style.display = part === '01' ? '' : 'none';
-
+  document.getElementById(`nav-${part}-${chapterKey}`)?.classList.add('active');
+  state = { part, chapter: chapterKey, tab: 'notebook' };
+  showTabs('notebook','functions');
   switchTab('notebook');
-
-  // Show iframe
   const placeholder = document.getElementById('nb-placeholder');
-  const frame = document.getElementById('nb-frame');
-
-  placeholder.style.display = 'none';
-  frame.style.display = 'none';
-
-  // Try nbviewer first — show placeholder with open button
+  document.getElementById('nb-frame').style.display = 'none';
   placeholder.style.display = 'flex';
   placeholder.innerHTML = `
     <div class="big-icon">📓</div>
     <h3>${title}</h3>
     <p>Opens in nbviewer for the best rendering experience.</p>
     <a href="${nbviewerUrl}" target="_blank" rel="noopener noreferrer" class="nb-open-btn">Open in nbviewer ↗</a>
-    <div class="nb-fallback">nbviewer not working? <a href="${githubUrl}" target="_blank" rel="noopener noreferrer">Open on GitHub</a></div>
+    <div class="nb-fallback">Not loading? <a href="${githubUrl}" target="_blank" rel="noopener noreferrer">Open on GitHub</a></div>
   `;
-
-  // Notes
-  const notesBody = document.getElementById('notesBody');
-  const key = `${part}-${chapterKey}`;
-  notesBody.textContent = NOTES[key] || 'No notes for this chapter yet.';
-
-  // Update URL hash
-  history.replaceState(null, '', `#${part}-${chapterKey}`);
+  document.getElementById('notesBody').textContent = NOTES[`${part}-${chapterKey}`] || 'No notes for this chapter yet.';
+  history.replaceState(null,'',`#${part}-${chapterKey}`);
 }
 
 // ── FUNCTIONS ─────────────────────────────────────────────────────────────────
 function loadFunctions(part) {
   clearActive();
-  const navEl = document.getElementById(`nav-${part}-fn`);
-  if (navEl) navEl.classList.add('active');
+  document.getElementById(`nav-${part}-fn`)?.classList.add('active');
   state.part = part;
-  document.getElementById('tab-notebook').style.display = '';
-  document.getElementById('tab-functions').style.display = '';
-  document.getElementById('tab-preface').style.display = 'none';
-  document.getElementById('tab-outputs').style.display = part === '01' ? '' : 'none';
+  showTabs('notebook','functions', part === '01' ? 'outputs' : 'clustering');
   switchTab('functions');
-  buildFilePicker(part);
-}
-
-function buildFilePicker(part) {
   const files = FUNCTIONS[part] || [];
   const picker = document.getElementById('filePicker');
   picker.innerHTML = '';
@@ -794,23 +575,16 @@ function buildFilePicker(part) {
     const btn = document.createElement('button');
     btn.className = 'file-tab' + (i === 0 ? ' active' : '');
     btn.textContent = f;
-    btn.onclick = () => {
-      document.querySelectorAll('.file-tab').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      loadFile(part, f);
-    };
+    btn.onclick = () => { document.querySelectorAll('.file-tab').forEach(b => b.classList.remove('active')); btn.classList.add('active'); loadFile(part, f); };
     picker.appendChild(btn);
   });
   if (files.length) loadFile(part, files[0]);
 }
-
 async function loadFile(part, filename) {
-  const path = `${FUNCTIONS_PATH[part]}/${filename}`;
-  const url = `${REPO_RAW}/${path}`;
   const wrap = document.getElementById('codeWrap');
   wrap.innerHTML = '<div class="code-loading">Loading...</div>';
   try {
-    const res = await fetch(url);
+    const res = await fetch(`${REPO_RAW}/${FUNCTIONS_PATH[part]}/${filename}`);
     if (!res.ok) throw new Error(res.status);
     const text = await res.text();
     const pre = document.createElement('pre');
@@ -822,267 +596,349 @@ async function loadFile(part, filename) {
     wrap.appendChild(pre);
     hljs.highlightElement(code);
   } catch(e) {
-    wrap.innerHTML = `<div class="code-loading" style="color:var(--accent)">Could not load ${filename}. Make sure the repo is public.<br><small>${e.message}</small></div>`;
+    wrap.innerHTML = `<div class="code-loading" style="color:var(--accent)">Could not load ${filename}.<br><small>${e.message}</small></div>`;
   }
 }
 
-// ── OUTPUTS ───────────────────────────────────────────────────────────────────
-
-function loadOutputs(part) {
+// ── PREFACE ───────────────────────────────────────────────────────────────────
+let prefaceLoaded = false;
+async function loadPreface() {
   clearActive();
-  const navEl = document.getElementById(`nav-${part}-out`);
-  if (navEl) navEl.classList.add('active');
-  state.part = part;
-  document.getElementById('tab-notebook').style.display = '';
-  document.getElementById('tab-functions').style.display = '';
-  document.getElementById('tab-preface').style.display = 'none';
-  document.getElementById('tab-outputs').style.display = '';
-  switchTab('outputs');
-  if (part === '01') initOutputs01();
+  document.getElementById('nav-preface').classList.add('active');
+  showTabs('preface');
+  switchTab('preface');
+  history.replaceState(null,'','#preface');
+  if (prefaceLoaded) return;
+  try {
+    const res = await fetch(`${REPO_RAW}/PhD_story/phd_story.md`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    document.getElementById('prefaceContent').innerHTML = marked.parse(await res.text());
+    prefaceLoaded = true;
+  } catch(e) {
+    document.getElementById('prefaceContent').innerHTML = `<p style="color:var(--accent)">Could not load phd_story.md.<br><small>${e.message}</small></p>`;
+  }
 }
 
-// ── OUTPUTS — fully dynamic cascade ──────────────────────────────────────────
-const GITHUB_API = 'https://api.github.com/repos/lorafanda/Analysis_LoraFanda/contents';
-let allOutputs = [];
-
-function setSelect(id, items, placeholder) {
-  const sel = document.getElementById(id);
-  sel.innerHTML = `<option value="">${placeholder}</option>`;
-  items.forEach(v => {
-    const o = document.createElement('option');
-    o.value = v; o.textContent = v;
-    sel.appendChild(o);
-  });
-  sel.disabled = items.length === 0;
-}
-
-function resetFrom(level) {
-  const levels = ['patient', 'exp', 'cond', 'region'];
-  const from = levels.indexOf(level);
-  if (from <= 0) { setSelect('patientFilter', [], '—'); document.getElementById('patientFilter').disabled = true; }
-  if (from <= 1) { setSelect('hemiFilter', [], '—'); document.getElementById('hemiFilter').disabled = true; }
-  if (from <= 2) { setSelect('condFilter', [], 'All'); document.getElementById('condFilter').disabled = true; }
-  if (from <= 3) { setSelect('regionFilter', [], 'All'); document.getElementById('regionFilter').disabled = true; }
-  allOutputs = [];
-  document.getElementById('outputsCount').textContent = '';
-  document.getElementById('outputsGrid').innerHTML = '<div class="outputs-empty">Choose filters above to load images.</div>';
-}
-
+// ── PART 01 OUTPUTS ───────────────────────────────────────────────────────────
 async function apiList(path) {
   const res = await fetch(`${GITHUB_API}/${path}`);
-  if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
   return await res.json();
+}
+function setSelect(id, items, placeholder, allOption) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+  if (allOption) { const o = document.createElement('option'); o.value = '__all__'; o.textContent = 'All'; sel.appendChild(o); }
+  items.forEach(v => { const o = document.createElement('option'); o.value = v; o.textContent = v; sel.appendChild(o); });
+  sel.disabled = items.length === 0;
+}
+function resetOutputsFrom(level) {
+  const levels = ['patient','exp','cond','region'];
+  const from = levels.indexOf(level);
+  if (from <= 0) { setSelect('patientFilter',[],  '—', true);  document.getElementById('patientFilter').disabled = true; }
+  if (from <= 1) { setSelect('hemiFilter',   [],  '—', true);  document.getElementById('hemiFilter').disabled = true; }
+  if (from <= 2) { setSelect('condFilter',   [], 'All', false); document.getElementById('condFilter').disabled = true; }
+  if (from <= 3) { setSelect('regionFilter', [], 'All', false); document.getElementById('regionFilter').disabled = true; }
+  document.getElementById('loadBtn').disabled = true;
+  document.getElementById('outputsCount').textContent = '';
+  allOutputs = [];
 }
 
 function loadOutputs(part) {
   clearActive();
-  const navEl = document.getElementById(`nav-${part}-out`);
-  if (navEl) navEl.classList.add('active');
-  state.part = part;
-  document.getElementById('tab-notebook').style.display = '';
-  document.getElementById('tab-functions').style.display = '';
-  document.getElementById('tab-preface').style.display = 'none';
-  document.getElementById('tab-outputs').style.display = '';
+  document.getElementById('nav-01-out')?.classList.add('active');
+  state.part = '01';
+  showTabs('notebook','functions','outputs');
   switchTab('outputs');
-  if (part === '01') initOutputs01();
+  initOutputs01();
 }
-
 async function initOutputs01() {
-  resetFrom('patient');
+  resetOutputsFrom('patient');
   setSelect('analysisFilter', [], 'Loading...');
   document.getElementById('analysisFilter').disabled = true;
   try {
-    const items = await apiList(`01_FBM_Analysis/outputs`);
+    const items = await apiList('01_FBM_Analysis/outputs');
     const folders = items.filter(i => i.type === 'dir').map(i => i.name).sort();
     setSelect('analysisFilter', folders, 'Select analysis...');
     document.getElementById('analysisFilter').disabled = false;
   } catch(e) {
-    document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">Could not load analysis folders.<br><small style="color:var(--accent)">${e.message}</small></div>`;
+    document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">Could not load.<br><small>${e.message}</small></div>`;
   }
 }
-
 async function onAnalysisChange() {
-  resetFrom('patient');
+  resetOutputsFrom('patient');
   const analysis = document.getElementById('analysisFilter').value;
   if (!analysis) return;
   try {
     const items = await apiList(`01_FBM_Analysis/outputs/${analysis}`);
     const folders = items.filter(i => i.type === 'dir').map(i => i.name).sort();
-    setSelect('patientFilter', folders, 'Select patient...');
+    setSelect('patientFilter', folders, 'Select patient...', true);
     document.getElementById('patientFilter').disabled = false;
-  } catch(e) {
-    document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">Could not load patients.<br><small style="color:var(--accent)">${e.message}</small></div>`;
-  }
+  } catch(e) { document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">${e.message}</div>`; }
 }
-
 async function onPatientChange() {
-  resetFrom('exp');
+  resetOutputsFrom('exp');
   const analysis = document.getElementById('analysisFilter').value;
   const patient = document.getElementById('patientFilter').value;
   if (!analysis || !patient) return;
   try {
-    const items = await apiList(`01_FBM_Analysis/outputs/${analysis}/${patient}`);
+    let path = `01_FBM_Analysis/outputs/${analysis}`;
+    if (patient !== '__all__') path += `/${patient}`;
+    // If all patients, list exp types from first patient
+    const checkPath = patient === '__all__'
+      ? `01_FBM_Analysis/outputs/${analysis}/${(await apiList(path)).filter(i=>i.type==='dir')[0]?.name}`
+      : path;
+    const items = await apiList(checkPath);
     const folders = items.filter(i => i.type === 'dir').map(i => i.name).sort();
-    setSelect('hemiFilter', folders, 'Select type...');
+    setSelect('hemiFilter', folders, 'Select type...', true);
     document.getElementById('hemiFilter').disabled = false;
-  } catch(e) {
-    document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">Could not load experiment types.<br><small style="color:var(--accent)">${e.message}</small></div>`;
-  }
+    document.getElementById('loadBtn').disabled = false;
+  } catch(e) { document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">${e.message}</div>`; }
 }
 
-async function onExpTypeChange() {
-  resetFrom('cond');
+async function doLoadOutputs() {
   const analysis = document.getElementById('analysisFilter').value;
-  const patient = document.getElementById('patientFilter').value;
-  const expType = document.getElementById('hemiFilter').value;
+  const patient  = document.getElementById('patientFilter').value;
+  const expType  = document.getElementById('hemiFilter').value;
   if (!analysis || !patient || !expType) return;
-  try {
-    let basePath = `01_FBM_Analysis/outputs/${analysis}/${patient}/${expType}`;
-    let items = await apiList(basePath);
-    // If there's an ERSP_clean subfolder, go one level deeper
-    const ersp = items.find(i => i.type === 'dir' && i.name === 'ERSP_clean');
-    if (ersp) {
-      basePath += '/ERSP_clean';
-      items = await apiList(basePath);
-    }
-    const condFolders = items.filter(i => i.type === 'dir').map(i => i.name).sort();
-    setSelect('condFilter', condFolders, 'All');
-    document.getElementById('condFilter').disabled = false;
-    await fetchAllImages(basePath, condFolders);
-  } catch(e) {
-    document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">Could not load conditions.<br><small style="color:var(--accent)">${e.message}</small></div>`;
-  }
-}
 
-async function fetchAllImages(basePath, conditions) {
   const grid = document.getElementById('outputsGrid');
-  grid.innerHTML = '<div class="outputs-empty">Loading images...</div>';
+  grid.innerHTML = `<div class="outputs-spinner"><span class="spinner-icon">⟳</span> Loading images...</div>`;
+  document.getElementById('loadBtn').disabled = true;
   allOutputs = [];
-  const regionSet = new Set();
 
-  for (const cond of conditions) {
+  // Resolve patients list
+  let patients = [];
+  if (patient === '__all__') {
+    const items = await apiList(`01_FBM_Analysis/outputs/${analysis}`);
+    patients = items.filter(i => i.type === 'dir').map(i => i.name);
+  } else { patients = [patient]; }
+
+  // Resolve exp types list
+  const expTypes = expType === '__all__'
+    ? (await apiList(`01_FBM_Analysis/outputs/${analysis}/${patients[0]}`)).filter(i=>i.type==='dir').map(i=>i.name)
+    : [expType];
+
+  const regionSet = new Set();
+  const condSet = new Set();
+
+  // Fetch in parallel per patient+expType combo
+  await Promise.all(patients.flatMap(p => expTypes.map(async et => {
     try {
-      const files = await apiList(`${basePath}/${cond}`);
-      for (const f of files) {
-        if (!f.name.endsWith('.png')) continue;
-        const regionMatch = f.name.match(/_ERSP_([A-Za-z]+)_/);
-        const region = regionMatch ? regionMatch[1] : 'Other';
-        regionSet.add(region);
-        allOutputs.push({
-          condition: cond, region, name: f.name,
-          url: `${REPO_RAW}/${basePath}/${cond}/${f.name}`,
-        });
-      }
-    } catch(e) { continue; }
-  }
+      let basePath = `01_FBM_Analysis/outputs/${analysis}/${p}/${et}`;
+      let items = await apiList(basePath);
+      const ersp = items.find(i => i.type === 'dir' && i.name === 'ERSP_clean');
+      if (ersp) { basePath += '/ERSP_clean'; items = await apiList(basePath); }
+      const condFolders = items.filter(i => i.type === 'dir').map(i => i.name);
+      await Promise.all(condFolders.map(async cond => {
+        try {
+          const files = await apiList(`${basePath}/${cond}`);
+          for (const f of files) {
+            if (!f.name.endsWith('.png')) continue;
+            const regionMatch = f.name.match(/_ERSP_([A-Za-z]+)_/);
+            const region = regionMatch ? regionMatch[1] : 'Other';
+            regionSet.add(region); condSet.add(cond);
+            allOutputs.push({ patient: p, condition: cond, region, name: f.name, url: `${REPO_RAW}/${basePath}/${cond}/${f.name}` });
+          }
+        } catch(e) {}
+      }));
+    } catch(e) {}
+  })));
+
+  // Populate condition + region filters
+  const condFilter = document.getElementById('condFilter');
+  condFilter.innerHTML = '<option value="">All</option>';
+  [...condSet].sort().forEach(c => { const o = document.createElement('option'); o.value=c; o.textContent=c; condFilter.appendChild(o); });
+  condFilter.disabled = false;
 
   const regionFilter = document.getElementById('regionFilter');
   regionFilter.innerHTML = '<option value="">All</option>';
-  [...regionSet].sort().forEach(r => {
-    const o = document.createElement('option'); o.value = r; o.textContent = r;
-    regionFilter.appendChild(o);
-  });
+  [...regionSet].sort().forEach(r => { const o = document.createElement('option'); o.value=r; o.textContent=r; regionFilter.appendChild(o); });
   regionFilter.disabled = false;
 
+  document.getElementById('loadBtn').disabled = false;
   filterOutputs();
 }
 
-// ── SIDEBAR TOGGLE ────────────────────────────────────────────────────────────
-let sidebarOpen = true;
-function toggleSidebar() {
-  sidebarOpen = !sidebarOpen;
-  const sidebar = document.querySelector('.sidebar');
-  const main = document.querySelector('.main');
-  const btn = document.getElementById('sidebarToggle');
-  sidebar.classList.toggle('collapsed', !sidebarOpen);
-  main.classList.toggle('expanded', !sidebarOpen);
-  btn.classList.toggle('collapsed', !sidebarOpen);
-  btn.textContent = sidebarOpen ? '◀' : '▶';
-  btn.style.left = sidebarOpen ? 'var(--sidebar-w)' : '0';
-}
-
 function filterOutputs() {
-  const cond = document.getElementById('condFilter').value;
+  const cond   = document.getElementById('condFilter').value;
   const region = document.getElementById('regionFilter').value;
-  const grid = document.getElementById('outputsGrid');
-  const count = document.getElementById('outputsCount');
-
-  const filtered = allOutputs.filter(o =>
-    (!cond || o.condition === cond) && (!region || o.region === region)
-  );
-
-  count.textContent = `${filtered.length} image${filtered.length !== 1 ? 's' : ''}`;
-
-  if (!filtered.length) {
-    grid.innerHTML = '<div class="outputs-empty">No images match this filter.</div>';
-    return;
-  }
-
+  const grid   = document.getElementById('outputsGrid');
+  const filtered = allOutputs.filter(o => (!cond || o.condition === cond) && (!region || o.region === region));
+  document.getElementById('outputsCount').textContent = `${filtered.length} image${filtered.length !== 1 ? 's' : ''}`;
+  if (!filtered.length) { grid.innerHTML = '<div class="outputs-empty">No images match.</div>'; return; }
   grid.innerHTML = '';
   filtered.forEach(o => {
     const card = document.createElement('div');
     card.className = 'output-card';
-    card.setAttribute('tabindex', '0');
-    const img = document.createElement('img');
-    img.src = o.url;
-    img.alt = o.name;
-    img.loading = 'lazy';
-    const cap = document.createElement('div');
-    cap.className = 'output-caption';
-    cap.textContent = o.name;
+    card.setAttribute('tabindex','0');
+    const img = document.createElement('img'); img.src = o.url; img.alt = o.name; img.loading = 'lazy';
+    const cap = document.createElement('div'); cap.className = 'output-caption'; cap.textContent = o.name;
     card.appendChild(img); card.appendChild(cap);
     card.addEventListener('click', () => openLightbox(o.url, o.name));
-    card.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openLightbox(o.url, o.name); } });
+    card.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); openLightbox(o.url, o.name); } });
     grid.appendChild(card);
   });
 }
 
-// ── PREFACE ───────────────────────────────────────────────────────────────────
-let prefaceLoaded = false;
-
-async function loadPreface() {
+// ── PART 02 CLUSTERING ────────────────────────────────────────────────────────
+function loadClustering() {
   clearActive();
-  document.getElementById('nav-preface').classList.add('active');
+  document.getElementById('nav-02-out')?.classList.add('active');
+  state.part = '02';
+  showTabs('notebook','functions','clustering');
+  switchTab('clustering');
+  initClustering();
+}
 
-  // Show/hide tabs
-  document.getElementById('tab-preface').style.display = '';
-  document.getElementById('tab-notebook').style.display = 'none';
-  document.getElementById('tab-functions').style.display = 'none';
-  document.getElementById('tab-outputs').style.display = 'none';
-
-  switchTab('preface');
-  history.replaceState(null, '', '#preface');
-
-  if (prefaceLoaded) return;
-
-  const url = `${REPO_RAW}/PhD_story/phd_story.md`;
-  const container = document.getElementById('prefaceContent');
+async function initClustering() {
+  const runSelect = document.getElementById('runSelect');
+  runSelect.innerHTML = '<option value="">Loading runs...</option>';
   try {
-    const res = await fetch(url);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const md = await res.text();
-    container.innerHTML = marked.parse(md);
-    prefaceLoaded = true;
+    const items = await apiList('02_FBM_Clustering/outputs/clustering/kmeans');
+    const jsonFiles = items.filter(i => i.name.startsWith('metrics_') && i.name.endsWith('.json'));
+    clusterData.runs = jsonFiles.map(f => {
+      const match = f.name.match(/metrics_(.+)\.json/);
+      return { file: f.name, tag: match ? match[1] : f.name, rawUrl: `${REPO_RAW}/02_FBM_Clustering/outputs/clustering/kmeans/${f.name}` };
+    });
+    runSelect.innerHTML = '<option value="">Select a run...</option>';
+    clusterData.runs.forEach((r, i) => {
+      const o = document.createElement('option'); o.value = i; o.textContent = r.tag; runSelect.appendChild(o);
+    });
+    if (clusterData.runs.length === 1) { runSelect.value = 0; onRunChange(); }
   } catch(e) {
-    container.innerHTML = `<p style="color:var(--accent)">Could not load phd_story.md. Make sure the repo is public and the file is at <code>PhD_story/phd_story.md</code>.<br><small>${e.message}</small></p>`;
+    runSelect.innerHTML = `<option value="">Error: ${e.message}</option>`;
   }
 }
 
-// ── TABS ──────────────────────────────────────────────────────────────────────
-function switchTab(tab) {
-  state.tab = tab;
-  ['notebook','functions','outputs','preface'].forEach(t => {
-    document.getElementById(`tab-${t}`)?.classList.toggle('active', t === tab);
-    document.getElementById(`panel-${t}`)?.classList.toggle('active', t === tab);
+async function onRunChange() {
+  const idx = document.getElementById('runSelect').value;
+  if (idx === '') return;
+  const run = clusterData.runs[idx];
+  document.getElementById('clusterGrid').innerHTML = '<div class="cluster-empty">Loading...</div>';
+  document.getElementById('metricsContent').innerHTML = '<div class="cluster-empty">Loading...</div>';
+  document.getElementById('clusterNav').style.display = 'none';
+
+  try {
+    // Load metrics JSON
+    const mRes = await fetch(run.rawUrl);
+    if (!mRes.ok) throw new Error(`HTTP ${mRes.status}`);
+    clusterData.metrics = await mRes.json();
+
+    // Load labels CSV
+    const labelFile = run.file.replace('metrics_', 'labels_').replace('.json', '.csv');
+    const lRes = await fetch(`${REPO_RAW}/02_FBM_Clustering/outputs/clustering/kmeans/${labelFile}`);
+    if (!lRes.ok) throw new Error(`Labels CSV not found`);
+    const csvText = await lRes.text();
+    clusterData.labels = parseCSV(csvText);
+
+    clusterData.currentCluster = 0;
+    renderCluster(0);
+    renderMetrics();
+  } catch(e) {
+    document.getElementById('clusterGrid').innerHTML = `<div class="cluster-empty">Error: ${e.message}</div>`;
+  }
+}
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',');
+  return lines.slice(1).map(line => {
+    const vals = line.split(',');
+    const obj = {};
+    headers.forEach((h, i) => obj[h.trim()] = (vals[i] || '').trim());
+    return obj;
   });
 }
 
-// ── NOTES ─────────────────────────────────────────────────────────────────────
-function toggleNotes() {
-  document.getElementById('notesDrawer').classList.toggle('open');
+function renderCluster(clusterIdx) {
+  const metrics = clusterData.metrics;
+  const nClusters = metrics.n_clusters;
+  clusterData.currentCluster = clusterIdx;
+
+  // Nav
+  const nav = document.getElementById('clusterNav');
+  nav.style.display = 'flex';
+  document.getElementById('clusterLabel').textContent = `Cluster ${clusterIdx + 1} / ${nClusters}`;
+  document.getElementById('prevCluster').disabled = clusterIdx === 0;
+  document.getElementById('nextCluster').disabled = clusterIdx === nClusters - 1;
+  const count = metrics.cluster_counts[clusterIdx] || 0;
+  document.getElementById('clusterInfo').textContent = `${count} electrode${count !== 1 ? 's' : ''}`;
+
+  // Filter labels for this cluster
+  const rows = clusterData.labels.filter(r => parseInt(r.cluster_kmeans_raw) === clusterIdx);
+  const grid = document.getElementById('clusterGrid');
+  grid.innerHTML = '';
+
+  if (!rows.length) { grid.innerHTML = '<div class="cluster-empty">No images for this cluster.</div>'; return; }
+
+  rows.forEach(row => {
+    // Reconstruct image URL from CSV columns
+    // file_path has .npy in ERSP_matrix — convert to ERSP_clean .png
+    const npyName = row.file_path.split('\\').pop(); // e.g. EL030_audio_WM_ERSP_A_L10_TN.npy
+    const pngName = npyName.replace('_TN.npy', '_TN_CLEAN.png');
+    const imgUrl = `${REPO_RAW}/01_FBM_Analysis/outputs/04_ersp_LM_RAWONLY/${row.patient_id}/${row.task}/ERSP_clean/${row.condition}/${pngName}`;
+
+    const card = document.createElement('div');
+    card.className = 'cluster-card';
+    card.setAttribute('tabindex','0');
+    const img = document.createElement('img'); img.src = imgUrl; img.alt = pngName; img.loading = 'lazy';
+    const info = document.createElement('div');
+    info.className = 'cluster-card-info';
+    info.textContent = `${row.patient_id} · ${row.condition} · ${row.electrode}`;
+    card.appendChild(img); card.appendChild(info);
+    card.addEventListener('click', () => openLightbox(imgUrl, `${row.patient_id} · ${row.condition} · ${row.electrode}`));
+    card.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); openLightbox(imgUrl, info.textContent); } });
+    grid.appendChild(card);
+  });
 }
 
-// ── COPY LINK ─────────────────────────────────────────────────────────────────
+function navigateCluster(dir) {
+  const n = clusterData.metrics.n_clusters;
+  const next = Math.max(0, Math.min(n - 1, clusterData.currentCluster + dir));
+  renderCluster(next);
+}
+
+function renderMetrics() {
+  const m = clusterData.metrics;
+  if (!m) return;
+  const maxCount = Math.max(...m.cluster_counts);
+  const bars = m.cluster_counts.map((c, i) => `
+    <div class="bar-wrap" title="Cluster ${i+1}: ${c}">
+      <div class="bar" style="height:${Math.round((c/maxCount)*70)}px" onclick="switchSubTab('clusters'); renderCluster(${i})"></div>
+      <div class="bar-num">${i+1}</div>
+    </div>`).join('');
+
+  document.getElementById('metricsContent').innerHTML = `
+    <div class="metrics-grid">
+      <div class="metric-card"><div class="metric-label">Clusters</div><div class="metric-value">${m.n_clusters}</div></div>
+      <div class="metric-card"><div class="metric-label">Samples</div><div class="metric-value">${m.n_samples}</div></div>
+      <div class="metric-card"><div class="metric-label">Features</div><div class="metric-value">${m.n_features.toLocaleString()}</div></div>
+      <div class="metric-card"><div class="metric-label">Silhouette</div><div class="metric-value">${m.silhouette.toFixed(4)}<small></small></div></div>
+    </div>
+    <div class="metrics-section">
+      <h3>Cluster sizes <span style="font-size:0.65rem;color:var(--muted);font-weight:400">(click bar to view cluster)</span></h3>
+      <div class="bar-chart">${bars}</div>
+    </div>
+    <div class="metrics-section">
+      <h3>Patients</h3>
+      <div class="patients-list">${m.patients.map(p => `<span class="patient-tag">${p}</span>`).join('')}</div>
+    </div>
+    <div class="metrics-section">
+      <h3>Run details</h3>
+      <div class="patients-list">
+        <span class="patient-tag">task: ${m.task}</span>
+        <span class="patient-tag">algo: ${m.algo_tag}</span>
+        <span class="patient-tag">run: ${m.run_id}</span>
+        <span class="patient-tag">seed: ${m.random_state}</span>
+      </div>
+    </div>
+    ${m.note ? `<div class="metrics-section"><div class="note-box">${m.note}</div></div>` : ''}
+  `;
+}
+
+// ── NOTES / COPY / HASH ───────────────────────────────────────────────────────
+function toggleNotes() { document.getElementById('notesDrawer').classList.toggle('open'); }
 function copyLink() {
   const url = window.location.href.split('#')[0] + (state.chapter ? `#${state.part}-${state.chapter}` : '');
   navigator.clipboard.writeText(url).then(() => {
@@ -1092,8 +948,6 @@ function copyLink() {
     setTimeout(() => btn.textContent = orig, 1800);
   });
 }
-
-// ── HASH ROUTING ─────────────────────────────────────────────────────────────
 function handleHash() {
   const hash = window.location.hash.slice(1);
   if (!hash) return;
@@ -1104,32 +958,25 @@ function handleHash() {
 window.addEventListener('hashchange', handleHash);
 
 // ── LIGHTBOX ──────────────────────────────────────────────────────────────────
-const lightbox  = document.getElementById('lightbox');
-const lbImg     = document.getElementById('lightboxImg');
+const lightbox = document.getElementById('lightbox');
+const lbImg    = document.getElementById('lightboxImg');
 const lbCaption = document.getElementById('lightboxCaption');
-const lbClose   = document.getElementById('lightboxClose');
+const lbClose  = document.getElementById('lightboxClose');
 let lastFocused = null;
-
 function openLightbox(src, caption) {
   lastFocused = document.activeElement;
-  lbImg.src = src; lbImg.alt = caption;
-  lbCaption.textContent = caption;
-  lightbox.classList.add('open');
-  lightbox.setAttribute('aria-hidden','false');
-  lbClose.focus();
-  document.body.style.overflow = 'hidden';
+  lbImg.src = src; lbImg.alt = caption; lbCaption.textContent = caption;
+  lightbox.classList.add('open'); lightbox.setAttribute('aria-hidden','false');
+  lbClose.focus(); document.body.style.overflow = 'hidden';
 }
 function closeLightbox() {
-  lightbox.classList.remove('open');
-  lightbox.setAttribute('aria-hidden','true');
+  lightbox.classList.remove('open'); lightbox.setAttribute('aria-hidden','true');
   lbImg.src = ''; document.body.style.overflow = '';
   if (lastFocused) lastFocused.focus();
 }
 lightbox.addEventListener('click', e => { if (e.target === lightbox) closeLightbox(); });
 lbClose.addEventListener('click', closeLightbox);
-document.addEventListener('keydown', e => {
-  if (e.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox();
-});
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && lightbox.classList.contains('open')) closeLightbox(); });
 </script>
 </body>
 </html>

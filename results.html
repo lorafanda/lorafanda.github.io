@@ -632,6 +632,10 @@
               <select class="filter-select" id="analysisFilter" onchange="onAnalysisChange()">
                 <option value="">Loading...</option>
               </select>
+              <span class="filter-label" style="margin-left:0.5rem">Patient</span>
+              <select class="filter-select" id="patientFilter" onchange="onPatientChange()" disabled>
+                <option value="">—</option>
+              </select>
               <span class="filter-label" style="margin-left:0.5rem">Experiment type</span>
               <select class="filter-select" id="hemiFilter" onchange="onExpTypeChange()" disabled>
                 <option value="">—</option>
@@ -668,7 +672,6 @@
 
 const CODE = 'LiLo';
 const REPO_RAW = 'https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/main';
-const PATIENT = 'EL030'; // Part 01 outputs scoped to this patient
 
 // Notes per chapter — key is part+chapterNum
 const NOTES = {
@@ -854,16 +857,12 @@ function setSelect(id, items, placeholder) {
 }
 
 function resetFrom(level) {
-  // level: 'exp' | 'cond' | 'region'
-  if (level === 'exp' || level === 'cond' || level === 'region') {
-    setSelect('hemiFilter', [], '—'); document.getElementById('hemiFilter').disabled = true;
-  }
-  if (level === 'cond' || level === 'region') {
-    setSelect('condFilter', [], 'All'); document.getElementById('condFilter').disabled = true;
-  }
-  if (level === 'region') {
-    setSelect('regionFilter', [], 'All'); document.getElementById('regionFilter').disabled = true;
-  }
+  const levels = ['patient', 'exp', 'cond', 'region'];
+  const from = levels.indexOf(level);
+  if (from <= 0) { setSelect('patientFilter', [], '—'); document.getElementById('patientFilter').disabled = true; }
+  if (from <= 1) { setSelect('hemiFilter', [], '—'); document.getElementById('hemiFilter').disabled = true; }
+  if (from <= 2) { setSelect('condFilter', [], 'All'); document.getElementById('condFilter').disabled = true; }
+  if (from <= 3) { setSelect('regionFilter', [], 'All'); document.getElementById('regionFilter').disabled = true; }
   allOutputs = [];
   document.getElementById('outputsCount').textContent = '';
   document.getElementById('outputsGrid').innerHTML = '<div class="outputs-empty">Choose filters above to load images.</div>';
@@ -872,8 +871,7 @@ function resetFrom(level) {
 async function apiList(path) {
   const res = await fetch(`${GITHUB_API}/${path}`);
   if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
-  const items = await res.json();
-  return items;
+  return await res.json();
 }
 
 function loadOutputs(part) {
@@ -890,7 +888,7 @@ function loadOutputs(part) {
 }
 
 async function initOutputs01() {
-  resetFrom('exp');
+  resetFrom('patient');
   setSelect('analysisFilter', [], 'Loading...');
   document.getElementById('analysisFilter').disabled = true;
   try {
@@ -899,17 +897,31 @@ async function initOutputs01() {
     setSelect('analysisFilter', folders, 'Select analysis...');
     document.getElementById('analysisFilter').disabled = false;
   } catch(e) {
-    setSelect('analysisFilter', [], 'Error loading');
     document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">Could not load analysis folders.<br><small style="color:var(--accent)">${e.message}</small></div>`;
   }
 }
 
 async function onAnalysisChange() {
-  resetFrom('exp');
+  resetFrom('patient');
   const analysis = document.getElementById('analysisFilter').value;
   if (!analysis) return;
   try {
-    const items = await apiList(`01_FBM_Analysis/outputs/${analysis}/${PATIENT}`);
+    const items = await apiList(`01_FBM_Analysis/outputs/${analysis}`);
+    const folders = items.filter(i => i.type === 'dir').map(i => i.name).sort();
+    setSelect('patientFilter', folders, 'Select patient...');
+    document.getElementById('patientFilter').disabled = false;
+  } catch(e) {
+    document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">Could not load patients.<br><small style="color:var(--accent)">${e.message}</small></div>`;
+  }
+}
+
+async function onPatientChange() {
+  resetFrom('exp');
+  const analysis = document.getElementById('analysisFilter').value;
+  const patient = document.getElementById('patientFilter').value;
+  if (!analysis || !patient) return;
+  try {
+    const items = await apiList(`01_FBM_Analysis/outputs/${analysis}/${patient}`);
     const folders = items.filter(i => i.type === 'dir').map(i => i.name).sort();
     setSelect('hemiFilter', folders, 'Select type...');
     document.getElementById('hemiFilter').disabled = false;
@@ -921,13 +933,13 @@ async function onAnalysisChange() {
 async function onExpTypeChange() {
   resetFrom('cond');
   const analysis = document.getElementById('analysisFilter').value;
+  const patient = document.getElementById('patientFilter').value;
   const expType = document.getElementById('hemiFilter').value;
-  if (!analysis || !expType) return;
+  if (!analysis || !patient || !expType) return;
   try {
-    // List inside ERSP_clean (or directly if no ERSP_clean subfolder)
-    let basePath = `01_FBM_Analysis/outputs/${analysis}/${PATIENT}/${expType}`;
+    let basePath = `01_FBM_Analysis/outputs/${analysis}/${patient}/${expType}`;
     let items = await apiList(basePath);
-    // Check if there's an ERSP_clean subfolder
+    // If there's an ERSP_clean subfolder, go one level deeper
     const ersp = items.find(i => i.type === 'dir' && i.name === 'ERSP_clean');
     if (ersp) {
       basePath += '/ERSP_clean';
@@ -936,7 +948,6 @@ async function onExpTypeChange() {
     const condFolders = items.filter(i => i.type === 'dir').map(i => i.name).sort();
     setSelect('condFilter', condFolders, 'All');
     document.getElementById('condFilter').disabled = false;
-    // Fetch all images now
     await fetchAllImages(basePath, condFolders);
   } catch(e) {
     document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">Could not load conditions.<br><small style="color:var(--accent)">${e.message}</small></div>`;

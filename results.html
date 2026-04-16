@@ -229,12 +229,32 @@
     .patients-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
     .patient-tag { font-size: 0.75rem; background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 2px 10px; font-family: 'JetBrains Mono', monospace; }
     .note-box { background: var(--surface); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 0.75rem 1rem; font-size: 0.85rem; color: var(--muted); font-style: italic; }
-    /* Cluster bar chart */
-    .bar-chart { display: flex; align-items: flex-end; gap: 2px; height: 80px; margin-top: 0.5rem; }
-    .bar-wrap { display: flex; flex-direction: column; align-items: center; flex: 1; }
-    .bar { width: 100%; background: var(--accent); border-radius: 2px 2px 0 0; min-height: 2px; transition: opacity 0.2s; cursor: pointer; }
-    .bar:hover { opacity: 0.7; }
-    .bar-num { font-size: 0.45rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; }
+
+    /* Cluster stacked bar chart */
+    .bar-chart-wrap { overflow-x: auto; padding-bottom: 0.5rem; }
+    .bar-chart { display: flex; align-items: flex-end; gap: 3px; height: 180px; margin-top: 0.5rem; min-width: max-content; }
+    .bar-wrap { display: flex; flex-direction: column; align-items: center; cursor: pointer; }
+    .bar-wrap:hover .bar-segment { filter: brightness(1.12); }
+    .bar-wrap.selected .bar-segment { outline: 2px solid var(--text); outline-offset: 1px; }
+    .bar-stack { display: flex; flex-direction: column-reverse; width: 22px; border-radius: 3px 3px 0 0; overflow: hidden; }
+    .bar-segment { width: 22px; min-height: 2px; transition: filter 0.15s; }
+    .bar-total { font-size: 0.52rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; text-align: center; }
+    .bar-num { font-size: 0.48rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; text-align: center; width: 22px; }
+
+    /* Cluster detail panel shown on bar click */
+    .cluster-detail {
+      margin-top: 1.25rem; background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px; padding: 1rem 1.25rem; display: none;
+    }
+    .cluster-detail.visible { display: block; }
+    .cluster-detail h4 { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 600; margin-bottom: 0.75rem; }
+    .detail-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.35rem; font-size: 0.8rem; }
+    .detail-swatch { width: 12px; height: 12px; border-radius: 3px; flex-shrink: 0; }
+    .detail-name { color: var(--text); font-weight: 500; min-width: 60px; font-family: 'JetBrains Mono', monospace; font-size: 0.75rem; }
+    .detail-bar-bg { flex: 1; height: 8px; background: var(--surface2); border-radius: 4px; overflow: hidden; }
+    .detail-bar-fill { height: 100%; border-radius: 4px; }
+    .detail-count { font-size: 0.72rem; color: var(--muted); min-width: 28px; text-align: right; font-family: 'JetBrains Mono', monospace; }
+    .detail-section-title { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 500; margin: 0.75rem 0 0.35rem; }
 
     /* LIGHTBOX */
     .lightbox { display: none; position: fixed; inset: 0; z-index: 999; background: rgba(30,20,18,0.93); align-items: center; justify-content: center; cursor: zoom-out; }
@@ -899,31 +919,76 @@ function navigateCluster(dir) {
   renderCluster(next);
 }
 
+// ── PATIENT COLOR MAP ────────────────────────────────────────────────────────
+const PAT_COLORS = {
+  EL: ['blue','deepskyblue','cyan','teal','green','lime','powderblue','forestgreen','lightcyan'],
+  PAT: ['blueviolet','fuchsia','deeppink','crimson','pink','red','chocolate','gold','purple','saddlebrown','lemonchiffon','lavenderblush','lime','powderblue','forestgreen','lightcyan'],
+  MICRO: ['navy','darkslategray','black','darkred','darkolivegreen'],
+};
+
+function getPatientColor(patientId) {
+  const prefix = patientId.replace(/\d+/g,''); // EL, PAT, MICRO etc.
+  const palette = PAT_COLORS[prefix] || PAT_COLORS.EL;
+  // Consistent index by patient number
+  const num = parseInt(patientId.replace(/\D/g,'')) || 0;
+  return palette[num % palette.length];
+}
+
 function renderMetrics() {
   const m = clusterData.metrics;
   if (!m) return;
+
+  // Pre-compute per-cluster patient counts and condition counts from labels
+  const clusterStats = Array.from({length: m.n_clusters}, () => ({ patients: {}, conditions: {} }));
+  clusterData.labels.forEach(row => {
+    const ci = parseInt(row.cluster_kmeans_raw);
+    if (isNaN(ci)) return;
+    const s = clusterStats[ci];
+    s.patients[row.patient_id] = (s.patients[row.patient_id] || 0) + 1;
+    s.conditions[row.condition] = (s.conditions[row.condition] || 0) + 1;
+  });
+
+  const allPatients = [...new Set(clusterData.labels.map(r => r.patient_id))].sort();
+  const allConditions = [...new Set(clusterData.labels.map(r => r.condition))].sort();
   const maxCount = Math.max(...m.cluster_counts);
-  const bars = m.cluster_counts.map((c, i) => `
-    <div class="bar-wrap" title="Cluster ${i+1}: ${c}">
-      <div class="bar" style="height:${Math.round((c/maxCount)*70)}px" onclick="switchSubTab('clusters'); renderCluster(${i})"></div>
-      <div class="bar-num">${i+1}</div>
-    </div>`).join('');
+
+  // Build stacked bars — stacked by patient
+  const bars = m.cluster_counts.map((total, i) => {
+    const segments = allPatients.map(p => {
+      const count = clusterStats[i].patients[p] || 0;
+      const h = Math.round((count / maxCount) * 160);
+      if (!h) return '';
+      return `<div class="bar-segment" style="height:${h}px;background:${getPatientColor(p)}" title="${p}: ${count}"></div>`;
+    }).join('');
+    return `
+      <div class="bar-wrap" id="bar-${i}" onclick="showClusterDetail(${i})">
+        <div class="bar-stack">${segments}</div>
+        <div class="bar-total">${total}</div>
+        <div class="bar-num">${i+1}</div>
+      </div>`;
+  }).join('');
+
+  // Legend
+  const legend = allPatients.map(p =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:0.72rem;font-family:monospace">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${getPatientColor(p)}"></span>${p}
+    </span>`).join('');
 
   document.getElementById('metricsContent').innerHTML = `
     <div class="metrics-grid">
       <div class="metric-card"><div class="metric-label">Clusters</div><div class="metric-value">${m.n_clusters}</div></div>
       <div class="metric-card"><div class="metric-label">Samples</div><div class="metric-value">${m.n_samples}</div></div>
       <div class="metric-card"><div class="metric-label">Features</div><div class="metric-value">${m.n_features.toLocaleString()}</div></div>
-      <div class="metric-card"><div class="metric-label">Silhouette</div><div class="metric-value">${m.silhouette.toFixed(4)}<small></small></div></div>
+      <div class="metric-card"><div class="metric-label">Silhouette</div><div class="metric-value">${m.silhouette.toFixed(4)}</div></div>
     </div>
+
     <div class="metrics-section">
-      <h3>Cluster sizes <span style="font-size:0.65rem;color:var(--muted);font-weight:400">(click bar to view cluster)</span></h3>
-      <div class="bar-chart">${bars}</div>
+      <h3>Cluster composition <span style="font-size:0.65rem;color:var(--muted);font-weight:400">— coloured by patient, click bar for details</span></h3>
+      <div style="margin-bottom:0.5rem;line-height:2">${legend}</div>
+      <div class="bar-chart-wrap"><div class="bar-chart">${bars}</div></div>
+      <div class="cluster-detail" id="clusterDetail"></div>
     </div>
-    <div class="metrics-section">
-      <h3>Patients</h3>
-      <div class="patients-list">${m.patients.map(p => `<span class="patient-tag">${p}</span>`).join('')}</div>
-    </div>
+
     <div class="metrics-section">
       <h3>Run details</h3>
       <div class="patients-list">
@@ -935,6 +1000,61 @@ function renderMetrics() {
     </div>
     ${m.note ? `<div class="metrics-section"><div class="note-box">${m.note}</div></div>` : ''}
   `;
+
+  // Store for detail use
+  window._clusterStats = clusterStats;
+  window._allPatients = allPatients;
+  window._allConditions = allConditions;
+}
+
+function showClusterDetail(i) {
+  // Highlight selected bar
+  document.querySelectorAll('.bar-wrap').forEach(b => b.classList.remove('selected'));
+  document.getElementById(`bar-${i}`)?.classList.add('selected');
+
+  const stats = window._clusterStats[i];
+  const patients = window._allPatients;
+  const conditions = window._allConditions;
+  const total = clusterData.metrics.cluster_counts[i];
+  const maxPat = Math.max(...Object.values(stats.patients || {1:1}));
+  const maxCond = Math.max(...Object.values(stats.conditions || {1:1}));
+
+  const patRows = patients.filter(p => stats.patients[p]).map(p => {
+    const c = stats.patients[p];
+    const pct = Math.round((c/total)*100);
+    const fillW = Math.round((c/maxPat)*100);
+    return `<div class="detail-row">
+      <div class="detail-swatch" style="background:${getPatientColor(p)}"></div>
+      <div class="detail-name">${p}</div>
+      <div class="detail-bar-bg"><div class="detail-bar-fill" style="width:${fillW}%;background:${getPatientColor(p)}"></div></div>
+      <div class="detail-count">${c} <span style="color:var(--muted)">(${pct}%)</span></div>
+    </div>`;
+  }).join('');
+
+  const condColors = ['#b85c6e','#c47a5a','#7a8c6e','#7a6560','#5a8a9f'];
+  const condRows = conditions.filter(c => stats.conditions[c]).map((c, ci) => {
+    const count = stats.conditions[c];
+    const pct = Math.round((count/total)*100);
+    const fillW = Math.round((count/maxCond)*100);
+    const col = condColors[ci % condColors.length];
+    return `<div class="detail-row">
+      <div class="detail-swatch" style="background:${col}"></div>
+      <div class="detail-name">${c}</div>
+      <div class="detail-bar-bg"><div class="detail-bar-fill" style="width:${fillW}%;background:${col}"></div></div>
+      <div class="detail-count">${count} <span style="color:var(--muted)">(${pct}%)</span></div>
+    </div>`;
+  }).join('');
+
+  const detail = document.getElementById('clusterDetail');
+  detail.classList.add('visible');
+  detail.innerHTML = `
+    <h4>Cluster ${i+1} — ${total} electrodes</h4>
+    <div class="detail-section-title">By patient</div>
+    ${patRows}
+    <div class="detail-section-title">By condition</div>
+    ${condRows}
+  `;
+  detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
 }
 
 // ── NOTES / COPY / HASH ───────────────────────────────────────────────────────

@@ -824,7 +824,6 @@ async function loadFile(part, filename) {
 }
 
 // ── OUTPUTS ───────────────────────────────────────────────────────────────────
-let allOutputs = [];
 
 function loadOutputs(part) {
   clearActive();
@@ -836,7 +835,7 @@ function loadOutputs(part) {
   document.getElementById('tab-preface').style.display = 'none';
   document.getElementById('tab-outputs').style.display = '';
   switchTab('outputs');
-  if (part === '01') fetchOutputs01();
+  if (part === '01') initOutputs01();
 }
 
 // ── OUTPUTS — fully dynamic cascade ──────────────────────────────────────────

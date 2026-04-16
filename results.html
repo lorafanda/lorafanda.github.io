@@ -629,35 +629,25 @@
           <div class="outputs-panel">
             <div class="outputs-filters">
               <span class="filter-label">Analysis</span>
-              <select class="filter-select" id="analysisFilter" onchange="reloadOutputs()">
-                <option value="04_ersp_LM_RAWONLY">04_ersp_LM_RAWONLY</option>
-                <option value="04_ersp_LM">04_ersp_LM</option>
+              <select class="filter-select" id="analysisFilter" onchange="onAnalysisChange()">
+                <option value="">Loading...</option>
               </select>
-              <span class="filter-label" style="margin-left:0.5rem">Hemisphere</span>
-              <select class="filter-select" id="hemiFilter" onchange="reloadOutputs()">
-                <option value="LM">LM</option>
-                <option value="CLV">CLV</option>
-                <option value="CLA">CLA</option>
-                <option value="MM">MM</option>
+              <span class="filter-label" style="margin-left:0.5rem">Experiment type</span>
+              <select class="filter-select" id="hemiFilter" onchange="onExpTypeChange()" disabled>
+                <option value="">—</option>
               </select>
               <span class="filter-label" style="margin-left:0.5rem">Condition</span>
-              <select class="filter-select" id="condFilter" onchange="filterOutputs()">
+              <select class="filter-select" id="condFilter" onchange="filterOutputs()" disabled>
                 <option value="">All</option>
-                <option value="audio">Audio</option>
-                <option value="picture">Picture</option>
-                <option value="reading">Reading</option>
               </select>
               <span class="filter-label" style="margin-left:0.5rem">Region</span>
-              <select class="filter-select" id="regionFilter" onchange="filterOutputs()">
+              <select class="filter-select" id="regionFilter" onchange="filterOutputs()" disabled>
                 <option value="">All</option>
               </select>
               <span class="outputs-count" id="outputsCount"></span>
             </div>
             <div class="outputs-grid" id="outputsGrid">
-              <div class="outputs-empty">
-                Outputs load from <code>https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/main/</code><br>
-                Make sure the repo is public.
-              </div>
+              <div class="outputs-empty">Select an analysis folder to load outputs.</div>
             </div>
           </div>
         </div>
@@ -849,57 +839,142 @@ function loadOutputs(part) {
   if (part === '01') fetchOutputs01();
 }
 
-// Reload when analysis folder or hemisphere changes
-function reloadOutputs() {
-  allOutputs = [];
-  document.getElementById('regionFilter').innerHTML = '<option value="">All</option>';
-  fetchOutputs01();
+// ── OUTPUTS — fully dynamic cascade ──────────────────────────────────────────
+const GITHUB_API = 'https://api.github.com/repos/lorafanda/Analysis_LoraFanda/contents';
+let allOutputs = [];
+
+function setSelect(id, items, placeholder) {
+  const sel = document.getElementById(id);
+  sel.innerHTML = `<option value="">${placeholder}</option>`;
+  items.forEach(v => {
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    sel.appendChild(o);
+  });
+  sel.disabled = items.length === 0;
 }
 
-// For Part 01 — build output list dynamically from selected analysis folder + hemisphere
-async function fetchOutputs01() {
+function resetFrom(level) {
+  // level: 'exp' | 'cond' | 'region'
+  if (level === 'exp' || level === 'cond' || level === 'region') {
+    setSelect('hemiFilter', [], '—'); document.getElementById('hemiFilter').disabled = true;
+  }
+  if (level === 'cond' || level === 'region') {
+    setSelect('condFilter', [], 'All'); document.getElementById('condFilter').disabled = true;
+  }
+  if (level === 'region') {
+    setSelect('regionFilter', [], 'All'); document.getElementById('regionFilter').disabled = true;
+  }
+  allOutputs = [];
+  document.getElementById('outputsCount').textContent = '';
+  document.getElementById('outputsGrid').innerHTML = '<div class="outputs-empty">Choose filters above to load images.</div>';
+}
+
+async function apiList(path) {
+  const res = await fetch(`${GITHUB_API}/${path}`);
+  if (!res.ok) throw new Error(`HTTP ${res.status} for ${path}`);
+  const items = await res.json();
+  return items;
+}
+
+function loadOutputs(part) {
+  clearActive();
+  const navEl = document.getElementById(`nav-${part}-out`);
+  if (navEl) navEl.classList.add('active');
+  state.part = part;
+  document.getElementById('tab-notebook').style.display = '';
+  document.getElementById('tab-functions').style.display = '';
+  document.getElementById('tab-preface').style.display = 'none';
+  document.getElementById('tab-outputs').style.display = '';
+  switchTab('outputs');
+  if (part === '01') initOutputs01();
+}
+
+async function initOutputs01() {
+  resetFrom('exp');
+  setSelect('analysisFilter', [], 'Loading...');
+  document.getElementById('analysisFilter').disabled = true;
+  try {
+    const items = await apiList(`01_FBM_Analysis/outputs`);
+    const folders = items.filter(i => i.type === 'dir').map(i => i.name).sort();
+    setSelect('analysisFilter', folders, 'Select analysis...');
+    document.getElementById('analysisFilter').disabled = false;
+  } catch(e) {
+    setSelect('analysisFilter', [], 'Error loading');
+    document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">Could not load analysis folders.<br><small style="color:var(--accent)">${e.message}</small></div>`;
+  }
+}
+
+async function onAnalysisChange() {
+  resetFrom('exp');
+  const analysis = document.getElementById('analysisFilter').value;
+  if (!analysis) return;
+  try {
+    const items = await apiList(`01_FBM_Analysis/outputs/${analysis}/${PATIENT}`);
+    const folders = items.filter(i => i.type === 'dir').map(i => i.name).sort();
+    setSelect('hemiFilter', folders, 'Select type...');
+    document.getElementById('hemiFilter').disabled = false;
+  } catch(e) {
+    document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">Could not load experiment types.<br><small style="color:var(--accent)">${e.message}</small></div>`;
+  }
+}
+
+async function onExpTypeChange() {
+  resetFrom('cond');
+  const analysis = document.getElementById('analysisFilter').value;
+  const expType = document.getElementById('hemiFilter').value;
+  if (!analysis || !expType) return;
+  try {
+    // List inside ERSP_clean (or directly if no ERSP_clean subfolder)
+    let basePath = `01_FBM_Analysis/outputs/${analysis}/${PATIENT}/${expType}`;
+    let items = await apiList(basePath);
+    // Check if there's an ERSP_clean subfolder
+    const ersp = items.find(i => i.type === 'dir' && i.name === 'ERSP_clean');
+    if (ersp) {
+      basePath += '/ERSP_clean';
+      items = await apiList(basePath);
+    }
+    const condFolders = items.filter(i => i.type === 'dir').map(i => i.name).sort();
+    setSelect('condFilter', condFolders, 'All');
+    document.getElementById('condFilter').disabled = false;
+    // Fetch all images now
+    await fetchAllImages(basePath, condFolders);
+  } catch(e) {
+    document.getElementById('outputsGrid').innerHTML = `<div class="outputs-empty">Could not load conditions.<br><small style="color:var(--accent)">${e.message}</small></div>`;
+  }
+}
+
+async function fetchAllImages(basePath, conditions) {
   const grid = document.getElementById('outputsGrid');
-  grid.innerHTML = '<div class="outputs-empty">Loading outputs...</div>';
-
-  const analysisFolder = document.getElementById('analysisFilter').value;
-  const hemi = document.getElementById('hemiFilter').value;
-  const conditions = ['audio', 'picture', 'reading'];
-  const base = `01_FBM_Analysis/outputs/${analysisFolder}/${PATIENT}/${hemi}/ERSP_clean`;
-  const apiBase = `https://api.github.com/repos/lorafanda/Analysis_LoraFanda/contents/${base}`;
-
+  grid.innerHTML = '<div class="outputs-empty">Loading images...</div>';
   allOutputs = [];
   const regionSet = new Set();
 
-  try {
-    for (const cond of conditions) {
-      const res = await fetch(`${apiBase}/${cond}`);
-      if (!res.ok) continue;
-      const files = await res.json();
+  for (const cond of conditions) {
+    try {
+      const files = await apiList(`${basePath}/${cond}`);
       for (const f of files) {
         if (!f.name.endsWith('.png')) continue;
         const regionMatch = f.name.match(/_ERSP_([A-Za-z]+)_/);
         const region = regionMatch ? regionMatch[1] : 'Other';
         regionSet.add(region);
         allOutputs.push({
-          condition: cond, region,
-          name: f.name,
-          url: `${REPO_RAW}/${base}/${cond}/${f.name}`,
+          condition: cond, region, name: f.name,
+          url: `${REPO_RAW}/${basePath}/${cond}/${f.name}`,
         });
       }
-    }
-
-    const regionFilter = document.getElementById('regionFilter');
-    regionFilter.innerHTML = '<option value="">All</option>';
-    [...regionSet].sort().forEach(r => {
-      const opt = document.createElement('option');
-      opt.value = r; opt.textContent = r;
-      regionFilter.appendChild(opt);
-    });
-
-    filterOutputs();
-  } catch(e) {
-    grid.innerHTML = `<div class="outputs-empty">Could not load outputs — folder may not exist yet for this combination.<br><small style="color:var(--accent)">${e.message}</small></div>`;
+    } catch(e) { continue; }
   }
+
+  const regionFilter = document.getElementById('regionFilter');
+  regionFilter.innerHTML = '<option value="">All</option>';
+  [...regionSet].sort().forEach(r => {
+    const o = document.createElement('option'); o.value = r; o.textContent = r;
+    regionFilter.appendChild(o);
+  });
+  regionFilter.disabled = false;
+
+  filterOutputs();
 }
 
 // ── SIDEBAR TOGGLE ────────────────────────────────────────────────────────────

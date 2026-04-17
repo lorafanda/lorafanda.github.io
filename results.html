@@ -1422,20 +1422,56 @@ function renderUmap() {
     return { cx, cy, row: r };
   });
 
-  // Draw points — dim if highlight active
-  ctx.clearRect(0, 0, W, H);
-  canvas._points.forEach(({ cx, cy, row }) => {
+  // Build per-cluster silhouette lookup (normalized 0→1)
+  const silPC = clusterData.metrics?.silhouette_per_cluster || null;
+  let silMin = 0, silMax = 1, silRange = 1;
+  if (silPC && umapMode === 'cluster') {
+    const vals = Object.values(silPC).map(Number);
+    silMin = Math.min(...vals);
+    silMax = Math.max(...vals);
+    silRange = silMax - silMin || 1;
+  }
+
+  function getPointStyle(row) {
     const key = getUmapKey(row);
     const isHL = umapHighlight === null || umapHighlight === key;
-    ctx.globalAlpha = isHL ? 0.85 : 0.12;
+
+    if (umapMode === 'cluster' && silPC) {
+      const ci = parseInt(row.cluster_kmeans_raw);
+      const sil = silPC[ci] ?? silPC[String(ci)] ?? 0;
+      // Normalise silhouette to 0–1
+      const t = (sil - silMin) / silRange;
+      // Opacity: 0.15 (worst) → 0.95 (best), dimmed further if not highlighted
+      const baseAlpha = 0.15 + t * 0.8;
+      const alpha = isHL ? baseAlpha : baseAlpha * 0.15;
+      // Radius: 2.5 (worst) → 6 (best)
+      const radius = 2.5 + t * 3.5;
+      return { alpha, radius };
+    }
+    return { alpha: isHL ? 0.82 : 0.1, radius: 4 };
+  }
+
+  // Draw points — low silhouette first (behind), high silhouette on top
+  ctx.clearRect(0, 0, W, H);
+
+  const sorted = [...canvas._points].sort((a, b) => {
+    if (umapMode !== 'cluster' || !silPC) return 0;
+    const sa = silPC[parseInt(a.row.cluster_kmeans_raw)] ?? silPC[String(parseInt(a.row.cluster_kmeans_raw))] ?? 0;
+    const sb = silPC[parseInt(b.row.cluster_kmeans_raw)] ?? silPC[String(parseInt(b.row.cluster_kmeans_raw))] ?? 0;
+    return sa - sb; // worst drawn first, best on top
+  });
+
+  sorted.forEach(({ cx, cy, row }) => {
+    const { alpha, radius } = getPointStyle(row);
+    ctx.globalAlpha = alpha;
     ctx.fillStyle = getUmapColor(row);
     ctx.beginPath();
-    ctx.arc(cx, cy, 4, 0, Math.PI * 2);
+    ctx.arc(cx, cy, radius, 0, Math.PI * 2);
     ctx.fill();
   });
   ctx.globalAlpha = 1;
 
-  // Legend
+  // Legend — in cluster mode show silhouette score next to each cluster
   const keys = [...new Set(rows.map(r => getUmapKey(r)))].sort((a,b) => {
     const na = parseInt(a.replace(/\D/g,'')), nb = parseInt(b.replace(/\D/g,''));
     return isNaN(na) ? a.localeCompare(b) : na - nb;
@@ -1445,8 +1481,17 @@ function renderUmap() {
     const sampleRow = rows.find(r => getUmapKey(r) === k);
     const col = getUmapColor(sampleRow);
     const faded = umapHighlight && umapHighlight !== k ? ' faded' : '';
+    let silLabel = '';
+    if (umapMode === 'cluster' && silPC) {
+      const ci = parseInt(k.replace(/\D/g,'')) - 1;
+      const sil = silPC[ci] ?? silPC[String(ci)];
+      if (sil != null) {
+        const color = sil >= 0 ? '#059669' : '#dc2626';
+        silLabel = `<span style="color:${color};margin-left:3px">${sil >= 0 ? '+' : ''}${sil.toFixed(3)}</span>`;
+      }
+    }
     return `<div class="legend-item${faded}" onclick="toggleUmapHighlight('${k}')" style="color:var(--text)">
-      <div class="legend-dot" style="background:${col}"></div>${k}
+      <div class="legend-dot" style="background:${col}"></div>${k}${silLabel}
     </div>`;
   }).join('');
 }
@@ -1474,10 +1519,14 @@ document.addEventListener('DOMContentLoaded', () => {
     });
     if (closest) {
       const r = closest.row;
+      const ci = parseInt(r.cluster_kmeans_raw);
+      const silPC = clusterData.metrics?.silhouette_per_cluster;
+      const sil = silPC ? (silPC[ci] ?? silPC[String(ci)]) : null;
+      const silStr = sil != null ? ` · sil ${sil >= 0 ? '+' : ''}${sil.toFixed(3)}` : '';
       tooltip.style.display = 'block';
       tooltip.style.left = (mx + 14) + 'px';
       tooltip.style.top  = (my - 10) + 'px';
-      tooltip.textContent = `${r.patient_id} · ${r.condition} · ${r.electrode} · C${parseInt(r.cluster_kmeans_raw)+1}`;
+      tooltip.textContent = `${r.patient_id} · ${r.condition} · ${r.electrode} · C${ci+1}${silStr}`;
     } else {
       tooltip.style.display = 'none';
     }

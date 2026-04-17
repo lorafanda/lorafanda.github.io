@@ -381,7 +381,8 @@
           <span class="nav-item-num">310</span><span class="nav-icon">📓</span><span class="nav-item-label">K-Means Clustering</span><span class="status status-done"></span>
         </button>
         <button class="nav-section-item" onclick="loadFunctions('02')" id="nav-02-fn"><span class="nav-icon">🐍</span> Functions</button>
-        <button class="nav-section-item" onclick="loadClustering()" id="nav-02-out"><span class="nav-icon">🔵</span> Clustering Results</button>
+        <button class="nav-section-item" onclick="loadClustering()" id="nav-02-out"><span class="nav-icon">🔵</span> KMeans Results</button>
+        <button class="nav-section-item" onclick="loadBlobResults()" id="nav-02-blob"><span class="nav-icon">🫧</span> Blob Results</button>
       </div>
     </div>
 
@@ -393,7 +394,8 @@
       <button class="tab-btn active" id="tab-notebook" onclick="switchTab('notebook')">📓 Notebook</button>
       <button class="tab-btn" id="tab-functions" onclick="switchTab('functions')">🐍 Functions</button>
       <button class="tab-btn" id="tab-outputs" onclick="switchTab('outputs')" style="display:none">📊 Outputs</button>
-      <button class="tab-btn" id="tab-clustering" onclick="switchTab('clustering')" style="display:none">🔵 Clustering</button>
+      <button class="tab-btn" id="tab-clustering" onclick="switchTab('clustering')" style="display:none">🔵 KMeans</button>
+      <button class="tab-btn" id="tab-blob" onclick="switchTab('blob')" style="display:none">🫧 Blob</button>
       <button class="tab-btn" id="tab-preface" onclick="switchTab('preface')" style="display:none">📖 PhD Story</button>
       <div class="tab-spacer"></div>
       <button class="copy-link-btn" onclick="copyLink()">⎘ Copy link</button>
@@ -521,6 +523,40 @@
         </div>
       </div>
 
+      <!-- PART 02 BLOB RESULTS -->
+      <div class="panel" id="panel-blob">
+        <div class="clustering-panel">
+          <div class="sub-tab-bar">
+            <button class="sub-tab active" id="subtab-blob-runs" onclick="switchBlobTab('runs')">📋 Runs</button>
+            <button class="sub-tab" id="subtab-blob-sil" onclick="switchBlobTab('sil')">📈 Silhouette by K</button>
+          </div>
+          <div class="run-picker">
+            <span class="filter-label">Run</span>
+            <select class="run-select" id="blobRunSelect" onchange="onBlobRunChange()">
+              <option value="">Loading...</option>
+            </select>
+          </div>
+          <!-- RUNS sub-panel -->
+          <div class="sub-panel active" id="subpanel-blob-runs">
+            <div class="metrics-panel-inner" id="blobRunContent">
+              <div class="cluster-empty">Select a run above.</div>
+            </div>
+          </div>
+          <!-- SILHOUETTE sub-panel -->
+          <div class="sub-panel" id="subpanel-blob-sil">
+            <div class="metrics-panel-inner">
+              <div class="metrics-section">
+                <h3>Silhouette score by K</h3>
+                <div class="sil-curve-wrap" style="height:200px">
+                  <canvas id="blobSilCanvas"></canvas>
+                  <div class="sil-curve-tooltip" id="blobSilTooltip"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
     </div>
   </div>
 </div>
@@ -599,13 +635,13 @@ function toggleSidebar() {
 // ── TABS ─────────────────────────────────────────────────────────────────────
 function switchTab(tab) {
   state.tab = tab;
-  ['notebook','functions','outputs','clustering','preface'].forEach(t => {
+  ['notebook','functions','outputs','clustering','blob','preface'].forEach(t => {
     document.getElementById(`tab-${t}`)?.classList.toggle('active', t === tab);
     document.getElementById(`panel-${t}`)?.classList.toggle('active', t === tab);
   });
 }
 function showTabs(...tabs) {
-  ['notebook','functions','outputs','clustering','preface'].forEach(t => {
+  ['notebook','functions','outputs','clustering','blob','preface'].forEach(t => {
     const el = document.getElementById(`tab-${t}`);
     if (el) el.style.display = tabs.includes(t) ? '' : 'none';
   });
@@ -615,9 +651,14 @@ function switchSubTab(tab) {
     document.getElementById(`subtab-${t}`)?.classList.toggle('active', t === tab);
     document.getElementById(`subpanel-${t}`)?.classList.toggle('active', t === tab);
   });
-  if (tab === 'umap' && clusterData.labels.length) {
-    requestAnimationFrame(renderUmap);
-  }
+  if (tab === 'umap' && clusterData.labels.length) requestAnimationFrame(renderUmap);
+}
+function switchBlobTab(tab) {
+  ['runs','sil'].forEach(t => {
+    document.getElementById(`subtab-blob-${t}`)?.classList.toggle('active', t === tab);
+    document.getElementById(`subpanel-blob-${t}`)?.classList.toggle('active', t === tab);
+  });
+  if (tab === 'sil' && blobData.silByK) requestAnimationFrame(() => renderBlobSilCurve());
 }
 
 // ── NOTEBOOK ─────────────────────────────────────────────────────────────────
@@ -941,6 +982,24 @@ async function onRunChange() {
     renderCluster(0);
     renderMetrics();
     loadGlassBrains(clusterData.metrics.patients || []);
+    // Populate sil run picker and render curve after metrics panel is in DOM
+    setTimeout(() => {
+      const sel = document.getElementById('silRunSelect');
+      const lbl = document.getElementById('silRunLabel');
+      const empty = document.getElementById('silCurveEmpty');
+      if (!sel) return;
+      if (clusterData.silRuns.length) {
+        sel.innerHTML = clusterData.silRuns.map(r =>
+          `<option value="${r}" ${r === clusterData.activeSilRun ? 'selected' : ''}>${r}</option>`
+        ).join('');
+        if (clusterData.silRuns.length > 1) { sel.style.display = ''; if (lbl) lbl.textContent = ''; }
+        else { sel.style.display = 'none'; if (lbl) lbl.textContent = clusterData.activeSilRun; }
+        if (empty) empty.style.display = 'none';
+        if (clusterData.silByK) renderSilCurve();
+      } else {
+        if (empty) empty.textContent = 'No silhouette_by_k.json found.';
+      }
+    }, 100);
   } catch(e) {
     document.getElementById('clusterGrid').innerHTML = `<div class="cluster-empty">Error: ${e.message}</div>`;
   }
@@ -1169,19 +1228,17 @@ function renderMetrics() {
 
     <div class="cluster-detail" id="clusterDetail"></div>
 
-    ${clusterData.silByK ? `
     <div class="metrics-section" style="margin-top:1.5rem">
       <h3>Silhouette score by K
-        ${clusterData.silRuns.length > 1 ? `
-        <select class="run-select" style="margin-left:0.75rem;font-size:0.72rem;padding:2px 8px" onchange="loadSilRun(this.value)">
-          ${clusterData.silRuns.map(r => `<option value="${r}" ${r === clusterData.activeSilRun ? 'selected' : ''}>${r}</option>`).join('')}
-        </select>` : `<span style="font-size:0.65rem;color:var(--muted);font-weight:400;margin-left:0.5rem">${clusterData.activeSilRun}</span>`}
+        <span id="silRunLabel" style="font-size:0.65rem;color:var(--muted);font-weight:400;margin-left:0.5rem"></span>
+        <select class="run-select" id="silRunSelect" style="margin-left:0.75rem;font-size:0.72rem;padding:2px 8px;display:none" onchange="loadSilRun(this.value)"></select>
       </h3>
-      <div class="sil-curve-wrap">
+      <div class="sil-curve-wrap" style="height:160px">
         <canvas id="silCurveCanvas"></canvas>
         <div class="sil-curve-tooltip" id="silCurveTooltip"></div>
       </div>
-    </div>` : ''}
+      <div id="silCurveEmpty" style="font-size:0.82rem;color:var(--muted);padding:0.5rem 0">Loading silhouette curve...</div>
+    </div>
 
     <div class="metrics-section" style="margin-top:1.5rem">
       <h3>Run details</h3>
@@ -1572,6 +1629,192 @@ document.addEventListener('DOMContentLoaded', () => {
 window.addEventListener('resize', () => {
   if (document.getElementById('subpanel-umap')?.classList.contains('active')) renderUmap();
 });
+
+// ── PART 02 BLOB RESULTS ─────────────────────────────────────────────────────
+let blobData = { runs: [], activeRun: null, metadata: null, silByK: null };
+
+function loadBlobResults() {
+  clearActive();
+  document.getElementById('nav-02-blob')?.classList.add('active');
+  state.part = '02';
+  showTabs('notebook','functions','blob');
+  switchTab('blob');
+  initBlobResults();
+}
+
+async function initBlobResults() {
+  const sel = document.getElementById('blobRunSelect');
+  sel.innerHTML = '<option value="">Loading...</option>';
+  try {
+    const items = await apiList('02_FBM_Clustering/outputs/230_blob_clustering_runs');
+    const folders = items.filter(i => i.type === 'dir').map(i => i.name).sort().reverse();
+    blobData.runs = folders;
+    sel.innerHTML = '<option value="">Select a run...</option>';
+    folders.forEach(f => {
+      const o = document.createElement('option'); o.value = f; o.textContent = f; sel.appendChild(o);
+    });
+    if (folders.length === 1) { sel.value = folders[0]; onBlobRunChange(); }
+  } catch(e) {
+    sel.innerHTML = `<option value="">Error: ${e.message}</option>`;
+  }
+}
+
+async function onBlobRunChange() {
+  const folder = document.getElementById('blobRunSelect').value;
+  if (!folder) return;
+  blobData.activeRun = folder;
+  const content = document.getElementById('blobRunContent');
+  content.innerHTML = '<div class="cluster-empty">Loading...</div>';
+  blobData.silByK = null;
+
+  try {
+    // Load all available JSONs in parallel
+    const base = `${REPO_RAW}/02_FBM_Clustering/outputs/230_blob_clustering_runs/${folder}`;
+    const [metaRes, clusterRes, silRes, gatingRes] = await Promise.all([
+      fetch(`${base}/run_metadata.json`),
+      fetch(`${base}/run_metadata_clustering.json`),
+      fetch(`${base}/silhouette_by_k.json`),
+      fetch(`${base}/gating_info.json`),
+    ]);
+
+    const meta    = metaRes.ok    ? await metaRes.json()    : null;
+    const cluster = clusterRes.ok ? await clusterRes.json() : null;
+    const sil     = silRes.ok     ? await silRes.json()     : null;
+    const gating  = gatingRes.ok  ? await gatingRes.json()  : null;
+
+    blobData.metadata = { meta, cluster, gating };
+    blobData.silByK = sil;
+
+    renderBlobRun(meta, cluster, gating, sil);
+  } catch(e) {
+    content.innerHTML = `<div class="cluster-empty">Error: ${e.message}</div>`;
+  }
+}
+
+function renderBlobRun(meta, cluster, gating, sil) {
+  const content = document.getElementById('blobRunContent');
+  if (!meta && !cluster) { content.innerHTML = '<div class="cluster-empty">No metadata found.</div>'; return; }
+
+  const avgSil = sil ? (Object.values(sil).reduce((a,b) => a+b, 0) / Object.values(sil).length).toFixed(4) : 'N/A';
+  const bestK  = sil ? Object.entries(sil).sort((a,b) => b[1]-a[1])[0] : null;
+
+  // Cluster size bar chart
+  const sizes = cluster?.cluster_sizes || {};
+  const maxSize = Math.max(...Object.values(sizes));
+  const sizeBars = Object.entries(sizes).map(([k, v]) => `
+    <div class="bar-wrap" title="Cluster ${k}: ${v}">
+      <div class="bar-stack">
+        <div class="bar-segment" style="height:${Math.round((v/maxSize)*120)}px;background:var(--accent2)"></div>
+      </div>
+      <div class="bar-total">${v}</div>
+      <div class="bar-num">${k}</div>
+    </div>`).join('');
+
+  content.innerHTML = `
+    <div class="metrics-grid">
+      ${cluster ? `
+      <div class="metric-card"><div class="metric-label">Algorithm</div><div class="metric-value" style="font-size:1rem">${cluster.algo_tag || '—'}</div></div>
+      <div class="metric-card"><div class="metric-label">Clusters</div><div class="metric-value">${cluster.n_clusters}</div></div>
+      <div class="metric-card"><div class="metric-label">Samples</div><div class="metric-value">${cluster.n_samples}</div></div>
+      ` : ''}
+      ${gating ? `
+      <div class="metric-card"><div class="metric-label">Kept</div><div class="metric-value">${gating.n_kept}</div></div>
+      <div class="metric-card"><div class="metric-label">Dropped</div><div class="metric-value">${gating.n_dropped}</div></div>
+      ` : ''}
+      ${sil ? `
+      <div class="metric-card"><div class="metric-label">Best K</div><div class="metric-value">${bestK[0]} <small style="font-size:0.75rem;color:var(--accent3)">${parseFloat(bestK[1]).toFixed(4)}</small></div></div>
+      ` : ''}
+    </div>
+
+    ${cluster?.cluster_sizes ? `
+    <div class="metrics-section">
+      <h3>Cluster sizes</h3>
+      <div class="bar-chart-wrap"><div class="bar-chart" style="height:150px">${sizeBars}</div></div>
+    </div>` : ''}
+
+    ${meta ? `
+    <div class="metrics-section">
+      <h3>Run details</h3>
+      <div class="patients-list">
+        <span class="patient-tag">run: ${meta.run_id}</span>
+        <span class="patient-tag">user: ${meta.user}</span>
+        <span class="patient-tag">shape: ${meta.X_blob_keep_shape?.join('×') || '—'}</span>
+        ${cluster?.hc_method ? `<span class="patient-tag">method: ${cluster.hc_method}</span>` : ''}
+      </div>
+    </div>` : ''}
+
+    ${meta?.valley_params ? `
+    <div class="metrics-section">
+      <h3>Blob parameters</h3>
+      <div class="patients-list">
+        ${Object.entries(meta.valley_params).map(([k,v]) => `<span class="patient-tag">${k}: ${v}</span>`).join('')}
+      </div>
+    </div>` : ''}
+  `;
+
+  // Render sil curve if on sil tab
+  if (sil) setTimeout(() => renderBlobSilCurve(), 50);
+}
+
+function renderBlobSilCurve() {
+  const canvas = document.getElementById('blobSilCanvas');
+  if (!canvas || !blobData.silByK) return;
+  const wrap = canvas.parentElement;
+  const W = wrap.clientWidth || 600;
+  const H = 180;
+  canvas.width = W * devicePixelRatio; canvas.height = H * devicePixelRatio;
+  canvas.style.width = W+'px'; canvas.style.height = H+'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  const entries = Object.entries(blobData.silByK).map(([k,v]) => ({k:parseInt(k),v})).sort((a,b) => a.k-b.k);
+  const pad = {l:44,r:20,t:20,b:30};
+  const cW = W-pad.l-pad.r, cH = H-pad.t-pad.b;
+  const minV = Math.min(...entries.map(e=>e.v))*0.97;
+  const maxV = Math.max(...entries.map(e=>e.v))*1.03;
+  const minK = entries[0].k, maxK = entries[entries.length-1].k;
+  const toX = k => pad.l + ((k-minK)/(maxK-minK||1))*cW;
+  const toY = v => pad.t + (1-(v-minV)/(maxV-minV||1))*cH;
+
+  // Grid
+  ctx.strokeStyle = 'rgba(90,60,50,0.08)'; ctx.lineWidth = 1;
+  for (let t=0; t<=4; t++) {
+    const val = minV + (t/4)*(maxV-minV);
+    const y = toY(val);
+    ctx.beginPath(); ctx.moveTo(pad.l,y); ctx.lineTo(W-pad.r,y); ctx.stroke();
+    ctx.fillStyle='rgba(90,60,50,0.45)'; ctx.font='9px monospace'; ctx.textAlign='right';
+    ctx.fillText(val.toFixed(3), pad.l-4, y+3);
+  }
+  ctx.textAlign='center';
+  entries.forEach(e => { ctx.fillStyle='rgba(90,60,50,0.45)'; ctx.font='9px monospace'; ctx.fillText(e.k, toX(e.k), H-8); });
+
+  // Line
+  ctx.beginPath(); ctx.strokeStyle='#0891b2'; ctx.lineWidth=2;
+  entries.forEach((e,i) => i===0 ? ctx.moveTo(toX(e.k),toY(e.v)) : ctx.lineTo(toX(e.k),toY(e.v)));
+  ctx.stroke();
+
+  // Best K marker
+  const bestK = entries.reduce((a,b) => b.v>a.v?b:a);
+  entries.forEach(e => {
+    const isBest = e.k === bestK.k;
+    ctx.beginPath(); ctx.arc(toX(e.k),toY(e.v), isBest?7:4, 0, Math.PI*2);
+    ctx.fillStyle = isBest ? '#b85c6e' : '#0891b2'; ctx.fill();
+    if (isBest) { ctx.strokeStyle='#fff'; ctx.lineWidth=1.5; ctx.stroke(); }
+  });
+
+  // Hover
+  canvas._silPoints = entries.map(e => ({x:toX(e.k),y:toY(e.v),k:e.k,v:e.v}));
+  const tip = document.getElementById('blobSilTooltip');
+  canvas.onmousemove = ev => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = ev.clientX-rect.left, my = ev.clientY-rect.top;
+    let closest=null, minD=20;
+    canvas._silPoints.forEach(p => { const d=Math.hypot(p.x-mx,p.y-my); if(d<minD){minD=d;closest=p;} });
+    if (closest && tip) { tip.style.display='block'; tip.style.left=(closest.x+10)+'px'; tip.style.top=(closest.y-18)+'px'; tip.textContent=`K=${closest.k}  sil=${closest.v.toFixed(4)}`; }
+    else if (tip) tip.style.display='none';
+  };
+  canvas.onmouseleave = () => { if(tip) tip.style.display='none'; };
+}
 
 // ── NOTES / COPY / HASH ───────────────────────────────────────────────────────
 function toggleNotes() { document.getElementById('notesDrawer').classList.toggle('open'); }

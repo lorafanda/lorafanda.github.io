@@ -238,6 +238,7 @@
     .bar-wrap.selected .bar-segment { outline: 2px solid var(--text); outline-offset: 1px; }
     .bar-stack { display: flex; flex-direction: column-reverse; width: 22px; border-radius: 3px 3px 0 0; overflow: hidden; }
     .bar-segment { width: 22px; min-height: 2px; transition: filter 0.15s; }
+    .bar-sil { font-size: 0.44rem; font-family: 'JetBrains Mono', monospace; text-align: center; width: 22px; margin-bottom: 1px; line-height: 1.2; }
     .bar-total { font-size: 0.52rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 2px; text-align: center; }
     .bar-num { font-size: 0.48rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; text-align: center; width: 22px; }
 
@@ -256,7 +257,23 @@
     .detail-count { font-size: 0.72rem; color: var(--muted); min-width: 28px; text-align: right; font-family: 'JetBrains Mono', monospace; }
     .detail-section-title { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-weight: 500; margin: 0.75rem 0 0.35rem; }
 
-    /* UMAP */
+    .cluster-nav-spacer { flex: 1; }
+    .centroid-thumb { height: 44px; width: auto; border-radius: 4px; border: 1px solid var(--border); cursor: zoom-in; opacity: 0.85; transition: opacity 0.2s; }
+    .centroid-thumb:hover { opacity: 1; }
+
+    /* Glass brain strip */
+    .glass-brain-strip { display: flex; gap: 6px; padding: 6px 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface2); overflow-x: auto; flex-shrink: 0; }
+    .glass-brain-strip::-webkit-scrollbar { height: 4px; }
+    .glass-brain-strip::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 2px; }
+    .brain-card { flex-shrink: 0; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: zoom-in; }
+    .brain-card img { height: 80px; width: auto; border-radius: 4px; border: 1px solid var(--border); transition: border-color 0.2s; }
+    .brain-card img:hover { border-color: rgba(184,92,110,0.4); }
+    .brain-card-label { font-size: 0.6rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+
+    /* Silhouette curve */
+    .sil-curve-wrap { margin-top: 0.5rem; position: relative; height: 140px; }
+    .sil-curve-wrap canvas { width: 100%; height: 100%; }
+    .sil-curve-tooltip { position: absolute; background: rgba(30,20,18,0.85); color: #f0ebe4; font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; padding: 3px 8px; border-radius: 5px; pointer-events: none; display: none; }
     .umap-controls { display: flex; align-items: center; gap: 0.5rem; padding: 0.6rem 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; }
     .color-mode-btn { padding: 3px 12px; font-size: 0.75rem; font-weight: 500; font-family: 'Instrument Sans', sans-serif; background: var(--bg); border: 1px solid var(--border); border-radius: 20px; cursor: pointer; color: var(--muted); transition: all 0.15s; }
     .color-mode-btn:hover { color: var(--text); border-color: var(--border-strong); }
@@ -470,7 +487,10 @@
               <span class="cluster-label" id="clusterLabel">Cluster 1</span>
               <span class="cluster-info" id="clusterInfo"></span>
               <button class="cluster-nav-btn" id="nextCluster" onclick="navigateCluster(1)">▶</button>
+              <div class="cluster-nav-spacer"></div>
+              <img class="centroid-thumb" id="centroidThumb" src="" alt="Centroid" style="display:none" onclick="openLightbox(this.src,'Cluster centroids')"/>
             </div>
+            <div class="glass-brain-strip" id="glassBrainStrip" style="display:none"></div>
             <div class="cluster-grid" id="clusterGrid">
               <div class="cluster-empty">Select a run above to browse clusters.</div>
             </div>
@@ -878,6 +898,9 @@ async function onRunChange() {
   document.getElementById('clusterGrid').innerHTML = '<div class="cluster-empty">Loading...</div>';
   document.getElementById('metricsContent').innerHTML = '<div class="cluster-empty">Loading...</div>';
   document.getElementById('clusterNav').style.display = 'none';
+  document.getElementById('glassBrainStrip').style.display = 'none';
+  const centroidThumb = document.getElementById('centroidThumb');
+  centroidThumb.style.display = 'none';
 
   try {
     // Load metrics JSON
@@ -889,12 +912,32 @@ async function onRunChange() {
     const labelFile = run.file.replace('metrics_', 'labels_').replace('.json', '.csv');
     const lRes = await fetch(`${REPO_RAW}/02_FBM_Clustering/outputs/clustering/kmeans/${labelFile}`);
     if (!lRes.ok) throw new Error(`Labels CSV not found`);
-    const csvText = await lRes.text();
-    clusterData.labels = parseCSV(csvText);
+    clusterData.labels = parseCSV(await lRes.text());
+
+    // Load silhouette_by_k.json (from most recent blob_clustering_run)
+    // Try to find the matching run folder
+    clusterData.silByK = null;
+    try {
+      const runFolders = await apiList('02_FBM_Clustering/outputs/230_blob_clustering_runs');
+      const folders = runFolders.filter(i => i.type === 'dir').map(i => i.name).sort().reverse();
+      if (folders.length) {
+        const silRes = await fetch(`${REPO_RAW}/02_FBM_Clustering/outputs/230_blob_clustering_runs/${folders[0]}/silhouette_by_k.json`);
+        if (silRes.ok) clusterData.silByK = await silRes.json();
+      }
+    } catch(e) {}
+
+    // Load centroid PNG — pattern: kmeans_raw_cluster_ERSPs_{run_id}.png
+    const runId = clusterData.metrics.run_id;
+    const centroidUrl = `${REPO_RAW}/02_FBM_Clustering/outputs/figures/ersp_clusters/kmeans_raw_cluster_ERSPs_${runId}.png`;
+    // Test if it exists by trying to load it
+    centroidThumb.src = centroidUrl;
+    centroidThumb.style.display = 'block';
+    centroidThumb.onerror = () => { centroidThumb.style.display = 'none'; };
 
     clusterData.currentCluster = 0;
     renderCluster(0);
     renderMetrics();
+    loadGlassBrains(clusterData.metrics.patients || []);
   } catch(e) {
     document.getElementById('clusterGrid').innerHTML = `<div class="cluster-empty">Error: ${e.message}</div>`;
   }
@@ -911,42 +954,89 @@ function parseCSV(text) {
   });
 }
 
+function loadGlassBrains(patients) {
+  const strip = document.getElementById('glassBrainStrip');
+  if (!patients || !patients.length) { strip.style.display = 'none'; return; }
+  strip.innerHTML = '';
+  strip.style.display = 'flex';
+  patients.forEach(p => {
+    const url = `${REPO_RAW}/02_FBM_Clustering/outputs/250_recon/${p}/glassbrain/png/${p}_mosaic_LEPTOVOX.png`;
+    const card = document.createElement('div');
+    card.className = 'brain-card';
+    card.id = `brain-${p}`;
+    const img = document.createElement('img');
+    img.src = url; img.alt = p; img.loading = 'lazy';
+    img.onerror = () => card.style.display = 'none';
+    img.addEventListener('click', () => openLightbox(url, `${p} — glass brain`));
+    const label = document.createElement('div');
+    label.className = 'brain-card-label';
+    label.textContent = p;
+    card.appendChild(img); card.appendChild(label);
+    strip.appendChild(card);
+  });
+}
+
+function highlightGlassBrains(activePatients) {
+  const strip = document.getElementById('glassBrainStrip');
+  strip.querySelectorAll('.brain-card').forEach(card => {
+    const p = card.id.replace('brain-','');
+    card.style.opacity = activePatients.has(p) ? '1' : '0.25';
+    card.querySelector('img').style.borderColor = activePatients.has(p) ? getPatientColor(p) : 'var(--border)';
+  });
+}
+
 function renderCluster(clusterIdx) {
   const metrics = clusterData.metrics;
   const nClusters = metrics.n_clusters;
   clusterData.currentCluster = clusterIdx;
 
-  // Nav
   const nav = document.getElementById('clusterNav');
   nav.style.display = 'flex';
   document.getElementById('clusterLabel').textContent = `Cluster ${clusterIdx + 1} / ${nClusters}`;
   document.getElementById('prevCluster').disabled = clusterIdx === 0;
   document.getElementById('nextCluster').disabled = clusterIdx === nClusters - 1;
   const count = metrics.cluster_counts[clusterIdx] || 0;
-  document.getElementById('clusterInfo').textContent = `${count} electrode${count !== 1 ? 's' : ''}`;
 
-  // Filter labels for this cluster
+  // Silhouette for this cluster
+  const sil = metrics.silhouette_per_cluster
+    ? (metrics.silhouette_per_cluster[clusterIdx] ?? metrics.silhouette_per_cluster[String(clusterIdx)] ?? null)
+    : null;
+  const silText = sil !== null ? ` · sil ${sil >= 0 ? '+' : ''}${sil.toFixed(3)}` : '';
+  document.getElementById('clusterInfo').textContent = `${count} electrode${count !== 1 ? 's' : ''}${silText}`;
+
   const rows = clusterData.labels.filter(r => parseInt(r.cluster_kmeans_raw) === clusterIdx);
   const grid = document.getElementById('clusterGrid');
   grid.innerHTML = '';
 
+  // Highlight glass brains for patients in this cluster
+  const activePatients = new Set(rows.map(r => r.patient_id));
+  highlightGlassBrains(activePatients);
+
   if (!rows.length) { grid.innerHTML = '<div class="cluster-empty">No images for this cluster.</div>'; return; }
 
   rows.forEach(row => {
-    // Reconstruct image URL from CSV columns
-    // file_path has .npy in ERSP_matrix — convert to ERSP_clean .png
-    const npyName = row.file_path.split('\\').pop(); // e.g. EL030_audio_WM_ERSP_A_L10_TN.npy
+    const npyName = row.file_path.split('\\').pop();
     const pngName = npyName.replace('_TN.npy', '_TN_CLEAN.png');
     const imgUrl = `${REPO_RAW}/01_FBM_Analysis/outputs/04_ersp_LM_RAWONLY/${row.patient_id}/${row.task}/ERSP_clean/${row.condition}/${pngName}`;
-
     const card = document.createElement('div');
     card.className = 'cluster-card';
     card.setAttribute('tabindex','0');
+    // Color border by patient
+    card.style.borderColor = getPatientColor(row.patient_id);
     const img = document.createElement('img'); img.src = imgUrl; img.alt = pngName; img.loading = 'lazy';
     const info = document.createElement('div');
     info.className = 'cluster-card-info';
     info.textContent = `${row.patient_id} · ${row.condition} · ${row.electrode}`;
-    card.appendChild(img); card.appendChild(info);
+    // Region placeholder — activates when region column present
+    if (row.region) {
+      const reg = document.createElement('div');
+      reg.className = 'cluster-card-info';
+      reg.style.color = 'var(--accent2)';
+      reg.textContent = row.region;
+      card.appendChild(img); card.appendChild(info); card.appendChild(reg);
+    } else {
+      card.appendChild(img); card.appendChild(info);
+    }
     card.addEventListener('click', () => openLightbox(imgUrl, `${row.patient_id} · ${row.condition} · ${row.electrode}`));
     card.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); openLightbox(imgUrl, info.textContent); } });
     grid.appendChild(card);
@@ -961,75 +1051,131 @@ function navigateCluster(dir) {
 
 // ── PATIENT COLOR MAP ────────────────────────────────────────────────────────
 const PAT_COLORS = {
-  EL: ['blue','deepskyblue','cyan','teal','green','lime','powderblue','forestgreen','lightcyan'],
-  PAT: ['blueviolet','fuchsia','deeppink','crimson','pink','red','chocolate','gold','purple','saddlebrown','lemonchiffon','lavenderblush','lime','powderblue','forestgreen','lightcyan'],
-  MICRO: ['navy','darkslategray','black','darkred','darkolivegreen'],
+  EL:    ['#1d4ed8','#0891b2','#16a34a','#0e7490','#4ade80','#6366f1','#059669','#38bdf8','#134e4a'],
+  PAT:   ['#dc2626','#ea580c','#d97706','#ca8a04','#b45309','#be185d','#e11d48','#f59e0b','#92400e','#c2410c','#db2777','#7c2d12','#fbbf24','#9f1239','#f97316','#a16207'],
+  MICRO: ['#164e63','#1e3a5f','#14532d','#1a2e05','#0c2340'],
 };
 
 function getPatientColor(patientId) {
-  const prefix = patientId.replace(/\d+/g,''); // EL, PAT, MICRO etc.
+  const prefix = patientId.replace(/\d+/g, '');
   const palette = PAT_COLORS[prefix] || PAT_COLORS.EL;
-  // Consistent index by patient number
-  const num = parseInt(patientId.replace(/\D/g,'')) || 0;
-  return palette[num % palette.length];
+  // Map each unique patient ID to a fixed index based on sorted order within that prefix
+  if (!getPatientColor._cache) getPatientColor._cache = {};
+  if (!getPatientColor._cache[patientId]) {
+    const allOfPrefix = [...new Set(clusterData.labels.map(r => r.patient_id))]
+      .filter(id => id.replace(/\d+/g,'') === prefix).sort();
+    const idx = allOfPrefix.indexOf(patientId);
+    getPatientColor._cache[patientId] = palette[Math.max(0,idx) % palette.length];
+  }
+  return getPatientColor._cache[patientId];
 }
 
 function renderMetrics() {
   const m = clusterData.metrics;
   if (!m) return;
 
-  // Pre-compute per-cluster patient counts and condition counts from labels
+  // Clear patient color cache so colors are consistent
+  getPatientColor._cache = {};
+
+  // Pre-compute per-cluster stats
   const clusterStats = Array.from({length: m.n_clusters}, () => ({ patients: {}, conditions: {} }));
   clusterData.labels.forEach(row => {
     const ci = parseInt(row.cluster_kmeans_raw);
     if (isNaN(ci)) return;
-    const s = clusterStats[ci];
-    s.patients[row.patient_id] = (s.patients[row.patient_id] || 0) + 1;
-    s.conditions[row.condition] = (s.conditions[row.condition] || 0) + 1;
+    clusterStats[ci].patients[row.patient_id] = (clusterStats[ci].patients[row.patient_id] || 0) + 1;
+    clusterStats[ci].conditions[row.condition] = (clusterStats[ci].conditions[row.condition] || 0) + 1;
   });
 
-  const allPatients = [...new Set(clusterData.labels.map(r => r.patient_id))].sort();
+  const allPatients   = [...new Set(clusterData.labels.map(r => r.patient_id))].sort();
   const allConditions = [...new Set(clusterData.labels.map(r => r.condition))].sort();
   const maxCount = Math.max(...m.cluster_counts);
+  const silPerCluster = m.silhouette_per_cluster || null; // optional
+  const maxSil = silPerCluster ? Math.max(...Object.values(silPerCluster).map(Math.abs)) : null;
 
-  // Build stacked bars — stacked by patient
-  const bars = m.cluster_counts.map((total, i) => {
+  // Condition color palette (warm/neutral to distinguish from patient blues/greens)
+  const condPalette = {'audio':'#b85c6e','picture':'#c47a5a','reading':'#7a8c6e'};
+  function condColor(c) { return condPalette[c] || '#888'; }
+
+  // ── Build patient stacked bars ──
+  const patBars = m.cluster_counts.map((total, i) => {
+    const sil = silPerCluster ? silPerCluster[i] ?? silPerCluster[String(i)] : null;
+    const silColor = sil === null ? 'transparent' : sil >= 0 ? '#059669' : '#dc2626';
+    const silText  = sil === null ? '' : sil.toFixed(3);
     const segments = allPatients.map(p => {
       const count = clusterStats[i].patients[p] || 0;
-      const h = Math.round((count / maxCount) * 160);
+      const h = Math.round((count / maxCount) * 150);
       if (!h) return '';
       return `<div class="bar-segment" style="height:${h}px;background:${getPatientColor(p)}" title="${p}: ${count}"></div>`;
     }).join('');
     return `
       <div class="bar-wrap" id="bar-${i}" onclick="showClusterDetail(${i})">
+        ${sil !== null ? `<div class="bar-sil" style="color:${silColor}" title="Silhouette: ${silText}">${silText}</div>` : ''}
         <div class="bar-stack">${segments}</div>
         <div class="bar-total">${total}</div>
         <div class="bar-num">${i+1}</div>
       </div>`;
   }).join('');
 
-  // Legend
-  const legend = allPatients.map(p =>
+  // ── Build condition stacked bars (same x-axis) ──
+  const condBars = m.cluster_counts.map((total, i) => {
+    const segments = allConditions.map(c => {
+      const count = clusterStats[i].conditions[c] || 0;
+      const h = Math.round((count / maxCount) * 60);
+      if (!h) return '';
+      return `<div class="bar-segment" style="height:${h}px;background:${condColor(c)}" title="${c}: ${count}"></div>`;
+    }).join('');
+    return `
+      <div class="bar-wrap" id="condbar-${i}" onclick="showClusterDetail(${i})" style="cursor:pointer">
+        <div class="bar-stack">${segments}</div>
+      </div>`;
+  }).join('');
+
+  // Legends
+  const patLegend = allPatients.map(p =>
     `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:0.72rem;font-family:monospace">
       <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${getPatientColor(p)}"></span>${p}
     </span>`).join('');
+  const condLegend = allConditions.map(c =>
+    `<span style="display:inline-flex;align-items:center;gap:4px;margin-right:10px;font-size:0.72rem;font-family:monospace">
+      <span style="display:inline-block;width:10px;height:10px;border-radius:2px;background:${condColor(c)}"></span>${c}
+    </span>`).join('');
+
+  const silNote = silPerCluster
+    ? `<span style="font-size:0.65rem;color:var(--muted)"> — numbers above bars = per-cluster silhouette <span style="color:#059669">▲ positive</span> / <span style="color:#dc2626">▼ negative</span></span>`
+    : `<span style="font-size:0.65rem;color:var(--muted)"> — add <code>silhouette_per_cluster</code> to metrics JSON to see per-cluster scores</span>`;
 
   document.getElementById('metricsContent').innerHTML = `
     <div class="metrics-grid">
       <div class="metric-card"><div class="metric-label">Clusters</div><div class="metric-value">${m.n_clusters}</div></div>
       <div class="metric-card"><div class="metric-label">Samples</div><div class="metric-value">${m.n_samples}</div></div>
       <div class="metric-card"><div class="metric-label">Features</div><div class="metric-value">${m.n_features.toLocaleString()}</div></div>
-      <div class="metric-card"><div class="metric-label">Silhouette</div><div class="metric-value">${m.silhouette.toFixed(4)}</div></div>
+      <div class="metric-card"><div class="metric-label">Silhouette (avg)</div><div class="metric-value">${m.silhouette.toFixed(4)}</div></div>
     </div>
 
     <div class="metrics-section">
-      <h3>Cluster composition <span style="font-size:0.65rem;color:var(--muted);font-weight:400">— coloured by patient, click bar for details</span></h3>
-      <div style="margin-bottom:0.5rem;line-height:2">${legend}</div>
-      <div class="bar-chart-wrap"><div class="bar-chart">${bars}</div></div>
-      <div class="cluster-detail" id="clusterDetail"></div>
+      <h3>By patient${silNote}</h3>
+      <div style="margin-bottom:0.4rem;line-height:2">${patLegend}</div>
+      <div class="bar-chart-wrap"><div class="bar-chart" id="patBarChart">${patBars}</div></div>
     </div>
 
-    <div class="metrics-section">
+    <div class="metrics-section" style="margin-top:0.5rem">
+      <h3>By condition</h3>
+      <div style="margin-bottom:0.4rem;line-height:2">${condLegend}</div>
+      <div class="bar-chart-wrap"><div class="bar-chart" style="height:80px" id="condBarChart">${condBars}</div></div>
+    </div>
+
+    <div class="cluster-detail" id="clusterDetail"></div>
+
+    ${clusterData.silByK ? `
+    <div class="metrics-section" style="margin-top:1.5rem">
+      <h3>Silhouette score by K</h3>
+      <div class="sil-curve-wrap">
+        <canvas id="silCurveCanvas"></canvas>
+        <div class="sil-curve-tooltip" id="silCurveTooltip"></div>
+      </div>
+    </div>` : ''}
+
+    <div class="metrics-section" style="margin-top:1.5rem">
       <h3>Run details</h3>
       <div class="patients-list">
         <span class="patient-tag">task: ${m.task}</span>
@@ -1041,46 +1187,52 @@ function renderMetrics() {
     ${m.note ? `<div class="metrics-section"><div class="note-box">${m.note}</div></div>` : ''}
   `;
 
-  // Store for detail use
-  window._clusterStats = clusterStats;
-  window._allPatients = allPatients;
-  window._allConditions = allConditions;
+  window._clusterStats   = clusterStats;
+  window._allPatients    = allPatients;
+  window._allConditions  = allConditions;
+  window._silPerCluster  = silPerCluster;
+
+  // Render silhouette curve if data available
+  if (clusterData.silByK) requestAnimationFrame(renderSilCurve);
 }
 
 function showClusterDetail(i) {
-  // Highlight selected bar
   document.querySelectorAll('.bar-wrap').forEach(b => b.classList.remove('selected'));
   document.getElementById(`bar-${i}`)?.classList.add('selected');
+  document.getElementById(`condbar-${i}`)?.classList.add('selected');
 
-  const stats = window._clusterStats[i];
-  const patients = window._allPatients;
+  const stats      = window._clusterStats[i];
+  const patients   = window._allPatients;
   const conditions = window._allConditions;
-  const total = clusterData.metrics.cluster_counts[i];
-  const maxPat = Math.max(...Object.values(stats.patients || {1:1}));
-  const maxCond = Math.max(...Object.values(stats.conditions || {1:1}));
+  const total      = clusterData.metrics.cluster_counts[i];
+  const sil        = window._silPerCluster ? (window._silPerCluster[i] ?? window._silPerCluster[String(i)] ?? null) : null;
+  const maxPat  = Math.max(...Object.values(stats.patients  || {_:1}));
+  const maxCond = Math.max(...Object.values(stats.conditions|| {_:1}));
+
+  const silBadge = sil !== null
+    ? `<span style="font-size:0.78rem;font-family:monospace;padding:2px 8px;border-radius:6px;background:${sil>=0?'rgba(5,150,105,0.12)':'rgba(220,38,38,0.12)'};color:${sil>=0?'#059669':'#dc2626'}">silhouette: ${sil.toFixed(4)}</span>`
+    : '';
 
   const patRows = patients.filter(p => stats.patients[p]).map(p => {
     const c = stats.patients[p];
     const pct = Math.round((c/total)*100);
-    const fillW = Math.round((c/maxPat)*100);
     return `<div class="detail-row">
       <div class="detail-swatch" style="background:${getPatientColor(p)}"></div>
       <div class="detail-name">${p}</div>
-      <div class="detail-bar-bg"><div class="detail-bar-fill" style="width:${fillW}%;background:${getPatientColor(p)}"></div></div>
+      <div class="detail-bar-bg"><div class="detail-bar-fill" style="width:${Math.round((c/maxPat)*100)}%;background:${getPatientColor(p)}"></div></div>
       <div class="detail-count">${c} <span style="color:var(--muted)">(${pct}%)</span></div>
     </div>`;
   }).join('');
 
-  const condColors = ['#b85c6e','#c47a5a','#7a8c6e','#7a6560','#5a8a9f'];
-  const condRows = conditions.filter(c => stats.conditions[c]).map((c, ci) => {
+  const condColors = {'audio':'#b85c6e','picture':'#c47a5a','reading':'#7a8c6e'};
+  const condRows = conditions.filter(c => stats.conditions[c]).map(c => {
     const count = stats.conditions[c];
     const pct = Math.round((count/total)*100);
-    const fillW = Math.round((count/maxCond)*100);
-    const col = condColors[ci % condColors.length];
+    const col = condColors[c] || '#888';
     return `<div class="detail-row">
       <div class="detail-swatch" style="background:${col}"></div>
       <div class="detail-name">${c}</div>
-      <div class="detail-bar-bg"><div class="detail-bar-fill" style="width:${fillW}%;background:${col}"></div></div>
+      <div class="detail-bar-bg"><div class="detail-bar-fill" style="width:${Math.round((count/maxCond)*100)}%;background:${col}"></div></div>
       <div class="detail-count">${count} <span style="color:var(--muted)">(${pct}%)</span></div>
     </div>`;
   }).join('');
@@ -1088,13 +1240,116 @@ function showClusterDetail(i) {
   const detail = document.getElementById('clusterDetail');
   detail.classList.add('visible');
   detail.innerHTML = `
-    <h4>Cluster ${i+1} — ${total} electrodes</h4>
-    <div class="detail-section-title">By patient</div>
-    ${patRows}
-    <div class="detail-section-title">By condition</div>
-    ${condRows}
+    <h4>Cluster ${i+1} — ${total} electrodes ${silBadge}</h4>
+    <div class="detail-section-title">By patient</div>${patRows}
+    <div class="detail-section-title">By condition</div>${condRows}
   `;
   detail.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+// ── SILHOUETTE CURVE ─────────────────────────────────────────────────────────
+function renderSilCurve() {
+  const canvas = document.getElementById('silCurveCanvas');
+  if (!canvas || !clusterData.silByK) return;
+
+  const wrap = canvas.parentElement;
+  const W = wrap.clientWidth || 600;
+  const H = 140;
+  canvas.width  = W * devicePixelRatio;
+  canvas.height = H * devicePixelRatio;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+
+  const ctx = canvas.getContext('2d');
+  ctx.scale(devicePixelRatio, devicePixelRatio);
+
+  const entries = Object.entries(clusterData.silByK)
+    .map(([k, v]) => ({ k: parseInt(k), v }))
+    .sort((a, b) => a.k - b.k);
+
+  const pad = { l: 40, r: 20, t: 20, b: 30 };
+  const cW = W - pad.l - pad.r;
+  const cH = H - pad.t - pad.b;
+
+  const minV = Math.min(...entries.map(e => e.v)) * 0.95;
+  const maxV = Math.max(...entries.map(e => e.v)) * 1.05;
+  const minK = entries[0].k;
+  const maxK = entries[entries.length - 1].k;
+
+  function toX(k) { return pad.l + ((k - minK) / (maxK - minK)) * cW; }
+  function toY(v) { return pad.t + (1 - (v - minV) / (maxV - minV)) * cH; }
+
+  // Grid lines
+  ctx.strokeStyle = 'rgba(90,60,50,0.08)';
+  ctx.lineWidth = 1;
+  [0.25, 0.5, 0.75, 1].forEach(t => {
+    const y = pad.t + t * cH;
+    ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
+    const val = maxV - t * (maxV - minV);
+    ctx.fillStyle = 'rgba(90,60,50,0.45)';
+    ctx.font = `${9 * devicePixelRatio / devicePixelRatio}px monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText(val.toFixed(3), pad.l - 4, y + 3);
+  });
+
+  // X axis labels
+  ctx.textAlign = 'center';
+  entries.forEach(e => {
+    ctx.fillStyle = 'rgba(90,60,50,0.45)';
+    ctx.fillText(e.k, toX(e.k), H - 8);
+  });
+
+  // Line
+  ctx.beginPath();
+  ctx.strokeStyle = '#0891b2';
+  ctx.lineWidth = 2;
+  entries.forEach((e, i) => {
+    i === 0 ? ctx.moveTo(toX(e.k), toY(e.v)) : ctx.lineTo(toX(e.k), toY(e.v));
+  });
+  ctx.stroke();
+
+  // Dots + highlight current K
+  const currentK = clusterData.metrics?.n_clusters;
+  entries.forEach(e => {
+    const isCurrent = e.k === currentK;
+    ctx.beginPath();
+    ctx.arc(toX(e.k), toY(e.v), isCurrent ? 6 : 4, 0, Math.PI * 2);
+    ctx.fillStyle = isCurrent ? '#b85c6e' : '#0891b2';
+    ctx.fill();
+    if (isCurrent) {
+      ctx.strokeStyle = '#fff';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+    }
+  });
+
+  // Store points for hover
+  canvas._silPoints = entries.map(e => ({ x: toX(e.k), y: toY(e.v), k: e.k, v: e.v }));
+
+  // Hover
+  canvas.onmousemove = ev => {
+    const rect = canvas.getBoundingClientRect();
+    const mx = ev.clientX - rect.left;
+    const my = ev.clientY - rect.top;
+    const tip = document.getElementById('silCurveTooltip');
+    let closest = null, minD = 20;
+    canvas._silPoints.forEach(p => {
+      const d = Math.hypot(p.x - mx, p.y - my);
+      if (d < minD) { minD = d; closest = p; }
+    });
+    if (closest) {
+      tip.style.display = 'block';
+      tip.style.left = (closest.x + 10) + 'px';
+      tip.style.top  = (closest.y - 18) + 'px';
+      tip.textContent = `K=${closest.k}  sil=${closest.v.toFixed(4)}`;
+    } else {
+      tip.style.display = 'none';
+    }
+  };
+  canvas.onmouseleave = () => {
+    const tip = document.getElementById('silCurveTooltip');
+    if (tip) tip.style.display = 'none';
+  };
 }
 
 // ── UMAP ─────────────────────────────────────────────────────────────────────

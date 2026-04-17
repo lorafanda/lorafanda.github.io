@@ -914,15 +914,18 @@ async function onRunChange() {
     if (!lRes.ok) throw new Error(`Labels CSV not found`);
     clusterData.labels = parseCSV(await lRes.text());
 
-    // Load silhouette_by_k.json (from most recent blob_clustering_run)
-    // Try to find the matching run folder
+    // Load silhouette_by_k.json — list all available blob run folders dynamically
     clusterData.silByK = null;
+    clusterData.silRuns = [];
     try {
       const runFolders = await apiList('02_FBM_Clustering/outputs/230_blob_clustering_runs');
       const folders = runFolders.filter(i => i.type === 'dir').map(i => i.name).sort().reverse();
+      clusterData.silRuns = folders;
       if (folders.length) {
+        // Load most recent by default
         const silRes = await fetch(`${REPO_RAW}/02_FBM_Clustering/outputs/230_blob_clustering_runs/${folders[0]}/silhouette_by_k.json`);
         if (silRes.ok) clusterData.silByK = await silRes.json();
+        clusterData.activeSilRun = folders[0];
       }
     } catch(e) {}
 
@@ -1168,7 +1171,12 @@ function renderMetrics() {
 
     ${clusterData.silByK ? `
     <div class="metrics-section" style="margin-top:1.5rem">
-      <h3>Silhouette score by K</h3>
+      <h3>Silhouette score by K
+        ${clusterData.silRuns.length > 1 ? `
+        <select class="run-select" style="margin-left:0.75rem;font-size:0.72rem;padding:2px 8px" onchange="loadSilRun(this.value)">
+          ${clusterData.silRuns.map(r => `<option value="${r}" ${r === clusterData.activeSilRun ? 'selected' : ''}>${r}</option>`).join('')}
+        </select>` : `<span style="font-size:0.65rem;color:var(--muted);font-weight:400;margin-left:0.5rem">${clusterData.activeSilRun}</span>`}
+      </h3>
       <div class="sil-curve-wrap">
         <canvas id="silCurveCanvas"></canvas>
         <div class="sil-curve-tooltip" id="silCurveTooltip"></div>
@@ -1352,6 +1360,18 @@ function renderSilCurve() {
   };
 }
 
+async function loadSilRun(folder) {
+  try {
+    const res = await fetch(`${REPO_RAW}/02_FBM_Clustering/outputs/230_blob_clustering_runs/${folder}/silhouette_by_k.json`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    clusterData.silByK = await res.json();
+    clusterData.activeSilRun = folder;
+    requestAnimationFrame(renderSilCurve);
+  } catch(e) {
+    console.warn('Could not load silhouette_by_k for', folder, e);
+  }
+}
+
 // ── UMAP ─────────────────────────────────────────────────────────────────────
 let umapMode = 'cluster';
 let umapHighlight = null;
@@ -1439,13 +1459,10 @@ function renderUmap() {
     if (umapMode === 'cluster' && silPC) {
       const ci = parseInt(row.cluster_kmeans_raw);
       const sil = silPC[ci] ?? silPC[String(ci)] ?? 0;
-      // Normalise silhouette to 0–1
       const t = (sil - silMin) / silRange;
-      // Opacity: 0.15 (worst) → 0.95 (best), dimmed further if not highlighted
-      const baseAlpha = 0.15 + t * 0.8;
-      const alpha = isHL ? baseAlpha : baseAlpha * 0.15;
-      // Radius: 2.5 (worst) → 6 (best)
-      const radius = 2.5 + t * 3.5;
+      // Radius only: 2 (worst) → 6 (best)
+      const radius = 2 + t * 4;
+      const alpha = isHL ? 0.82 : 0.1;
       return { alpha, radius };
     }
     return { alpha: isHL ? 0.82 : 0.1, radius: 4 };

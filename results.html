@@ -1287,18 +1287,20 @@ function renderSilCurve() {
   function toX(k) { return pad.l + ((k - minK) / (maxK - minK)) * cW; }
   function toY(v) { return pad.t + (1 - (v - minV) / (maxV - minV)) * cH; }
 
-  // Grid lines
+  // Grid lines — computed dynamically from data range
   ctx.strokeStyle = 'rgba(90,60,50,0.08)';
   ctx.lineWidth = 1;
-  [0.25, 0.5, 0.75, 1].forEach(t => {
-    const y = pad.t + t * cH;
+  // Pick ~4 nice round values between minV and maxV
+  const nTicks = 4;
+  for (let t = 0; t <= nTicks; t++) {
+    const val = minV + (t / nTicks) * (maxV - minV);
+    const y = toY(val);
     ctx.beginPath(); ctx.moveTo(pad.l, y); ctx.lineTo(W - pad.r, y); ctx.stroke();
-    const val = maxV - t * (maxV - minV);
     ctx.fillStyle = 'rgba(90,60,50,0.45)';
-    ctx.font = `${9 * devicePixelRatio / devicePixelRatio}px monospace`;
+    ctx.font = `9px monospace`;
     ctx.textAlign = 'right';
     ctx.fillText(val.toFixed(3), pad.l - 4, y + 3);
-  });
+  }
 
   // X axis labels
   ctx.textAlign = 'center';

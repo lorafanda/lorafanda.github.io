@@ -604,7 +604,7 @@ function checkCode() {
     document.getElementById('gate').style.display = 'none';
     document.getElementById('app').style.display = 'block';
     sessionStorage.setItem('lf_auth','1');
-    handleHash();
+    fetchColorsConfig().then(handleHash);
   } else {
     error.textContent = 'Incorrect — try again.';
     input.classList.add('error');
@@ -617,7 +617,7 @@ document.getElementById('gateInput').addEventListener('keydown', e => { if (e.ke
 if (sessionStorage.getItem('lf_auth') === '1') {
   document.getElementById('gate').style.display = 'none';
   document.getElementById('app').style.display = 'block';
-  handleHash();
+  fetchColorsConfig().then(handleHash);
 }
 
 // ── SIDEBAR ──────────────────────────────────────────────────────────────────
@@ -1133,12 +1133,28 @@ function navigateCluster(dir) {
   renderCluster(next);
 }
 
-// ── PATIENT COLOR MAP ────────────────────────────────────────────────────────
-const PAT_COLORS = {
+// ── PATIENT COLOR MAP — loaded from colors_config.json ───────────────────────
+let PAT_COLORS = {
   EL:    ['#1d4ed8','#0891b2','#16a34a','#0e7490','#4ade80','#6366f1','#059669','#38bdf8','#134e4a'],
   PAT:   ['#dc2626','#ea580c','#d97706','#ca8a04','#b45309','#be185d','#e11d48','#f59e0b','#92400e','#c2410c','#db2777','#7c2d12','#fbbf24','#9f1239','#f97316','#a16207'],
   MICRO: ['#164e63','#1e3a5f','#14532d','#1a2e05','#0c2340'],
 };
+let COND_COLORS = { audio: '#b85c6e', picture: '#c47a5a', reading: '#7a8c6e' };
+
+async function fetchColorsConfig() {
+  try {
+    const res = await fetch(`${REPO_RAW}/02_FBM_Clustering/outputs/colors_config.json`);
+    if (!res.ok) return;
+    const cfg = await res.json();
+    if (cfg.EL)    PAT_COLORS.EL    = cfg.EL;
+    if (cfg.PAT)   PAT_COLORS.PAT   = cfg.PAT;
+    if (cfg.MICRO) PAT_COLORS.MICRO = cfg.MICRO;
+    if (cfg.conditions) Object.assign(COND_COLORS, cfg.conditions);
+    console.log('Colors loaded from colors_config.json');
+  } catch(e) {
+    console.warn('Could not load colors_config.json, using defaults:', e.message);
+  }
+}
 
 function getPatientColor(patientId) {
   const prefix = patientId.replace(/\d+/g, '');
@@ -1177,7 +1193,7 @@ function renderMetrics() {
   const maxSil = silPerCluster ? Math.max(...Object.values(silPerCluster).map(Math.abs)) : null;
 
   // Condition color palette (warm/neutral to distinguish from patient blues/greens)
-  const condPalette = {'audio':'#b85c6e','picture':'#c47a5a','reading':'#7a8c6e'};
+  const condPalette = COND_COLORS;
   function condColor(c) { return condPalette[c] || '#888'; }
 
   // ── Build patient stacked bars ──
@@ -1296,7 +1312,7 @@ function showClusterDetail(i) {
     </div>`;
   }).join('');
 
-  const condColors = {'audio':'#b85c6e','picture':'#c47a5a','reading':'#7a8c6e'};
+  const condColors = COND_COLORS;
   const condRows = conditions.filter(c => stats.conditions[c]).map(c => {
     const count = stats.conditions[c];
     const pct = Math.round((count/total)*100);
@@ -1470,8 +1486,6 @@ function clusterColor(i, n) {
   const hue = Math.round((i / n) * 360);
   return `hsl(${hue}, 65%, 52%)`;
 }
-
-const COND_COLORS = { audio: '#b85c6e', picture: '#c47a5a', reading: '#7a8c6e' };
 
 function getUmapColor(row) {
   if (umapMode === 'cluster') return clusterColor(parseInt(row.cluster_kmeans_raw), clusterData.metrics?.n_clusters || 25);

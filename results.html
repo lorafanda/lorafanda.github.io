@@ -498,9 +498,7 @@
               <img class="centroid-thumb" id="centroidThumb" src="" alt="Centroid" style="display:none" onclick="openLightbox(this.src,'Cluster centroids')"/>
             </div>
             <div class="cluster-recon-strip" id="clusterReconStrip" style="display:none"></div>
-            <div class="cluster-grid" id="clusterGrid">
-              <div class="cluster-empty">Select a run above to browse clusters.</div>
-            </div>
+            <div class="cluster-empty" id="clusterPlaceholder">Select a run above to browse clusters.</div>
           </div>
 
           <!-- METRICS sub-panel -->
@@ -941,7 +939,7 @@ async function onRunChange() {
   const idx = document.getElementById('runSelect').value;
   if (idx === '') return;
   const run = clusterData.runs[idx];
-  document.getElementById('clusterGrid').innerHTML = '<div class="cluster-empty">Loading...</div>';
+  document.getElementById('clusterPlaceholder').textContent = 'Loading...';
   document.getElementById('metricsContent').innerHTML = '<div class="cluster-empty">Loading...</div>';
   document.getElementById('clusterNav').style.display = 'none';
   document.getElementById('clusterReconStrip').style.display = 'none';
@@ -988,7 +986,7 @@ async function onRunChange() {
     renderCluster(0);
     renderMetrics();
   } catch(e) {
-    document.getElementById('clusterGrid').innerHTML = `<div class="cluster-empty">Error: ${e.message}</div>`;
+    document.getElementById('clusterPlaceholder').textContent = `Error: ${e.message}`;
   }
 }
 
@@ -1080,51 +1078,20 @@ function renderCluster(clusterIdx) {
   document.getElementById('nextCluster').disabled = clusterIdx === nClusters - 1;
   const count = metrics.cluster_counts[clusterIdx] || 0;
 
-  // Silhouette for this cluster
   const sil = metrics.silhouette_per_cluster
     ? (metrics.silhouette_per_cluster[clusterIdx] ?? metrics.silhouette_per_cluster[String(clusterIdx)] ?? null)
     : null;
   const silText = sil !== null ? ` · sil ${sil >= 0 ? '+' : ''}${sil.toFixed(3)}` : '';
   document.getElementById('clusterInfo').textContent = `${count} electrode${count !== 1 ? 's' : ''}${silText}`;
 
-  const rows = clusterData.labels.filter(r => parseInt(r.cluster_kmeans_raw) === clusterIdx);
-  const grid = document.getElementById('clusterGrid');
-  grid.innerHTML = '';
-
-  // Load cluster reconstruction images for this cluster
+  // Load cluster reconstruction images
   const strip = document.getElementById('clusterReconStrip');
   if (strip) strip.style.display = 'none';
   loadClusterRecon(clusterIdx, clusterData.metrics.run_id, clusterData.labelsFile);
 
-  if (!rows.length) { grid.innerHTML = '<div class="cluster-empty">No images for this cluster.</div>'; return; }
-
-  rows.forEach(row => {
-    const npyName = row.file_path.split('\\').pop();
-    const pngName = npyName.replace('_TN.npy', '_TN_CLEAN.png');
-    const imgUrl = `${REPO_RAW}/01_FBM_Analysis/outputs/04_ersp_LM_RAWONLY/${row.patient_id}/${row.task}/ERSP_clean/${row.condition}/${pngName}`;
-    const card = document.createElement('div');
-    card.className = 'cluster-card';
-    card.setAttribute('tabindex','0');
-    // Color border by patient
-    card.style.borderColor = getPatientColor(row.patient_id);
-    const img = document.createElement('img'); img.src = imgUrl; img.alt = pngName; img.loading = 'lazy';
-    const info = document.createElement('div');
-    info.className = 'cluster-card-info';
-    info.textContent = `${row.patient_id} · ${row.condition} · ${row.electrode}`;
-    // Region placeholder — activates when region column present
-    if (row.region) {
-      const reg = document.createElement('div');
-      reg.className = 'cluster-card-info';
-      reg.style.color = 'var(--accent2)';
-      reg.textContent = row.region;
-      card.appendChild(img); card.appendChild(info); card.appendChild(reg);
-    } else {
-      card.appendChild(img); card.appendChild(info);
-    }
-    card.addEventListener('click', () => openLightbox(imgUrl, `${row.patient_id} · ${row.condition} · ${row.electrode}`));
-    card.addEventListener('keydown', e => { if (e.key==='Enter'||e.key===' ') { e.preventDefault(); openLightbox(imgUrl, info.textContent); } });
-    grid.appendChild(card);
-  });
+  // Hide placeholder
+  const ph = document.getElementById('clusterPlaceholder');
+  if (ph) ph.style.display = 'none';
 }
 
 function navigateCluster(dir) {
@@ -1150,7 +1117,14 @@ async function fetchColorsConfig() {
     if (cfg.PAT)   PAT_COLORS.PAT   = cfg.PAT;
     if (cfg.MICRO) PAT_COLORS.MICRO = cfg.MICRO;
     if (cfg.conditions) Object.assign(COND_COLORS, cfg.conditions);
+    // Clear patient color cache so colors are recomputed from new palette
+    getPatientColor._cache = {};
     console.log('Colors loaded from colors_config.json');
+    // Re-render if clustering data is already loaded
+    if (clusterData.metrics && clusterData.labels.length) {
+      renderCluster(clusterData.currentCluster);
+      renderMetrics();
+    }
   } catch(e) {
     console.warn('Could not load colors_config.json, using defaults:', e.message);
   }

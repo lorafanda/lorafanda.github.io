@@ -386,8 +386,7 @@
           <span class="nav-item-num">310</span><span class="nav-icon">📓</span><span class="nav-item-label">K-Means Clustering</span><span class="status status-done"></span>
         </button>
         <button class="nav-section-item" onclick="loadFunctions('02')" id="nav-02-fn"><span class="nav-icon">🐍</span> Functions</button>
-        <button class="nav-section-item" onclick="loadClustering()" id="nav-02-out"><span class="nav-icon">📊</span> KMeans Results</button>
-        <button class="nav-section-item" onclick="loadBlobResults()" id="nav-02-blob"><span class="nav-icon">📊</span> Blob Results</button>
+        <button class="nav-section-item" onclick="loadClustering()" id="nav-02-out"><span class="nav-icon">📊</span> Clustering Results</button>
       </div>
     </div>
 
@@ -399,8 +398,8 @@
       <button class="tab-btn active" id="tab-notebook" onclick="switchTab('notebook')">📓 Notebook</button>
       <button class="tab-btn" id="tab-functions" onclick="switchTab('functions')">🐍 Functions</button>
       <button class="tab-btn" id="tab-outputs" onclick="switchTab('outputs')" style="display:none">📊 Outputs</button>
-      <button class="tab-btn" id="tab-clustering" onclick="switchTab('clustering')" style="display:none">🔵 KMeans</button>
-      <button class="tab-btn" id="tab-blob" onclick="switchTab('blob')" style="display:none">🫧 Blob</button>
+      <button class="tab-btn" id="tab-clustering" onclick="switchTab('clustering')" style="display:none">🔵 Clustering</button>
+      <button class="tab-btn" id="tab-blob" onclick="switchTab('blob')" style="display:none">🫧 Blob (legacy)</button>
       <button class="tab-btn" id="tab-preface" onclick="switchTab('preface')" style="display:none">📖 PhD Story</button>
       <div class="tab-spacer"></div>
       <button class="copy-link-btn" onclick="copyLink()">⎘ Copy link</button>
@@ -915,19 +914,42 @@ function loadClustering() {
   initClustering();
 }
 
+// Manifest-driven loader: pulls the top-level outputs/clustering/index.json,
+// then per-run manifest.json. Old hardcoded `outputs/clustering/kmeans/...`
+// paths are gone — runs live at `outputs/clustering/<method>/<feature_set>/runs/<run_id>/`.
+const CLUSTERING_ROOT = `${REPO_RAW}/02_FBM_Clustering/outputs/clustering`;
+
 async function initClustering() {
   const runSelect = document.getElementById('runSelect');
   runSelect.innerHTML = '<option value="">Loading runs...</option>';
   try {
-    const items = await apiList('02_FBM_Clustering/outputs/clustering/kmeans');
-    const jsonFiles = items.filter(i => i.name.startsWith('metrics_') && i.name.endsWith('.json'));
-    clusterData.runs = jsonFiles.map(f => {
-      const match = f.name.match(/metrics_(.+)\.json/);
-      return { file: f.name, tag: match ? match[1] : f.name, rawUrl: `${REPO_RAW}/02_FBM_Clustering/outputs/clustering/kmeans/${f.name}` };
-    });
+    const idxRes = await fetch(`${CLUSTERING_ROOT}/index.json`);
+    if (!idxRes.ok) throw new Error(`index.json HTTP ${idxRes.status}`);
+    const idx = await idxRes.json();
+    const methodLabel = Object.fromEntries((idx.methods || []).map(m => [m.id, m.label]));
+    const featureLabel = Object.fromEntries((idx.feature_sets || []).map(f => [f.id, f.label]));
+
+    // Sort newest run first within each (method, feature_set)
+    clusterData.runs = (idx.runs || []).slice().sort((a, b) => {
+      if (a.method !== b.method) return a.method.localeCompare(b.method);
+      if (a.feature_set !== b.feature_set) return a.feature_set.localeCompare(b.feature_set);
+      return b.run_id.localeCompare(a.run_id);
+    }).map(r => ({
+      ...r,
+      label: `[${methodLabel[r.method] || r.method} · ${featureLabel[r.feature_set] || r.feature_set}] ${r.run_id} — k=${r.n_clusters}, sil=${(r.silhouette ?? 0).toFixed(3)}`,
+    }));
+
+    if (clusterData.runs.length === 0) {
+      runSelect.innerHTML = '<option value="">No runs in index.json</option>';
+      return;
+    }
+
     runSelect.innerHTML = '<option value="">Select a run...</option>';
     clusterData.runs.forEach((r, i) => {
-      const o = document.createElement('option'); o.value = i; o.textContent = r.tag; runSelect.appendChild(o);
+      const o = document.createElement('option');
+      o.value = i;
+      o.textContent = r.label;
+      runSelect.appendChild(o);
     });
     if (clusterData.runs.length === 1) { runSelect.value = 0; onRunChange(); }
   } catch(e) {
@@ -935,10 +957,44 @@ async function initClustering() {
   }
 }
 
+// Normalize the new metrics+manifest schema into the shape renderMetrics()
+// already expects. Keeps the rendering / colors / histogram code untouched.
+function _adaptMetrics(manifest, metricsNew) {
+  const per = metricsNew.per_cluster || {};
+  const ids = (metricsNew.cluster_ids && metricsNew.cluster_ids.length)
+    ? metricsNew.cluster_ids
+    : Object.keys(per).map(Number).sort((a, b) => a - b);
+  const cluster_counts = ids.map(c => (per[c] || per[String(c)] || {}).size || 0);
+  const silhouette_per_cluster = {};
+  ids.forEach(c => {
+    const v = (per[c] || per[String(c)] || {}).silhouette_mean;
+    if (v !== undefined && v !== null && !Number.isNaN(v)) silhouette_per_cluster[c] = v;
+  });
+  return {
+    n_clusters:    metricsNew.n_clusters,
+    n_samples:     metricsNew.n_samples,
+    n_features:    manifest.summary?.n_features ?? 0,
+    silhouette:    metricsNew.silhouette_overall ?? 0,
+    silhouette_per_cluster,
+    cluster_counts,
+    task:          manifest.params?.task || 'LM',
+    algo_tag:      `${manifest.method}_${manifest.feature_set}`,
+    run_id:        manifest.run_id,
+    random_state:  manifest.params?.random_state ?? '—',
+    note:          `${manifest.method_label || manifest.method} on ${manifest.feature_set_label || manifest.feature_set} features. ${
+                    manifest.predictor_type === '1-NN'
+                      ? 'Inference uses 1-NN over training features.'
+                      : 'Inference uses native centroid prediction.'}`,
+    method:        manifest.method,
+    feature_set:   manifest.feature_set,
+    cluster_ids:   ids,
+  };
+}
+
 async function onRunChange() {
-  const idx = document.getElementById('runSelect').value;
-  if (idx === '') return;
-  const run = clusterData.runs[idx];
+  const sel = document.getElementById('runSelect').value;
+  if (sel === '') return;
+  const run = clusterData.runs[sel];
   document.getElementById('clusterPlaceholder').textContent = 'Loading...';
   document.getElementById('metricsContent').innerHTML = '<div class="cluster-empty">Loading...</div>';
   document.getElementById('clusterNav').style.display = 'none';
@@ -946,47 +1002,68 @@ async function onRunChange() {
   const centroidThumb = document.getElementById('centroidThumb');
   centroidThumb.style.display = 'none';
 
+  const baseUrl = `${CLUSTERING_ROOT}/${run.path}`;
+
   try {
-    // Load metrics JSON
-    const mRes = await fetch(run.rawUrl);
-    if (!mRes.ok) throw new Error(`HTTP ${mRes.status}`);
-    clusterData.metrics = await mRes.json();
+    const manifestRes = await fetch(`${baseUrl}/manifest.json`);
+    if (!manifestRes.ok) throw new Error(`manifest.json HTTP ${manifestRes.status}`);
+    const manifest = await manifestRes.json();
+    const arts = manifest.artifacts || {};
 
-    // Load labels CSV
-    const labelFile = run.file.replace('metrics_', 'labels_').replace('.json', '.csv');
-    const lRes = await fetch(`${REPO_RAW}/02_FBM_Clustering/outputs/clustering/kmeans/${labelFile}`);
-    if (!lRes.ok) throw new Error(`Labels CSV not found`);
-    clusterData.labels = parseCSV(await lRes.text());
+    const metricsRes = await fetch(`${baseUrl}/${arts.metrics || 'metrics.json'}`);
+    if (!metricsRes.ok) throw new Error(`metrics.json HTTP ${metricsRes.status}`);
+    const metricsNew = await metricsRes.json();
 
-    // Load silhouette_by_k.json — list all available blob run folders dynamically
+    const labelsRes = await fetch(`${baseUrl}/${arts.labels || 'labels.csv'}`);
+    if (!labelsRes.ok) throw new Error(`labels.csv HTTP ${labelsRes.status}`);
+    const labels = parseCSV(await labelsRes.text());
+
+    // Alias the run-specific cluster column to the constant `cluster_kmeans_raw`
+    // so renderMetrics()/renderUmap() etc. don't need to know which method ran.
+    const clusterCol = `cluster_${manifest.method}_${manifest.feature_set}`;
+    labels.forEach(r => {
+      if (r[clusterCol] !== undefined) r.cluster_kmeans_raw = r[clusterCol];
+      else if (r.cluster !== undefined) r.cluster_kmeans_raw = r.cluster;
+      if (!r.patient_id) r.patient_id = r.patient_id || 'unknown';
+      if (!r.condition)  r.condition  = r.condition  || 'unknown';
+    });
+    clusterData.labels = labels;
+    clusterData.metrics = _adaptMetrics(manifest, metricsNew);
+    clusterData.manifest = manifest;
+    clusterData.runDir = baseUrl;
+
+    // Silhouette-by-K curve, if this run swept K (KMeans only)
     clusterData.silByK = null;
     clusterData.silRuns = [];
-    try {
-      const runFolders = await apiList('02_FBM_Clustering/outputs/230_blob_clustering_runs');
-      const folders = runFolders.filter(i => i.type === 'dir').map(i => i.name).sort().reverse();
-      clusterData.silRuns = folders;
-      if (folders.length) {
-        // Load most recent by default
-        const silRes = await fetch(`${REPO_RAW}/02_FBM_Clustering/outputs/230_blob_clustering_runs/${folders[0]}/silhouette_by_k.json`);
+    if (arts.silhouette_sweep) {
+      try {
+        const silRes = await fetch(`${baseUrl}/${arts.silhouette_sweep}`);
         if (silRes.ok) clusterData.silByK = await silRes.json();
-        clusterData.activeSilRun = folders[0];
-      }
-    } catch(e) {}
+      } catch(e) {}
+    }
 
-    // Load centroid PNG — pattern: kmeans_raw_cluster_ERSPs_{run_id}.png
-    const runId = clusterData.metrics.run_id;
-    const centroidUrl = `${REPO_RAW}/02_FBM_Clustering/outputs/figures/ersp_clusters/kmeans_raw_cluster_ERSPs_${runId}.png`;
-    // Test if it exists by trying to load it
-    centroidThumb.src = centroidUrl;
+    // Centroid figure: prefer the ERSP-shaped grid (210 notebook writes this);
+    // fall back to the generic centroids heatmap from the orchestrator.
+    const centroidCandidates = [
+      'cluster_mean_ersps.png',
+      arts.centroids_figure || 'centroids.png',
+    ];
+    let cIdx = 0;
+    centroidThumb.onerror = () => {
+      cIdx += 1;
+      if (cIdx < centroidCandidates.length) centroidThumb.src = `${baseUrl}/${centroidCandidates[cIdx]}`;
+      else centroidThumb.style.display = 'none';
+    };
+    centroidThumb.src = `${baseUrl}/${centroidCandidates[0]}`;
     centroidThumb.style.display = 'block';
-    centroidThumb.onerror = () => { centroidThumb.style.display = 'none'; };
 
-    clusterData.labelsFile = labelFile;
+    clusterData.labelsFile = arts.labels || 'labels.csv';
     clusterData.currentCluster = 0;
     renderCluster(0);
     renderMetrics();
   } catch(e) {
     document.getElementById('clusterPlaceholder').textContent = `Error: ${e.message}`;
+    document.getElementById('metricsContent').innerHTML = `<div class="cluster-empty">Error loading run: ${e.message}</div>`;
   }
 }
 
@@ -1005,18 +1082,27 @@ function loadClusterRecon(clusterIdx, runId, labelsFile) {
   const strip = document.getElementById('clusterReconStrip');
   if (!strip) return;
 
-  // Path pattern:
-  // outputs/250_recon/clustering_recon/{csv_basename}/cluster_{id}/{by_*}/{view}.png
-  // Views: lateral_L, lateral_R, dorsal, frontal
-  // Modes: by_patient, by_condition
-  const csvBasename = labelsFile ? labelsFile.replace('.csv','') : `labels_kmeans_raw_${runId}`;
+  // Recon image base URL.
+  //   New scheme : inside the run dir at  <runDir>/recon/cluster_<id>/<by_*>/<view>.png
+  //                (populated when 250_recon is refactored to write into the manifest run dir)
+  //   Legacy     : outputs/250_recon/clustering_recon/<csv_basename>/cluster_<id>/...
+  // We try the new path first; img.onerror falls back to legacy below.
   const clusterId = String(clusterIdx).padStart(2, '0');
   const views = ['lateral_L', 'lateral_R', 'dorsal', 'frontal'];
   const modes = [
     { key: 'by_patient',   label: 'by patient' },
     { key: 'by_condition', label: 'by condition' },
   ];
-  const base = `${REPO_RAW}/02_FBM_Clustering/outputs/250_recon/clustering_recon/${csvBasename}/cluster_${clusterId}`;
+
+  const m = clusterData.manifest;
+  const newBase = (clusterData.runDir && m)
+    ? `${clusterData.runDir}/recon/cluster_${clusterId}`
+    : null;
+  const legacyCsvBase = (m
+    ? `labels_${m.method}_${m.feature_set}_${m.run_id}`
+    : (labelsFile ? labelsFile.replace('.csv','') : `labels_kmeans_raw_${runId}`));
+  const legacyBase = `${REPO_RAW}/02_FBM_Clustering/outputs/250_recon/clustering_recon/${legacyCsvBase}/cluster_${clusterId}`;
+  const base = newBase || legacyBase;
 
   strip.innerHTML = '';
   strip.style.display = 'flex';
@@ -1033,15 +1119,20 @@ function loadClusterRecon(clusterIdx, runId, labelsFile) {
     imgRow.className = 'recon-imgs';
 
     views.forEach(view => {
-      const url = `${base}/${mode.key}/${view}.png`;
+      const primary = `${base}/${mode.key}/${view}.png`;
+      const fallback = (newBase && newBase !== legacyBase) ? `${legacyBase}/${mode.key}/${view}.png` : null;
       const card = document.createElement('div');
       card.className = 'recon-card';
       const img = document.createElement('img');
       img.alt = `${view} ${mode.label}`;
       img.loading = 'lazy';
-      img.src = url;
-      img.addEventListener('click', () => openLightbox(url, `Cluster ${clusterIdx+1} — ${view} ${mode.label}`));
-      img.onerror = () => { card.style.display = 'none'; };
+      let usedUrl = primary;
+      img.src = primary;
+      img.addEventListener('click', () => openLightbox(usedUrl, `Cluster ${clusterIdx+1} — ${view} ${mode.label}`));
+      img.onerror = () => {
+        if (fallback && img.src !== fallback) { usedUrl = fallback; img.src = fallback; }
+        else { card.style.display = 'none'; }
+      };
       img.onload = () => { anyLoaded = true; };
       const lbl = document.createElement('div');
       lbl.className = 'recon-card-label';

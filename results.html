@@ -268,6 +268,15 @@
     .cluster-samples-header { padding: 6px 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface); font-size: 0.7rem; font-weight: 500; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; flex-shrink: 0; display: flex; align-items: center; gap: 0.5rem; }
     .cluster-samples-header .samples-count { color: var(--text); font-family: 'JetBrains Mono', monospace; text-transform: none; letter-spacing: 0; }
     .samples-empty { padding: 2rem; color: var(--muted); font-size: 0.85rem; text-align: center; }
+    /* P2: per-sample silhouette badge (overlay top-right of thumbnail) */
+    .sample-card-with-sil { position: relative; }
+    .sample-sil-badge {
+      position: absolute; top: 4px; right: 4px;
+      color: #fff; font-family: 'JetBrains Mono', monospace;
+      font-size: 0.6rem; font-weight: 500;
+      padding: 1px 5px; border-radius: 3px;
+      pointer-events: none;
+    }
 
     /* Glass brain strip */
     .cluster-recon-strip { display: flex; gap: 8px; padding: 8px 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface2); overflow-x: auto; flex-shrink: 0; align-items: flex-start; }
@@ -1003,6 +1012,7 @@ function _adaptMetrics(manifest, metricsNew) {
     method:        manifest.method,
     feature_set:   manifest.feature_set,
     cluster_ids:   ids,
+    per_cluster:   per,                  // P0: keep full per-cluster dict so renderCluster can show n_patients/n_centers badges
   };
 }
 
@@ -1204,8 +1214,14 @@ function renderClusterSamples(clusterIdx) {
     return;
   }
 
-  // Sort by patient then electrode for a consistent visual order
+  // P2: sort by silhouette desc (most-confident-fit first). Fall back to
+  // (patient, electrode) for stable order when silhouette is missing/equal.
   samples.sort((a, b) => {
+    const sa = parseFloat(a.silhouette);
+    const sb = parseFloat(b.silhouette);
+    const va = Number.isNaN(sa) ? -Infinity : sa;
+    const vb = Number.isNaN(sb) ? -Infinity : sb;
+    if (vb !== va) return vb - va;
     if (a.patient_id !== b.patient_id) return String(a.patient_id).localeCompare(String(b.patient_id));
     return String(a.electrode || '').localeCompare(String(b.electrode || ''));
   });
@@ -1213,17 +1229,33 @@ function renderClusterSamples(clusterIdx) {
   samples.forEach(row => {
     const url = _filepathToCleanPngUrl(row.file_path);
     if (!url) return;
-    // Caption = the PNG filename, identical style to the FBM Analysis Outputs panel
     const filename = url.split('/').pop();
+    const sil = parseFloat(row.silhouette);
+    const hasSil = !Number.isNaN(sil);
+
     const card = document.createElement('div');
-    card.className = 'output-card';   // same class as Outputs panel -> identical 150x150 sizing
+    card.className = 'output-card sample-card-with-sil';
+
     const img = document.createElement('img');
     img.loading = 'lazy';
     img.alt     = filename;
     img.src     = url;
     img.onerror = () => { card.style.display = 'none'; };
     card.addEventListener('click',
-      () => openLightbox(url, `${row.patient_id} · ${row.electrode} · ${row.condition}`));
+      () => openLightbox(url, `${row.patient_id} · ${row.electrode} · ${row.condition}` + (hasSil ? ` · sil=${sil.toFixed(3)}` : '')));
+
+    // P2: per-sample silhouette badge — green for positive (good fit),
+    // red for negative (likely misassigned). Magnitude shown to 2 decimals.
+    if (hasSil) {
+      const badge = document.createElement('div');
+      badge.className = 'sample-sil-badge';
+      badge.textContent = (sil >= 0 ? '+' : '') + sil.toFixed(2);
+      badge.style.background = sil >= 0
+        ? 'rgba(5,150,105,0.85)'      // green
+        : 'rgba(220,38,38,0.85)';     // red
+      card.appendChild(badge);
+    }
+
     const cap = document.createElement('div');
     cap.className   = 'output-caption';
     cap.textContent = filename;
@@ -1249,7 +1281,15 @@ function renderCluster(clusterIdx) {
     ? (metrics.silhouette_per_cluster[clusterIdx] ?? metrics.silhouette_per_cluster[String(clusterIdx)] ?? null)
     : null;
   const silText = sil !== null ? ` · sil ${sil >= 0 ? '+' : ''}${sil.toFixed(3)}` : '';
-  document.getElementById('clusterInfo').textContent = `${count} electrode${count !== 1 ? 's' : ''}${silText}`;
+  // P0: patient and center diversity badges. A 6-electrode cluster from 6 different
+  // patients is a real cross-patient pattern; a 30-electrode cluster from 1 patient
+  // is a patient-specific artifact. The badge surfaces this at a glance.
+  const pc = (metrics.per_cluster && (metrics.per_cluster[clusterIdx] || metrics.per_cluster[String(clusterIdx)])) || {};
+  const extras = [];
+  if (typeof pc.n_patients === 'number')          extras.push(`${pc.n_patients} patient${pc.n_patients === 1 ? '' : 's'}`);
+  if (typeof pc.n_centers  === 'number' && pc.n_centers > 0) extras.push(`${pc.n_centers} center${pc.n_centers === 1 ? '' : 's'}`);
+  const extrasText = extras.length ? ` · ${extras.join(' · ')}` : '';
+  document.getElementById('clusterInfo').textContent = `${count} electrode${count !== 1 ? 's' : ''}${extrasText}${silText}`;
 
   // Load cluster reconstruction images
   const strip = document.getElementById('clusterReconStrip');

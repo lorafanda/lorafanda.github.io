@@ -261,6 +261,19 @@
     .centroid-thumb { height: 44px; width: auto; border-radius: 4px; border: 1px solid var(--border); cursor: zoom-in; opacity: 0.85; transition: opacity 0.2s; }
     .centroid-thumb:hover { opacity: 1; }
 
+    /* Per-cluster sample thumbnails (ERSP_clean PNGs) */
+    .cluster-samples-wrap { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+    .cluster-samples-header { padding: 6px 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface); font-size: 0.7rem; font-weight: 500; color: var(--muted); letter-spacing: 0.04em; text-transform: uppercase; flex-shrink: 0; display: flex; align-items: center; gap: 0.5rem; }
+    .cluster-samples-header .samples-count { color: var(--text); font-family: 'JetBrains Mono', monospace; text-transform: none; letter-spacing: 0; }
+    .cluster-samples-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; padding: 8px 1.25rem 1.25rem; overflow-y: auto; flex: 1; min-height: 0; }
+    .cluster-samples-grid::-webkit-scrollbar { width: 6px; }
+    .cluster-samples-grid::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    .sample-card { background: #fff; border: 1px solid var(--border); border-radius: 5px; overflow: hidden; cursor: zoom-in; display: flex; flex-direction: column; transition: border-color 0.15s, transform 0.15s; }
+    .sample-card:hover { border-color: rgba(184,92,110,0.4); transform: scale(1.03); }
+    .sample-card img { width: 100%; height: 100px; object-fit: cover; display: block; background: #fff; }
+    .sample-card-label { padding: 3px 5px; font-size: 0.55rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; line-height: 1.25; text-align: center; border-top: 1px solid var(--border); white-space: pre-line; }
+    .samples-empty { padding: 2rem; color: var(--muted); font-size: 0.85rem; text-align: center; grid-column: 1/-1; }
+
     /* Glass brain strip */
     .cluster-recon-strip { display: flex; gap: 8px; padding: 8px 1.25rem; border-bottom: 1px solid var(--border); background: var(--surface2); overflow-x: auto; flex-shrink: 0; align-items: flex-start; }
     .cluster-recon-strip::-webkit-scrollbar { height: 4px; }
@@ -497,6 +510,13 @@
               <img class="centroid-thumb" id="centroidThumb" src="" alt="Centroid" style="display:none" onclick="openLightbox(this.src,'Cluster centroids')"/>
             </div>
             <div class="cluster-recon-strip" id="clusterReconStrip" style="display:none"></div>
+            <div class="cluster-samples-wrap" id="clusterSamplesWrap" style="display:none">
+              <div class="cluster-samples-header">
+                <span>Samples in this cluster</span>
+                <span class="samples-count" id="clusterSamplesCount"></span>
+              </div>
+              <div class="cluster-samples-grid" id="clusterSamplesGrid"></div>
+            </div>
             <div class="cluster-empty" id="clusterPlaceholder">Select a run above to browse clusters.</div>
           </div>
 
@@ -1157,6 +1177,66 @@ function loadClusterRecon(clusterIdx, runId, labelsFile) {
   }, 3000);
 }
 
+// ── Per-cluster sample thumbnails (ERSP_clean PNGs) ─────────────────────────
+// Each row of labels.csv has a file_path pointing to the ERSP_matrix .npy
+// for that sample. The corresponding "clean" image lives at the same path
+// with `ERSP_matrix` -> `ERSP_clean` and `.npy` -> `_CLEAN.png`.
+// Path is normalised to a GitHub raw URL by anchoring on `01_FBM_Analysis/`.
+function _filepathToCleanPngUrl(file_path) {
+  if (!file_path) return null;
+  let p = String(file_path).replace(/\\\\/g, '/').replace(/\\/g, '/');
+  const idx = p.indexOf('01_FBM_Analysis/');
+  if (idx === -1) return null;
+  p = p.substring(idx);
+  p = p.replace('/ERSP_matrix/', '/ERSP_clean/');
+  p = p.replace(/\.npy$/i, '_CLEAN.png');
+  return `${REPO_RAW}/${p}`;
+}
+
+function renderClusterSamples(clusterIdx) {
+  const wrap  = document.getElementById('clusterSamplesWrap');
+  const grid  = document.getElementById('clusterSamplesGrid');
+  const count = document.getElementById('clusterSamplesCount');
+  if (!wrap || !grid) return;
+
+  const samples = clusterData.labels.filter(r => parseInt(r.cluster_kmeans_raw) === clusterIdx);
+  count.textContent = `${samples.length} sample${samples.length === 1 ? '' : 's'}`;
+  grid.innerHTML = '';
+  wrap.style.display = 'flex';
+
+  if (!samples.length) {
+    grid.innerHTML = '<div class="samples-empty">No samples in this cluster.</div>';
+    return;
+  }
+
+  // Sort by patient then electrode for a consistent visual order
+  samples.sort((a, b) => {
+    if (a.patient_id !== b.patient_id) return String(a.patient_id).localeCompare(String(b.patient_id));
+    return String(a.electrode || '').localeCompare(String(b.electrode || ''));
+  });
+
+  samples.forEach(row => {
+    const url = _filepathToCleanPngUrl(row.file_path);
+    if (!url) return;
+    const caption = `${row.patient_id || '?'}\n${row.electrode || '?'}\n${row.condition || '?'}`;
+    const card = document.createElement('div');
+    card.className = 'sample-card';
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.alt     = caption.replace(/\n/g, ' · ');
+    img.src     = url;
+    img.onerror = () => { card.style.display = 'none'; };
+    img.addEventListener('click',
+      () => openLightbox(url, `${row.patient_id} · ${row.electrode} · ${row.condition}`));
+    const lbl = document.createElement('div');
+    lbl.className   = 'sample-card-label';
+    lbl.textContent = caption;
+    card.appendChild(img);
+    card.appendChild(lbl);
+    grid.appendChild(card);
+  });
+}
+
 function renderCluster(clusterIdx) {
   const metrics = clusterData.metrics;
   const nClusters = metrics.n_clusters;
@@ -1179,6 +1259,9 @@ function renderCluster(clusterIdx) {
   const strip = document.getElementById('clusterReconStrip');
   if (strip) strip.style.display = 'none';
   loadClusterRecon(clusterIdx, clusterData.metrics.run_id, clusterData.labelsFile);
+
+  // Render per-cluster sample thumbnails (ERSP_clean PNGs)
+  renderClusterSamples(clusterIdx);
 
   // Hide placeholder
   const ph = document.getElementById('clusterPlaceholder');

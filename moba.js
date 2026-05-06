@@ -912,13 +912,12 @@ function renderSamples(highlightOnly = false) {
     img.src = url;
     img.onerror = () => { card.style.display = 'none'; };
     card.addEventListener('click', () => {
-      // 1) Highlight this thumbnail and the corresponding electrode in 3D
+      // Click highlights the corresponding electrode in 3D — no lightbox
+      // (Lora doesn't want clicks to zoom the thumbnails).
       document.querySelectorAll('.output-card.highlighted').forEach(c => c.classList.remove('highlighted'));
       card.classList.add('highlighted');
       mobaState._highlightedSampleIdx = row.sample_idx;
       updateHighlight();
-      // 2) Also open the lightbox so the user gets the full ERSP image
-      openLightbox(url, `${row.patient_id} · ${row.electrode} · ${row.condition}` + (hasSil ? ` · sil=${sil.toFixed(3)}` : ''));
     });
 
     if (hasSil) {

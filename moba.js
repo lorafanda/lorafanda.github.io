@@ -521,6 +521,51 @@ function rerender() {
 // ─────────────────────────────────────────────────────────────────────────────
 // BRAIN RENDER
 // ─────────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// ICOSPHERE — minimal sphere geometry (12 verts, 20 faces) used to bake
+// electrode markers into regular OBJ meshes. Niivue's connectome path
+// is broken on ANGLE Metal; mesh path works everywhere.
+// ─────────────────────────────────────────────────────────────────────────────
+const _PHI = (1 + Math.sqrt(5)) / 2;
+const ICO_VERTS = (() => {
+  const raw = [
+    [-1,  _PHI,    0], [1,  _PHI,    0], [-1, -_PHI,   0], [1, -_PHI,   0],
+    [ 0, -1,    _PHI], [0,  1,    _PHI], [ 0, -1,   -_PHI], [0,  1,   -_PHI],
+    [ _PHI, 0, -1],     [_PHI, 0,  1],   [-_PHI, 0, -1],     [-_PHI, 0,  1],
+  ];
+  return raw.map(v => {
+    const len = Math.hypot(v[0], v[1], v[2]);
+    return [v[0]/len, v[1]/len, v[2]/len];
+  });
+})();
+const ICO_FACES = [
+  [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
+  [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+  [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
+  [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1],
+];
+
+// Build an OBJ text containing one icosphere per electrode, each at
+// (e.x, e.y, e.z) with the given mm radius. Returns a string ready to
+// blob-URL into addMeshFromUrl.
+function buildSpheresOBJ(electrodes, radius) {
+  const out = [`# MOBA generated · ${electrodes.length} spheres · radius=${radius}mm`];
+  for (const e of electrodes) {
+    for (const v of ICO_VERTS) {
+      out.push(`v ${(e.x + v[0]*radius).toFixed(3)} ${(e.y + v[1]*radius).toFixed(3)} ${(e.z + v[2]*radius).toFixed(3)}`);
+    }
+  }
+  // OBJ vertex indices are 1-based and global across the file
+  for (let i = 0; i < electrodes.length; i++) {
+    const off = i * ICO_VERTS.length + 1;
+    for (const f of ICO_FACES) {
+      out.push(`f ${f[0]+off} ${f[1]+off} ${f[2]+off}`);
+    }
+  }
+  return out.join('\n') + '\n';
+}
+
+
 async function renderBrain() {
   if (!mobaState.brainReady || !mobaState.coords.length) {
     document.getElementById('brainStat').textContent = '';
@@ -529,14 +574,14 @@ async function renderBrain() {
   const visible = mobaState.coords.filter(isVisible);
   document.getElementById('brainStat').textContent = `${visible.length} contacts`;
 
-  // ── Empty-selection short-circuit ─────────────────────────────────────
-  // Niivue throws "Catastrophic failure generatePosNormClr()" on a
-  // 0-node connectome. When the user filters everything off, just reset
-  // to the brain-only view (no electrodes) and bail.
+  // Empty selection: just keep brain meshes, drop any electrode meshes
   if (visible.length === 0) {
-    if (mobaState._meshSpec) {
-      try { await mobaState.nv.loadMeshes(mobaState._meshSpec); } catch (e) {}
+    if (mobaState._electrodeMeshIds && mobaState.nv) {
+      for (const id of mobaState._electrodeMeshIds) {
+        try { mobaState.nv.removeMesh(id); } catch (e) {}
+      }
     }
+    mobaState._electrodeMeshIds = [];
     mobaState._brainNodes = [];
     return;
   }
@@ -570,17 +615,6 @@ async function renderBrain() {
     categoryCount = mobaState.conditions.length;
   }
 
-  // Build a 256-entry LUT: slot i = colour of category i (clamped at
-  // the last category for slots >= categoryCount). Niivue's LUT is
-  // sampled at integer indices, so node Color=k maps exactly to LUT[k].
-  const cm = { R: new Array(256), G: new Array(256), B: new Array(256), A: new Array(256), I: new Array(256) };
-  const N = Math.max(categoryCount, 1);
-  for (let i = 0; i < 256; i++) {
-    const c = categoryColors[Math.min(i, N - 1)] || [128, 128, 128];
-    cm.R[i] = c[0]; cm.G[i] = c[1]; cm.B[i] = c[2]; cm.A[i] = 255; cm.I[i] = i;
-  }
-  try { mobaState.nv.addColormap('moba_nodes', cm); } catch (e) { /* may already exist; harmless */ }
-
   const nodes = visible.map(r => ({
     name: `${r.patient_id}/${r.contact_name || r.electrode || '?'}/${r.condition}`,
     x: r.x, y: r.y, z: r.z,
@@ -589,122 +623,82 @@ async function renderBrain() {
     _row:  r,
   }));
 
-  // Use a Niivue built-in colormap ('warm') for now to rule out our
-  // custom 'moba_nodes' LUT as a silent failure point. Per-cluster
-  // exact colors come back once we confirm the connectome renders at all.
-  // nodeScale 30 + Size 1.5 = effective ~45 mm-radius spheres on a
-  // 140-mm brain — *unmissable* if Niivue is drawing them at all.
-  const builtinCmap = (mobaState.colorMode === 'cluster')   ? 'warm'
-                    : (mobaState.colorMode === 'patient')   ? 'jet'
-                    :                                          'plasma';
-  const connectome = {
-    name: 'electrodes',
-    nodeColormap: builtinCmap,
-    nodeColormapNegative: builtinCmap,
-    nodeMinColor: 0,
-    nodeMaxColor: Math.max(categoryCount - 1, 1),
-    nodeScale: 30,                               // really big — user request
-    edgeColormap: 'warm',
-    edgeColormapNegative: 'winter',
-    edgeMin: 0, edgeMax: 1, edgeScale: 0,
-    nodes: nodes.map(n => ({
-      name: n.name, x: n.x, y: n.y, z: n.z,
-      Color: n.Color,
-      Size:  1.5,
-    })),
-    edges: [],
-  };
-
-  // Diagnostics: bounding box of the electrode cloud
-  const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y), zs = nodes.map(n => n.z);
-  const bbox = {
-    x: [Math.min(...xs).toFixed(1), Math.max(...xs).toFixed(1)],
-    y: [Math.min(...ys).toFixed(1), Math.max(...ys).toFixed(1)],
-    z: [Math.min(...zs).toFixed(1), Math.max(...zs).toFixed(1)],
-  };
-  console.log('[MOBA] Electrode bbox (x,y,z):', bbox);
-
-  console.log(`[MOBA] Rendering connectome: ${nodes.length} electrodes, ` +
-              `mode=${mobaState.colorMode}, k=${mobaState.clusterIds.length}`);
-
-  // Render lock: drop any concurrent renderBrain so we don't pile up loads.
+  // Render lock — drop concurrent renderBrain calls so they don't pile up
   if (mobaState._brainBusy) {
     mobaState._brainPending = true;
     return;
   }
   mobaState._brainBusy = true;
 
-  // The previous loadConnectomeFromUrl + addMeshFromUrl(brain) sequence kept
-  // brain entries in nv.meshes but didn't render them — Niivue's connectome
-  // path leaves the renderer in a state where re-added meshes are invisible.
-  // Workaround: do EVERYTHING in a single loadMeshes call so the renderer
-  // initialises with all meshes from scratch. Niivue infers connectome from
-  // the .jcon filename hint via the Blob URL trick.
+  console.log(`[MOBA] Rendering ${nodes.length} electrodes, mode=${mobaState.colorMode}`);
+
   try {
-    const blob = new Blob([JSON.stringify(connectome)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const meshList = [];
-    if (mobaState.brainMeshVisible && mobaState._meshSpec) {
-      for (const s of mobaState._meshSpec) meshList.push(s);
-    }
-    meshList.push({ url, name: 'electrodes.jcon' });
-
-    let loaded = false;
-    // Path A: loadMeshes with connectome inline (some Niivue versions accept .jcon)
-    try {
-      await mobaState.nv.loadMeshes(meshList);
-      loaded = true;
-    } catch (e) {
-      console.warn('[MOBA] loadMeshes with .jcon failed; falling back to connectome-then-readd', e);
+    // Group visible electrodes by category (cluster / patient / condition)
+    // so each group can become one OBJ mesh with a single rgba255 colour.
+    const byCategory = new Map();
+    for (const n of nodes) {
+      if (!byCategory.has(n.Color)) byCategory.set(n.Color, []);
+      byCategory.get(n.Color).push(n);
     }
 
-    // Path B: legacy — loadConnectomeFromUrl wipes meshes, then re-add brain
-    if (!loaded && typeof mobaState.nv.loadConnectomeFromUrl === 'function') {
-      try {
-        await mobaState.nv.loadConnectomeFromUrl(url);
-      } finally { /* keep going regardless */ }
-      if (mobaState.brainMeshVisible
-          && mobaState._meshSpec
-          && typeof mobaState.nv.addMeshFromUrl === 'function') {
-        for (const s of mobaState._meshSpec) {
-          try { await mobaState.nv.addMeshFromUrl(s); }
-          catch (e) { console.warn('[MOBA] Could not re-add brain mesh:', e); }
-        }
+    // Remove any electrode meshes from the previous render
+    if (mobaState._electrodeMeshIds) {
+      for (const id of mobaState._electrodeMeshIds) {
+        try { mobaState.nv.removeMesh(id); } catch (e) {}
       }
-      loaded = true;
+    }
+    mobaState._electrodeMeshIds = [];
+
+    // If the brain meshes got wiped at any point (early Niivue versions
+    // do this on internal state changes), re-add them so the cortex stays.
+    const haveBrainMesh = (mobaState.nv.meshes || []).some(m =>
+      typeof m.name === 'string' && /fsaverage/i.test(m.name));
+    if (mobaState.brainMeshVisible
+        && !haveBrainMesh
+        && mobaState._meshSpec
+        && typeof mobaState.nv.addMeshFromUrl === 'function') {
+      for (const s of mobaState._meshSpec) {
+        try { await mobaState.nv.addMeshFromUrl(s); }
+        catch (e) { console.warn('[MOBA] Could not re-add brain mesh:', e); }
+      }
     }
 
-    URL.revokeObjectURL(url);
-
-    if (!loaded) {
-      console.warn('[MOBA] No usable Niivue mesh-loading path');
-      setStatus('Could not render electrodes (Niivue API mismatch).');
+    // For each category, bake one OBJ mesh of all its electrodes' icospheres
+    // and load via Niivue's standard mesh path — same path that successfully
+    // renders the brain, so we know the GPU/version handles it.
+    const SPHERE_RADIUS_MM = 4;          // big enough to be visible, small enough to stay distinct
+    for (const [cat, electrodes] of byCategory.entries()) {
+      const obj = buildSpheresOBJ(electrodes, SPHERE_RADIUS_MM);
+      const blob = new Blob([obj], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      try {
+        const c = categoryColors[Math.min(cat, categoryColors.length - 1)] || [128, 128, 128];
+        await mobaState.nv.addMeshFromUrl({
+          url,
+          name: `electrodes_${cat}.obj`,
+          rgba255: [c[0], c[1], c[2], 255],
+        });
+        const last = mobaState.nv.meshes[mobaState.nv.meshes.length - 1];
+        if (last && last.id != null) mobaState._electrodeMeshIds.push(last.id);
+      } catch (e) {
+        console.warn(`[MOBA] Failed to add electrode mesh for category ${cat}:`, e);
+      } finally {
+        URL.revokeObjectURL(url);
+      }
     }
 
     mobaState._brainNodes = nodes;
-    console.log(`[MOBA] After load: nv.meshes.length = ${mobaState.nv.meshes ? mobaState.nv.meshes.length : '?'} ` +
-                `(brain visible: ${mobaState.brainMeshVisible}, path: ${loaded ? 'OK' : 'FAILED'})`);
-    // Bump scene to make sure it re-renders; on some Niivue versions
-    // adding meshes async doesn't trigger a redraw automatically.
+    console.log(`[MOBA] After render: nv.meshes.length = ${mobaState.nv.meshes ? mobaState.nv.meshes.length : '?'} ` +
+                `(${mobaState._electrodeMeshIds.length} electrode-meshes + brain)`);
     try { if (typeof mobaState.nv.drawScene === 'function') mobaState.nv.drawScene(); } catch (e) {}
-    try {
-      const s = mobaState.nv.scene;
-      if (s) {
-        // Dump the full scene so we can find the right zoom/pan keys on this Niivue version
-        console.log('[MOBA] Scene keys:', Object.keys(s));
-        console.log('[MOBA] Scene full:', JSON.parse(JSON.stringify(s, (k, v) =>
-          (v instanceof Float32Array || v instanceof Int32Array) ? Array.from(v) : v)));
-      }
-    } catch (e) { console.warn('Could not dump scene:', e); }
     setStatus(null);
   } catch (e) {
-    console.error('[MOBA] Connectome load failed:', e);
+    console.error('[MOBA] Render failed:', e);
     setStatus(`Could not render electrodes: ${e.message}`);
   } finally {
     mobaState._brainBusy = false;
     if (mobaState._brainPending) {
       mobaState._brainPending = false;
-      // Coalesce: only the latest pending render runs
       setTimeout(() => renderBrain(), 0);
     }
   }

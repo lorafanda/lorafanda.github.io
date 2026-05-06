@@ -86,6 +86,14 @@
     .chip:hover { border-color: var(--border-strong); }
     .chip.off { opacity: 0.45; text-decoration: line-through; }
     .chip-swatch { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+
+    /* Cluster chips with their mean-ERSP thumbnail. The thumbnail sits ABOVE
+       the colour swatch + cluster number, so the chip becomes a small
+       portrait card. Hover/active states inherit from .chip; we just open
+       the bounding box. */
+    .chip.cluster-chip-thumb { flex-direction: column; padding: 4px 6px 5px; gap: 3px; min-width: 78px; align-items: center; border-radius: 6px; }
+    .cluster-chip-img { width: 70px; height: 38px; object-fit: cover; border-radius: 3px; background: #f5efe8; display: block; }
+    .cluster-chip-num  { display: inline-flex; align-items: center; gap: 4px; }
     .filter-btn { padding: 3px 10px; font-size: 0.7rem; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-family: 'Instrument Sans', sans-serif; }
     .filter-btn:hover { background: var(--surface2); }
     .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }

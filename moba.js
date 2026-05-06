@@ -490,9 +490,29 @@ function buildFilterChips() {
   cChips.innerHTML = '';
   mobaState.clusterIds.forEach(cid => {
     const chip = document.createElement('span');
-    chip.className = 'chip';
+    chip.className = 'chip cluster-chip-thumb';
     chip.dataset.cluster = cid;
-    chip.innerHTML = `<span class="chip-swatch" style="background:${clusterColor(cid, k)}"></span>${cid + 1}`;
+
+    // Per-cluster mean-ERSP thumbnail. Generated on the server by the
+    // BACKFILL_CENTROIDS cell in 210 — present for any run whose feature
+    // set is 'raw'. img.onerror hides it gracefully if a run hasn't been
+    // backfilled yet (chip falls back to swatch + number).
+    const img = document.createElement('img');
+    img.className = 'cluster-chip-img';
+    img.loading = 'lazy';
+    img.alt = `cluster ${cid + 1} mean ERSP`;
+    if (mobaState.runDir) {
+      const cidStr = String(cid).padStart(2, '0');
+      img.src = `${mobaState.runDir}/cluster_centroids/cluster_${cidStr}.png`;
+    }
+    img.onerror = () => { img.style.display = 'none'; };
+
+    const num = document.createElement('span');
+    num.className = 'cluster-chip-num';
+    num.innerHTML = `<span class="chip-swatch" style="background:${clusterColor(cid, k)}"></span>${cid + 1}`;
+
+    chip.appendChild(img);
+    chip.appendChild(num);
     chip.addEventListener('click', () => toggleCluster(cid));
     cChips.appendChild(chip);
   });

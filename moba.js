@@ -1086,3 +1086,190 @@ function closeLightbox() {
   document.getElementById('lightbox').classList.remove('open');
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF DOWNLOAD — one page per enabled cluster, brain coloured by patient.
+// ─────────────────────────────────────────────────────────────────────────────
+async function _fetchAsDataURL(url) {
+  const res = await fetch(url);
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const blob = await res.blob();
+  return await new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+}
+
+async function downloadPDF() {
+  const jsPDFCtor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if (!jsPDFCtor) { alert('jsPDF not loaded — refresh and try again.'); return; }
+  if (!mobaState.manifest || !mobaState.coords || !mobaState.coords.length) {
+    alert('Pick a run first, then download.');
+    return;
+  }
+
+  const btn = document.getElementById('downloadPdfBtn');
+  const origText = btn.textContent;
+  btn.disabled = true;
+
+  // Snapshot current state so we can restore at the end
+  const saved = {
+    colorMode: mobaState.colorMode,
+    clusters:  new Set(mobaState.enabledClusters),
+    patients:  new Set(mobaState.enabledPatients),
+    conds:     new Set(mobaState.enabledConditions),
+    highSil:   mobaState.highSilOnly,
+    highlight: mobaState._highlightedSampleIdx,
+  };
+
+  // Force "color by patient" everywhere visible: all patients, all conditions,
+  // no high-sil filter, no highlight in the captured frames
+  mobaState.colorMode         = 'patient';
+  mobaState.enabledPatients   = new Set(mobaState.patients);
+  mobaState.enabledConditions = new Set(mobaState.conditions);
+  mobaState.highSilOnly       = false;
+  mobaState._highlightedSampleIdx = null;
+  await updateHighlight();
+
+  // Only enabled clusters get a page, in numeric order
+  const clustersToExport = mobaState.clusterIds.filter(c => saved.clusters.has(c));
+  const total = clustersToExport.length;
+
+  if (total === 0) {
+    alert('No clusters are enabled — turn at least one cluster on, then download.');
+    btn.disabled = false; btn.textContent = origText;
+    return;
+  }
+
+  const pdf = new jsPDFCtor({ orientation: 'p', unit: 'mm', format: 'a4' });
+  const m = mobaState.manifest;
+
+  for (let i = 0; i < clustersToExport.length; i++) {
+    const cid = clustersToExport[i];
+    btn.textContent = `📄 ${i+1}/${total}…`;
+
+    // Filter to just this cluster, render, wait for the WebGL frame
+    mobaState.enabledClusters = new Set([cid]);
+    await renderBrain();
+    await new Promise(r => setTimeout(r, 350));
+
+    let brainDataUrl = '';
+    try {
+      brainDataUrl = mobaState.brainCanvas.toDataURL('image/png');
+    } catch (e) {
+      console.warn('[MOBA] Could not capture brain canvas:', e);
+    }
+
+    if (i > 0) pdf.addPage();
+
+    // Header
+    pdf.setFontSize(18);
+    pdf.text(`Cluster ${cid + 1}`, 15, 18);
+    pdf.setFontSize(9);
+    pdf.setTextColor(120, 100, 90);
+    pdf.text(
+      `${m.method_label || m.method}  ·  ${m.feature_set_label || m.feature_set}  ·  K=${mobaState.clusterIds.length}  ·  ${m.run_id || ''}`,
+      15, 25
+    );
+    pdf.setTextColor(0, 0, 0);
+
+    // Brain image (coloured by patient because we forced colorMode above)
+    if (brainDataUrl) {
+      try { pdf.addImage(brainDataUrl, 'PNG', 15, 30, 180, 110); } catch (e) {}
+    }
+    pdf.setFontSize(8);
+    pdf.setTextColor(140, 120, 100);
+    pdf.text('3D fsaverage brain — electrodes coloured by patient', 15, 144);
+    pdf.setTextColor(0, 0, 0);
+
+    // Mean ERSP (centroid PNG produced by 210's BACKFILL_CENTROIDS cell)
+    try {
+      const cidStr = String(cid).padStart(2, '0');
+      const centroidUrl = `${mobaState.runDir}/cluster_centroids/cluster_${cidStr}.png`;
+      const centroidData = await _fetchAsDataURL(centroidUrl);
+      pdf.setFontSize(11);
+      pdf.text('Mean ERSP', 15, 154);
+      pdf.addImage(centroidData, 'PNG', 15, 158, 80, 30);
+    } catch (e) {
+      pdf.setFontSize(9);
+      pdf.setTextColor(180, 100, 90);
+      pdf.text('(centroid PNG missing — run BACKFILL_CENTROIDS cell in 210)', 15, 165);
+      pdf.setTextColor(0, 0, 0);
+    }
+
+    // Per-cluster electrodes for the breakdown
+    const electrodes = (mobaState.coords || []).filter(c => c._cluster === cid);
+    const patCounts = {}, condCounts = {};
+    electrodes.forEach(e => {
+      patCounts[e.patient_id] = (patCounts[e.patient_id] || 0) + 1;
+      condCounts[e.condition] = (condCounts[e.condition] || 0) + 1;
+    });
+    const sils = electrodes.map(e => e._sil).filter(Number.isFinite);
+    const meanSil = sils.length ? sils.reduce((a,b)=>a+b,0)/sils.length : NaN;
+
+    // Cluster stats line
+    pdf.setFontSize(10);
+    pdf.text(
+      `${electrodes.length} contacts · ${Object.keys(patCounts).length} patients · ` +
+      `${Object.keys(condCounts).length} conditions · ` +
+      `silhouette mean ${isFinite(meanSil) ? meanSil.toFixed(3) : 'n/a'}`,
+      105, 154
+    );
+
+    // Patients column
+    let py = 200;
+    pdf.setFontSize(11);
+    pdf.text(`Patients`, 15, py);
+    py += 5;
+    pdf.setFontSize(8);
+    Object.entries(patCounts).sort((a, b) => b[1] - a[1]).forEach(([pid, count]) => {
+      const rgb = colorToRgb255(getPatientColor(pid));
+      pdf.setFillColor(rgb[0], rgb[1], rgb[2]);
+      pdf.rect(15, py - 3, 4, 3, 'F');
+      pdf.text(`${pid}    ${count} (${Math.round(100*count/electrodes.length)}%)`, 22, py);
+      py += 4.2;
+      if (py > 280) { py = 200; }   // crude wrap; fine for typical patient counts
+    });
+
+    // Conditions column
+    let cy = 200;
+    pdf.setFontSize(11);
+    pdf.text(`Conditions`, 110, cy);
+    cy += 5;
+    pdf.setFontSize(8);
+    Object.entries(condCounts).sort((a, b) => b[1] - a[1]).forEach(([c, count]) => {
+      const rgb = colorToRgb255(COND_COLORS[c] || '#888');
+      pdf.setFillColor(rgb[0], rgb[1], rgb[2]);
+      pdf.rect(110, cy - 3, 4, 3, 'F');
+      pdf.text(`${c}    ${count} (${Math.round(100*count/electrodes.length)}%)`, 117, cy);
+      cy += 4.2;
+    });
+
+    // Footer
+    pdf.setFontSize(7);
+    pdf.setTextColor(160, 140, 120);
+    pdf.text(`MOBA — Mosaics of Brain Activity · ${new Date().toISOString().slice(0,10)}`, 15, 290);
+    pdf.setTextColor(0, 0, 0);
+  }
+
+  // Restore previous filters / mode and re-render
+  mobaState.colorMode         = saved.colorMode;
+  mobaState.enabledClusters   = saved.clusters;
+  mobaState.enabledPatients   = saved.patients;
+  mobaState.enabledConditions = saved.conds;
+  mobaState.highSilOnly       = saved.highSil;
+  mobaState._highlightedSampleIdx = saved.highlight;
+  document.querySelectorAll('.filter-btn[data-mode]').forEach(b =>
+    b.classList.toggle('active', b.dataset.mode === saved.colorMode));
+  refreshChipStates();
+  await renderBrain();
+  if (saved.highlight != null) await updateHighlight();
+
+  const fname = `MOBA_${m.method}_${m.feature_set}_${m.run_id}.pdf`;
+  pdf.save(fname);
+
+  btn.textContent = origText;
+  btn.disabled = false;
+}

@@ -11,6 +11,8 @@
        connectomes entirely and bakes electrodes into regular OBJ meshes
        (see renderBrain), so latest is fine. -->
   <script src="https://unpkg.com/@niivue/niivue@latest/dist/niivue.umd.js"></script>
+  <!-- jsPDF for the per-cluster summary PDF download -->
+  <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {
@@ -153,6 +155,7 @@
     <span class="brand">MOBA<span class="full">— Mosaics of Brain Activity</span></span>
     <div class="spacer"></div>
     <select class="run-select" id="runSelect"><option value="">Loading runs...</option></select>
+    <button class="about-btn" id="downloadPdfBtn" onclick="downloadPDF()" title="One PDF page per enabled cluster: 3D brain coloured by patient + breakdown stats + mean ERSP">📄 PDF</button>
     <button class="about-btn" id="aboutBtn">▶ About</button>
   </div>
 

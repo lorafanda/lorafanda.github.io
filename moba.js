@@ -248,11 +248,13 @@ async function initBrain() {
   mobaState.brainCanvas = canvas;
 
   const nv = new NV({
-    backColor: [0.94, 0.92, 0.89, 1],   // matches site bg
+    backColor: [1, 1, 1, 1],              // white — matches the look of the existing recon PNGs
     show3Dcrosshair: false,
     isOrientCube: false,
     isResizeCanvas: true,
     isColorbar: false,
+    meshXRay: 0,                          // disable x-ray; standard alpha blending
+    isHighResolutionCapable: true,
   });
 
   try {
@@ -263,19 +265,21 @@ async function initBrain() {
   }
   mobaState.nv = nv;
 
-  // Load fsaverage meshes
+  // Load fsaverage meshes — bone-tinted, ~50% opacity so electrodes show through
+  // (recon PNGs use alpha=0.2 over white; we go a touch denser for legibility on
+  // a 3D rotatable view where shading helps anchor the geometry).
+  const meshRgba = [205, 198, 190, 130];   // bone, alpha ≈ 0.51
   try {
     await nv.loadMeshes([
-      { url: `${FSAV_MESH_BASE}/fsaverage_lh.mz3`, rgba255: [220, 215, 210, 60], visible: true },
-      { url: `${FSAV_MESH_BASE}/fsaverage_rh.mz3`, rgba255: [220, 215, 210, 60], visible: true },
+      { url: `${FSAV_MESH_BASE}/fsaverage_lh.mz3`, rgba255: meshRgba, visible: true },
+      { url: `${FSAV_MESH_BASE}/fsaverage_rh.mz3`, rgba255: meshRgba, visible: true },
     ]);
     mobaState.meshLoaded = true;
   } catch (e) {
-    // Try .gii as fallback
     try {
       await nv.loadMeshes([
-        { url: `${FSAV_MESH_BASE}/fsaverage_lh.gii`, rgba255: [220, 215, 210, 60] },
-        { url: `${FSAV_MESH_BASE}/fsaverage_rh.gii`, rgba255: [220, 215, 210, 60] },
+        { url: `${FSAV_MESH_BASE}/fsaverage_lh.gii`, rgba255: meshRgba },
+        { url: `${FSAV_MESH_BASE}/fsaverage_rh.gii`, rgba255: meshRgba },
       ]);
       mobaState.meshLoaded = true;
     } catch (e2) {
@@ -283,6 +287,14 @@ async function initBrain() {
       return;
     }
   }
+
+  // Default view: dorsal-anterior (similar feel to the "dorsal" recon PNG;
+  // both hemispheres visible in the same frame).
+  try {
+    if (typeof nv.setRenderAzimuthElevation === 'function') {
+      nv.setRenderAzimuthElevation(180, 35);
+    }
+  } catch (e) { /* older Niivue without this API */ }
 
   mobaState.brainReady = true;
   setStatus(null);
@@ -534,32 +546,47 @@ function renderBrain() {
     nodeColormapNegative: 'moba_nodes',
     nodeMinColor: 0,
     nodeMaxColor: Math.max(nodes.length - 1, 1),
-    nodeScale: 2.5,
+    nodeScale: 1.5,                              // smaller spheres, closer to recon PNG sphere size
     edgeColormap: 'warm',
     edgeColormapNegative: 'winter',
     edgeMin: 0, edgeMax: 1, edgeScale: 0,
+    // Niivue's connectome reader expects capitalized 'Color' and 'Size' on nodes;
+    // lowercase silently falls back to defaults (was likely why electrodes
+    // looked off before).
     nodes: nodes.map(n => ({
-      name: n.name, x: n.x, y: n.y, z: n.z, color: n.colorValue, size: n.sizeValue,
+      name: n.name, x: n.x, y: n.y, z: n.z,
+      Color: n.colorValue,
+      Size:  n.sizeValue,
     })),
     edges: [],
   };
 
   // Niivue expects loadConnectomeFromUrl. Use a Blob URL.
+  console.log(`[MOBA] Rendering connectome: ${nodes.length} electrodes, ` +
+              `mode=${mobaState.colorMode}, k=${mobaState.clusterIds.length}`);
+  console.log('[MOBA] First 3 nodes:', connectome.nodes.slice(0, 3));
+  console.log('[MOBA] Niivue methods available:',
+              typeof mobaState.nv.loadConnectomeFromUrl,
+              typeof mobaState.nv.loadConnectome,
+              typeof mobaState.nv.loadConnectomeFromObject);
   try {
     const blob = new Blob([JSON.stringify(connectome)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     if (typeof mobaState.nv.loadConnectomeFromUrl === 'function') {
       mobaState.nv.loadConnectomeFromUrl(url).finally(() => URL.revokeObjectURL(url));
+    } else if (typeof mobaState.nv.loadConnectomeFromObject === 'function') {
+      mobaState.nv.loadConnectomeFromObject(connectome);
+      URL.revokeObjectURL(url);
     } else if (typeof mobaState.nv.loadConnectome === 'function') {
       mobaState.nv.loadConnectome(connectome);
       URL.revokeObjectURL(url);
     } else {
-      console.warn('Niivue connectome API not found at runtime');
+      console.warn('[MOBA] Niivue connectome API not found at runtime');
       URL.revokeObjectURL(url);
     }
     mobaState._brainNodes = nodes;
   } catch (e) {
-    console.error('Connectome load failed:', e);
+    console.error('[MOBA] Connectome load failed:', e);
     setStatus(`Could not render electrodes: ${e.message}`);
   }
 }

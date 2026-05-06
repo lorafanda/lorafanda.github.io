@@ -152,9 +152,52 @@ const mobaState = {
   brainReady: false,
   brainCanvas: null,
 
-  // Selection (clicked electrode)
+  // Selection (clicked electrode / clicked thumbnail)
   selectedSampleIdx: null,
+  _highlightedSampleIdx: null,    // sample_idx of the currently-highlighted electrode
 };
+
+
+// Yellow halo around the highlighted electrode. A separate small mesh
+// (named 'highlight.obj') so we can swap it on every thumbnail click
+// without rebuilding any of the other electrode meshes.
+async function updateHighlight() {
+  if (!mobaState.nv) return;
+
+  // Remove previous halo if any
+  const old = (mobaState.nv.meshes || []).filter(m =>
+    typeof m.name === 'string' && m.name === 'highlight.obj');
+  for (const m of old) {
+    try { mobaState.nv.removeMesh(m); }
+    catch (e) { try { mobaState.nv.removeMesh(m.id); } catch (e2) {} }
+  }
+
+  const sid = mobaState._highlightedSampleIdx;
+  if (sid == null) return;
+
+  const coord = (mobaState.coords || []).find(r => String(r.sample_idx) === String(sid));
+  if (!coord) return;
+
+  // Bigger, brighter sphere — pure highlighter yellow at full opacity.
+  // Sits just outside the regular electrode mesh so the cluster colour
+  // is still visible at the centre when rotating.
+  const HIGHLIGHT_RADIUS_MM = 4.5;       // ~1.6x normal sphere; clear halo without obscuring it
+  const obj = buildSpheresOBJ([{ x: coord.x, y: coord.y, z: coord.z }], HIGHLIGHT_RADIUS_MM);
+  const blob = new Blob([obj], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  try {
+    await mobaState.nv.addMeshFromUrl({
+      url,
+      name: 'highlight.obj',
+      rgba255: [255, 215, 0, 220],       // bright highlighter yellow
+    });
+    if (typeof mobaState.nv.drawScene === 'function') mobaState.nv.drawScene();
+  } catch (e) {
+    console.warn('[MOBA] Could not add highlight mesh:', e);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // GATE
@@ -695,17 +738,23 @@ async function renderBrain() {
     // For each category, bake one OBJ mesh of all its electrodes' icospheres
     // and load via Niivue's standard mesh path — same path that successfully
     // renders the brain, so we know the GPU/version handles it.
-    const SPHERE_RADIUS_MM = 4;          // big enough to be visible, small enough to stay distinct
+    const SPHERE_RADIUS_MM = 2.8;        // ~30% smaller than the previous 4mm
     for (const [cat, electrodes] of byCategory.entries()) {
       const obj = buildSpheresOBJ(electrodes, SPHERE_RADIUS_MM);
       const blob = new Blob([obj], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       try {
         const c = categoryColors[Math.min(cat, categoryColors.length - 1)] || [128, 128, 128];
+        // Brighten the colour so Niivue's mesh shader doesn't make
+        // the spheres look muddy against the bone-tinted cortex.
+        // Multiply by 1.3 and clamp; preserves hue, lifts value.
+        const r = Math.min(255, Math.round(c[0] * 1.3));
+        const g = Math.min(255, Math.round(c[1] * 1.3));
+        const b = Math.min(255, Math.round(c[2] * 1.3));
         await mobaState.nv.addMeshFromUrl({
           url,
           name: `electrodes_${cat}.obj`,
-          rgba255: [c[0], c[1], c[2], 255],
+          rgba255: [r, g, b, 255],
         });
         const last = mobaState.nv.meshes[mobaState.nv.meshes.length - 1];
         if (last && last.id != null) mobaState._electrodeMeshIds.push(last.id);
@@ -714,6 +763,13 @@ async function renderBrain() {
       } finally {
         URL.revokeObjectURL(url);
       }
+    }
+
+    // Re-apply any active highlight after a re-render (filter changed,
+    // color mode changed, etc.) so the yellow halo stays on the
+    // currently-selected thumbnail.
+    if (mobaState._highlightedSampleIdx != null) {
+      try { await updateHighlight(); } catch (e) { console.warn('[MOBA] updateHighlight after re-render:', e); }
     }
 
     mobaState._brainNodes = nodes;
@@ -855,7 +911,15 @@ function renderSamples(highlightOnly = false) {
     img.alt = filename;
     img.src = url;
     img.onerror = () => { card.style.display = 'none'; };
-    card.addEventListener('click', () => openLightbox(url, `${row.patient_id} · ${row.electrode} · ${row.condition}` + (hasSil ? ` · sil=${sil.toFixed(3)}` : '')));
+    card.addEventListener('click', () => {
+      // 1) Highlight this thumbnail and the corresponding electrode in 3D
+      document.querySelectorAll('.output-card.highlighted').forEach(c => c.classList.remove('highlighted'));
+      card.classList.add('highlighted');
+      mobaState._highlightedSampleIdx = row.sample_idx;
+      updateHighlight();
+      // 2) Also open the lightbox so the user gets the full ERSP image
+      openLightbox(url, `${row.patient_id} · ${row.electrode} · ${row.condition}` + (hasSil ? ` · sil=${sil.toFixed(3)}` : ''));
+    });
 
     if (hasSil) {
       const badge = document.createElement('div');

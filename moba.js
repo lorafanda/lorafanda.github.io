@@ -144,6 +144,7 @@ const mobaState = {
   enabledPatients: new Set(),
   enabledConditions: new Set(),
   highSilOnly: false,
+  brainMeshVisible: true,    // toggle for the fsaverage cortex mesh; electrodes always shown
 
   // Brain viewer
   nv: null,                      // Niivue instance
@@ -475,6 +476,11 @@ function togglePatient(pid)   { mobaState.enabledPatients.has(pid)   ? mobaState
 function toggleCondition(c)   { mobaState.enabledConditions.has(c)   ? mobaState.enabledConditions.delete(c)   : mobaState.enabledConditions.add(c);   refreshChipStates(); rerender(); }
 function setAllClusters(on)   { mobaState.enabledClusters = on ? new Set(mobaState.clusterIds) : new Set(); refreshChipStates(); rerender(); }
 function toggleHighSil()      { mobaState.highSilOnly = !mobaState.highSilOnly; refreshChipStates(); rerender(); }
+function toggleBrainMesh()    {
+  mobaState.brainMeshVisible = !mobaState.brainMeshVisible;
+  document.getElementById('brainBtn').classList.toggle('active', mobaState.brainMeshVisible);
+  rerender();
+}
 function setColorMode(mode)   {
   mobaState.colorMode = mode;
   document.querySelectorAll('.filter-btn[data-mode]').forEach(b => b.classList.toggle('active', b.dataset.mode === mode));
@@ -589,7 +595,7 @@ async function renderBrain() {
     nodeColormapNegative: 'moba_nodes',
     nodeMinColor: 0,
     nodeMaxColor: 255,                           // full LUT range
-    nodeScale: 1.5,
+    nodeScale: 5,                                // 1.5 was invisible at fsaverage scale; 5 ≈ visible spheres
     edgeColormap: 'warm',
     edgeColormapNegative: 'winter',
     edgeMin: 0, edgeMax: 1, edgeScale: 0,
@@ -600,6 +606,15 @@ async function renderBrain() {
     })),
     edges: [],
   };
+
+  // Diagnostics: bounding box of the electrode cloud
+  const xs = nodes.map(n => n.x), ys = nodes.map(n => n.y), zs = nodes.map(n => n.z);
+  const bbox = {
+    x: [Math.min(...xs).toFixed(1), Math.max(...xs).toFixed(1)],
+    y: [Math.min(...ys).toFixed(1), Math.max(...ys).toFixed(1)],
+    z: [Math.min(...zs).toFixed(1), Math.max(...zs).toFixed(1)],
+  };
+  console.log('[MOBA] Electrode bbox (x,y,z):', bbox);
 
   console.log(`[MOBA] Rendering connectome: ${nodes.length} electrodes, ` +
               `mode=${mobaState.colorMode}, k=${mobaState.clusterIds.length}`);
@@ -633,9 +648,11 @@ async function renderBrain() {
       URL.revokeObjectURL(url);
     }
 
-    // Re-add the bone-tinted fsaverage hemispheres. They're in the browser
-    // cache by now so this is a sub-millisecond operation in practice.
-    if (mobaState._meshSpec && typeof mobaState.nv.addMeshFromUrl === 'function') {
+    // Re-add the bone-tinted fsaverage hemispheres unless the user toggled
+    // the brain off (diagnostic mode — see if electrodes alone render).
+    if (mobaState.brainMeshVisible
+        && mobaState._meshSpec
+        && typeof mobaState.nv.addMeshFromUrl === 'function') {
       for (const s of mobaState._meshSpec) {
         try { await mobaState.nv.addMeshFromUrl(s); }
         catch (e) { console.warn('[MOBA] Could not re-add brain mesh:', e); }
@@ -643,7 +660,15 @@ async function renderBrain() {
     }
 
     mobaState._brainNodes = nodes;
-    console.log(`[MOBA] After load: nv.meshes.length = ${mobaState.nv.meshes ? mobaState.nv.meshes.length : '?'}`);
+    console.log(`[MOBA] After load: nv.meshes.length = ${mobaState.nv.meshes ? mobaState.nv.meshes.length : '?'} ` +
+                `(brain visible: ${mobaState.brainMeshVisible})`);
+    // Bump scene to make sure it re-renders; on some Niivue versions
+    // adding meshes async doesn't trigger a redraw automatically.
+    try { if (typeof mobaState.nv.drawScene === 'function') mobaState.nv.drawScene(); } catch (e) {}
+    try {
+      const s = mobaState.nv.scene;
+      if (s) console.log('[MOBA] Scene zoom/pan:', { zoom: s.zoom, pan2D: s.pan2D, renderAzi: s.renderAzimuth, renderEle: s.renderElevation });
+    } catch (e) {}
     setStatus(null);
   } catch (e) {
     console.error('[MOBA] Connectome load failed:', e);

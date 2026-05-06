@@ -158,9 +158,10 @@ const mobaState = {
 };
 
 
-// Yellow halo around the highlighted electrode. A separate small mesh
-// (named 'highlight.obj') so we can swap it on every thumbnail click
-// without rebuilding any of the other electrode meshes.
+// Pulsating yellow halo around the highlighted electrode. Mesh is named
+// 'highlight.obj' so it's easy to find and swap on click. A
+// requestAnimationFrame loop ramps mesh.opacity 0↔1 so it visibly
+// pulses; the loop self-cancels when the highlight clears.
 async function updateHighlight() {
   if (!mobaState.nv) return;
 
@@ -172,16 +173,25 @@ async function updateHighlight() {
     catch (e) { try { mobaState.nv.removeMesh(m.id); } catch (e2) {} }
   }
 
+  // Stop any running pulse animation
+  if (mobaState._pulseRaf) {
+    cancelAnimationFrame(mobaState._pulseRaf);
+    mobaState._pulseRaf = null;
+  }
+
   const sid = mobaState._highlightedSampleIdx;
-  if (sid == null) return;
+  if (sid == null) {
+    if (typeof mobaState.nv.drawScene === 'function') mobaState.nv.drawScene();
+    return;
+  }
 
   const coord = (mobaState.coords || []).find(r => String(r.sample_idx) === String(sid));
   if (!coord) return;
 
-  // Bigger, brighter sphere — pure highlighter yellow at full opacity.
-  // Sits just outside the regular electrode mesh so the cluster colour
-  // is still visible at the centre when rotating.
-  const HIGHLIGHT_RADIUS_MM = 4.5;       // ~1.6x normal sphere; clear halo without obscuring it
+  // Big bright pure-yellow sphere ~1.7x normal size. Cluster colour stays
+  // visible underneath because we pulse the highlight's opacity to zero
+  // periodically.
+  const HIGHLIGHT_RADIUS_MM = 4.5;
   const obj = buildSpheresOBJ([{ x: coord.x, y: coord.y, z: coord.z }], HIGHLIGHT_RADIUS_MM);
   const blob = new Blob([obj], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
@@ -189,14 +199,38 @@ async function updateHighlight() {
     await mobaState.nv.addMeshFromUrl({
       url,
       name: 'highlight.obj',
-      rgba255: [255, 215, 0, 220],       // bright highlighter yellow
+      rgba255: [255, 255, 0, 255],       // pure bright highlighter yellow
     });
-    if (typeof mobaState.nv.drawScene === 'function') mobaState.nv.drawScene();
   } catch (e) {
     console.warn('[MOBA] Could not add highlight mesh:', e);
-  } finally {
     URL.revokeObjectURL(url);
+    return;
   }
+  URL.revokeObjectURL(url);
+
+  // Start the pulse loop. We try several opacity properties since Niivue
+  // versions wire transparency through different uniforms. Whichever one
+  // sticks visually wins.
+  const startMs = performance.now();
+  const PULSE_PERIOD_MS = 1400;          // matches the CSS 1.4s on the thumbnail
+  function pulse(ts) {
+    if (mobaState._highlightedSampleIdx == null) {
+      mobaState._pulseRaf = null;
+      return;
+    }
+    const t = (ts - startMs) / PULSE_PERIOD_MS;
+    // sine wave 0..1, peak at half period
+    const a = 0.5 - 0.5 * Math.cos(2 * Math.PI * t);
+    const mesh = (mobaState.nv.meshes || []).find(m => m.name === 'highlight.obj');
+    if (mesh) {
+      if ('opacity' in mesh)      mesh.opacity = a;
+      if ('layerOpacity' in mesh) mesh.layerOpacity = a;
+      if (mesh.rgba255 && mesh.rgba255.length >= 4) mesh.rgba255[3] = Math.round(a * 255);
+      if (typeof mobaState.nv.drawScene === 'function') mobaState.nv.drawScene();
+    }
+    mobaState._pulseRaf = requestAnimationFrame(pulse);
+  }
+  mobaState._pulseRaf = requestAnimationFrame(pulse);
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -559,6 +593,8 @@ function toggleCluster(cid)   { mobaState.enabledClusters.has(cid)   ? mobaState
 function togglePatient(pid)   { mobaState.enabledPatients.has(pid)   ? mobaState.enabledPatients.delete(pid)   : mobaState.enabledPatients.add(pid);   refreshChipStates(); rerender(); }
 function toggleCondition(c)   { mobaState.enabledConditions.has(c)   ? mobaState.enabledConditions.delete(c)   : mobaState.enabledConditions.add(c);   refreshChipStates(); rerender(); }
 function setAllClusters(on)   { mobaState.enabledClusters = on ? new Set(mobaState.clusterIds) : new Set(); refreshChipStates(); rerender(); }
+function setAllPatients(on)   { mobaState.enabledPatients = on ? new Set(mobaState.patients)  : new Set(); refreshChipStates(); rerender(); }
+function setAllConditions(on) { mobaState.enabledConditions = on ? new Set(mobaState.conditions) : new Set(); refreshChipStates(); rerender(); }
 function toggleHighSil()      { mobaState.highSilOnly = !mobaState.highSilOnly; refreshChipStates(); rerender(); }
 function toggleBrainMesh()    {
   mobaState.brainMeshVisible = !mobaState.brainMeshVisible;
@@ -932,11 +968,16 @@ function renderSamples(highlightOnly = false) {
     img.src = url;
     img.onerror = () => { card.style.display = 'none'; };
     card.addEventListener('click', () => {
-      // Click highlights the corresponding electrode in 3D — no lightbox
-      // (Lora doesn't want clicks to zoom the thumbnails).
+      // Toggle: clicking the already-highlighted card clears the highlight;
+      // clicking a different card switches to it.
+      const wasHighlighted = card.classList.contains('highlighted');
       document.querySelectorAll('.output-card.highlighted').forEach(c => c.classList.remove('highlighted'));
-      card.classList.add('highlighted');
-      mobaState._highlightedSampleIdx = row.sample_idx;
+      if (wasHighlighted) {
+        mobaState._highlightedSampleIdx = null;
+      } else {
+        card.classList.add('highlighted');
+        mobaState._highlightedSampleIdx = row.sample_idx;
+      }
       updateHighlight();
     });
 

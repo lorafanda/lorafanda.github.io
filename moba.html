@@ -72,7 +72,12 @@
     #samplesGrid::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
     .output-card { width: 150px; flex-shrink: 0; background: #fff; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: pointer; transition: border-color 0.2s, transform 0.15s; display: flex; flex-direction: column; position: relative; }
     .output-card:hover { border-color: rgba(184,92,110,0.4); transform: scale(1.03); }
-    .output-card.highlighted { border-color: #fbbf24; box-shadow: 0 0 0 3px rgba(251,191,36,0.55); }
+    .output-card.highlighted { border-color: #fbbf24; animation: moba-pulse 1.4s ease-in-out infinite; }
+    @keyframes moba-pulse {
+      0%   { box-shadow: 0 0 0 2px rgba(251,191,36,0.20); }
+      50%  { box-shadow: 0 0 0 5px rgba(251,191,36,0.85); }
+      100% { box-shadow: 0 0 0 2px rgba(251,191,36,0.20); }
+    }
     .output-card img { width: 150px; height: 150px; object-fit: cover; display: block; }
     .output-caption { padding: 4px 6px 5px; font-size: 0.6rem; color: var(--muted); border-top: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; white-space: normal; word-break: break-all; line-height: 1.4; }
     .sample-sil-badge { position: absolute; top: 4px; right: 4px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; font-weight: 500; padding: 1px 5px; border-radius: 3px; pointer-events: none; }
@@ -229,10 +234,14 @@
     <div class="filter-row">
       <span class="filter-label">Patients</span>
       <div id="patientChips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+      <button class="filter-btn" onclick="setAllPatients(true)">All</button>
+      <button class="filter-btn" onclick="setAllPatients(false)">None</button>
     </div>
     <div class="filter-row">
       <span class="filter-label">Conditions</span>
       <div id="conditionChips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+      <button class="filter-btn" onclick="setAllConditions(true)">All</button>
+      <button class="filter-btn" onclick="setAllConditions(false)">None</button>
     </div>
   </div>
 

@@ -266,10 +266,12 @@ async function initBrain() {
   }
   mobaState.nv = nv;
 
-  // Load fsaverage meshes — bone-tinted, very transparent (glass-like) so
-  // electrodes inside the cortex are visible. Alpha ≈ 0.16 lets you see
-  // deep contacts while the gyral landmarks are still readable.
-  const meshRgba = [205, 198, 190, 40];
+  // Load fsaverage meshes — bone-tinted, very transparent (glass-like).
+  // Niivue's mesh shader on ANGLE Metal seems to ignore rgba alpha at
+  // load time, so we set mesh.opacity *after* load (below) which goes
+  // through a different shader uniform. We still send a low rgba alpha
+  // here as a fallback for renderers that do honour it.
+  const meshRgba = [205, 198, 190, 30];
   // Remember mesh URLs so we can re-add them after a connectome load if
   // Niivue's loadConnectome wipes the mesh list (it does on some versions).
   mobaState._meshSpec = null;
@@ -296,6 +298,25 @@ async function initBrain() {
     }
   }
   console.log(`[MOBA] Mesh loaded; nv.meshes.length = ${nv.meshes ? nv.meshes.length : '?'}`);
+  // ── Force brain transparency ──────────────────────────────────────────
+  // rgba alpha at load time is ignored by Niivue's mesh shader on ANGLE
+  // Metal. Setting per-mesh opacity directly hits a different uniform
+  // and DOES seem to work for transparency. Try a few property names
+  // since Niivue versions differ. After tweak, force a redraw.
+  try {
+    for (const m of (nv.meshes || [])) {
+      if (typeof m.name === 'string' && /fsaverage/i.test(m.name)) {
+        const targetOpacity = 0.18;
+        if ('opacity' in m)        m.opacity = targetOpacity;
+        if ('layerOpacity' in m)   m.layerOpacity = targetOpacity;
+        if ('meshOpacity' in m)    m.meshOpacity = targetOpacity;
+        if (m.rgba255 && m.rgba255.length >= 4) m.rgba255[3] = Math.round(targetOpacity * 255);
+        console.log(`[MOBA] Brain mesh "${m.name}" keys:`, Object.keys(m));
+      }
+    }
+    if (typeof nv.updateGLVolume === 'function') nv.updateGLVolume();
+    if (typeof nv.drawScene === 'function')      nv.drawScene();
+  } catch (e) { console.warn('[MOBA] Could not set brain opacity:', e); }
 
   // Default view: dorsal-anterior (similar feel to the "dorsal" recon PNG;
   // both hemispheres visible in the same frame).
@@ -641,11 +662,19 @@ async function renderBrain() {
       byCategory.get(n.Color).push(n);
     }
 
-    // Remove any electrode meshes from the previous render
-    if (mobaState._electrodeMeshIds) {
-      for (const id of mobaState._electrodeMeshIds) {
-        try { mobaState.nv.removeMesh(id); } catch (e) {}
+    // Remove any electrode meshes from the previous render. Niivue's
+    // removeMesh signature varies across versions: some take the mesh
+    // object, others take an id. Find the meshes by name pattern and
+    // try both to be safe.
+    const oldElec = (mobaState.nv.meshes || []).filter(m =>
+      typeof m.name === 'string' && m.name.indexOf('electrodes_') === 0);
+    for (const m of oldElec) {
+      let removed = false;
+      try { mobaState.nv.removeMesh(m); removed = true; } catch (e) {}
+      if (!removed && m.id != null) {
+        try { mobaState.nv.removeMesh(m.id); removed = true; } catch (e) {}
       }
+      if (!removed) console.warn('[MOBA] Could not remove old electrode mesh:', m.name);
     }
     mobaState._electrodeMeshIds = [];
 

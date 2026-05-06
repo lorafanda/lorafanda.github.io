@@ -523,48 +523,80 @@ async function renderBrain() {
   const visible = mobaState.coords.filter(isVisible);
   document.getElementById('brainStat').textContent = `${visible.length} contacts`;
 
-  const k = Math.max(mobaState.clusterIds.length, 1);
-  const nodes = visible.map((r, i) => {
-    const [R, G, B] = colorToRgb255(colorForRow(r));
-    return {
-      name:  `${r.patient_id}/${r.electrode || r.contact_name}/${r.condition}`,
-      x: r.x, y: r.y, z: r.z,
-      colorValue: i,                  // we'll feed a per-node colormap
-      sizeValue:  1.0,
-      _R: R, _G: G, _B: B,
-      _row: r,
-    };
-  });
-
-  // Build a custom colormap with one entry per node so each gets its exact color
-  const cm = { R: [], G: [], B: [], A: [], I: [] };
-  nodes.forEach((n, i) => {
-    cm.R.push(n._R); cm.G.push(n._G); cm.B.push(n._B); cm.A.push(255); cm.I.push(i);
-  });
-  // Pad colormap with at least 2 entries (Niivue requires ≥2)
-  if (cm.R.length < 2) {
-    cm.R.push(128); cm.G.push(128); cm.B.push(128); cm.A.push(255); cm.I.push(cm.R.length);
+  // ── Empty-selection short-circuit ─────────────────────────────────────
+  // Niivue throws "Catastrophic failure generatePosNormClr()" on a
+  // 0-node connectome. When the user filters everything off, just reset
+  // to the brain-only view (no electrodes) and bail.
+  if (visible.length === 0) {
+    if (mobaState._meshSpec) {
+      try { await mobaState.nv.loadMeshes(mobaState._meshSpec); } catch (e) {}
+    }
+    mobaState._brainNodes = [];
+    return;
   }
 
-  try { mobaState.nv.addColormap('moba_nodes', cm); } catch (e) { /* may already exist */ }
+  // ── Per-CATEGORY colormap ────────────────────────────────────────────
+  // Was a per-node 1050-entry hack with I=[0..N-1]; Niivue's LUT expects
+  // I to span 0..255 (the warning "indices expected end with 255 not 25"),
+  // and even then linear interpolation across 1050 entries doesn't give
+  // crisp per-cluster colors. Switch to a 256-entry LUT where slot i
+  // holds the color of category i (cluster / patient / condition,
+  // whichever is the active color mode). Each node's Color = its category
+  // index — looked up exactly by Niivue's LUT[Color].
+  const colorMode = mobaState.colorMode;
+  let categoryColors, nodeColorOf, categoryCount;
+
+  if (colorMode === 'cluster') {
+    const K = mobaState.clusterIds.length;
+    categoryColors = mobaState.clusterIds.map(cid => colorToRgb255(clusterColor(cid, K)));
+    const idxOf = new Map(mobaState.clusterIds.map((cid, i) => [cid, i]));
+    nodeColorOf = r => idxOf.get(r._cluster) ?? 0;
+    categoryCount = K;
+  } else if (colorMode === 'patient') {
+    categoryColors = mobaState.patients.map(pid => colorToRgb255(getPatientColor(pid)));
+    const idxOf = new Map(mobaState.patients.map((pid, i) => [pid, i]));
+    nodeColorOf = r => idxOf.get(r.patient_id) ?? 0;
+    categoryCount = mobaState.patients.length;
+  } else { // condition
+    categoryColors = mobaState.conditions.map(c => colorToRgb255(COND_COLORS[c] || '#888'));
+    const idxOf = new Map(mobaState.conditions.map((c, i) => [c, i]));
+    nodeColorOf = r => idxOf.get(r.condition) ?? 0;
+    categoryCount = mobaState.conditions.length;
+  }
+
+  // Build a 256-entry LUT: slot i = colour of category i (clamped at
+  // the last category for slots >= categoryCount). Niivue's LUT is
+  // sampled at integer indices, so node Color=k maps exactly to LUT[k].
+  const cm = { R: new Array(256), G: new Array(256), B: new Array(256), A: new Array(256), I: new Array(256) };
+  const N = Math.max(categoryCount, 1);
+  for (let i = 0; i < 256; i++) {
+    const c = categoryColors[Math.min(i, N - 1)] || [128, 128, 128];
+    cm.R[i] = c[0]; cm.G[i] = c[1]; cm.B[i] = c[2]; cm.A[i] = 255; cm.I[i] = i;
+  }
+  try { mobaState.nv.addColormap('moba_nodes', cm); } catch (e) { /* may already exist; harmless */ }
+
+  const nodes = visible.map(r => ({
+    name: `${r.patient_id}/${r.contact_name || r.electrode || '?'}/${r.condition}`,
+    x: r.x, y: r.y, z: r.z,
+    Color: nodeColorOf(r),
+    Size:  1.0,
+    _row:  r,
+  }));
 
   const connectome = {
     name: 'electrodes',
     nodeColormap: 'moba_nodes',
     nodeColormapNegative: 'moba_nodes',
     nodeMinColor: 0,
-    nodeMaxColor: Math.max(nodes.length - 1, 1),
-    nodeScale: 1.5,                              // smaller spheres, closer to recon PNG sphere size
+    nodeMaxColor: 255,                           // full LUT range
+    nodeScale: 1.5,
     edgeColormap: 'warm',
     edgeColormapNegative: 'winter',
     edgeMin: 0, edgeMax: 1, edgeScale: 0,
-    // Niivue's connectome reader expects capitalized 'Color' and 'Size' on nodes;
-    // lowercase silently falls back to defaults (was likely why electrodes
-    // looked off before).
     nodes: nodes.map(n => ({
       name: n.name, x: n.x, y: n.y, z: n.z,
-      Color: n.colorValue,
-      Size:  n.sizeValue,
+      Color: n.Color,
+      Size:  n.Size,
     })),
     edges: [],
   };

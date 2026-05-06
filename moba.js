@@ -515,7 +515,7 @@ function rerender() {
 // ─────────────────────────────────────────────────────────────────────────────
 // BRAIN RENDER
 // ─────────────────────────────────────────────────────────────────────────────
-function renderBrain() {
+async function renderBrain() {
   if (!mobaState.brainReady || !mobaState.coords.length) {
     document.getElementById('brainStat').textContent = '';
     return;

@@ -266,10 +266,10 @@ async function initBrain() {
   }
   mobaState.nv = nv;
 
-  // Load fsaverage meshes — bone-tinted, semi-transparent so electrodes show
-  // through. With meshXRay: 0 (opaque shader path) the rgba alpha is what
-  // controls transparency; 80/255 ≈ 0.31 matches the recon-PNG feel.
-  const meshRgba = [205, 198, 190, 80];
+  // Load fsaverage meshes — bone-tinted, very transparent (glass-like) so
+  // electrodes inside the cortex are visible. Alpha ≈ 0.16 lets you see
+  // deep contacts while the gyral landmarks are still readable.
+  const meshRgba = [205, 198, 190, 40];
   // Remember mesh URLs so we can re-add them after a connectome load if
   // Niivue's loadConnectome wipes the mesh list (it does on some versions).
   mobaState._meshSpec = null;
@@ -619,19 +619,6 @@ async function renderBrain() {
   console.log(`[MOBA] Rendering connectome: ${nodes.length} electrodes, ` +
               `mode=${mobaState.colorMode}, k=${mobaState.clusterIds.length}`);
 
-  // Niivue 0.68 only accepts connectomes via loadConnectomeFromUrl, which
-  // *replaces* the entire mesh list (wiping the brain). So the recipe is:
-  //   1) loadConnectomeFromUrl(connectome_blob)   — replaces meshes with [connectome]
-  //   2) addMeshFromUrl(brain_lh)                 — re-add hemispheres
-  //   3) addMeshFromUrl(brain_rh)
-  // The brain mesh files are cached by the browser after the first load so
-  // step 2/3 are essentially free on subsequent re-renders.
-  if (typeof mobaState.nv.loadConnectomeFromUrl !== 'function') {
-    console.warn('[MOBA] loadConnectomeFromUrl not available; cannot render electrodes');
-    setStatus('This Niivue build cannot render connectomes. Tell Lora.');
-    return;
-  }
-
   // Render lock: drop any concurrent renderBrain so we don't pile up loads.
   if (mobaState._brainBusy) {
     mobaState._brainPending = true;
@@ -639,29 +626,56 @@ async function renderBrain() {
   }
   mobaState._brainBusy = true;
 
+  // The previous loadConnectomeFromUrl + addMeshFromUrl(brain) sequence kept
+  // brain entries in nv.meshes but didn't render them — Niivue's connectome
+  // path leaves the renderer in a state where re-added meshes are invisible.
+  // Workaround: do EVERYTHING in a single loadMeshes call so the renderer
+  // initialises with all meshes from scratch. Niivue infers connectome from
+  // the .jcon filename hint via the Blob URL trick.
   try {
     const blob = new Blob([JSON.stringify(connectome)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
+    const meshList = [];
+    if (mobaState.brainMeshVisible && mobaState._meshSpec) {
+      for (const s of mobaState._meshSpec) meshList.push(s);
+    }
+    meshList.push({ url, name: 'electrodes.jcon' });
+
+    let loaded = false;
+    // Path A: loadMeshes with connectome inline (some Niivue versions accept .jcon)
     try {
-      await mobaState.nv.loadConnectomeFromUrl(url);
-    } finally {
-      URL.revokeObjectURL(url);
+      await mobaState.nv.loadMeshes(meshList);
+      loaded = true;
+    } catch (e) {
+      console.warn('[MOBA] loadMeshes with .jcon failed; falling back to connectome-then-readd', e);
     }
 
-    // Re-add the bone-tinted fsaverage hemispheres unless the user toggled
-    // the brain off (diagnostic mode — see if electrodes alone render).
-    if (mobaState.brainMeshVisible
-        && mobaState._meshSpec
-        && typeof mobaState.nv.addMeshFromUrl === 'function') {
-      for (const s of mobaState._meshSpec) {
-        try { await mobaState.nv.addMeshFromUrl(s); }
-        catch (e) { console.warn('[MOBA] Could not re-add brain mesh:', e); }
+    // Path B: legacy — loadConnectomeFromUrl wipes meshes, then re-add brain
+    if (!loaded && typeof mobaState.nv.loadConnectomeFromUrl === 'function') {
+      try {
+        await mobaState.nv.loadConnectomeFromUrl(url);
+      } finally { /* keep going regardless */ }
+      if (mobaState.brainMeshVisible
+          && mobaState._meshSpec
+          && typeof mobaState.nv.addMeshFromUrl === 'function') {
+        for (const s of mobaState._meshSpec) {
+          try { await mobaState.nv.addMeshFromUrl(s); }
+          catch (e) { console.warn('[MOBA] Could not re-add brain mesh:', e); }
+        }
       }
+      loaded = true;
+    }
+
+    URL.revokeObjectURL(url);
+
+    if (!loaded) {
+      console.warn('[MOBA] No usable Niivue mesh-loading path');
+      setStatus('Could not render electrodes (Niivue API mismatch).');
     }
 
     mobaState._brainNodes = nodes;
     console.log(`[MOBA] After load: nv.meshes.length = ${mobaState.nv.meshes ? mobaState.nv.meshes.length : '?'} ` +
-                `(brain visible: ${mobaState.brainMeshVisible})`);
+                `(brain visible: ${mobaState.brainMeshVisible}, path: ${loaded ? 'OK' : 'FAILED'})`);
     // Bump scene to make sure it re-renders; on some Niivue versions
     // adding meshes async doesn't trigger a redraw automatically.
     try { if (typeof mobaState.nv.drawScene === 'function') mobaState.nv.drawScene(); } catch (e) {}

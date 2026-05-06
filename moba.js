@@ -254,7 +254,7 @@ async function initBrain() {
     isOrientCube: false,
     isResizeCanvas: true,
     isColorbar: false,
-    meshXRay: 0.3,                        // alpha blending so the bone-tinted cortex stays semi-transparent
+    meshXRay: 0,                          // 0.3 was breaking the shader on ANGLE Metal; rely on rgba alpha alone
     isHighResolutionCapable: true,
   });
 
@@ -266,10 +266,10 @@ async function initBrain() {
   }
   mobaState.nv = nv;
 
-  // Load fsaverage meshes — bone-tinted, ~50% opacity so electrodes show through
-  // (recon PNGs use alpha=0.2 over white; we go a touch denser for legibility on
-  // a 3D rotatable view where shading helps anchor the geometry).
-  const meshRgba = [205, 198, 190, 130];   // bone, alpha ≈ 0.51
+  // Load fsaverage meshes — bone-tinted, semi-transparent so electrodes show
+  // through. With meshXRay: 0 (opaque shader path) the rgba alpha is what
+  // controls transparency; 80/255 ≈ 0.31 matches the recon-PNG feel.
+  const meshRgba = [205, 198, 190, 80];
   // Remember mesh URLs so we can re-add them after a connectome load if
   // Niivue's loadConnectome wipes the mesh list (it does on some versions).
   mobaState._meshSpec = null;
@@ -595,7 +595,7 @@ async function renderBrain() {
     nodeColormapNegative: 'moba_nodes',
     nodeMinColor: 0,
     nodeMaxColor: 255,                           // full LUT range
-    nodeScale: 5,                                // 1.5 was invisible at fsaverage scale; 5 ≈ visible spheres
+    nodeScale: 15,                               // way bigger than fsaverage default; previous 1.5/5 were sub-pixel
     edgeColormap: 'warm',
     edgeColormapNegative: 'winter',
     edgeMin: 0, edgeMax: 1, edgeScale: 0,
@@ -667,8 +667,13 @@ async function renderBrain() {
     try { if (typeof mobaState.nv.drawScene === 'function') mobaState.nv.drawScene(); } catch (e) {}
     try {
       const s = mobaState.nv.scene;
-      if (s) console.log('[MOBA] Scene zoom/pan:', { zoom: s.zoom, pan2D: s.pan2D, renderAzi: s.renderAzimuth, renderEle: s.renderElevation });
-    } catch (e) {}
+      if (s) {
+        // Dump the full scene so we can find the right zoom/pan keys on this Niivue version
+        console.log('[MOBA] Scene keys:', Object.keys(s));
+        console.log('[MOBA] Scene full:', JSON.parse(JSON.stringify(s, (k, v) =>
+          (v instanceof Float32Array || v instanceof Int32Array) ? Array.from(v) : v)));
+      }
+    } catch (e) { console.warn('Could not dump scene:', e); }
     setStatus(null);
   } catch (e) {
     console.error('[MOBA] Connectome load failed:', e);

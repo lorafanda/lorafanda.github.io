@@ -589,20 +589,28 @@ async function renderBrain() {
     _row:  r,
   }));
 
+  // Use a Niivue built-in colormap ('warm') for now to rule out our
+  // custom 'moba_nodes' LUT as a silent failure point. Per-cluster
+  // exact colors come back once we confirm the connectome renders at all.
+  // nodeScale 30 + Size 1.5 = effective ~45 mm-radius spheres on a
+  // 140-mm brain — *unmissable* if Niivue is drawing them at all.
+  const builtinCmap = (mobaState.colorMode === 'cluster')   ? 'warm'
+                    : (mobaState.colorMode === 'patient')   ? 'jet'
+                    :                                          'plasma';
   const connectome = {
     name: 'electrodes',
-    nodeColormap: 'moba_nodes',
-    nodeColormapNegative: 'moba_nodes',
+    nodeColormap: builtinCmap,
+    nodeColormapNegative: builtinCmap,
     nodeMinColor: 0,
-    nodeMaxColor: 255,                           // full LUT range
-    nodeScale: 15,                               // way bigger than fsaverage default; previous 1.5/5 were sub-pixel
+    nodeMaxColor: Math.max(categoryCount - 1, 1),
+    nodeScale: 30,                               // really big — user request
     edgeColormap: 'warm',
     edgeColormapNegative: 'winter',
     edgeMin: 0, edgeMax: 1, edgeScale: 0,
     nodes: nodes.map(n => ({
       name: n.name, x: n.x, y: n.y, z: n.z,
       Color: n.Color,
-      Size:  n.Size,
+      Size:  1.5,
     })),
     edges: [],
   };

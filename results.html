@@ -501,6 +501,11 @@
             <select class="run-select" id="runSelect" onchange="onRunChange()">
               <option value="">Loading runs...</option>
             </select>
+            <a id="mobaLink" href="moba.html" target="_blank"
+               style="margin-left:auto;padding:4px 12px;background:var(--accent);color:#fff;border-radius:6px;font-size:0.75rem;font-weight:500;text-decoration:none;letter-spacing:0.04em"
+               title="Open the current run in the 3D MOBA dashboard">
+              🧠 Open in MOBA →
+            </a>
           </div>
 
           <!-- CLUSTERS sub-panel -->
@@ -1020,6 +1025,9 @@ async function onRunChange() {
   const sel = document.getElementById('runSelect').value;
   if (sel === '') return;
   const run = clusterData.runs[sel];
+  // Hand the current run to the MOBA link via URL hash so the new tab opens preselected
+  const mobaLink = document.getElementById('mobaLink');
+  if (mobaLink) mobaLink.href = `moba.html#${encodeURIComponent(run.path)}`;
   document.getElementById('clusterPlaceholder').textContent = 'Loading...';
   document.getElementById('metricsContent').innerHTML = '<div class="cluster-empty">Loading...</div>';
   document.getElementById('clusterNav').style.display = 'none';

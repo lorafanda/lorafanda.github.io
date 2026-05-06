@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MOBA — Mosaics of Brain Activity</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Instrument+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/@niivue/niivue@latest/dist/niivue.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg: #f0ebe4; --surface: #e8e0d8; --surface2: #dfd6cc; --surface3: #d5ccc2;
+      --text: #3a2e2a; --muted: #7a6560; --accent: #b85c6e; --accent2: #c47a5a; --accent3: #7a8c6e;
+      --border: rgba(90,60,50,0.1); --border-strong: rgba(90,60,50,0.18);
+      --focus-ring: 0 0 0 3px rgba(184,92,110,0.4);
+      --nav-h: 56px;
+    }
+    html, body { height: 100%; }
+    body { font-family: 'Instrument Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.5; overflow: hidden; }
+
+    /* GATE (same as results.html) */
+    #gate { position: fixed; inset: 0; z-index: 400; display: flex; align-items: center; justify-content: center; background: var(--bg); }
+    .gate-box { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 3rem 3.5rem; text-align: center; max-width: 400px; width: 90%; position: relative; overflow: hidden; }
+    .gate-box::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent, var(--accent), var(--accent2), transparent); }
+    .gate-icon { font-size: 2.2rem; margin-bottom: 1rem; }
+    .gate-box h1 { font-family: 'Playfair Display', serif; font-size: 1.5rem; font-weight: 600; letter-spacing: -0.02em; margin-bottom: 0.4rem; }
+    .gate-box .subtitle { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.75rem; font-style: italic; }
+    .gate-input { width: 100%; padding: 0.7rem 1rem; font-family: 'Instrument Sans', sans-serif; font-size: 1rem; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 8px; text-align: center; letter-spacing: 0.15em; margin-bottom: 0.85rem; }
+    .gate-input:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+    .gate-input.error { border-color: var(--accent); animation: shake 0.3s ease; }
+    @keyframes shake { 0%,100%{transform:translateX(0)} 25%{transform:translateX(-8px)} 75%{transform:translateX(8px)} }
+    .gate-btn { width: 100%; padding: 0.7rem; background: var(--accent); color: #fff; border: none; border-radius: 8px; font-family: 'Instrument Sans', sans-serif; font-size: 0.95rem; font-weight: 500; cursor: pointer; transition: background 0.2s; }
+    .gate-btn:hover { background: #a04560; }
+    .gate-error { color: var(--accent); font-size: 0.82rem; margin-top: 0.65rem; min-height: 1.1em; }
+
+    /* HEADER */
+    #app { display: none; height: 100%; flex-direction: column; }
+    .topbar { height: var(--nav-h); display: flex; align-items: center; padding: 0 1.5rem; gap: 1rem; background: rgba(240,235,228,0.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border); flex-shrink: 0; }
+    .topbar .back { font-size: 0.78rem; color: var(--muted); text-decoration: none; transition: color 0.2s; letter-spacing: 0.04em; }
+    .topbar .back:hover { color: var(--text); }
+    .topbar .brand { font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.04em; }
+    .topbar .brand .full { color: var(--muted); font-style: italic; font-weight: 400; font-size: 0.85rem; margin-left: 0.4rem; }
+    .topbar .spacer { flex: 1; }
+    .topbar select.run-select { padding: 6px 10px; font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; min-width: 350px; cursor: pointer; }
+    .topbar select.run-select:focus { outline: none; border-color: var(--accent); box-shadow: var(--focus-ring); }
+    .topbar button.about-btn { padding: 6px 12px; font-size: 0.75rem; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+    .topbar button.about-btn:hover { background: var(--surface2); }
+
+    /* MAIN LAYOUT */
+    main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 0; overflow: hidden; }
+    .pane { background: var(--bg); display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
+    .pane + .pane { border-left: 1px solid var(--border); }
+    .pane-header { padding: 8px 1rem; font-size: 0.7rem; font-weight: 500; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; display: flex; align-items: center; gap: 0.5rem; }
+    .pane-header .stat { color: var(--text); font-family: 'JetBrains Mono', monospace; text-transform: none; letter-spacing: 0; font-size: 0.75rem; }
+
+    /* BRAIN PANE */
+    #brainPane { position: relative; }
+    #brainCanvasWrap { flex: 1; position: relative; min-height: 0; background: var(--bg); }
+    #brainCanvas { width: 100%; height: 100%; display: block; }
+    #brainStatus { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); padding: 1rem 1.5rem; background: rgba(232,224,216,0.92); border: 1px solid var(--border); border-radius: 8px; max-width: 80%; text-align: center; font-size: 0.85rem; color: var(--muted); pointer-events: none; }
+    #brainStatus.hidden { display: none; }
+    #brainTooltip { position: absolute; pointer-events: none; padding: 6px 10px; background: rgba(58,46,42,0.9); color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; line-height: 1.4; border-radius: 4px; white-space: pre; transform: translate(-50%, -120%); display: none; z-index: 50; }
+
+    /* SAMPLES PANE — reuses .outputs-grid + .output-card classes from results.html */
+    #samplesGrid { flex: 1; min-height: 0; overflow-y: auto; padding: 1rem 1.25rem; display: flex; flex-wrap: wrap; gap: 8px; align-content: start; }
+    #samplesGrid::-webkit-scrollbar { width: 6px; }
+    #samplesGrid::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+    .output-card { width: 150px; flex-shrink: 0; background: #fff; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; cursor: zoom-in; transition: border-color 0.2s, transform 0.15s; display: flex; flex-direction: column; position: relative; }
+    .output-card:hover { border-color: rgba(184,92,110,0.4); transform: scale(1.03); }
+    .output-card.highlighted { border-color: var(--accent); box-shadow: 0 0 0 2px rgba(184,92,110,0.4); }
+    .output-card img { width: 150px; height: 150px; object-fit: cover; display: block; }
+    .output-caption { padding: 4px 6px 5px; font-size: 0.6rem; color: var(--muted); border-top: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; white-space: normal; word-break: break-all; line-height: 1.4; }
+    .sample-sil-badge { position: absolute; top: 4px; right: 4px; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 0.6rem; font-weight: 500; padding: 1px 5px; border-radius: 3px; pointer-events: none; }
+    .samples-empty { padding: 2rem; color: var(--muted); font-size: 0.85rem; text-align: center; flex: 1 0 100%; }
+
+    /* FILTER STRIP */
+    #filterStrip { flex-shrink: 0; padding: 8px 1rem 10px; background: var(--surface); border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; }
+    .filter-row { display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }
+    .filter-label { font-size: 0.65rem; font-weight: 500; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; min-width: 80px; }
+    .chip { display: inline-flex; align-items: center; gap: 4px; padding: 2px 9px; font-size: 0.7rem; font-family: 'JetBrains Mono', monospace; background: var(--bg); border: 1px solid var(--border); border-radius: 12px; cursor: pointer; user-select: none; transition: all 0.12s; }
+    .chip:hover { border-color: var(--border-strong); }
+    .chip.off { opacity: 0.45; text-decoration: line-through; }
+    .chip-swatch { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    .filter-btn { padding: 3px 10px; font-size: 0.7rem; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-family: 'Instrument Sans', sans-serif; }
+    .filter-btn:hover { background: var(--surface2); }
+    .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* METRICS STRIP */
+    #metricsStrip { flex-shrink: 0; padding: 10px 1rem; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
+    .metrics-summary { font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text); }
+    .metrics-summary .key { color: var(--muted); }
+    .metrics-bars { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-top: 4px; }
+    .bar-block .bar-block-label { font-size: 0.62rem; color: var(--muted); margin-bottom: 2px; letter-spacing: 0.04em; text-transform: uppercase; }
+    .stack-bar { display: flex; height: 18px; border-radius: 4px; overflow: hidden; background: var(--surface2); }
+    .stack-segment { height: 100%; transition: width 0.2s; }
+    .stack-legend { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; font-size: 0.63rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; }
+    .stack-legend .swatch { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 3px; vertical-align: middle; }
+
+    /* ABOUT PANEL */
+    #aboutPane { display: none; padding: 1rem 1.25rem; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 0.8rem; line-height: 1.6; max-height: 30vh; overflow-y: auto; flex-shrink: 0; }
+    #aboutPane.open { display: block; }
+    #aboutPane h3 { font-family: 'Playfair Display', serif; font-size: 1rem; margin-bottom: 0.4rem; }
+    #aboutPane h4 { font-size: 0.78rem; margin-top: 0.6rem; margin-bottom: 0.2rem; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 500; }
+    #aboutPane p, #aboutPane ul { margin-bottom: 0.4rem; }
+    #aboutPane code { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; background: var(--bg); padding: 1px 5px; border-radius: 3px; color: var(--accent2); }
+    #aboutPane ul { padding-left: 1.2rem; }
+    #aboutPane .about-stats { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; background: var(--bg); padding: 6px 10px; border-radius: 4px; }
+
+    /* LIGHTBOX */
+    .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 500; padding: 2rem; }
+    .lightbox.open { display: flex; }
+    .lightbox img { max-width: 90vw; max-height: 80vh; border-radius: 8px; }
+    .lightbox-close { position: absolute; top: 1rem; right: 1rem; background: rgba(255,255,255,0.15); color: #fff; border: none; width: 36px; height: 36px; border-radius: 18px; font-size: 1rem; cursor: pointer; }
+    .lightbox-caption { position: absolute; bottom: 1rem; left: 0; right: 0; text-align: center; color: #fff; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+
+<!-- GATE -->
+<div id="gate">
+  <div class="gate-box">
+    <div class="gate-icon">🧠</div>
+    <h1>MOBA</h1>
+    <p class="subtitle">Mosaics of Brain Activity</p>
+    <input type="password" class="gate-input" id="gateInput" placeholder="Code" autocomplete="off"/>
+    <button class="gate-btn" onclick="checkCode()">Enter</button>
+    <div class="gate-error" id="gateError"></div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="topbar">
+    <a class="back" href="results.html">← Back to results</a>
+    <span class="brand">MOBA<span class="full">— Mosaics of Brain Activity</span></span>
+    <div class="spacer"></div>
+    <select class="run-select" id="runSelect"><option value="">Loading runs...</option></select>
+    <button class="about-btn" id="aboutBtn">▶ About</button>
+  </div>
+
+  <div id="aboutPane">
+    <h3>About this view</h3>
+    <p>MOBA is an interactive 3D dashboard for clustering results. Pick a run from
+       the dropdown above to see all clustered iEEG contacts plotted on a translucent
+       fsaverage cortex, with synced ERSP thumbnails on the right and live metrics below.</p>
+
+    <h4>Brain</h4>
+    <p>Each sphere is one (patient × electrode × condition) sample, positioned at its
+       MNI coordinate on FreeSurfer's fsaverage. Drag to rotate, scroll to zoom,
+       right-drag to pan. Hover for a tooltip; click to highlight the sample's
+       thumbnail on the right. Color encodes whichever attribute is selected in the
+       <em>Color by</em> filter (Cluster / Patient / Condition).</p>
+
+    <h4>ERSP samples</h4>
+    <p>Each thumbnail is one trial-averaged ERSP image (<code>04_ersp_LM_RAWONLY/&lt;patient&gt;/LM/ERSP_clean</code>),
+       displayed in dB with a symmetric color range of −6 to +6. Caption is the source
+       PNG filename. The badge in the top-right of each thumbnail is the per-sample
+       silhouette: green if positive (sample fits its assigned cluster better than
+       any other), red if negative (sample is closer to a different cluster).</p>
+
+    <h4>Filters</h4>
+    <p>Toggling cluster/patient/condition chips updates the brain, the samples grid,
+       and the metrics simultaneously. <code>High-sil only</code> hides any sample
+       with silhouette ≤ 0 — useful for showing the confident core of each cluster.</p>
+
+    <h4>Metrics (live)</h4>
+    <p>The summary line counts the currently visible samples (post-filter). The two
+       stacked bars show the patient and condition makeup of that selection — a
+       cluster with high patient diversity is a cross-patient pattern; a cluster
+       dominated by one patient is a likely artifact.</p>
+
+    <h4>Run-specific stats</h4>
+    <div class="about-stats" id="aboutStats">(stats will populate once a run loads)</div>
+  </div>
+
+  <main>
+    <div class="pane" id="brainPane">
+      <div class="pane-header">
+        <span>3D Brain · fsaverage</span>
+        <span class="stat" id="brainStat"></span>
+      </div>
+      <div id="brainCanvasWrap">
+        <canvas id="brainCanvas"></canvas>
+        <div id="brainStatus">Pick a run to start.</div>
+        <div id="brainTooltip"></div>
+      </div>
+    </div>
+
+    <div class="pane" id="samplesPane">
+      <div class="pane-header">
+        <span>ERSP samples</span>
+        <span class="stat" id="samplesStat"></span>
+      </div>
+      <div id="samplesGrid">
+        <div class="samples-empty">Pick a run to start.</div>
+      </div>
+    </div>
+  </main>
+
+  <div id="filterStrip">
+    <div class="filter-row">
+      <span class="filter-label">Color by</span>
+      <button class="filter-btn active" data-mode="cluster"   onclick="setColorMode('cluster')">Cluster</button>
+      <button class="filter-btn"        data-mode="patient"   onclick="setColorMode('patient')">Patient</button>
+      <button class="filter-btn"        data-mode="condition" onclick="setColorMode('condition')">Condition</button>
+      <span style="flex:1"></span>
+      <button class="filter-btn" id="highSilBtn" onclick="toggleHighSil()" title="Hide samples with silhouette ≤ 0">High-sil only</button>
+    </div>
+    <div class="filter-row">
+      <span class="filter-label">Clusters</span>
+      <div id="clusterChips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+      <button class="filter-btn" onclick="setAllClusters(true)">All</button>
+      <button class="filter-btn" onclick="setAllClusters(false)">None</button>
+    </div>
+    <div class="filter-row">
+      <span class="filter-label">Patients</span>
+      <div id="patientChips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+    </div>
+    <div class="filter-row">
+      <span class="filter-label">Conditions</span>
+      <div id="conditionChips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+    </div>
+  </div>
+
+  <div id="metricsStrip">
+    <div class="metrics-summary" id="metricsSummary">Pick a run to start.</div>
+    <div class="metrics-bars">
+      <div class="bar-block">
+        <div class="bar-block-label">By patient</div>
+        <div class="stack-bar"  id="patientStackBar"></div>
+        <div class="stack-legend" id="patientStackLegend"></div>
+      </div>
+      <div class="bar-block">
+        <div class="bar-block-label">By condition</div>
+        <div class="stack-bar"  id="conditionStackBar"></div>
+        <div class="stack-legend" id="conditionStackLegend"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- LIGHTBOX -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
+  <button class="lightbox-close" onclick="closeLightbox()">✕</button>
+  <img id="lightboxImg" src="" alt=""/>
+  <div class="lightbox-caption" id="lightboxCaption"></div>
+</div>
+
+<script src="moba.js"></script>
+</body>
+</html>

@@ -6,7 +6,11 @@
   <title>MOBA — Mosaics of Brain Activity</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;1,400&family=Instrument+Sans:wght@300;400;500&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://unpkg.com/@niivue/niivue@latest/dist/niivue.umd.js"></script>
+  <!-- Pinned to 0.45.0 (last release before the 0.68 connectome refactor that
+       breaks rendering on Lora's ANGLE Metal GPU). If this version doesn't
+       work either, the next move is to bake the electrodes into a regular
+       mesh and skip Niivue's connectome path entirely. -->
+  <script src="https://unpkg.com/@niivue/niivue@0.45.0/dist/niivue.umd.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     :root {

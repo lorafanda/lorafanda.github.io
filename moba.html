@@ -98,9 +98,25 @@
        the colour swatch + cluster number, so the chip becomes a small
        portrait card. Hover/active states inherit from .chip; we just open
        the bounding box. */
-    .chip.cluster-chip-thumb { flex-direction: column; padding: 4px 6px 5px; gap: 3px; min-width: 78px; align-items: center; border-radius: 6px; }
+    .chip.cluster-chip-thumb { flex-direction: column; padding: 4px 6px 5px; gap: 3px; min-width: 78px; align-items: center; border-radius: 6px; position: relative; }
     .cluster-chip-img { width: 70px; height: 38px; object-fit: cover; border-radius: 3px; background: #f5efe8; display: block; }
     .cluster-chip-num  { display: inline-flex; align-items: center; gap: 4px; }
+
+    /* Patient-diversity badge: small pill on the top-right corner of a cluster chip.
+       Reads "n_patients / n_centers". Tier colors:
+         solo  (1 patient)   — washed grey, "likely artifact"
+         mixed (2–3 patients) — neutral
+         good  (4+ patients)  — green, "cross-patient pattern"
+    */
+    .cluster-chip-divbadge {
+      position: absolute; top: 2px; right: 3px;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.58rem; font-weight: 500;
+      padding: 1px 4px; border-radius: 3px;
+      color: #fff; pointer-events: none;
+    }
+    .cluster-chip-divbadge[data-tier="solo"]  { background: rgba(184, 92, 110, 0.85); }   /* accent red */
+    .cluster-chip-divbadge[data-tier="mixed"] { background: rgba(140, 120, 100, 0.85); }  /* warm grey */
+    .cluster-chip-divbadge[data-tier="good"]  { background: rgba( 91, 130,  78, 0.92); }  /* green */
     .filter-btn { padding: 3px 10px; font-size: 0.7rem; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-family: 'Instrument Sans', sans-serif; }
     .filter-btn:hover { background: var(--surface2); }
     .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }

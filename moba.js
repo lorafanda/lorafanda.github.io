@@ -573,6 +573,33 @@ async function onRunChange() {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// PER-CLUSTER PATIENT DIVERSITY
+// ─────────────────────────────────────────────────────────────────────────────
+// Walks the *current* labels (so it follows the K-slider) and returns
+// {size, nPatients, nCenters, patients[]} for the given cluster id. Empty
+// clusters return null. Centers are derived from patient_id prefix:
+//   "EL*"  -> BERN ;   "PAT*" -> GVA ;   "MicroEPI*"/"G-*"/"B-*" -> MICRO
+function _clusterDiversity(cid) {
+  const rows = (mobaState.allLabels || []).filter(r => r._cluster === cid);
+  if (!rows.length) return null;
+  const pats = new Set();
+  const cohorts = new Set();
+  for (const r of rows) {
+    const p = r.patient_id;
+    if (!p) continue;
+    pats.add(p);
+    cohorts.add(_patientCohort(p));
+  }
+  return {
+    size: rows.length,
+    nPatients: pats.size,
+    nCenters: cohorts.size,
+    patients: [...pats].sort(),
+  };
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
 // K-CUT SLIDER (HC k_range runs)
 // ─────────────────────────────────────────────────────────────────────────────
 // Shown only when the loaded run has cluster_labels_by_k.csv. Sliding through
@@ -687,6 +714,24 @@ function buildFilterChips() {
     const num = document.createElement('span');
     num.className = 'cluster-chip-num';
     num.innerHTML = `<span class="chip-swatch" style="background:${clusterColor(cid, k)}"></span>${cid + 1}`;
+
+    // Patient-diversity badge: "n_pat / n_centers". A 1/1 means single-patient
+    // (likely artifact), a 6/3 means cross-patient cross-center (likely real).
+    // Computed client-side from allLabels so it stays correct at any K-slider
+    // position. Title = comma-separated patient list for the hover tooltip.
+    const div = _clusterDiversity(cid);
+    if (div) {
+      const badge = document.createElement('span');
+      badge.className = 'cluster-chip-divbadge';
+      badge.title = `${div.size} samples · ${div.patients.join(', ')}`;
+      // Warmth scale: 1/1 = washed-out grey (suspect), >=4 patients = green
+      const tier = div.nPatients >= 4 ? 'good'
+                 : div.nPatients >= 2 ? 'mixed'
+                 : 'solo';
+      badge.dataset.tier = tier;
+      badge.textContent = `${div.nPatients}/${div.nCenters}`;
+      chip.appendChild(badge);
+    }
 
     chip.appendChild(img);
     chip.appendChild(num);
@@ -937,7 +982,7 @@ async function renderBrain() {
     // For each category, bake one OBJ mesh of all its electrodes' icospheres
     // and load via Niivue's standard mesh path — same path that successfully
     // renders the brain, so we know the GPU/version handles it.
-    const SPHERE_RADIUS_MM = 2.8;        // ~30% smaller than the previous 4mm
+    const SPHERE_RADIUS_MM = 2.52;       // 10% smaller than the previous 2.8mm
     for (const [cat, electrodes] of byCategory.entries()) {
       const obj = buildSpheresOBJ(electrodes, SPHERE_RADIUS_MM);
       const blob = new Blob([obj], { type: 'text/plain' });
@@ -945,11 +990,13 @@ async function renderBrain() {
       try {
         const c = categoryColors[Math.min(cat, categoryColors.length - 1)] || [128, 128, 128];
         // Brighten the colour so Niivue's mesh shader doesn't make
-        // the spheres look muddy against the bone-tinted cortex.
-        // Multiply by 1.3 and clamp; preserves hue, lifts value.
-        const r = Math.min(255, Math.round(c[0] * 1.3));
-        const g = Math.min(255, Math.round(c[1] * 1.3));
-        const b = Math.min(255, Math.round(c[2] * 1.3));
+        // the spheres look muddy against the bone-tinted cortex AND so
+        // the unlit hemisphere of each sphere still reads as the patient
+        // colour, not as shadow. Multiply by 1.6 then clamp; we already
+        // dropped near-white palette entries so saturation isn't a problem.
+        const r = Math.min(255, Math.round(c[0] * 1.6));
+        const g = Math.min(255, Math.round(c[1] * 1.6));
+        const b = Math.min(255, Math.round(c[2] * 1.6));
         await mobaState.nv.addMeshFromUrl({
           url,
           name: `electrodes_${cat}.obj`,

@@ -59,6 +59,13 @@
     .pane + .pane { border-left: 1px solid var(--border); }
     .pane-header { padding: 8px 1rem; font-size: 0.7rem; font-weight: 500; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; display: flex; align-items: center; gap: 0.5rem; }
     .pane-header .stat { color: var(--text); font-family: 'JetBrains Mono', monospace; text-transform: none; letter-spacing: 0; font-size: 0.75rem; }
+    .sample-view-toggle { display: inline-flex; gap: 0; margin-left: 0.5rem; }
+    .sample-view-btn { padding: 2px 9px; font-size: 0.62rem; font-family: 'Instrument Sans', sans-serif; background: var(--bg); color: var(--text); border: 1px solid var(--border); cursor: pointer; text-transform: none; letter-spacing: 0; }
+    .sample-view-btn + .sample-view-btn { border-left: 0; }
+    .sample-view-btn:first-of-type { border-radius: 4px 0 0 4px; }
+    .sample-view-btn:last-of-type  { border-radius: 0 4px 4px 0; }
+    .sample-view-btn:hover  { background: var(--surface2); }
+    .sample-view-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
 
     /* BRAIN PANE */
     #brainPane { position: relative; }
@@ -231,7 +238,12 @@
 
     <div class="pane" id="samplesPane">
       <div class="pane-header">
-        <span>ERSP samples</span>
+        <span>Samples</span>
+        <span class="sample-view-toggle">
+          <button class="sample-view-btn active" data-view="ersp" onclick="setSampleView('ersp')" title="Raw cleaned ERSP">ERSP</button>
+          <button class="sample-view-btn"        data-view="blob" onclick="setSampleView('blob')" title="ERSP + blob-feature overlay">Blob</button>
+          <button class="sample-view-btn"        data-view="m101" onclick="setSampleView('m101')" title="Painted &minus;1 / 0 / +1 segmentation">&minus;101</button>
+        </span>
         <span class="stat" id="samplesStat"></span>
       </div>
       <div id="samplesGrid">

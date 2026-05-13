@@ -155,6 +155,18 @@ const mobaState = {
   // Selection (clicked electrode / clicked thumbnail)
   selectedSampleIdx: null,
   _highlightedSampleIdx: null,    // sample_idx of the currently-highlighted electrode
+
+  // K-sweep slider (populated only when the run has cluster_labels_by_k.csv).
+  // labelsByK: { 5: Int32Array, 6: Int32Array, ... }  indexed by sample_idx.
+  // silByK:    { 5: 0.34, 6: 0.31, ... }              silhouette score per K.
+  // kSliderKs: sorted array of K's available on the slider.
+  // bestK:     the K that maximized silhouette (saved as the default labels.csv).
+  // currentK:  whichever K the slider is currently showing.
+  labelsByK: null,
+  silByK:    null,
+  kSliderKs: [],
+  bestK:     null,
+  currentK:  null,
 };
 
 
@@ -460,6 +472,50 @@ async function onRunChange() {
     mobaState.allLabels = labels;
     getPatientColor._cache = {};   // recompute palette indices for this run's patients
 
+    // ── K-sweep artifacts ─────────────────────────────────────────────────────
+    // If this run was saved with a k_range (HC sweep, or KMeans sweep), the
+    // orchestrator writes:
+    //   cluster_labels_by_k.csv   — wide: sample_idx, k_5, k_6, ..., k_15
+    //   silhouette_by_k.json      — {k: silhouette score, ...}
+    // Both let MOBA's K slider scrub across cuts without re-fitting.
+    mobaState.labelsByK = null;
+    mobaState.silByK    = null;
+    mobaState.kSliderKs = [];
+    mobaState.bestK     = (manifest.summary && Number.isFinite(parseInt(manifest.summary.best_k))) ? parseInt(manifest.summary.best_k) : null;
+    mobaState.currentK  = null;
+    if (arts.labels_by_k) {
+      try {
+        const lbkRes = await fetch(`${baseUrl}/${arts.labels_by_k}`);
+        if (lbkRes.ok) {
+          const rows = parseCSV(await lbkRes.text());
+          if (rows.length) {
+            const ks = Object.keys(rows[0])
+              .filter(c => /^k_\d+$/.test(c))
+              .map(c => parseInt(c.slice(2)))
+              .sort((a,b) => a - b);
+            const byK = {};
+            ks.forEach(k => {
+              const col = `k_${k}`;
+              byK[k] = rows.map(r => parseInt(r[col]));
+            });
+            mobaState.labelsByK = byK;
+            mobaState.kSliderKs = ks;
+          }
+        }
+      } catch (e) { console.warn('cluster_labels_by_k.csv load failed:', e); }
+    }
+    if (arts.silhouette_sweep) {
+      try {
+        const sbkRes = await fetch(`${baseUrl}/${arts.silhouette_sweep}`);
+        if (sbkRes.ok) {
+          const data = await sbkRes.json();
+          const sbk = {};
+          Object.entries(data).forEach(([k, v]) => { sbk[parseInt(k)] = parseFloat(v); });
+          mobaState.silByK = sbk;
+        }
+      } catch (e) { console.warn('silhouette_by_k.json load failed:', e); }
+    }
+
     // Load coords (joined to labels by 252)
     const algoTag = `${manifest.method}_${manifest.feature_set}`;
     const coordsUrl = `${baseUrl}/recon/${algoTag}_${manifest.run_id}__with_fsaverage.csv`;
@@ -500,6 +556,7 @@ async function onRunChange() {
     mobaState.enabledPatients   = new Set(mobaState.patients);
     mobaState.enabledConditions = new Set(mobaState.conditions);
 
+    setupKSlider();
     buildFilterChips();
     populateAboutStats();
     rerender();
@@ -514,6 +571,92 @@ async function onRunChange() {
     console.error(e);
   }
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// K-CUT SLIDER (HC k_range runs)
+// ─────────────────────────────────────────────────────────────────────────────
+// Shown only when the loaded run has cluster_labels_by_k.csv. Sliding through
+// values re-points every sample's _cluster at the labels for that K, then
+// rebuilds chips + rerenders the brain, samples grid, metrics. Coords are
+// re-indexed from sample_idx so the brain electrode colours follow.
+function setupKSlider() {
+  const row    = document.getElementById('kSliderRow');
+  const slider = document.getElementById('kSlider');
+  const ks = mobaState.kSliderKs;
+  if (!ks || ks.length === 0) {
+    row.style.display = 'none';
+    return;
+  }
+  row.style.display = 'flex';
+  slider.min = 0;
+  slider.max = ks.length - 1;
+  // Default to best K (which is what labels.csv already reflects on first load)
+  let idx = mobaState.bestK != null ? ks.indexOf(mobaState.bestK) : -1;
+  if (idx < 0) idx = ks.length - 1;
+  slider.value = idx;
+  mobaState.currentK = ks[idx];
+  updateKSliderLabel(ks[idx]);
+}
+
+function updateKSliderLabel(k) {
+  const el = document.getElementById('kSliderLabel');
+  if (!el) return;
+  const sil = (mobaState.silByK || {})[k];
+  const silStr = (sil != null && !Number.isNaN(sil)) ? `sil=${sil.toFixed(3)}` : '';
+  const bestTag = (mobaState.bestK === k) ? '★ best' : '';
+  el.innerHTML = `K = ${k} <span class="stat">${[silStr, bestTag].filter(Boolean).join(' · ')}</span>`;
+}
+
+function onKSliderInput(ev) {
+  const ks = mobaState.kSliderKs;
+  const idx = parseInt(ev.target.value);
+  const k = ks[idx];
+  if (!Number.isFinite(k)) return;
+  applyKCut(k);
+}
+
+function resetKToBest() {
+  if (mobaState.bestK == null) return;
+  const ks = mobaState.kSliderKs;
+  const idx = ks.indexOf(mobaState.bestK);
+  if (idx < 0) return;
+  document.getElementById('kSlider').value = idx;
+  applyKCut(mobaState.bestK);
+}
+
+function applyKCut(k) {
+  const labelsForK = (mobaState.labelsByK || {})[k];
+  if (!labelsForK) return;
+  mobaState.currentK = k;
+  updateKSliderLabel(k);
+
+  // Swap _cluster on every label row + every coord row, indexed by sample_idx
+  mobaState.allLabels.forEach(r => {
+    const i = parseInt(r.sample_idx);
+    if (Number.isFinite(i) && i >= 0 && i < labelsForK.length) {
+      r._cluster = labelsForK[i];
+    }
+  });
+  mobaState.coords.forEach(r => {
+    const i = parseInt(r.sample_idx);
+    if (Number.isFinite(i) && i >= 0 && i < labelsForK.length) {
+      r._cluster = labelsForK[i];
+    }
+  });
+
+  // Recompute the cluster ID set + reset cluster filter to "all on"
+  mobaState.clusterIds = [...new Set(labelsForK)]
+    .filter(c => Number.isFinite(c) && c >= 0)
+    .sort((a, b) => a - b);
+  mobaState.enabledClusters = new Set(mobaState.clusterIds);
+
+  // Rebuild cluster chips (thumbnails default to /cluster_centroids/cluster_NN.png,
+  // which only exists at the run's saved K — at other K's the chip falls back
+  // to swatch+number via the img.onerror handler. That's intentional.)
+  buildFilterChips();
+  rerender();
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // FILTER CHIPS

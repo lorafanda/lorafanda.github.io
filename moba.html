@@ -53,8 +53,8 @@
     .topbar button.about-btn { padding: 6px 12px; font-size: 0.75rem; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
     .topbar button.about-btn:hover { background: var(--surface2); }
 
-    /* MAIN LAYOUT */
-    main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); gap: 0; overflow: hidden; }
+    /* MAIN LAYOUT — brain ~30%, samples ~70% (brain was reduced by half horizontally) */
+    main { flex: 1; min-height: 0; display: grid; grid-template-columns: minmax(0, 3fr) minmax(0, 7fr); gap: 0; overflow: hidden; }
     .pane { background: var(--bg); display: flex; flex-direction: column; min-width: 0; min-height: 0; overflow: hidden; }
     .pane + .pane { border-left: 1px solid var(--border); }
     .pane-header { padding: 8px 1rem; font-size: 0.7rem; font-weight: 500; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; border-bottom: 1px solid var(--border); background: var(--surface); flex-shrink: 0; display: flex; align-items: center; gap: 0.5rem; }
@@ -104,6 +104,12 @@
     .filter-btn { padding: 3px 10px; font-size: 0.7rem; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; font-family: 'Instrument Sans', sans-serif; }
     .filter-btn:hover { background: var(--surface2); }
     .filter-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* K-cut slider (only shown when the run was saved with a k_range — i.e. cluster_labels_by_k.csv exists) */
+    #kSliderRow { background: var(--bg); border: 1px solid var(--border-strong); border-radius: 6px; padding: 4px 10px; }
+    #kSlider { flex: 1; max-width: 320px; accent-color: var(--accent); }
+    #kSliderLabel { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; color: var(--text); min-width: 130px; }
+    #kSliderLabel .stat { color: var(--muted); margin-left: 6px; }
 
     /* METRICS STRIP */
     #metricsStrip { flex-shrink: 0; padding: 10px 1rem; background: var(--bg); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 6px; max-height: 220px; overflow-y: auto; }
@@ -227,6 +233,12 @@
       <span style="flex:1"></span>
       <button class="filter-btn" id="highSilBtn" onclick="toggleHighSil()" title="Hide samples with silhouette ≤ 0">High-sil only</button>
       <button class="filter-btn active" id="brainBtn" onclick="toggleBrainMesh()" title="Toggle the fsaverage cortex mesh (electrodes always shown)">🧠 Brain</button>
+    </div>
+    <div class="filter-row" id="kSliderRow" style="display:none;">
+      <span class="filter-label">K cut</span>
+      <input type="range" id="kSlider" min="0" max="0" value="0" step="1" oninput="onKSliderInput(event)">
+      <span id="kSliderLabel">K = —</span>
+      <button class="filter-btn" id="kSliderBestBtn" onclick="resetKToBest()" title="Jump to the best-K (silhouette-optimal) cut for this HC run">Best</button>
     </div>
     <div class="filter-row">
       <span class="filter-label">Clusters</span>

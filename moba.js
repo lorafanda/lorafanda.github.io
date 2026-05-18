@@ -315,7 +315,7 @@ async function updateHighlight() {
   // Big bright pure-yellow sphere ~1.7x normal size. Cluster colour stays
   // visible underneath because we pulse the highlight's opacity to zero
   // periodically.
-  const HIGHLIGHT_RADIUS_MM = 3.5;     // ~1.75x the new 2.0mm electrode size
+  const HIGHLIGHT_RADIUS_MM = 4.5;
   const obj = buildSpheresOBJ([{ x: coord.x, y: coord.y, z: coord.z }], HIGHLIGHT_RADIUS_MM);
   const blob = new Blob([obj], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
@@ -977,75 +977,37 @@ const ICO_FACES = [
   [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1],
 ];
 
-// Switched from icosphere (12 verts / 20 faces, smooth-shaded) to tetrahedron
-// (4 verts / 4 flat faces). With only 4 facets, each face renders as a
-// single uniform colour patch — no within-face gradient. The four patches
-// still differ in brightness (the "spotlight" Lora wants to preserve) but
-// only as 4 distinct steps, not a smooth ramp.
+// Build an OBJ text containing one icosphere per electrode, each at
+// (e.x, e.y, e.z) with the given mm radius. Returns a string ready to
+// blob-URL into addMeshFromUrl.
 //
-// Vertices: (±1, ±1, ±1) with an even number of negatives → 4 corners of
-// a regular tetrahedron inscribed in the unit cube. Divided by √3 to land
-// on the unit sphere.
-const _S3 = 1 / Math.sqrt(3);
-const TET_VERTS = [
-  [ _S3,  _S3,  _S3],
-  [ _S3, -_S3, -_S3],
-  [-_S3,  _S3, -_S3],
-  [-_S3, -_S3,  _S3],
-];
-// 4 triangular faces, each excluding one vertex (so the outward normal of
-// face F_i = negation of vertex i — points away from the centroid).
-const TET_FACES = [
-  [0, 1, 2],   // F0: excludes v3
-  [0, 1, 3],   // F1: excludes v2
-  [0, 2, 3],   // F2: excludes v1
-  [1, 2, 3],   // F3: excludes v0
-];
-// Outward face normals = −(excluded vertex). Dampened toward camera-forward
-// (0, 0, 1) so the lighting variation between faces is reduced but not
-// zero — preserves the "3D facet" feel without the previous harsh
-// hemisphere darkening. blend=0.55 means each normal is 55% pulled toward
-// the camera; tune this to taste (0 = full gradient, 1 = totally flat).
-const _NORMAL_BLEND_TO_CAMERA = 0.55;
-function _blendNormal(n, t) {
-  const bx = (1-t)*n[0] + t*0;
-  const by = (1-t)*n[1] + t*0;
-  const bz = (1-t)*n[2] + t*1;
-  const L = Math.hypot(bx, by, bz);
-  return [bx/L, by/L, bz/L];
-}
-const TET_FACE_NORMALS = [
-  _blendNormal([-TET_VERTS[3][0], -TET_VERTS[3][1], -TET_VERTS[3][2]], _NORMAL_BLEND_TO_CAMERA),
-  _blendNormal([-TET_VERTS[2][0], -TET_VERTS[2][1], -TET_VERTS[2][2]], _NORMAL_BLEND_TO_CAMERA),
-  _blendNormal([-TET_VERTS[1][0], -TET_VERTS[1][1], -TET_VERTS[1][2]], _NORMAL_BLEND_TO_CAMERA),
-  _blendNormal([-TET_VERTS[0][0], -TET_VERTS[0][1], -TET_VERTS[0][2]], _NORMAL_BLEND_TO_CAMERA),
-];
-
-// Build an OBJ text containing one tetrahedron per electrode, each at
-// (e.x, e.y, e.z) with the given mm "radius" (here = inscribed-sphere
-// radius). Returns a string ready to blob-URL into addMeshFromUrl.
+// We emit FOUR shared vertex normals pointing in four different world-space
+// directions (forward / back / up / down combined with side components) and
+// reference all of them per face via averaged indices. Niivue's mesh shader
+// uses provided normals when present; by giving it a spread of normals
+// instead of the per-face normals it would otherwise compute from geometry,
+// the Lambertian diffuse term averages out across the sphere and we get
+// near-flat shading — preserves patient-color identity on the unlit
+// hemisphere instead of darkening to grey/brown.
 function buildSpheresOBJ(electrodes, radius) {
-  const out = [`# MOBA generated · ${electrodes.length} tetrahedra · radius=${radius}mm`];
-  // 4 vertices per electrode
+  const out = [`# MOBA generated · ${electrodes.length} spheres · radius=${radius}mm`];
+  // 12 vertices per electrode
   for (const e of electrodes) {
-    for (const v of TET_VERTS) {
+    for (const v of ICO_VERTS) {
       out.push(`v ${(e.x + v[0]*radius).toFixed(3)} ${(e.y + v[1]*radius).toFixed(3)} ${(e.z + v[2]*radius).toFixed(3)}`);
     }
   }
-  // Shared face normals — 4 entries, indices 1..4. All electrodes' faces
-  // reuse the same 4 normals (tetrahedron orientation is identical for
-  // every electrode; only positions vary).
-  for (const n of TET_FACE_NORMALS) {
-    out.push(`vn ${n[0].toFixed(4)} ${n[1].toFixed(4)} ${n[2].toFixed(4)}`);
-  }
+  // Shared normals (1-based indexing). Index 1 = (0, 0, 1). Most Niivue
+  // viewports look down +Z so this is approximately camera-forward → faces
+  // referencing this normal render as fully-lit regardless of geometry.
+  out.push('vn 0 0 1');
   // OBJ vertex indices are 1-based and global across the file
-  const NV = TET_VERTS.length;
   for (let i = 0; i < electrodes.length; i++) {
-    const vOff = i * NV + 1;
-    TET_FACES.forEach((f, j) => {
-      const ni = j + 1;  // normal index 1..4
-      out.push(`f ${f[0]+vOff}//${ni} ${f[1]+vOff}//${ni} ${f[2]+vOff}//${ni}`);
-    });
+    const off = i * ICO_VERTS.length + 1;
+    for (const f of ICO_FACES) {
+      // f v//vn syntax — vertex index // normal index (texture omitted)
+      out.push(`f ${f[0]+off}//1 ${f[1]+off}//1 ${f[2]+off}//1`);
+    }
   }
   return out.join('\n') + '\n';
 }
@@ -1159,7 +1121,7 @@ async function renderBrain() {
     // For each category, bake one OBJ mesh of all its electrodes' icospheres
     // and load via Niivue's standard mesh path — same path that successfully
     // renders the brain, so we know the GPU/version handles it.
-    const SPHERE_RADIUS_MM = 2.0;        // tetrahedron inscribed-sphere radius (was 2.52mm icosphere)
+    const SPHERE_RADIUS_MM = 2.52;       // 10% smaller than the previous 2.8mm
     for (const [cat, electrodes] of byCategory.entries()) {
       const obj = buildSpheresOBJ(electrodes, SPHERE_RADIUS_MM);
       const blob = new Blob([obj], { type: 'text/plain' });

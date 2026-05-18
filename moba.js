@@ -130,6 +130,38 @@ function hslToRgb(h, s, l) {
   return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
 }
 
+function rgbToHsl(r, g, b) {
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  let h = 0, s = 0;
+  const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2;                break;
+      case b: h = (r - g) / d + 4;                break;
+    }
+    h *= 60;
+  }
+  return [h, s * 100, l * 100];
+}
+
+// Pre-light the electrode base colour so Niivue's mesh shader doesn't kill it
+// on the unlit hemisphere. Operating in HSL space preserves hue (red stays
+// red, purple stays purple) while pushing lightness up — works much better
+// than the previous RGB-multiply, which over-saturated bright hues and left
+// dark hues like #911eb4 with a near-black shaded side.
+//
+//   lFloor = 60   — even the darkest input maps to 60% L; shaded side stays readable
+//   lCeil  = 78   — cap so we don't wash out into pastel-white
+function preLightElectrodeRGB(c) {
+  const [h, s, l] = rgbToHsl(c[0], c[1], c[2]);
+  const newL = Math.max(60, Math.min(78, l + 18));
+  return hslToRgb(h, s, newL);
+}
+
 function colorToRgb255(cssColor) {
   // Cheap parser for hex, rgb(), and hsl() — covers everything we use
   if (!cssColor) return [128, 128, 128];
@@ -1081,14 +1113,12 @@ async function renderBrain() {
       const url = URL.createObjectURL(blob);
       try {
         const c = categoryColors[Math.min(cat, categoryColors.length - 1)] || [128, 128, 128];
-        // Brighten the colour so Niivue's mesh shader doesn't make
-        // the spheres look muddy against the bone-tinted cortex AND so
-        // the unlit hemisphere of each sphere still reads as the patient
-        // colour, not as shadow. Multiply by 1.6 then clamp; we already
-        // dropped near-white palette entries so saturation isn't a problem.
-        const r = Math.min(255, Math.round(c[0] * 1.6));
-        const g = Math.min(255, Math.round(c[1] * 1.6));
-        const b = Math.min(255, Math.round(c[2] * 1.6));
+        // HSL-based pre-light (see preLightElectrodeRGB). Bumps perceptual
+        // lightness floor to 60% so the shaded hemisphere stays the right
+        // hue instead of going near-black, while preserving hue + saturation.
+        // Replaces the previous RGB ×1.6 multiply which over-saturated
+        // bright hues and lost dark ones in the shadow.
+        const [r, g, b] = preLightElectrodeRGB(c);
         await mobaState.nv.addMeshFromUrl({
           url,
           name: `electrodes_${cat}.obj`,

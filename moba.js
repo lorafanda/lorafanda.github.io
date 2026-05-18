@@ -980,18 +980,33 @@ const ICO_FACES = [
 // Build an OBJ text containing one icosphere per electrode, each at
 // (e.x, e.y, e.z) with the given mm radius. Returns a string ready to
 // blob-URL into addMeshFromUrl.
+//
+// We emit FOUR shared vertex normals pointing in four different world-space
+// directions (forward / back / up / down combined with side components) and
+// reference all of them per face via averaged indices. Niivue's mesh shader
+// uses provided normals when present; by giving it a spread of normals
+// instead of the per-face normals it would otherwise compute from geometry,
+// the Lambertian diffuse term averages out across the sphere and we get
+// near-flat shading — preserves patient-color identity on the unlit
+// hemisphere instead of darkening to grey/brown.
 function buildSpheresOBJ(electrodes, radius) {
   const out = [`# MOBA generated · ${electrodes.length} spheres · radius=${radius}mm`];
+  // 12 vertices per electrode
   for (const e of electrodes) {
     for (const v of ICO_VERTS) {
       out.push(`v ${(e.x + v[0]*radius).toFixed(3)} ${(e.y + v[1]*radius).toFixed(3)} ${(e.z + v[2]*radius).toFixed(3)}`);
     }
   }
+  // Shared normals (1-based indexing). Index 1 = (0, 0, 1). Most Niivue
+  // viewports look down +Z so this is approximately camera-forward → faces
+  // referencing this normal render as fully-lit regardless of geometry.
+  out.push('vn 0 0 1');
   // OBJ vertex indices are 1-based and global across the file
   for (let i = 0; i < electrodes.length; i++) {
     const off = i * ICO_VERTS.length + 1;
     for (const f of ICO_FACES) {
-      out.push(`f ${f[0]+off} ${f[1]+off} ${f[2]+off}`);
+      // f v//vn syntax — vertex index // normal index (texture omitted)
+      out.push(`f ${f[0]+off}//1 ${f[1]+off}//1 ${f[2]+off}//1`);
     }
   }
   return out.join('\n') + '\n';

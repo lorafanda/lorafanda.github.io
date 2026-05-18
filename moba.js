@@ -202,6 +202,7 @@ const SAMPLE_VIEWS = {
   ersp: { dir: 'ERSP_clean',    suffix: '_CLEAN.png' },
   blob: { dir: 'ERSP_blob',     suffix: '_BLOB.png'  },
   m101: { dir: 'ERSP_minus101', suffix: '_M101.png'  },
+  hg:   { dir: 'ERSP_hg',       suffix: '_HG.png'    },
 };
 
 function _filepathToSampleViewUrl(file_path, view) {

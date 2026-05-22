@@ -190,34 +190,73 @@
 
   <div id="aboutPane">
     <h3>About this view</h3>
-    <p>MOBA is an interactive 3D dashboard for clustering results. Pick a run from
-       the dropdown above to see all clustered iEEG contacts plotted on a translucent
-       fsaverage cortex, with synced ERSP thumbnails on the right and live metrics below.</p>
+    <p>MOBA — <em>Mosaics of Brain Activity</em> — is an interactive 3D dashboard for clustering
+       iEEG contacts. Pick a run from the dropdown above to see all contacts plotted on a
+       translucent fsaverage cortex, with synced sample thumbnails on the right and live
+       metrics below.</p>
+
+    <h4>Runs &amp; canonical dataset</h4>
+    <p>Each run is a <em>method × feature_set</em> combination. Four feature sets are available:
+       <strong>raw</strong> (full 129×300 ERSP), <strong>blob</strong> (valley-segmented blob feature vectors),
+       <strong>−101</strong> (full-res painted ±1/0 segmentation maps), and <strong>hg</strong> (high-gamma
+       70–150 Hz time series). Two methods: <strong>K-Means</strong> and <strong>Hierarchical (Ward / average)</strong>.
+       All four feature sets cluster on the <strong>same canonical sample set</strong> (high-activity-gated,
+       built once by <code>lf_dataset.prepare_dataset</code>) so cross-feature and cross-method
+       comparisons are valid.</p>
 
     <h4>Brain</h4>
-    <p>Each sphere is one (patient × electrode × condition) sample, positioned at its
-       MNI coordinate on FreeSurfer's fsaverage. Drag to rotate, scroll to zoom,
-       right-drag to pan. Hover for a tooltip; click to highlight the sample's
-       thumbnail on the right. Color encodes whichever attribute is selected in the
-       <em>Color by</em> filter (Cluster / Patient / Condition).</p>
+    <p>Each sphere is one (patient × electrode × condition) sample, positioned at its MNI
+       coordinate on FreeSurfer's fsaverage. Drag to rotate, scroll to zoom, right-drag to pan.
+       Hover for a tooltip; click an electrode to highlight its sample thumbnail on the right.
+       Color is set by the <em>Color by</em> filter (Cluster / Patient / Condition). The
+       <strong>Palette</strong> button switches between the curated cohort-aware palette and a
+       32-color glasbey set for maximum perceptual distinctness across patients.</p>
 
-    <h4>ERSP samples</h4>
-    <p>Each thumbnail is one trial-averaged ERSP image (<code>04_ersp_LM_RAWONLY/&lt;patient&gt;/LM/ERSP_clean</code>),
-       displayed in dB with a symmetric color range of −6 to +6. Caption is the source
-       PNG filename. The badge in the top-right of each thumbnail is the per-sample
-       silhouette: green if positive (sample fits its assigned cluster better than
-       any other), red if negative (sample is closer to a different cluster).</p>
+    <h4>Samples pane</h4>
+    <p>Thumbnails are one per (patient × electrode × condition) sample. The view toggle in
+       the header swaps between four representations of the same sample:</p>
+    <ul>
+      <li><strong>ERSP</strong> — trial-averaged ERSP heatmap, −6 to +6 dB</li>
+      <li><strong>Blob</strong> — same ERSP at low alpha + thick blob overlays (vertical = freq spread, horizontal = time spread, dashed verticals at blob time edges, red ○ for positive, blue ▪ for negative)</li>
+      <li><strong>−101</strong> — painted segmentation (red = positive blob, blue = negative blob, white = no blob)</li>
+      <li><strong>HG</strong> — high-gamma (70–150 Hz) band-mean time series sparkline</li>
+    </ul>
+    <p>Top-right badge on each card = per-sample silhouette (green ≥ 0, red &lt; 0).</p>
+
+    <h4>K-cut slider</h4>
+    <p>For any run saved with <code>k_range</code> (most KMeans + HC sweep runs), a slider
+       appears below the Color-by row. Scrubbing the slider re-points every sample's
+       cluster assignment via <code>cluster_labels_by_k.csv</code> — the brain, chips, samples
+       and metrics all update live. Label shows <em>silhouette</em> at the current K plus a
+       ★ on the silhouette-optimal K. <strong>Best</strong> button jumps back to the best K.</p>
+
+    <h4>Cluster chips</h4>
+    <p>Each chip shows the cluster's centroid thumbnail (mean ERSP for raw / hg, medoid sample
+       with q34-style blob overlay for blob, mean painted −101 map for −101). Top-right of each
+       chip is a <em>patient-diversity badge</em>:</p>
+    <ul>
+      <li><span style="background:#b85c6e;color:#fff;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:0.65rem">1/1</span> single-patient cluster — likely artifact</li>
+      <li><span style="background:#8c7864;color:#fff;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:0.65rem">2/2</span> mixed (2–3 patients) — borderline</li>
+      <li><span style="background:#5b824e;color:#fff;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:0.65rem">5/3</span> good — cross-patient cross-center pattern</li>
+    </ul>
+    <p>Hover the badge for the comma-separated patient list. The denominator is the number of
+       recording <em>centers</em> (BERN / GVA / MicroEPI) represented in the cluster.</p>
 
     <h4>Filters</h4>
-    <p>Toggling cluster/patient/condition chips updates the brain, the samples grid,
-       and the metrics simultaneously. <code>High-sil only</code> hides any sample
-       with silhouette ≤ 0 — useful for showing the confident core of each cluster.</p>
+    <p>Toggling cluster / patient / condition chips updates the brain, samples grid and
+       metrics simultaneously. <code>High-sil only</code> hides any sample with silhouette ≤ 0
+       — useful for showing the confident core of each cluster. <code>🧠 Brain</code> toggles
+       the fsaverage cortex mesh (electrodes always shown).</p>
 
     <h4>Metrics (live)</h4>
-    <p>The summary line counts the currently visible samples (post-filter). The two
-       stacked bars show the patient and condition makeup of that selection — a
-       cluster with high patient diversity is a cross-patient pattern; a cluster
-       dominated by one patient is a likely artifact.</p>
+    <p>Summary line counts currently-visible samples (post-filter). The two stacked bars show
+       patient and condition makeup of that selection — a cluster dominated by one patient is a
+       likely artifact; high patient diversity = real cross-patient pattern.</p>
+
+    <h4>PDF export</h4>
+    <p>The <strong>📄 PDF</strong> button generates a multi-page summary — one A4 page per enabled
+       cluster, with the 3D brain colored by patient, the cluster's mean ERSP / centroid,
+       and patient + condition breakdowns.</p>
 
     <h4>Run-specific stats</h4>
     <div class="about-stats" id="aboutStats">(stats will populate once a run loads)</div>

@@ -380,6 +380,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (e.key === 'Enter') checkCode();
   });
   document.getElementById('aboutBtn').addEventListener('click', toggleAbout);
+  document.getElementById('statsBtn').addEventListener('click', toggleStats);
 });
 
 function toggleAbout() {
@@ -387,6 +388,25 @@ function toggleAbout() {
   const btn  = document.getElementById('aboutBtn');
   pane.classList.toggle('open');
   btn.textContent = pane.classList.contains('open') ? '▼ About' : '▶ About';
+  // Close stats if both would be open
+  if (pane.classList.contains('open')) {
+    document.getElementById('statsPane').classList.remove('open');
+    document.getElementById('statsBtn').textContent = '▶ Stats';
+  }
+}
+
+function toggleStats() {
+  const pane = document.getElementById('statsPane');
+  const btn  = document.getElementById('statsBtn');
+  pane.classList.toggle('open');
+  btn.textContent = pane.classList.contains('open') ? '▼ Stats' : '▶ Stats';
+  if (pane.classList.contains('open')) {
+    // Close About if it was open
+    document.getElementById('aboutPane').classList.remove('open');
+    document.getElementById('aboutBtn').textContent = '▶ About';
+    // Refresh stats content from the current run
+    renderStatsPane();
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -673,6 +693,10 @@ async function onRunChange() {
     buildFilterChips();
     populateAboutStats();
     rerender();
+    // If the Stats pane is currently open, refresh it for the newly-loaded run
+    if (document.getElementById('statsPane').classList.contains('open')) {
+      renderStatsPane();
+    }
 
     if (!coords.length) {
       setStatus('No coords yet for this run — run 252 to generate brain coords.');
@@ -1401,6 +1425,158 @@ random_state      ${params.random_state ?? '?'}<br>
 predictor_type    ${m.predictor_type ?? '?'}
   `.trim();
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STATS PANE — per-run K-quality curves + per-cluster diagnostics table.
+//
+// Reads four artifacts from the current run dir (any of them can be missing —
+// the pane gracefully shows "missing" placeholders for absent files):
+//   silhouette_by_k.png    — K-selection curve (always present after K-sweep)
+//   gap_by_k.png            — Tibshirani gap stat curve (from 211_validation)
+//   per_cluster_stability.csv  — Hennig Jaccard per cluster (from 211)
+//   per_cluster_anatomy.csv    — aparc top-region + purity per cluster (from 211)
+// ─────────────────────────────────────────────────────────────────────────────
+async function renderStatsPane() {
+  const runDir = mobaState.runDir;
+  if (!runDir) {
+    document.getElementById('statsClusterTable').innerHTML =
+      '<div class="missing">Pick a run first.</div>';
+    document.getElementById('silCurveImg').style.display = 'none';
+    document.getElementById('gapCurveImg').style.display = 'none';
+    return;
+  }
+
+  // ── 1. Curves: silhouette + gap ─────────────────────────────────────────
+  const silImg = document.getElementById('silCurveImg');
+  const gapImg = document.getElementById('gapCurveImg');
+  silImg.src = `${runDir}/silhouette_by_k.png`;
+  silImg.onload  = () => { silImg.style.display = 'block'; };
+  silImg.onerror = () => { silImg.style.display = 'none'; };
+  gapImg.src = `${runDir}/gap_by_k.png`;
+  gapImg.onload  = () => { gapImg.style.display = 'block'; };
+  gapImg.onerror = () => { gapImg.style.display = 'none'; };
+
+  // ── 2. Per-cluster table ────────────────────────────────────────────────
+  const tableHost = document.getElementById('statsClusterTable');
+  tableHost.innerHTML = '<div class="missing">Loading...</div>';
+
+  // Pull stability + anatomy CSVs in parallel, both may 404 (pre-validation runs)
+  const [stab, anat] = await Promise.all([
+    _fetchCsv(`${runDir}/per_cluster_stability.csv`),
+    _fetchCsv(`${runDir}/per_cluster_anatomy.csv`),
+  ]);
+
+  // Pull per-cluster silhouette + n_patients + n_centers from the loaded metrics
+  // (already in memory as the cluster chips use it). Build a master per-cluster table.
+  const m = mobaState.manifest;
+  if (!m) {
+    tableHost.innerHTML = '<div class="missing">No run loaded.</div>';
+    return;
+  }
+
+  // Pull metrics.json for per-cluster silhouette + cohesion stats
+  let perCluster = {};
+  try {
+    const r = await fetch(`${runDir}/metrics.json`);
+    if (r.ok) {
+      const mj = await r.json();
+      perCluster = mj.per_cluster || {};
+    }
+  } catch (e) { /* ignore */ }
+
+  // Build rows: one per cluster id
+  const cids = mobaState.clusterIds || [];
+  const stabByCid = _csvByKey(stab,  'cluster_id');
+  const anatByCid = _csvByKey(anat,  'cluster_id');
+
+  const rows = cids.map(cid => {
+    const pc = perCluster[String(cid)] || perCluster[cid] || {};
+    const div = _clusterDiversity(cid) || {};
+    const stabRow = stabByCid[String(cid)] || stabByCid[cid] || {};
+    const anatRow = anatByCid[String(cid)] || anatByCid[cid] || {};
+    return {
+      cid,
+      size:        pc.size ?? div.size ?? null,
+      n_patients:  pc.n_patients ?? div.nPatients ?? null,
+      n_centers:   pc.n_centers ?? div.nCenters ?? null,
+      sil:         pc.silhouette_mean ?? null,
+      jaccard:     stabRow.jaccard_stability != null ? parseFloat(stabRow.jaccard_stability) : null,
+      top_region:  anatRow.top_region || '',
+      purity:      anatRow.purity != null ? parseFloat(anatRow.purity) : null,
+      entropy:     anatRow.entropy_bits != null ? parseFloat(anatRow.entropy_bits) : null,
+    };
+  });
+
+  // Pill colour for each metric: green / mixed / poor
+  function pill(val, scale) {
+    // scale = { good: x, mixed: y }, val above good -> good, between -> mixed, below -> poor
+    // Use NaN-tolerant: if val is null, return ''
+    if (val == null || Number.isNaN(val)) return '';
+    const cls = val >= scale.good ? 'pill-good' : (val >= scale.mixed ? 'pill-mixed' : 'pill-poor');
+    return `<span class="pill ${cls}">${val.toFixed(2)}</span>`;
+  }
+  // For Jaccard: 0.7+ = stable, 0.5-0.7 = mixed, <0.5 = unstable
+  const jaccardScale = { good: 0.70, mixed: 0.50 };
+  // For purity: 0.6+ = anatomically coherent
+  const purityScale  = { good: 0.60, mixed: 0.35 };
+  // For silhouette: 0.20+ = real cluster (low bar for noisy iEEG)
+  const silScale     = { good: 0.20, mixed: 0.05 };
+
+  const html = `
+    <table>
+      <thead>
+        <tr>
+          <th class="cluster-id">Cluster</th>
+          <th>Size</th>
+          <th>n<sub>pat</sub></th>
+          <th>n<sub>ctr</sub></th>
+          <th>Silhouette</th>
+          <th>Jaccard<br>stability</th>
+          <th class="text-left">Top region</th>
+          <th>Purity</th>
+          <th>Entropy<br>(bits)</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${rows.map(r => `
+          <tr>
+            <td class="cluster-id">${r.cid + 1}</td>
+            <td>${r.size ?? '—'}</td>
+            <td>${r.n_patients ?? '—'}</td>
+            <td>${r.n_centers ?? '—'}</td>
+            <td>${pill(r.sil, silScale) || '—'}</td>
+            <td>${pill(r.jaccard, jaccardScale) || '<span class="missing">—</span>'}</td>
+            <td class="text-left">${r.top_region || '<span class="missing">—</span>'}</td>
+            <td>${pill(r.purity, purityScale) || '<span class="missing">—</span>'}</td>
+            <td>${r.entropy != null ? r.entropy.toFixed(2) : '<span class="missing">—</span>'}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+    ${(!stab && !anat) ? `<div class="missing" style="margin-top:0.5rem">
+      Jaccard + anatomy columns are empty for this run — run <code>211_validation.ipynb</code>
+      to populate <code>per_cluster_stability.csv</code> and <code>per_cluster_anatomy.csv</code>.
+    </div>` : ''}
+  `;
+  tableHost.innerHTML = html;
+}
+
+// Small CSV helpers used by the stats pane
+async function _fetchCsv(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return parseCSV(await r.text());
+  } catch (e) { return null; }
+}
+
+function _csvByKey(rows, key) {
+  if (!rows) return {};
+  const out = {};
+  rows.forEach(r => { out[r[key]] = r; });
+  return out;
+}
+
 
 // ─────────────────────────────────────────────────────────────────────────────
 // LIGHTBOX

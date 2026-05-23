@@ -155,6 +155,27 @@
     #aboutPane ul { padding-left: 1.2rem; }
     #aboutPane .about-stats { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; background: var(--bg); padding: 6px 10px; border-radius: 4px; }
 
+    /* STATS PANE — same layout as About but content is per-run quality + anatomy */
+    #statsPane { display: none; padding: 1rem 1.25rem; background: var(--surface); border-bottom: 1px solid var(--border); font-size: 0.78rem; line-height: 1.5; max-height: 50vh; overflow-y: auto; flex-shrink: 0; }
+    #statsPane.open { display: block; }
+    #statsPane h3 { font-family: 'Playfair Display', serif; font-size: 1rem; margin-bottom: 0.5rem; }
+    #statsPane h4 { font-size: 0.78rem; margin-top: 0.8rem; margin-bottom: 0.3rem; color: var(--accent); letter-spacing: 0.04em; text-transform: uppercase; font-weight: 500; }
+    #statsPane .stats-curves { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 0.6rem; }
+    #statsPane .stats-curves figure { margin: 0; }
+    #statsPane .stats-curves img { width: 100%; max-height: 220px; object-fit: contain; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; }
+    #statsPane .stats-curves figcaption { font-size: 0.65rem; color: var(--muted); text-align: center; padding-top: 2px; }
+    #statsPane .missing { color: var(--muted); font-style: italic; font-size: 0.72rem; padding: 0.3rem; }
+    #statsPane table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
+    #statsPane th, #statsPane td { padding: 4px 6px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
+    #statsPane th { background: var(--bg); color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.03em; font-size: 0.62rem; position: sticky; top: 0; }
+    #statsPane td.cluster-id, #statsPane th.cluster-id { text-align: center; font-weight: 600; }
+    #statsPane td.text-left, #statsPane th.text-left { text-align: left; }
+    #statsPane .pill { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 0.62rem; color: #fff; font-weight: 500; }
+    #statsPane .pill-good   { background: rgba( 91, 130,  78, 0.92); }
+    #statsPane .pill-mixed  { background: rgba(140, 120, 100, 0.85); }
+    #statsPane .pill-poor   { background: rgba(184,  92, 110, 0.85); }
+    #statsPane .ref { font-size: 0.66rem; color: var(--muted); margin-top: 0.6rem; font-style: italic; }
+
     /* LIGHTBOX */
     .lightbox { position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: none; align-items: center; justify-content: center; z-index: 500; padding: 2rem; }
     .lightbox.open { display: flex; }
@@ -185,6 +206,7 @@
     <div class="spacer"></div>
     <select class="run-select" id="runSelect"><option value="">Loading runs...</option></select>
     <button class="about-btn" id="downloadPdfBtn" onclick="downloadPDF()" title="One PDF page per enabled cluster: 3D brain coloured by patient + breakdown stats + mean ERSP">📄 PDF</button>
+    <button class="about-btn" id="statsBtn">▶ Stats</button>
     <button class="about-btn" id="aboutBtn">▶ About</button>
   </div>
 
@@ -260,6 +282,35 @@
 
     <h4>Run-specific stats</h4>
     <div class="about-stats" id="aboutStats">(stats will populate once a run loads)</div>
+  </div>
+
+  <!-- STATS PANE — per-run quality diagnostics (silhouette/gap curves + per-cluster table) -->
+  <div id="statsPane">
+    <h3>Run diagnostics</h3>
+
+    <h4>K-selection curves</h4>
+    <div class="stats-curves">
+      <figure>
+        <img id="silCurveImg" alt="Silhouette by K" />
+        <figcaption>Silhouette by K (Kaufman &amp; Rousseeuw 1990) — higher = better</figcaption>
+      </figure>
+      <figure>
+        <img id="gapCurveImg" alt="Gap statistic by K" />
+        <figcaption>Gap statistic by K (Tibshirani et al. 2001) — best K = smallest K with Gap(K) ≥ Gap(K+1) − s<sub>K+1</sub></figcaption>
+      </figure>
+    </div>
+
+    <h4>Per-cluster diagnostics</h4>
+    <div id="statsClusterTable">
+      <div class="missing">(pick a run to load per-cluster diagnostics)</div>
+    </div>
+
+    <div class="ref">
+      Stability columns come from <em>211_validation.ipynb</em> running consensus clustering
+      (Monti et al. 2003) and per-cluster Jaccard (Hennig 2007). Anatomy columns come from
+      projecting each electrode to the nearest fsaverage cortical vertex and reading its
+      Desikan-Killiany aparc label.
+    </div>
   </div>
 
   <main>

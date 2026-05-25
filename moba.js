@@ -269,6 +269,15 @@ const mobaState = {
   // Toggled by the "Palette" button next to the Color-by row.
   patientPaletteSource: 'curated',
 
+  // Per-cluster annotations (nickname + "not important" flag).
+  //   clusterMeta[cluster_id] = { name: 'stim visual' | null, ignored: bool }
+  // Persisted to localStorage scoped per (method, feature_set, run_id, current_K)
+  // so the same cluster id at different K values keeps independent labels.
+  // Loaded into memory on run change + on K-slider change; mutated +
+  // saved back on every edit (one localStorage key per run/K bucket).
+  clusterMeta: {},
+  hideIgnoredClusters: false,
+
   // K-sweep slider (populated only when the run has cluster_labels_by_k.csv).
   // labelsByK: { 5: Int32Array, 6: Int32Array, ... }  indexed by sample_idx.
   // silByK:    { 5: 0.34, 6: 0.31, ... }              silhouette score per K.
@@ -690,6 +699,7 @@ async function onRunChange() {
     mobaState.enabledConditions = new Set(mobaState.conditions);
 
     setupKSlider();
+    loadClusterMeta();           // pulls nicknames + ignored flags from localStorage for this run/K
     buildFilterChips();
     populateAboutStats();
     rerender();
@@ -814,10 +824,109 @@ function applyKCut(k) {
     .sort((a, b) => a - b);
   mobaState.enabledClusters = new Set(mobaState.clusterIds);
 
+  // Cluster nicknames + "not important" tags are scoped per (run, K),
+  // so reload them when K changes.
+  loadClusterMeta();
+
   // Rebuild cluster chips (thumbnails default to /cluster_centroids/cluster_NN.png,
   // which only exists at the run's saved K — at other K's the chip falls back
   // to swatch+number via the img.onerror handler. That's intentional.)
   buildFilterChips();
+  rerender();
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PER-CLUSTER ANNOTATIONS (nickname + "not important" flag)
+// Persisted to localStorage. Scope is (method, feature_set, run_id, K) so the
+// same cluster id at different K values keeps independent labels.
+// ─────────────────────────────────────────────────────────────────────────────
+function _clusterMetaKey() {
+  const m = mobaState.manifest;
+  if (!m) return null;
+  const k = mobaState.currentK != null ? mobaState.currentK
+          : (mobaState.bestK != null ? mobaState.bestK : 0);
+  return `moba.cluster_meta.v1.${m.method}.${m.feature_set}.${m.run_id}.k${k}`;
+}
+
+function loadClusterMeta() {
+  const key = _clusterMetaKey();
+  if (!key) { mobaState.clusterMeta = {}; return; }
+  try {
+    const raw = localStorage.getItem(key);
+    mobaState.clusterMeta = raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    console.warn('[clusterMeta] load failed:', e);
+    mobaState.clusterMeta = {};
+  }
+}
+
+function saveClusterMeta() {
+  const key = _clusterMetaKey();
+  if (!key) return;
+  try {
+    localStorage.setItem(key, JSON.stringify(mobaState.clusterMeta));
+  } catch (e) {
+    console.warn('[clusterMeta] save failed (quota?):', e);
+  }
+}
+
+function getClusterName(cid) {
+  const meta = mobaState.clusterMeta[cid];
+  return (meta && meta.name) ? String(meta.name) : null;
+}
+
+function isClusterIgnored(cid) {
+  const meta = mobaState.clusterMeta[cid];
+  return !!(meta && meta.ignored);
+}
+
+// ── Modal: double-click a cluster chip to edit ─────────────────────────────
+let _editingClusterId = null;
+
+function openClusterEdit(cid) {
+  _editingClusterId = cid;
+  const meta = mobaState.clusterMeta[cid] || { name: null, ignored: false };
+  document.getElementById('clusterEditTitle').textContent = String(cid + 1);
+  document.getElementById('clusterEditName').value = meta.name || '';
+  document.getElementById('clusterEditIgnored').checked = !!meta.ignored;
+  document.getElementById('clusterEditModal').classList.add('open');
+  setTimeout(() => document.getElementById('clusterEditName').focus(), 50);
+}
+
+function closeClusterEdit() {
+  _editingClusterId = null;
+  document.getElementById('clusterEditModal').classList.remove('open');
+}
+
+function saveClusterEdit() {
+  if (_editingClusterId == null) return;
+  const cid = _editingClusterId;
+  const name    = (document.getElementById('clusterEditName').value || '').trim();
+  const ignored = !!document.getElementById('clusterEditIgnored').checked;
+  if (!mobaState.clusterMeta[cid]) mobaState.clusterMeta[cid] = { name: null, ignored: false };
+  mobaState.clusterMeta[cid].name = name || null;
+  mobaState.clusterMeta[cid].ignored = ignored;
+  saveClusterMeta();
+  closeClusterEdit();
+  buildFilterChips();
+  rerender();
+}
+
+function deleteClusterEdit() {
+  if (_editingClusterId == null) return;
+  const cid = _editingClusterId;
+  delete mobaState.clusterMeta[cid];
+  saveClusterMeta();
+  closeClusterEdit();
+  buildFilterChips();
+  rerender();
+}
+
+function toggleHideIgnored() {
+  mobaState.hideIgnoredClusters = !mobaState.hideIgnoredClusters;
+  const btn = document.getElementById('hideIgnoredBtn');
+  if (btn) btn.classList.toggle('active', mobaState.hideIgnoredClusters);
   rerender();
 }
 
@@ -833,6 +942,12 @@ function buildFilterChips() {
     const chip = document.createElement('span');
     chip.className = 'chip cluster-chip-thumb';
     chip.dataset.cluster = cid;
+
+    // Nickname / "not important" annotations (from localStorage, scoped per
+    // run + K). Double-click the chip to open the edit modal.
+    const nick    = getClusterName(cid);
+    const ignored = isClusterIgnored(cid);
+    if (ignored) chip.classList.add('cluster-ignored');
 
     // Per-cluster mean-ERSP thumbnail. Generated on the server by the
     // BACKFILL_CENTROIDS cell in 210 — present for any run whose feature
@@ -850,7 +965,9 @@ function buildFilterChips() {
 
     const num = document.createElement('span');
     num.className = 'cluster-chip-num';
-    num.innerHTML = `<span class="chip-swatch" style="background:${clusterColor(cid, k)}"></span>${cid + 1}`;
+    // Render "7: stim visual" when a nickname is set, otherwise just the number.
+    const labelText = nick ? `${cid + 1}: ${nick}` : String(cid + 1);
+    num.innerHTML = `<span class="chip-swatch" style="background:${clusterColor(cid, k)}"></span>${labelText}`;
 
     // Patient-diversity badge: "n_pat / n_centers". A 1/1 means single-patient
     // (likely artifact), a 6/3 means cross-patient cross-center (likely real).
@@ -873,6 +990,16 @@ function buildFilterChips() {
     chip.appendChild(img);
     chip.appendChild(num);
     chip.addEventListener('click', () => toggleCluster(cid));
+    // Double-click opens the nickname / "not important" edit modal.
+    chip.addEventListener('dblclick', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      openClusterEdit(cid);
+    });
+    // Hover tooltip = full annotations
+    chip.title = `Cluster ${cid + 1}` +
+                 (nick ? ` — "${nick}"` : '') +
+                 (ignored ? ' (marked not important)' : '') +
+                 '\\nDouble-click to edit nickname / ignored flag.';
     cChips.appendChild(chip);
   });
 
@@ -952,6 +1079,7 @@ function isVisible(row) {
   if (!mobaState.enabledPatients.has(row.patient_id)) return false;
   if (!mobaState.enabledConditions.has(row.condition))return false;
   if (mobaState.highSilOnly && !(row._sil > 0))       return false;
+  if (mobaState.hideIgnoredClusters && isClusterIgnored(row._cluster)) return false;
   return true;
 }
 
@@ -1589,7 +1717,12 @@ function openLightbox(src, caption) {
 function closeLightbox() {
   document.getElementById('lightbox').classList.remove('open');
 }
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+document.addEventListener('keydown', e => {
+  if (e.key === 'Escape') {
+    closeLightbox();
+    closeClusterEdit();
+  }
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // PDF DOWNLOAD — one page per enabled cluster, brain coloured by patient.

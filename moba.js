@@ -1617,16 +1617,22 @@ async function renderStatsPane() {
   const stabByCid = _csvByKey(stab,  'cluster_id');
   const anatByCid = _csvByKey(anat,  'cluster_id');
 
+  // List of conditions present in this run — drives the dynamic columns
+  const conditions = mobaState.conditions || [];
+
   const rows = cids.map(cid => {
     const pc = perCluster[String(cid)] || perCluster[cid] || {};
     const div = _clusterDiversity(cid) || {};
     const stabRow = stabByCid[String(cid)] || stabByCid[cid] || {};
     const anatRow = anatByCid[String(cid)] || anatByCid[cid] || {};
+    const cond = _clusterConditionProportions(cid);
     return {
       cid,
       size:        pc.size ?? div.size ?? null,
       n_patients:  pc.n_patients ?? div.nPatients ?? null,
       n_centers:   pc.n_centers ?? div.nCenters ?? null,
+      condProps:   cond ? cond.props : {},
+      condDominant: cond ? cond.dominant : null,
       sil:         pc.silhouette_mean ?? null,
       jaccard:     stabRow.jaccard_stability != null ? parseFloat(stabRow.jaccard_stability) : null,
       top_region:  anatRow.top_region || '',
@@ -1650,6 +1656,26 @@ async function renderStatsPane() {
   // For silhouette: 0.20+ = real cluster (low bar for noisy iEEG)
   const silScale     = { good: 0.20, mixed: 0.05 };
 
+  // Render one condition header cell — coloured swatch + condition name.
+  // Dominant condition in each row also gets bold weight + a tinted cell bg.
+  function _condHeader(c) {
+    const col = COND_COLORS[c] || '#888';
+    return `<th title="${c}"><span class="cond-swatch" style="background:${col}"></span>${c}</th>`;
+  }
+  function _condCell(c, row) {
+    const p = row.condProps ? row.condProps[c] : null;
+    if (p == null || Number.isNaN(p)) return '<td><span class="missing">—</span></td>';
+    const isDom = (row.condDominant === c) && (p > 1 / Math.max(1, (mobaState.conditions || []).length));
+    const col = COND_COLORS[c] || '#888';
+    // Tint the cell background proportionally so visual scan picks out condition-selective clusters.
+    // Alpha mapped from proportion (capped at 0.35 for legibility).
+    const bg = `background: ${col}; opacity: ${Math.min(0.35, p * 0.5).toFixed(2)};`;
+    return `<td style="position:relative">
+              <span style="position:absolute;inset:0;${bg};pointer-events:none;border-radius:2px"></span>
+              <span style="position:relative;${isDom ? 'font-weight:600' : ''}">${p.toFixed(2)}</span>
+            </td>`;
+  }
+
   const html = `
     <table>
       <thead>
@@ -1658,6 +1684,7 @@ async function renderStatsPane() {
           <th>Size</th>
           <th>n<sub>pat</sub></th>
           <th>n<sub>ctr</sub></th>
+          ${conditions.map(_condHeader).join('')}
           <th>Silhouette</th>
           <th>Jaccard<br>stability</th>
           <th class="text-left">Top region</th>
@@ -1672,6 +1699,7 @@ async function renderStatsPane() {
             <td>${r.size ?? '—'}</td>
             <td>${r.n_patients ?? '—'}</td>
             <td>${r.n_centers ?? '—'}</td>
+            ${conditions.map(c => _condCell(c, r)).join('')}
             <td>${pill(r.sil, silScale) || '—'}</td>
             <td>${pill(r.jaccard, jaccardScale) || '<span class="missing">—</span>'}</td>
             <td class="text-left">${r.top_region || '<span class="missing">—</span>'}</td>
@@ -1688,6 +1716,35 @@ async function renderStatsPane() {
   `;
   tableHost.innerHTML = html;
 }
+
+// Per-cluster condition proportion (e.g. audio/picture/reading shares).
+// Walks the *current* labels (so it follows the K-slider, like _clusterDiversity)
+// and returns a {condition: proportion} dict that sums to 1. Empty clusters
+// return null. Conditions absent from the cluster get 0 (not omitted) so
+// the Stats table cells render as 0.00 instead of "—" for that case.
+function _clusterConditionProportions(cid) {
+  const rows = (mobaState.allLabels || []).filter(r => r._cluster === cid);
+  if (!rows.length) return null;
+  const counts = {};
+  for (const r of rows) {
+    const c = r.condition;
+    if (!c) continue;
+    counts[c] = (counts[c] || 0) + 1;
+  }
+  const total = rows.length;
+  const props = {};
+  // Use the run's full condition list so absent conditions show 0.00, not missing
+  for (const c of (mobaState.conditions || [])) {
+    props[c] = (counts[c] || 0) / total;
+  }
+  // Find the dominant condition (for bolding in the table)
+  let dominant = null, maxP = -1;
+  for (const c of Object.keys(props)) {
+    if (props[c] > maxP) { dominant = c; maxP = props[c]; }
+  }
+  return { total, props, dominant };
+}
+
 
 // Small CSV helpers used by the stats pane
 async function _fetchCsv(url) {

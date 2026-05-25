@@ -199,10 +199,11 @@ function parseCSV(text) {
 // live alongside in 04_ersp_LM_RAWONLY/<pid>/LM/. The same path-rewrite
 // trick that already powered _filepathToCleanPngUrl, parameterized by view.
 const SAMPLE_VIEWS = {
-  ersp: { dir: 'ERSP_clean',    suffix: '_CLEAN.png' },
-  blob: { dir: 'ERSP_blob',     suffix: '_BLOB.png'  },
-  m101: { dir: 'ERSP_minus101', suffix: '_M101.png'  },
-  hg:   { dir: 'ERSP_hg',       suffix: '_HG.png'    },
+  ersp:  { dir: 'ERSP_clean',    suffix: '_CLEAN.png' },
+  rawds: { dir: 'ERSP_rawds',    suffix: '_RAWDS.png' },
+  blob:  { dir: 'ERSP_blob',     suffix: '_BLOB.png'  },
+  m101:  { dir: 'ERSP_minus101', suffix: '_M101.png'  },
+  hg:    { dir: 'ERSP_hg',       suffix: '_HG.png'    },
 };
 
 function _filepathToSampleViewUrl(file_path, view) {

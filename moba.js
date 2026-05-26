@@ -1589,10 +1589,14 @@ async function renderStatsPane() {
   const tableHost = document.getElementById('statsClusterTable');
   tableHost.innerHTML = '<div class="missing">Loading...</div>';
 
-  // Pull stability + anatomy CSVs in parallel, both may 404 (pre-validation runs)
-  const [stab, anat] = await Promise.all([
+  // Pull stability CSV + anatomy JSON in parallel. (Anatomy JSON is preferred
+  // over the CSV because its top_3 column survives without a quoted-CSV parser;
+  // each value is already a proper {top_3: [[region, prop], ...]} array.)
+  // Both may 404 for pre-validation runs.
+  const [stab, anat, anatJson] = await Promise.all([
     _fetchCsv(`${runDir}/per_cluster_stability.csv`),
     _fetchCsv(`${runDir}/per_cluster_anatomy.csv`),
+    _fetchJson(`${runDir}/per_cluster_anatomy.json`),
   ]);
 
   // Pull per-cluster silhouette + n_patients + n_centers from the loaded metrics
@@ -1627,6 +1631,18 @@ async function renderStatsPane() {
     const stabRow = stabByCid[String(cid)] || stabByCid[cid] || {};
     const anatRow = anatByCid[String(cid)] || anatByCid[cid] || {};
     const cond = _clusterConditionProportions(cid);
+    // Anatomy top-3: prefer the structured JSON (no CSV-quoting pitfalls); fall
+    // back to building a 1-entry top_3 from the CSV's top_region + top_proportion
+    // if only the CSV exists.
+    let top3 = null;
+    if (anatJson) {
+      const entry = anatJson[String(cid)] || anatJson[cid];
+      if (entry && Array.isArray(entry.top_3)) top3 = entry.top_3;
+    }
+    if (!top3 && anatRow.top_region) {
+      const p = parseFloat(anatRow.top_proportion);
+      if (!Number.isNaN(p)) top3 = [[anatRow.top_region, p]];
+    }
     return {
       cid,
       size:        pc.size ?? div.size ?? null,
@@ -1636,8 +1652,7 @@ async function renderStatsPane() {
       condDominant: cond ? cond.dominant : null,
       sil:         pc.silhouette_mean ?? null,
       jaccard:     stabRow.jaccard_stability != null ? parseFloat(stabRow.jaccard_stability) : null,
-      top_region:  anatRow.top_region || '',
-      purity:      anatRow.purity != null ? parseFloat(anatRow.purity) : null,
+      top3:        top3,
       entropy:     anatRow.entropy_bits != null ? parseFloat(anatRow.entropy_bits) : null,
     };
   });
@@ -1656,6 +1671,21 @@ async function renderStatsPane() {
   const purityScale  = { good: 0.60, mixed: 0.35 };
   // For silhouette: 0.20+ = real cluster (low bar for noisy iEEG)
   const silScale     = { good: 0.20, mixed: 0.05 };
+
+  // Render the "Top 3 anatomical regions" cell — 3 rows, region + proportion,
+  // dominant region bolded. Reads from row.top3 = [[region, prop], ...] (up to 3).
+  function _renderTop3(top3) {
+    if (!top3 || !top3.length) return '<span class="missing">—</span>';
+    // The first element is the dominant region (CSV was already sorted desc)
+    const html = top3.slice(0, 3).map((pair, i) => {
+      const region = String(pair[0] || '').replace(/^ctx-(lh|rh)-/, '');
+      const prop = Number(pair[1]);
+      const propStr = Number.isFinite(prop) ? prop.toFixed(2) : '?';
+      const cls = i === 0 ? 'top3-row top3-dominant' : 'top3-row';
+      return `<div class="${cls}"><span class="top3-region">${region}</span><span class="top3-prop">${propStr}</span></div>`;
+    }).join('');
+    return `<div class="top3-cell">${html}</div>`;
+  }
 
   // Render one condition header cell — coloured swatch + condition name.
   // Dominant condition in each row also gets bold weight + a tinted cell bg.
@@ -1688,8 +1718,7 @@ async function renderStatsPane() {
           ${conditions.map(_condHeader).join('')}
           <th>Silhouette</th>
           <th>Jaccard<br>stability</th>
-          <th class="text-left">Top region</th>
-          <th>Purity</th>
+          <th class="text-left">Top 3 regions<br>(proportion)</th>
           <th>Entropy<br>(bits)</th>
         </tr>
       </thead>
@@ -1703,8 +1732,7 @@ async function renderStatsPane() {
             ${conditions.map(c => _condCell(c, r)).join('')}
             <td>${pill(r.sil, silScale) || '—'}</td>
             <td>${pill(r.jaccard, jaccardScale) || '<span class="missing">—</span>'}</td>
-            <td class="text-left">${r.top_region || '<span class="missing">—</span>'}</td>
-            <td>${pill(r.purity, purityScale) || '<span class="missing">—</span>'}</td>
+            <td class="text-left">${_renderTop3(r.top3)}</td>
             <td>${r.entropy != null ? r.entropy.toFixed(2) : '<span class="missing">—</span>'}</td>
           </tr>
         `).join('')}
@@ -1747,12 +1775,20 @@ function _clusterConditionProportions(cid) {
 }
 
 
-// Small CSV helpers used by the stats pane
+// Small CSV / JSON helpers used by the stats pane
 async function _fetchCsv(url) {
   try {
     const r = await fetch(url);
     if (!r.ok) return null;
     return parseCSV(await r.text());
+  } catch (e) { return null; }
+}
+
+async function _fetchJson(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    return await r.json();
   } catch (e) { return null; }
 }
 

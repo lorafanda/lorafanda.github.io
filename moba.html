@@ -109,6 +109,51 @@
     .cluster-chip-img { width: 70px; height: 38px; object-fit: cover; border-radius: 3px; background: #f5efe8; display: block; }
     .cluster-chip-num  { display: inline-flex; align-items: center; gap: 4px; }
 
+    /* Score badge below the cluster number — shows the active sort criterion's
+       value (composite, cross-patient, stability, condition, anatomy). One
+       glyph + one number (or one short label + one number for the
+       condition / anatomy modes). Only renders when 213_cluster_ranking has
+       been run + cluster_ranking.json was loaded for this run. */
+    .cluster-chip-score {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.58rem;
+      color: var(--muted);
+      line-height: 1.1;
+      text-align: center;
+      max-width: 88px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Sort-selector row toolbar (Composite / Cross-patient / Stability /
+       Condition / Anatomy / ID). Hidden when no cluster_ranking.json was
+       loaded for the current run. */
+    #clusterSortRow .filter-btn { font-size: 0.65rem; padding: 2px 8px; }
+    #clusterSortRow .filter-btn .icon { margin-right: 2px; }
+
+    /* "N dissolved" indicator chip — rendered at the end of the cluster chip
+       row when cluster_ranking.json reports any clusters_dissolved entries.
+       Clickable: toggles a small inline panel underneath that lists the
+       merge mappings (Cluster N → M, N samples). */
+    .cluster-dissolved-indicator {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 9px; font-size: 0.65rem; font-family: 'JetBrains Mono', monospace;
+      background: transparent; border: 1px dashed var(--muted); border-radius: 12px;
+      color: var(--muted); cursor: pointer; user-select: none;
+    }
+    .cluster-dissolved-indicator:hover { background: var(--surface2); color: var(--text); }
+    .cluster-dissolved-panel {
+      display: none; width: 100%; flex: 1 1 100%;
+      padding: 6px 10px; margin-top: 4px;
+      background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+      font-family: 'JetBrains Mono', monospace; font-size: 0.65rem; color: var(--text);
+    }
+    .cluster-dissolved-panel.open { display: block; }
+    .cluster-dissolved-panel .dis-row { padding: 1px 0; }
+    .cluster-dissolved-panel .dis-row .dis-arrow { color: var(--muted); padding: 0 4px; }
+    .cluster-dissolved-panel .dis-row .dis-n     { color: var(--muted); margin-left: 6px; }
+
     /* Patient-diversity badge: small pill on the top-right corner of a cluster chip.
        Reads "n_patients / n_centers". Tier colors:
          solo  (1 patient)   — washed grey, "likely artifact"
@@ -394,6 +439,15 @@
       <input type="range" id="kSlider" min="0" max="0" value="0" step="1" oninput="onKSliderInput(event)">
       <span id="kSliderLabel">K = —</span>
       <button class="filter-btn" id="kSliderBestBtn" onclick="resetKToBest()" title="Jump to the best-K (silhouette-optimal) cut for this HC run">Best</button>
+    </div>
+    <div class="filter-row" id="clusterSortRow" style="display:none;">
+      <span class="filter-label">Sort by</span>
+      <button class="filter-btn active" data-sort="composite"     onclick="setClusterSortMode('composite')"     title="Weighted composite of all 4 axes (rank 1 = highest)">★ Composite</button>
+      <button class="filter-btn"        data-sort="cross_patient" onclick="setClusterSortMode('cross_patient')" title="(n_unique_patients / total) × (n_centers / 2)">👥 Cross-patient</button>
+      <button class="filter-btn"        data-sort="stability"     onclick="setClusterSortMode('stability')"     title="Per-cluster Jaccard from the Monti consensus matrix">⟳ Stability</button>
+      <button class="filter-btn"        data-sort="condition"     onclick="setClusterSortMode('condition')"     title="max(condition proportion) − 1/n_conditions, clipped [0,1]">◈ Condition</button>
+      <button class="filter-btn"        data-sort="anatomy"       onclick="setClusterSortMode('anatomy')"       title="Top aparc region's proportion (Desikan-Killiany)">⌖ Anatomy</button>
+      <button class="filter-btn"        data-sort="id"            onclick="setClusterSortMode('id')"            title="Original cluster id order"># ID</button>
     </div>
     <div class="filter-row">
       <span class="filter-label">Clusters</span>

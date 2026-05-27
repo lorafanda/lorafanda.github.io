@@ -290,6 +290,32 @@ const mobaState = {
   kSliderKs: [],
   bestK:     null,
   currentK:  null,
+
+  // Cluster ranking — output of 213_cluster_ranking.ipynb.
+  // Schema (see notebook for the source):
+  //   {
+  //     n_clusters_original, n_clusters_final, reassignment_iterations,
+  //     clusters_dissolved: [{iteration, from_cluster, to_cluster, n_members}],
+  //     weights: {cross_patient, stability, condition, anatomy},
+  //     clusters: [
+  //       { cluster_id, rank, composite_score,
+  //         raw: {cross_patient, stability, condition, anatomy},
+  //         normalized: {cross_patient, stability, condition, anatomy},
+  //         size, n_patients, has_bern, has_gva,
+  //         top_3_regions: [[name, prop], ...],
+  //         condition_proportions: {audio: 0.4, picture: 0.3, reading: 0.3} },
+  //       ...
+  //     ]
+  //   }
+  // Null when the run has no cluster_ranking.json (silent 404).
+  // The sort selector row is hidden in that case; the chip score badge is
+  // suppressed; the dissolved indicator is suppressed.
+  clusterRanking: null,
+  // Active sort criterion for the cluster chips. One of:
+  //   'composite' | 'cross_patient' | 'stability' | 'condition' | 'anatomy' | 'id'
+  // Defaults to 'composite' when a ranking is available, 'id' otherwise.
+  // Ignored clusters always sort to the end regardless of mode.
+  clusterSortMode: 'composite',
 };
 
 
@@ -659,6 +685,23 @@ async function onRunChange() {
       } catch (e) { console.warn('silhouette_by_k.json load failed:', e); }
     }
 
+    // ── cluster_ranking.json (from 213_cluster_ranking.ipynb) ────────────────
+    // Optional artifact — silent on 404 (most runs don't have ranking yet, and
+    // the sort selector / score badges / dissolved indicator just stay hidden).
+    mobaState.clusterRanking = null;
+    try {
+      const rankRes = await fetch(`${baseUrl}/cluster_ranking.json`);
+      if (rankRes.ok) {
+        mobaState.clusterRanking = await rankRes.json();
+      }
+    } catch (e) {
+      // Silent — ranking is purely additive.
+    }
+    // Sort mode default: composite if ranking present, id otherwise. Reset on
+    // every run-change so a previous run's choice doesn't bleed into a run
+    // that has no ranking.
+    mobaState.clusterSortMode = mobaState.clusterRanking ? 'composite' : 'id';
+
     // Load coords (joined to labels by 252)
     const algoTag = `${manifest.method}_${manifest.feature_set}`;
     const coordsUrl = `${baseUrl}/recon/${algoTag}_${manifest.run_id}__with_fsaverage.csv`;
@@ -939,7 +982,92 @@ function buildFilterChips() {
   const k = mobaState.clusterIds.length;
   const cChips = document.getElementById('clusterChips');
   cChips.innerHTML = '';
-  mobaState.clusterIds.forEach(cid => {
+
+  // ── Sort selector row visibility + active-button state ─────────────────────
+  const sortRow = document.getElementById('clusterSortRow');
+  if (sortRow) {
+    const hasRanking = !!mobaState.clusterRanking;
+    sortRow.style.display = hasRanking ? 'flex' : 'none';
+    sortRow.querySelectorAll('.filter-btn[data-sort]').forEach(b => {
+      b.classList.toggle('active', b.dataset.sort === mobaState.clusterSortMode);
+    });
+  }
+
+  // ── Per-cluster ranking lookup (for sort order + score badge) ─────────────
+  // rankByCluster[cid] -> {composite, cross_patient, stability, condition,
+  //                        anatomy, top_condition: [name, prop],
+  //                        top_region: [name, prop], rank}
+  const rankByCluster = {};
+  const ranking = mobaState.clusterRanking;
+  if (ranking && Array.isArray(ranking.clusters)) {
+    for (const c of ranking.clusters) {
+      const norm = c.normalized || {};
+      const props = c.condition_proportions || {};
+      const topCondEntry = Object.entries(props)
+        .sort((a, b) => (b[1] || 0) - (a[1] || 0))[0] || null;
+      const topRegionEntry = (Array.isArray(c.top_3_regions) && c.top_3_regions.length)
+        ? c.top_3_regions[0] : null;
+      rankByCluster[c.cluster_id] = {
+        composite:     c.composite_score,
+        cross_patient: norm.cross_patient,
+        stability:     norm.stability,
+        condition:     norm.condition,
+        anatomy:       norm.anatomy,
+        top_condition: topCondEntry,    // [condName, prop] or null
+        top_region:    topRegionEntry,  // [regionName, prop] or null
+        rank:          c.rank,
+      };
+    }
+  }
+
+  // ── Sort cluster ids by current sort mode (descending = best first) ──────
+  // Ignored clusters always sort to the end regardless of mode.
+  const sortMode = mobaState.clusterSortMode;
+  function _scoreFor(cid) {
+    const r = rankByCluster[cid];
+    if (!r) return -Infinity;
+    const v = r[sortMode];
+    return Number.isFinite(v) ? v : -Infinity;
+  }
+  let orderedIds = mobaState.clusterIds.slice();
+  if (sortMode === 'id' || !ranking) {
+    orderedIds.sort((a, b) => a - b);
+  } else {
+    orderedIds.sort((a, b) => _scoreFor(b) - _scoreFor(a) || (a - b));
+  }
+  const ignoredIds = orderedIds.filter(c =>  isClusterIgnored(c));
+  const activeIds  = orderedIds.filter(c => !isClusterIgnored(c));
+  orderedIds = [...activeIds, ...ignoredIds];
+
+  // ── Score-badge renderer (uses the active sort mode) ─────────────────────
+  // Returns the inner HTML for a .cluster-chip-score span, or '' if there's
+  // nothing useful to show (no ranking / ID mode / missing value).
+  function _scoreBadgeHTML(cid) {
+    if (!ranking) return '';
+    if (sortMode === 'id') return '';
+    const r = rankByCluster[cid];
+    if (!r) return '';
+    const v = r[sortMode];
+    if (sortMode === 'condition') {
+      const tc = r.top_condition;
+      if (!tc || !Number.isFinite(v)) return '';
+      return `◈ ${_escapeHTML(String(tc[0]))} ${(tc[1] != null ? tc[1].toFixed(2) : v.toFixed(2))}`;
+    }
+    if (sortMode === 'anatomy') {
+      const tr = r.top_region;
+      if (!tr || !Number.isFinite(v)) return '';
+      return `⌖ ${_escapeHTML(String(tr[0]))} ${(tr[1] != null ? tr[1].toFixed(2) : v.toFixed(2))}`;
+    }
+    if (!Number.isFinite(v)) return '';
+    const glyph = sortMode === 'composite'     ? '★'
+                : sortMode === 'cross_patient' ? '👥'
+                : sortMode === 'stability'     ? '⟳'
+                : '';
+    return `${glyph} ${v.toFixed(2)}`;
+  }
+
+  // ── Build chips in sorted order ──────────────────────────────────────────
+  orderedIds.forEach(cid => {
     const chip = document.createElement('span');
     chip.className = 'chip cluster-chip-thumb';
     chip.dataset.cluster = cid;
@@ -990,6 +1118,26 @@ function buildFilterChips() {
 
     chip.appendChild(img);
     chip.appendChild(num);
+
+    // Score badge — shown only when a ranking is loaded and the active sort
+    // mode has a meaningful value for this cluster.
+    const scoreHTML = _scoreBadgeHTML(cid);
+    if (scoreHTML) {
+      const score = document.createElement('span');
+      score.className = 'cluster-chip-score';
+      score.innerHTML = scoreHTML;
+      // Tooltip on the badge gives all four normalized values so the user can
+      // sanity-check the sort.
+      const r = rankByCluster[cid];
+      if (r) {
+        const fmt = v => Number.isFinite(v) ? v.toFixed(2) : '—';
+        score.title = `rank ${r.rank} · composite ${fmt(r.composite)}\n`
+                     + `cross-patient ${fmt(r.cross_patient)} · stability ${fmt(r.stability)}\n`
+                     + `condition ${fmt(r.condition)} · anatomy ${fmt(r.anatomy)}`;
+      }
+      chip.appendChild(score);
+    }
+
     chip.addEventListener('click', () => toggleCluster(cid));
     // Double-click opens the nickname / "not important" edit modal.
     chip.addEventListener('dblclick', (e) => {
@@ -1003,6 +1151,36 @@ function buildFilterChips() {
                  '\\nDouble-click to edit nickname / ignored flag.';
     cChips.appendChild(chip);
   });
+
+  // ── Dissolved-cluster indicator (at the very end of the chip row) ────────
+  // Renders only when the ranking reports clusters_dissolved entries. Clicking
+  // the chip toggles a panel underneath listing the merge mappings.
+  if (ranking && Array.isArray(ranking.clusters_dissolved)
+      && ranking.clusters_dissolved.length > 0) {
+    const dis = ranking.clusters_dissolved;
+    const indicator = document.createElement('span');
+    indicator.className = 'cluster-dissolved-indicator';
+    indicator.title = `${dis.length} cluster(s) dissolved during ranking iteration. Click to expand.`;
+    indicator.innerHTML = `↳ ${dis.length} dissolved`;
+
+    const panel = document.createElement('div');
+    panel.className = 'cluster-dissolved-panel';
+    panel.innerHTML = dis.map(d => {
+      const from = (d.from_cluster != null) ? (d.from_cluster + 1) : '?';
+      const to   = (d.to_cluster   != null) ? (d.to_cluster + 1)   : '?';
+      const n    = (d.n_members   != null) ? d.n_members           : '?';
+      const it   = (d.iteration   != null) ? d.iteration           : '?';
+      return `<div class="dis-row">cluster ${from}<span class="dis-arrow">→</span>cluster ${to}`
+           + `<span class="dis-n">(${n} samples, iter ${it})</span></div>`;
+    }).join('');
+
+    indicator.addEventListener('click', (e) => {
+      e.stopPropagation();
+      panel.classList.toggle('open');
+    });
+    cChips.appendChild(indicator);
+    cChips.appendChild(panel);
+  }
 
   const pChips = document.getElementById('patientChips');
   pChips.innerHTML = '';
@@ -1040,6 +1218,26 @@ function refreshChipStates() {
     el.classList.toggle('off', !mobaState.enabledConditions.has(el.dataset.condition));
   });
   document.getElementById('highSilBtn').classList.toggle('active', mobaState.highSilOnly);
+}
+
+// Tiny HTML-escape helper — used by the score badge labels (condition + region
+// names come from upstream JSON and could contain stray characters that would
+// break the chip layout if rendered raw).
+function _escapeHTML(s) {
+  if (s == null) return '';
+  return String(s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Sort selector: switch the active sort mode and re-render the cluster chip
+// row. The brain + samples grid don't depend on chip order, so we only
+// rebuild the chips (cheap).
+function setClusterSortMode(mode) {
+  const ALLOWED = ['composite', 'cross_patient', 'stability', 'condition', 'anatomy', 'id'];
+  if (!ALLOWED.includes(mode)) return;
+  mobaState.clusterSortMode = mode;
+  buildFilterChips();
 }
 
 function toggleCluster(cid)   { mobaState.enabledClusters.has(cid)   ? mobaState.enabledClusters.delete(cid)   : mobaState.enabledClusters.add(cid);   refreshChipStates(); rerender(); }

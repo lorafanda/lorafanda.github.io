@@ -1094,19 +1094,38 @@ function buildFilterChips() {
     const ignored = isClusterIgnored(cid);
     if (ignored) chip.classList.add('cluster-ignored');
 
-    // Per-cluster mean-ERSP thumbnail. Generated on the server by the
-    // BACKFILL_CENTROIDS cell in 210 — present for any run whose feature
-    // set is 'raw'. img.onerror hides it gracefully if a run hasn't been
-    // backfilled yet (chip falls back to swatch + number).
+    // Per-cluster mean-ERSP thumbnail. Resolution order:
+    //   1. cluster_centroids/k_{currentK}/cluster_NN.png  (212/213 per-K subdir)
+    //   2. cluster_centroids/cluster_NN.png               (legacy flat path,
+    //      only present at the run's saved best-K)
+    //   3. hide the img element entirely (chip falls back to swatch + number)
+    // The K-specific path is checked first so the K slider actually updates
+    // the chip thumbnails. img.onerror chains the fallback automatically; no
+    // HEAD requests, no extra network round-trips on the happy path.
     const img = document.createElement('img');
     img.className = 'cluster-chip-img';
     img.loading = 'lazy';
     img.alt = `cluster ${cid + 1} mean ERSP`;
     if (mobaState.runDir) {
       const cidStr = String(cid).padStart(2, '0');
-      img.src = `${mobaState.runDir}/cluster_centroids/cluster_${cidStr}.png`;
+      const flatUrl = `${mobaState.runDir}/cluster_centroids/cluster_${cidStr}.png`;
+      if (mobaState.currentK != null) {
+        const kUrl = `${mobaState.runDir}/cluster_centroids/k_${mobaState.currentK}/cluster_${cidStr}.png`;
+        let triedFlat = false;
+        img.src = kUrl;
+        img.onerror = () => {
+          if (!triedFlat) {
+            triedFlat = true;
+            img.src = flatUrl;
+          } else {
+            img.style.display = 'none';
+          }
+        };
+      } else {
+        img.src = flatUrl;
+        img.onerror = () => { img.style.display = 'none'; };
+      }
     }
-    img.onerror = () => { img.style.display = 'none'; };
 
     const num = document.createElement('span');
     num.className = 'cluster-chip-num';

@@ -25,7 +25,7 @@ const COLORS_CONFIG_URL = `${REPO_RAW}/02_FBM_Clustering/outputs/colors_config.j
 // format is fixed-width. Runs are NOT deleted on disk; they're just dropped
 // from the dropdown + URL-hash matcher. Bump this when you want to retire
 // more stale runs from the UI without git-rm'ing them on the server.
-const RUN_ID_MIN_VISIBLE = '20260523_000000';
+const RUN_ID_MIN_VISIBLE = '20260525_000000';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // COLOR HELPERS  (copy-paste from results.html — keep in sync if you change them)

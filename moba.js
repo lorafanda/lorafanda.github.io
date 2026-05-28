@@ -20,6 +20,13 @@ const CLUSTERING_ROOT = `${REPO_RAW}/02_FBM_Clustering/outputs/clustering`;
 const FSAV_MESH_BASE  = `${REPO_RAW}/02_FBM_Clustering/outputs/250_recon/fsaverage/meshes`;
 const COLORS_CONFIG_URL = `${REPO_RAW}/02_FBM_Clustering/outputs/colors_config.json`;
 
+// Display cutoff: hide runs whose run_id (a YYYYMMDD_HHMMSS timestamp) is
+// strictly less than this value. Lexicographic compare works because the
+// format is fixed-width. Runs are NOT deleted on disk; they're just dropped
+// from the dropdown + URL-hash matcher. Bump this when you want to retire
+// more stale runs from the UI without git-rm'ing them on the server.
+const RUN_ID_MIN_VISIBLE = '20260523_000000';
+
 // ─────────────────────────────────────────────────────────────────────────────
 // COLOR HELPERS  (copy-paste from results.html — keep in sync if you change them)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -475,7 +482,16 @@ async function loadIndex() {
     mobaState.index = idx;
     const methodLabel  = Object.fromEntries((idx.methods       || []).map(m => [m.id, m.label]));
     const featureLabel = Object.fromEntries((idx.feature_sets  || []).map(f => [f.id, f.label]));
-    mobaState.runs = (idx.runs || []).slice().sort((a, b) => {
+    // Filter out stale runs (display-only — the dirs still exist on disk).
+    // Lexicographic compare works because run_id is fixed-width YYYYMMDD_HHMMSS.
+    const allRuns     = idx.runs || [];
+    const visibleRuns = allRuns.filter(r => String(r.run_id || '') >= RUN_ID_MIN_VISIBLE);
+    const nHidden = allRuns.length - visibleRuns.length;
+    if (nHidden > 0) {
+      console.info(`[MOBA] Hiding ${nHidden} run(s) with run_id < ${RUN_ID_MIN_VISIBLE} ` +
+                   `(still present on disk; bump RUN_ID_MIN_VISIBLE in moba.js to change).`);
+    }
+    mobaState.runs = visibleRuns.slice().sort((a, b) => {
       if (a.method !== b.method) return a.method.localeCompare(b.method);
       if (a.feature_set !== b.feature_set) return a.feature_set.localeCompare(b.feature_set);
       return b.run_id.localeCompare(a.run_id);

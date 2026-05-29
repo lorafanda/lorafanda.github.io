@@ -260,6 +260,87 @@
     /* "Not important" cluster chip styling — dimmed + dashed border */
     .chip.cluster-chip-thumb.cluster-ignored { opacity: 0.45; border-style: dashed; border-color: var(--muted); }
     .chip.cluster-chip-thumb.cluster-ignored .cluster-chip-num { text-decoration: line-through; text-decoration-color: var(--muted); }
+
+    /* ──────────────────────────────────────────────────────────────────────
+       MOBILE LAYOUT — stack panes vertically + skip 3D brain
+       Niivue (the WebGL 3D brain) is the dominant memory consumer here.
+       On phones/tablets the GPU contexts + ~50k-vertex fsaverage meshes +
+       hundreds of electrode submeshes regularly OOM-kill the tab on iOS
+       Safari and mobile Chrome. The matched media query disables Niivue
+       (handled JS-side via IS_MOBILE), and CSS-side we:
+         * collapse the topbar so the run dropdown gets its own row
+         * stack the main grid into a single column
+         * shorten the brain pane to a static placeholder
+         * make the body scrollable so the samples grid + metrics + stats
+           pane are reachable
+         * compact the filter strip + chip rendering for narrow viewports
+       Trigger: width ≤ 820 OR coarse pointer (touch) without hover. The
+       second clause catches tablets that have wider viewports but no
+       physical keyboard / mouse — same crash risk.
+       ────────────────────────────────────────────────────────────────────── */
+    @media (max-width: 820px), (hover: none) and (pointer: coarse) {
+      body { overflow: auto; }
+
+      /* Topbar wraps; brand + buttons on row 1, run selector on row 2 */
+      .topbar { flex-wrap: wrap; padding: 6px 0.75rem 8px; height: auto; min-height: var(--nav-h); gap: 0.4rem; }
+      .topbar .brand .full { display: none; }
+      .topbar .spacer { display: none; }
+      .topbar select.run-select { order: 10; flex: 1 1 100%; min-width: 0; }
+
+      /* Vertical layout */
+      main { display: block; }
+      .pane { height: auto; min-height: 0; }
+      .pane + .pane { border-left: 0; border-top: 1px solid var(--border); }
+
+      /* Brain pane: short placeholder area */
+      #brainPane { flex: none; }
+      #brainCanvasWrap { height: 180px; flex: none; }
+      #brainCanvas.is-mobile-hidden { display: none; }
+
+      /* Samples grid: 2-up on phone, fluid */
+      #samplesGrid { padding: 0.7rem; gap: 6px; }
+      .output-card { width: calc((100vw - 1.6rem) / 2 - 4px); max-width: 170px; }
+      .output-card img { width: 100%; height: auto; aspect-ratio: 1 / 1; object-fit: cover; }
+
+      /* Filter strip: compact, horizontal scrolling per row if needed */
+      #filterStrip { padding: 6px 0.7rem; gap: 4px; }
+      .filter-row { gap: 0.3rem; overflow-x: auto; -webkit-overflow-scrolling: touch; }
+      .filter-row::-webkit-scrollbar { display: none; }
+      .filter-label { min-width: 55px; font-size: 0.6rem; }
+      .filter-btn { padding: 2px 7px; font-size: 0.65rem; flex: 0 0 auto; }
+      .chip { padding: 2px 7px; font-size: 0.65rem; flex: 0 0 auto; }
+      .chip.cluster-chip-thumb { min-width: 64px; padding: 3px 5px 4px; }
+      .cluster-chip-img { width: 56px; height: 30px; }
+
+      /* Cluster-sort row buttons + dissolved indicator: keep readable */
+      #clusterSortRow .filter-btn { font-size: 0.6rem; padding: 2px 6px; }
+      .cluster-dissolved-indicator { font-size: 0.6rem; padding: 2px 7px; }
+
+      /* K slider keeps its row but tightens */
+      #kSliderLabel { font-size: 0.65rem; min-width: 0; }
+      #kSlider { max-width: none; }
+
+      /* Stats / About panes: full vertical room + 1-column curves */
+      #aboutPane, #statsPane { max-height: none; padding: 0.75rem 0.9rem; font-size: 0.78rem; }
+      #statsPane .stats-curves { grid-template-columns: 1fr; }
+
+      /* Metrics strip: more vertical room, 1 column */
+      #metricsStrip { max-height: none; padding: 8px 0.7rem; }
+      .metrics-bars { grid-template-columns: 1fr; gap: 0.6rem; }
+    }
+
+    /* Static placeholder dropped into #brainCanvasWrap on mobile by initBrain().
+       Centered, muted, explains the reason instead of leaving an empty area. */
+    .brain-mobile-placeholder {
+      position: absolute; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      padding: 1rem; text-align: center;
+      color: var(--muted); font-size: 0.78rem; line-height: 1.5;
+      background: var(--surface);
+    }
+    .brain-mobile-placeholder .icon { font-size: 1.8rem; margin-bottom: 0.5rem; }
+    .brain-mobile-placeholder .label { font-size: 0.72rem; color: var(--text); margin-bottom: 0.2rem; font-weight: 500; }
+    .brain-mobile-placeholder .hint { font-size: 0.65rem; max-width: 320px; }
   </style>
 </head>
 <body>
@@ -279,7 +360,6 @@
 <!-- APP -->
 <div id="app">
   <div class="topbar">
-    <a class="back" href="results.html">← Back to results</a>
     <span class="brand">MOBA<span class="full">— Mosaics of Brain Activity</span></span>
     <div class="spacer"></div>
     <select class="run-select" id="runSelect"><option value="">Loading runs...</option></select>

@@ -27,6 +27,23 @@ const COLORS_CONFIG_URL = `${REPO_RAW}/02_FBM_Clustering/outputs/colors_config.j
 // more stale runs from the UI without git-rm'ing them on the server.
 const RUN_ID_MIN_VISIBLE = '20260525_000000';
 
+// Mobile / touch-device detection — used to skip Niivue (the WebGL 3D brain)
+// init entirely, which is the dominant cause of tab crashes on iOS Safari +
+// mobile Chrome (texture-memory + context limits). The matched media query
+// fires on narrow viewports OR coarse pointer (touch) without hover — that
+// second clause catches tablets that have wider viewports but still no
+// physical mouse / hover, where Niivue would also crash. Same media query
+// is mirrored in moba.html so the CSS-side layout switch and the JS-side
+// brain-skip stay in lockstep.
+const IS_MOBILE = (function () {
+  try {
+    return window.matchMedia('(max-width: 820px), (hover: none) and (pointer: coarse)').matches;
+  } catch (e) {
+    // Old browsers without matchMedia: fall back to width check
+    return (window.innerWidth || 9999) <= 820;
+  }
+})();
+
 // ─────────────────────────────────────────────────────────────────────────────
 // COLOR HELPERS  (copy-paste from results.html — keep in sync if you change them)
 // ─────────────────────────────────────────────────────────────────────────────
@@ -331,6 +348,7 @@ const mobaState = {
 // requestAnimationFrame loop ramps mesh.opacity 0↔1 so it visibly
 // pulses; the loop self-cancels when the highlight clears.
 async function updateHighlight() {
+  if (IS_MOBILE) return;            // no Niivue instance on mobile
   if (!mobaState.nv) return;
 
   // Remove previous halo if any
@@ -516,11 +534,39 @@ async function loadIndex() {
 // BRAIN INIT (Niivue)
 // ─────────────────────────────────────────────────────────────────────────────
 async function initBrain() {
-  const NV = window.niivue?.Niivue || window.Niivue;
-  if (!NV) { setStatus('Niivue not loaded — check your network'); return; }
-
   const canvas = document.getElementById('brainCanvas');
   mobaState.brainCanvas = canvas;
+
+  // Mobile / touch device: skip Niivue init entirely and drop a static
+  // placeholder into #brainCanvasWrap. Niivue's WebGL contexts + fsaverage
+  // meshes + per-electrode spheres reliably OOM-kill the tab on iOS Safari
+  // and mobile Chrome, which is the user-reported "crashing on phone" path.
+  // Every other panel (samples grid, filters, metrics, stats, about, PDF
+  // download with a placeholder brain box) continues to work.
+  if (IS_MOBILE) {
+    canvas.classList.add('is-mobile-hidden');
+    const wrap = document.getElementById('brainCanvasWrap');
+    if (wrap) {
+      // Keep the canvas + tooltip in the DOM but render a placeholder over them
+      const ph = document.createElement('div');
+      ph.className = 'brain-mobile-placeholder';
+      ph.innerHTML = `
+        <div class="icon">🧠</div>
+        <div class="label">3D brain is desktop-only</div>
+        <div class="hint">Open MOBA on a laptop or larger screen to view the fsaverage cortex
+        + electrode positions. Cluster chips, samples grid, filters, and Stats tab all work
+        below.</div>`;
+      wrap.appendChild(ph);
+    }
+    setStatus(null);
+    mobaState.nv          = null;
+    mobaState.meshLoaded  = false;
+    mobaState.brainReady  = true;     // mark "ready" so onRunChange() doesn't block on it
+    return;
+  }
+
+  const NV = window.niivue?.Niivue || window.Niivue;
+  if (!NV) { setStatus('Niivue not loaded — check your network'); return; }
 
   const nv = new NV({
     backColor: [1, 1, 1, 1],              // white — matches the look of the existing recon PNGs
@@ -1283,6 +1329,7 @@ function setAllPatients(on)   { mobaState.enabledPatients = on ? new Set(mobaSta
 function setAllConditions(on) { mobaState.enabledConditions = on ? new Set(mobaState.conditions) : new Set(); refreshChipStates(); rerender(); }
 function toggleHighSil()      { mobaState.highSilOnly = !mobaState.highSilOnly; refreshChipStates(); rerender(); }
 function toggleBrainMesh()    {
+  if (IS_MOBILE) return;            // brain pane is a static placeholder on mobile
   mobaState.brainMeshVisible = !mobaState.brainMeshVisible;
   document.getElementById('brainBtn').classList.toggle('active', mobaState.brainMeshVisible);
   rerender();
@@ -1401,6 +1448,14 @@ function buildSpheresOBJ(electrodes, radius) {
 
 
 async function renderBrain() {
+  if (IS_MOBILE) {
+    // Mobile: no Niivue, but we still update the brainStat counter so the
+    // header still shows "N contacts visible" alongside the placeholder.
+    const visibleMobile = (mobaState.coords || []).filter(isVisible);
+    const el = document.getElementById('brainStat');
+    if (el) el.textContent = visibleMobile.length ? `${visibleMobile.length} contacts (3D hidden)` : '';
+    return;
+  }
   if (!mobaState.brainReady || !mobaState.coords.length) {
     document.getElementById('brainStat').textContent = '';
     return;

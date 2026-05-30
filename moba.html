@@ -520,6 +520,12 @@
       <span id="kSliderLabel">K = —</span>
       <button class="filter-btn" id="kSliderBestBtn" onclick="resetKToBest()" title="Jump to the best-K (silhouette-optimal) cut for this HC run">Best</button>
     </div>
+    <div class="filter-row">
+      <span class="filter-label">Clusters</span>
+      <button class="filter-btn" onclick="setAllClusters(true)">All</button>
+      <button class="filter-btn" onclick="setAllClusters(false)">None</button>
+      <div id="clusterChips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
+    </div>
     <div class="filter-row" id="clusterSortRow" style="display:none;">
       <span class="filter-label">Sort by</span>
       <button class="filter-btn active" data-sort="composite"     onclick="setClusterSortMode('composite')"     title="Weighted composite of all 4 axes (rank 1 = highest)">★ Composite</button>
@@ -530,22 +536,17 @@
       <button class="filter-btn"        data-sort="id"            onclick="setClusterSortMode('id')"            title="Original cluster id order"># ID</button>
     </div>
     <div class="filter-row">
-      <span class="filter-label">Clusters</span>
-      <div id="clusterChips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
-      <button class="filter-btn" onclick="setAllClusters(true)">All</button>
-      <button class="filter-btn" onclick="setAllClusters(false)">None</button>
-    </div>
-    <div class="filter-row">
       <span class="filter-label">Patients</span>
-      <div id="patientChips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
       <button class="filter-btn" onclick="setAllPatients(true)">All</button>
       <button class="filter-btn" onclick="setAllPatients(false)">None</button>
+      <button class="filter-btn" id="patientChipsToggleBtn" onclick="togglePatientChipsVisible()" title="Show / hide the per-patient color chips. Filtering is unaffected — chips are only hidden visually.">▾ chips</button>
+      <div id="patientChips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
     </div>
     <div class="filter-row">
       <span class="filter-label">Conditions</span>
-      <div id="conditionChips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
       <button class="filter-btn" onclick="setAllConditions(true)">All</button>
       <button class="filter-btn" onclick="setAllConditions(false)">None</button>
+      <div id="conditionChips" style="display:flex;flex-wrap:wrap;gap:5px"></div>
     </div>
   </div>
 

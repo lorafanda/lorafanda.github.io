@@ -315,6 +315,11 @@ const mobaState = {
   bestK:     null,
   currentK:  null,
 
+  // Patient chip row visibility — purely visual toggle (filtering is
+  // unaffected when chips are hidden). Defaults to true. Toggled by the
+  // ▾/▸ button on the Patients filter row.
+  patientChipsVisible: true,
+
   // Cluster ranking — output of 213_cluster_ranking.ipynb.
   // Schema (see notebook for the source):
   //   {
@@ -1299,6 +1304,9 @@ function refreshChipStates() {
     el.classList.toggle('off', !mobaState.enabledConditions.has(el.dataset.condition));
   });
   document.getElementById('highSilBtn').classList.toggle('active', mobaState.highSilOnly);
+  // Keep the patient-chip toggle button's label (▾ N / ▸ N) in sync with
+  // the current patient list size and the persisted visibility flag.
+  _refreshPatientChipsVisibility();
 }
 
 // Tiny HTML-escape helper — used by the score badge labels (condition + region
@@ -1319,6 +1327,27 @@ function setClusterSortMode(mode) {
   if (!ALLOWED.includes(mode)) return;
   mobaState.clusterSortMode = mode;
   buildFilterChips();
+}
+
+// Show / hide the patient chip row. Purely visual — chips are kept in the DOM
+// (display:none) so the brain + samples grid + metrics still respect the
+// existing enabledPatients set. Refreshed by _refreshPatientChipsVisibility.
+function togglePatientChipsVisible() {
+  mobaState.patientChipsVisible = !mobaState.patientChipsVisible;
+  _refreshPatientChipsVisibility();
+}
+
+function _refreshPatientChipsVisibility() {
+  const chips = document.getElementById('patientChips');
+  const btn   = document.getElementById('patientChipsToggleBtn');
+  if (!chips || !btn) return;
+  const visible = mobaState.patientChipsVisible !== false;
+  chips.style.display = visible ? 'flex' : 'none';
+  const n = (mobaState.patients || []).length;
+  btn.textContent = visible ? `▾ ${n}` : `▸ ${n}`;
+  btn.title = visible
+    ? 'Hide the per-patient chip row (filtering is unaffected — chips are hidden visually only)'
+    : `Show the ${n} per-patient chip${n === 1 ? '' : 's'}`;
 }
 
 function toggleCluster(cid)   { mobaState.enabledClusters.has(cid)   ? mobaState.enabledClusters.delete(cid)   : mobaState.enabledClusters.add(cid);   refreshChipStates(); rerender(); }

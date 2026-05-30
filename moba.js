@@ -2196,8 +2196,35 @@ async function _captureBrainTwoViews({ targetAspect = 86 / 64 } = {}) {
   const scene = nv.scene;
   if (!scene) return empty;
 
+  // Snapshot original camera state
   const origAz = scene.renderAzimuth;
   const origEl = scene.renderElevation;
+
+  // Boost the fsaverage cortex opacity during capture only.
+  //
+  // Why: initBrain() sets the cortex to opacity 0.18 — a translucent overlay
+  // that reads well over MOBA's beige page background (var(--bg) ≈ #f0ebe4).
+  // But the PDF page is WHITE, so beige cortex at 12% alpha over white blends
+  // to ~RGB(249, 248, 247) → effectively invisible. Bumping to ~0.55 for the
+  // capture makes the cortex clearly visible in the PDF while still letting
+  // the electrode spheres pop through. Restored to the dashboard value after.
+  const cortexBackup = [];
+  for (const m of (nv.meshes || [])) {
+    if (typeof m.name === 'string' && /fsaverage/i.test(m.name)) {
+      cortexBackup.push({
+        ref:           m,
+        opacity:       m.opacity,
+        layerOpacity:  m.layerOpacity,
+        meshOpacity:   m.meshOpacity,
+        alpha:         (m.rgba255 && m.rgba255.length >= 4) ? m.rgba255[3] : null,
+      });
+      const boost = 0.55;
+      if ('opacity' in m)      m.opacity      = boost;
+      if ('layerOpacity' in m) m.layerOpacity = boost;
+      if ('meshOpacity' in m)  m.meshOpacity  = boost;
+      if (m.rgba255 && m.rgba255.length >= 4) m.rgba255[3] = Math.round(boost * 255);
+    }
+  }
 
   const captureAt = (az, el) => new Promise((resolve) => {
     scene.renderAzimuth   = az;
@@ -2216,12 +2243,216 @@ async function _captureBrainTwoViews({ targetAspect = 86 / 64 } = {}) {
   const lateral = await captureAt(270, 0);   // looking from the left
   const frontal = await captureAt(0,   0);   // looking from the front
 
-  // Restore the user-facing camera
+  // Restore camera
   scene.renderAzimuth   = origAz;
   scene.renderElevation = origEl;
+  // Restore cortex opacity / alpha to whatever it was before capture
+  for (const b of cortexBackup) {
+    if (!b.ref) continue;
+    if (b.opacity      !== undefined) b.ref.opacity      = b.opacity;
+    if (b.layerOpacity !== undefined) b.ref.layerOpacity = b.layerOpacity;
+    if (b.meshOpacity  !== undefined) b.ref.meshOpacity  = b.meshOpacity;
+    if (b.ref.rgba255 && b.alpha != null) b.ref.rgba255[3] = b.alpha;
+  }
   if (typeof nv.drawScene === 'function') nv.drawScene();
 
   return { lateral, frontal };
+}
+
+// First page of the PDF — across-cluster overview:
+//   * Run header (method, feature_set, K, run_id, date)
+//   * Aggregate stats (total samples, BERN/GVA/MICRO patients, conditions,
+//     overall silhouette, mean Jaccard, ranking weights if present)
+//   * Grid of every cluster's centroid PNG (one tile per cluster), ordered
+//     by ranking score if available, otherwise by cluster id. Each tile
+//     carries cluster id, rank, n samples, top anatomy region.
+// Ignored clusters still appear so the overview is a true run snapshot;
+// they're marked with a ⊘ glyph after the cluster id.
+async function _renderOverviewPage(pdf, m, ctx) {
+  const PAGE_W = 210, PAGE_H = 297;
+  const MARGIN_L = 14, MARGIN_R = 14;
+  const CONTENT_W = PAGE_W - MARGIN_L - MARGIN_R;
+  const { ranking, perClusterAnatomy, stabByCluster, stabilitySummary,
+          allSamples, totalRuns } = ctx;
+
+  let y = 17;
+
+  // Title + subtitle
+  pdf.setFontSize(18);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(0, 0, 0);
+  pdf.text('Run overview', MARGIN_L, y);
+  pdf.setFont('helvetica', 'normal');
+  y += 6.5;
+
+  pdf.setFontSize(9);
+  pdf.setTextColor(120, 100, 90);
+  const k = mobaState.clusterIds.length;
+  pdf.text(
+    `${m.method_label || m.method}  ·  ${m.feature_set_label || m.feature_set}  ·  K=${k}  ·  ${m.run_id || ''}`,
+    MARGIN_L, y
+  );
+  y += 5;
+
+  // ── Aggregate stats box ──────────────────────────────────────────────────
+  const pids = [...new Set(allSamples.map(r => r.patient_id))];
+  const conds = [...new Set(allSamples.map(r => r.condition))];
+  const cohortOf = {};
+  pids.forEach(p => { cohortOf[p] = _patientCohort(p); });
+  const nBERN  = pids.filter(p => cohortOf[p] === 'EL').length;
+  const nGVA   = pids.filter(p => cohortOf[p] === 'PAT').length;
+  const nMICRO = pids.filter(p => cohortOf[p] === 'MICRO').length;
+  const sils = allSamples.map(r => r._sil).filter(Number.isFinite);
+  const meanSil = sils.length ? sils.reduce((a,b)=>a+b,0)/sils.length : NaN;
+
+  const lines = [];
+  lines.push(`${allSamples.length} total samples  ·  ${pids.length} patients (${nBERN} BERN · ${nGVA} GVA · ${nMICRO} MICRO)  ·  ${conds.length} conditions`);
+  lines.push(`${k} clusters  ·  overall silhouette ${Number.isFinite(meanSil) ? meanSil.toFixed(3) : '—'}`);
+  if (stabilitySummary && Number.isFinite(stabilitySummary.mean_jaccard)) {
+    const subFrac = Number.isFinite(stabilitySummary.subsample_frac)
+      ? stabilitySummary.subsample_frac.toFixed(2) : '1.00';
+    lines.push(`mean Jaccard ${stabilitySummary.mean_jaccard.toFixed(2)}  (Monti consensus · n_runs=${stabilitySummary.n_runs ?? '?'} · subsample=${subFrac})`);
+  }
+  if (ranking && ranking.weights) {
+    const w = ranking.weights;
+    lines.push(`Ranking weights — cross-patient × ${w.cross_patient}  ·  stability × ${w.stability}  ·  condition × ${w.condition}  ·  anatomy × ${w.anatomy}`);
+    if (Array.isArray(ranking.clusters_dissolved) && ranking.clusters_dissolved.length > 0) {
+      lines.push(`${ranking.clusters_dissolved.length} cluster${ranking.clusters_dissolved.length === 1 ? '' : 's'} dissolved during iterative reassignment (K ${ranking.n_clusters_original} → ${ranking.n_clusters_final})`);
+    }
+  }
+
+  const boxH = 4.5 * lines.length + 4;
+  pdf.setFillColor(245, 240, 232);
+  pdf.rect(MARGIN_L, y, CONTENT_W, boxH, 'F');
+  pdf.setFontSize(9);
+  pdf.setTextColor(60, 50, 45);
+  let ly = y + 5;
+  for (const line of lines) {
+    pdf.text(line, MARGIN_L + 3, ly);
+    ly += 4.5;
+  }
+  pdf.setTextColor(0, 0, 0);
+  y += boxH + 5;
+
+  // ── Centroid grid header ─────────────────────────────────────────────────
+  pdf.setFontSize(10.5);
+  pdf.setFont('helvetica', 'bold');
+  pdf.setTextColor(0, 0, 0);
+  pdf.text('Cluster centroids  ·  Mean ERSP per cluster', MARGIN_L, y);
+  pdf.setFont('helvetica', 'normal');
+  y += 4.5;
+  pdf.setFontSize(7.5);
+  pdf.setTextColor(120, 100, 90);
+  pdf.text(
+    ranking ? 'Sorted by composite rank — ordering matches the MOBA chip row.'
+            : 'Sorted by cluster id (no ranking artifact present for this run).',
+    MARGIN_L, y
+  );
+  pdf.setTextColor(0, 0, 0);
+  y += 4;
+
+  // ── Cluster grid ─────────────────────────────────────────────────────────
+  // Order: by ranking if available, else by cluster id (numeric).
+  let clusterIdsOrdered = mobaState.clusterIds.slice();
+  if (ranking && Array.isArray(ranking.clusters)) {
+    const rankByCid = {};
+    ranking.clusters.forEach(c => { rankByCid[c.cluster_id] = c.rank; });
+    clusterIdsOrdered.sort((a, b) => (rankByCid[a] ?? 9999) - (rankByCid[b] ?? 9999) || (a - b));
+  } else {
+    clusterIdsOrdered.sort((a, b) => a - b);
+  }
+
+  // Pre-fetch all centroid PNGs in parallel
+  const centroidImages = await Promise.all(
+    clusterIdsOrdered.map(cid => _fetchCentroidDataURL(cid))
+  );
+
+  // Grid geometry. We size N_COLS so very large K still fits one page.
+  const N_COLS = clusterIdsOrdered.length <= 16 ? 4
+               : clusterIdsOrdered.length <= 25 ? 5
+               : 6;
+  const GAP    = 3.5;
+  const TILE_W = (CONTENT_W - GAP * (N_COLS - 1)) / N_COLS;
+  const IMG_H  = Math.min(28, TILE_W * 0.62);   // keep tiles wider than tall
+  const TILE_H = IMG_H + 14;                    // image + 3 lines of label
+  const startY = y;
+  const FOOTER_Y = 285;
+
+  for (let i = 0; i < clusterIdsOrdered.length; i++) {
+    const cid = clusterIdsOrdered[i];
+    const col = i % N_COLS;
+    const row = Math.floor(i / N_COLS);
+    const tx = MARGIN_L + col * (TILE_W + GAP);
+    const ty = startY + row * (TILE_H + GAP);
+    if (ty + TILE_H > FOOTER_Y) break;   // bail if grid would overflow
+
+    // Image
+    const data = centroidImages[i];
+    if (data) {
+      try {
+        pdf.addImage(data, 'PNG', tx, ty, TILE_W, IMG_H);
+      } catch (e) {
+        pdf.setFillColor(245, 240, 232);
+        pdf.rect(tx, ty, TILE_W, IMG_H, 'F');
+        pdf.setFontSize(6.5);
+        pdf.setTextColor(180, 100, 90);
+        pdf.text('(embed err)', tx + 1.5, ty + IMG_H/2);
+        pdf.setTextColor(0, 0, 0);
+      }
+    } else {
+      pdf.setFillColor(245, 240, 232);
+      pdf.rect(tx, ty, TILE_W, IMG_H, 'F');
+      pdf.setFontSize(6.5);
+      pdf.setTextColor(160, 110, 100);
+      pdf.text('(missing)', tx + 1.5, ty + IMG_H/2);
+      pdf.setTextColor(0, 0, 0);
+    }
+    // Thin frame around the tile image
+    pdf.setDrawColor(220, 210, 200); pdf.setLineWidth(0.15);
+    pdf.rect(tx, ty, TILE_W, IMG_H);
+    pdf.setDrawColor(0, 0, 0);
+
+    // Label rows below tile
+    const ignored = isClusterIgnored(cid);
+    const r = ranking?.clusters?.find(c => c.cluster_id === cid) || null;
+    const lblY1 = ty + IMG_H + 4;
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'bold');
+    pdf.setTextColor(0, 0, 0);
+    pdf.text(`Cluster ${cid + 1}${ignored ? ' ⊘' : ''}`, tx, lblY1);
+    pdf.setFont('helvetica', 'normal');
+    if (r) {
+      pdf.setFontSize(7);
+      pdf.setTextColor(184, 92, 110);
+      pdf.text(`#${r.rank}`, tx + TILE_W - 0.5, lblY1, { align: 'right' });
+      pdf.setTextColor(0, 0, 0);
+    }
+
+    const cidSamples = allSamples.filter(s => s._cluster === cid).length;
+    const anat = perClusterAnatomy?.[String(cid)];
+    pdf.setFontSize(6.5);
+    pdf.setTextColor(120, 100, 90);
+    pdf.text(`${cidSamples} samples`, tx, lblY1 + 3.5);
+    if (anat?.top_3?.length) {
+      const t = anat.top_3[0];
+      const topStr = `${String(t[0]).slice(0, 16)} ${(t[1]*100).toFixed(0)}%`;
+      pdf.text(topStr, tx, lblY1 + 6.7);
+    } else if (Number.isFinite(stabByCluster?.[cid])) {
+      pdf.text(`Jaccard ${stabByCluster[cid].toFixed(2)}`, tx, lblY1 + 6.7);
+    }
+    pdf.setTextColor(0, 0, 0);
+  }
+
+  // Footer
+  pdf.setFontSize(7);
+  pdf.setTextColor(160, 140, 120);
+  const dateStr = new Date().toISOString().slice(0, 10);
+  pdf.text(
+    `MOBA — Mosaics of Brain Activity  ·  run overview  ·  page 1 / ${totalRuns}  ·  ${dateStr}`,
+    MARGIN_L, 290
+  );
+  pdf.text(m.run_id || '', PAGE_W - MARGIN_R, 290, { align: 'right' });
+  pdf.setTextColor(0, 0, 0);
 }
 
 // Try fetching a centroid PNG, preferring the K-specific subdir when the
@@ -2321,6 +2552,24 @@ async function downloadPDF() {
   const MARGIN_L = 14, MARGIN_R = 14;
   const CONTENT_W = PAGE_W - MARGIN_L - MARGIN_R; // 182 mm
 
+  // ── Page 1: across-cluster overview =======================================
+  // Renders the grid of every cluster's centroid (Mean ERSP per cluster) plus
+  // a run-wide stats box. Pages 2..N+1 are per-cluster detail.
+  btn.textContent = '📄 overview…';
+  const overviewCtx = {
+    ranking,
+    perClusterAnatomy,
+    stabByCluster,
+    stabilitySummary,
+    allSamples: mobaState.allLabels || [],
+    totalRuns: 1 + total,   // overview page + every cluster page
+  };
+  try {
+    await _renderOverviewPage(pdf, m, overviewCtx);
+  } catch (e) {
+    console.warn('[MOBA] overview page render failed:', e);
+  }
+
   for (let i = 0; i < clustersToExport.length; i++) {
     const cid = clustersToExport[i];
     btn.textContent = `📄 ${i+1}/${total}…`;
@@ -2334,7 +2583,8 @@ async function downloadPDF() {
     const { lateral: brainLateralUrl, frontal: brainFrontalUrl } =
       await _captureBrainTwoViews({ targetAspect: 88 / 70 });
 
-    if (i > 0) pdf.addPage();
+    // Overview is always page 1, so every per-cluster page is a fresh addPage.
+    pdf.addPage();
 
     // === Aggregate per-cluster stats ==========================================
     // `samples`   = every (patient × electrode × condition) sample in the
@@ -2636,10 +2886,13 @@ async function downloadPDF() {
     // === FOOTER ===============================================================
     pdf.setFontSize(7);
     pdf.setTextColor(160, 140, 120);
-    const pageNum = i + 1;
-    const dateStr = new Date().toISOString().slice(0, 10);
+    // Page numbering accounts for the overview as page 1: per-cluster pages
+    // start at 2. Total = overview + N enabled clusters.
+    const pageNum   = 2 + i;
+    const totalPgs  = 1 + total;
+    const dateStr   = new Date().toISOString().slice(0, 10);
     pdf.text(
-      `MOBA — Mosaics of Brain Activity  ·  page ${pageNum} / ${total}  ·  ${dateStr}`,
+      `MOBA — Mosaics of Brain Activity  ·  page ${pageNum} / ${totalPgs}  ·  ${dateStr}`,
       MARGIN_L, 290
     );
     pdf.text(`cluster ${cid + 1}`, PAGE_W - MARGIN_R, 290, { align: 'right' });

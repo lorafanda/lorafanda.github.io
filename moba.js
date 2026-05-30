@@ -2146,6 +2146,84 @@ async function _captureBrainPNG() {
   });
 }
 
+// Crop a source canvas to a target aspect ratio (centered) and return a PNG
+// data URL. Used by _captureBrainTwoViews so each embedded image fits its
+// PDF box without distortion — Niivue's render area is usually wider than
+// the per-view PDF box, so we centre-crop horizontally instead of squishing.
+function _cropCanvasToAspect(srcCanvas, targetAspect) {
+  try {
+    const sw = srcCanvas.width, sh = srcCanvas.height;
+    if (!sw || !sh) return '';
+    const srcAspect = sw / sh;
+    let cw, ch, sx, sy;
+    if (srcAspect > targetAspect) {
+      // source wider — crop sides
+      ch = sh; cw = Math.round(sh * targetAspect);
+      sx = Math.round((sw - cw) / 2); sy = 0;
+    } else {
+      // source taller — crop top/bottom
+      cw = sw; ch = Math.round(sw / targetAspect);
+      sx = 0; sy = Math.round((sh - ch) / 2);
+    }
+    const out = document.createElement('canvas');
+    out.width = cw; out.height = ch;
+    out.getContext('2d').drawImage(srcCanvas, sx, sy, cw, ch, 0, 0, cw, ch);
+    return out.toDataURL('image/png');
+  } catch (e) {
+    console.warn('[MOBA] _cropCanvasToAspect failed:', e);
+    return '';
+  }
+}
+
+// Capture two complementary brain camera angles for the PDF — a left
+// lateral view and a frontal (anterior) view.
+//
+// Niivue camera convention used:
+//   renderAzimuth = 270  → looking from the left side  (lateral L)
+//   renderAzimuth = 0    → looking from the front      (anterior / frontal)
+//   renderElevation = 0  → horizontal, no tilt
+//
+// Both shots are taken via requestAnimationFrame + drawScene so the WebGL
+// framebuffer is fresh at capture time (Niivue runs without
+// preserveDrawingBuffer:true; presenting the frame clears the buffer).
+//
+// Returns { lateral, frontal } as PNG data URLs; either may be '' on failure.
+// Camera state is restored to whatever the user was looking at before.
+async function _captureBrainTwoViews({ targetAspect = 86 / 64 } = {}) {
+  const empty = { lateral: '', frontal: '' };
+  if (IS_MOBILE || !mobaState.nv || !mobaState.brainCanvas) return empty;
+  const nv    = mobaState.nv;
+  const scene = nv.scene;
+  if (!scene) return empty;
+
+  const origAz = scene.renderAzimuth;
+  const origEl = scene.renderElevation;
+
+  const captureAt = (az, el) => new Promise((resolve) => {
+    scene.renderAzimuth   = az;
+    scene.renderElevation = el;
+    requestAnimationFrame(() => {
+      try {
+        if (typeof nv.drawScene === 'function') nv.drawScene();
+        resolve(_cropCanvasToAspect(mobaState.brainCanvas, targetAspect));
+      } catch (e) {
+        console.warn(`[MOBA] capture failed at az=${az} el=${el}:`, e);
+        resolve('');
+      }
+    });
+  });
+
+  const lateral = await captureAt(270, 0);   // looking from the left
+  const frontal = await captureAt(0,   0);   // looking from the front
+
+  // Restore the user-facing camera
+  scene.renderAzimuth   = origAz;
+  scene.renderElevation = origEl;
+  if (typeof nv.drawScene === 'function') nv.drawScene();
+
+  return { lateral, frontal };
+}
+
 // Try fetching a centroid PNG, preferring the K-specific subdir when the
 // K slider is active, falling back to the legacy flat path. Returns '' if
 // neither exists.
@@ -2247,13 +2325,14 @@ async function downloadPDF() {
     const cid = clustersToExport[i];
     btn.textContent = `📄 ${i+1}/${total}…`;
 
-    // Filter to just this cluster, render, capture
+    // Filter to just this cluster, render, capture TWO camera angles
+    // (lateral-left + frontal). _captureBrainTwoViews snapshots each one
+    // synchronously inside rAF + drawScene, then restores the user's camera.
     mobaState.enabledClusters = new Set([cid]);
     await renderBrain();
-    // One frame so Niivue's mesh add/remove settles, then capture in the next
-    // animation frame with drawScene called first.
-    await new Promise(r => setTimeout(r, 80));
-    const brainDataUrl = await _captureBrainPNG();
+    await new Promise(r => setTimeout(r, 80));  // let mesh add/remove settle
+    const { lateral: brainLateralUrl, frontal: brainFrontalUrl } =
+      await _captureBrainTwoViews({ targetAspect: 88 / 70 });
 
     if (i > 0) pdf.addPage();
 
@@ -2340,58 +2419,73 @@ async function downloadPDF() {
     pdf.setDrawColor(0, 0, 0);
     y += 4;
 
-    // === BRAIN IMAGE ==========================================================
-    const brainBoxY = y;
-    const brainBoxH = 92;
-    if (brainDataUrl) {
-      try {
-        pdf.addImage(brainDataUrl, 'PNG', MARGIN_L, brainBoxY, CONTENT_W, brainBoxH);
-      } catch (e) {
-        pdf.setFillColor(245, 240, 232);
-        pdf.rect(MARGIN_L, brainBoxY, CONTENT_W, brainBoxH, 'F');
-        pdf.setFontSize(9);
-        pdf.setTextColor(180, 100, 90);
-        pdf.text(`(failed to embed brain image: ${e.message || e})`,
-                  MARGIN_L + 5, brainBoxY + brainBoxH/2);
-        pdf.setTextColor(0, 0, 0);
-      }
-    } else {
+    // === DUAL BRAIN VIEWS (lateral + frontal, side-by-side) ==================
+    // Two 88×64mm captures with a 6mm gutter. Each image is pre-cropped to
+    // the target aspect by _captureBrainTwoViews so the brain isn't stretched.
+    const brainViewW = (CONTENT_W - 6) / 2;     // 88 mm per view
+    const brainViewH = 70;                      // 88/70 = 1.257 aspect — wide enough
+                                                // for lateral, tall enough that
+                                                // frontal isn't cropped to a stripe
+    const brainX1    = MARGIN_L;                                          // lateral
+    const brainX2    = MARGIN_L + brainViewW + 6;                         // frontal
+    const brainY     = y;
+    const placeholderForView = (x, label, errText) => {
       pdf.setFillColor(245, 240, 232);
-      pdf.rect(MARGIN_L, brainBoxY, CONTENT_W, brainBoxH, 'F');
-      pdf.setFontSize(9);
+      pdf.rect(x, brainY, brainViewW, brainViewH, 'F');
+      pdf.setFontSize(8);
       pdf.setTextColor(180, 100, 90);
-      pdf.text(
-        'Brain capture failed — Niivue canvas returned an empty image.',
-        MARGIN_L + 5, brainBoxY + brainBoxH/2 - 2
-      );
-      pdf.text(
-        'Common causes: WebGL context not preserveDrawingBuffer (handled),',
-        MARGIN_L + 5, brainBoxY + brainBoxH/2 + 3
-      );
-      pdf.text(
-        'or the canvas was tainted by a cross-origin texture.',
-        MARGIN_L + 5, brainBoxY + brainBoxH/2 + 8
-      );
+      pdf.text('brain capture failed', x + 4, brainY + brainViewH/2 - 1);
+      if (errText) {
+        pdf.setFontSize(7);
+        pdf.setTextColor(140, 120, 100);
+        pdf.text(String(errText).slice(0, 60), x + 4, brainY + brainViewH/2 + 3.5);
+      }
       pdf.setTextColor(0, 0, 0);
-    }
-    y = brainBoxY + brainBoxH + 3.5;
+    };
+    const drawBrainView = (data, x, label) => {
+      if (data) {
+        try {
+          pdf.addImage(data, 'PNG', x, brainY, brainViewW, brainViewH);
+        } catch (e) { placeholderForView(x, label, e.message || e); }
+      } else {
+        placeholderForView(x, label, '');
+      }
+    };
+    drawBrainView(brainLateralUrl, brainX1, 'Lateral (left)');
+    drawBrainView(brainFrontalUrl, brainX2, 'Frontal');
 
+    // Thin frame around each view so they read as a pair of cards
+    pdf.setDrawColor(220, 210, 200); pdf.setLineWidth(0.2);
+    pdf.rect(brainX1, brainY, brainViewW, brainViewH);
+    pdf.rect(brainX2, brainY, brainViewW, brainViewH);
+    pdf.setDrawColor(0, 0, 0);
+
+    // Per-view labels just below each box
+    y = brainY + brainViewH + 4;
+    pdf.setFontSize(8.5);
+    pdf.setTextColor(60, 50, 45);
+    pdf.setFont('helvetica', 'bold');
+    pdf.text('Lateral (left)', brainX1 + brainViewW/2, y, { align: 'center' });
+    pdf.text('Frontal',        brainX2 + brainViewW/2, y, { align: 'center' });
+    pdf.setFont('helvetica', 'normal');
+    y += 4;
     pdf.setFontSize(7);
     pdf.setTextColor(140, 120, 100);
     pdf.text(
-      `3D fsaverage brain · electrodes coloured by patient · ${electrodes.length} contact${electrodes.length === 1 ? '' : 's'} reconned`,
-      MARGIN_L, y
+      `${electrodes.length} contact${electrodes.length === 1 ? '' : 's'} reconned · coloured by patient`,
+      PAGE_W / 2, y, { align: 'center' }
     );
     pdf.setTextColor(0, 0, 0);
     y += 5;
 
     // === COMPACT STATS BAR ====================================================
-    const barH = 9;
+    const barH = 9.5;
     pdf.setFillColor(245, 240, 232);
     pdf.rect(MARGIN_L, y, CONTENT_W, barH, 'F');
     pdf.setFontSize(8.5);
     pdf.setTextColor(60, 50, 45);
 
+    const totalSamps = samples.length;
     const statsParts = [
       `${samples.length} samples`,
       `${patList.length} patient${patList.length === 1 ? '' : 's'} (${nBERN} BERN · ${nGVA} GVA · ${nMICRO} MICRO)`,
@@ -2402,103 +2496,102 @@ async function downloadPDF() {
       const t = anatEntry.top_3[0];
       statsParts.push(`top region ${t[0]} (${(t[1] * 100).toFixed(0)}%)`);
     }
-    pdf.text(statsParts.join('   ·   '), MARGIN_L + 3, y + 6);
+    pdf.text(statsParts.join('   ·   '), MARGIN_L + 3, y + 6.4);
     pdf.setTextColor(0, 0, 0);
-    y += barH + 5;
+    y += barH + 6;
 
-    // === SECTION: MEAN ERSP (left)  +  TOP REGIONS + CONDITIONS (right) ======
-    const colLeftX  = MARGIN_L;
-    const colRightX = MARGIN_L + 95;
-    const sectionY  = y;
+    // === MID-SECTION: 3 columns (Mean ERSP · Top regions · Conditions) =======
+    //
+    // Layout:
+    //   col widths (mm): 70 · gap 6 · 56 · gap 6 · 44
+    //   col x positions: 14    ·    90 (=14+70+6)     ·    152 (=90+56+6)
+    // (sums to 182 with margins; total page width OK.)
+    const colMeanX = MARGIN_L;
+    const colAnatX = MARGIN_L + 70 + 6;            // 90
+    const colCondX = colAnatX + 56 + 6;            // 152
+    const sectionY = y;
 
-    // -- Left: Mean ERSP ------------------------------------------------------
     pdf.setFontSize(10);
+    pdf.setFont('helvetica', 'bold');
     pdf.setTextColor(0, 0, 0);
-    pdf.text('Mean ERSP', colLeftX, sectionY);
+    pdf.text('Mean ERSP',  colMeanX, sectionY);
+    pdf.text('Top regions', colAnatX, sectionY);
+    pdf.text('Conditions',  colCondX, sectionY);
+    pdf.setFont('helvetica', 'normal');
+
+    // -- Mean ERSP ------------------------------------------------------------
     const erspImgY = sectionY + 3;
-    const erspW = 82, erspH = 30;
+    const erspW    = 70, erspH = 36;
     const centroidData = await _fetchCentroidDataURL(cid);
     if (centroidData) {
       try {
-        pdf.addImage(centroidData, 'PNG', colLeftX, erspImgY, erspW, erspH);
+        pdf.addImage(centroidData, 'PNG', colMeanX, erspImgY, erspW, erspH);
       } catch (e) {
-        pdf.setFontSize(8);
-        pdf.setTextColor(180, 100, 90);
-        pdf.text('(failed to embed centroid PNG)', colLeftX, erspImgY + erspH/2);
+        pdf.setFontSize(8); pdf.setTextColor(180, 100, 90);
+        pdf.text('(failed to embed centroid PNG)', colMeanX, erspImgY + erspH/2);
         pdf.setTextColor(0, 0, 0);
       }
     } else {
       pdf.setFillColor(245, 240, 232);
-      pdf.rect(colLeftX, erspImgY, erspW, erspH, 'F');
-      pdf.setFontSize(8);
-      pdf.setTextColor(160, 110, 100);
-      pdf.text('(centroid PNG missing — run', colLeftX + 2, erspImgY + erspH/2 - 2);
-      pdf.text(' 214_centroid_backfill.ipynb)', colLeftX + 2, erspImgY + erspH/2 + 2);
+      pdf.rect(colMeanX, erspImgY, erspW, erspH, 'F');
+      pdf.setFontSize(7.5); pdf.setTextColor(160, 110, 100);
+      pdf.text('centroid PNG missing', colMeanX + 2, erspImgY + erspH/2 - 1);
+      pdf.text('(run 214_centroid_backfill)', colMeanX + 2, erspImgY + erspH/2 + 3);
       pdf.setTextColor(0, 0, 0);
     }
-
     const leftBottomY = erspImgY + erspH;
 
-    // -- Right: Top anatomical regions ---------------------------------------
-    let rY = sectionY;
-    pdf.setFontSize(10);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text('Top anatomical regions', colRightX, rY);
-    rY += 4.5;
+    // -- Top regions ----------------------------------------------------------
+    let rY = sectionY + 4.5;
     pdf.setFontSize(8.5);
     if (anatEntry && Array.isArray(anatEntry.top_3) && anatEntry.top_3.length) {
       anatEntry.top_3.slice(0, 3).forEach(([region, prop], idx) => {
         if (idx === 0) {
-          pdf.setFont(undefined, 'bold');
+          pdf.setFont('helvetica', 'bold');
           pdf.setTextColor(184, 92, 110);
         } else {
-          pdf.setFont(undefined, 'normal');
+          pdf.setFont('helvetica', 'normal');
           pdf.setTextColor(60, 50, 45);
         }
-        pdf.text(String(region).slice(0, 28), colRightX, rY);
+        pdf.text(String(region).slice(0, 22), colAnatX, rY);
         const propText = `${(prop * 100).toFixed(1)}%`;
-        pdf.text(propText, colRightX + 55, rY, { align: 'right' });
-        rY += 4;
+        pdf.text(propText, colAnatX + 56, rY, { align: 'right' });
+        rY += 4.6;
       });
-      pdf.setFont(undefined, 'normal');
-      pdf.setTextColor(0, 0, 0);
-      if (Number.isFinite(anatEntry.purity)) {
-        pdf.setFontSize(7.5);
-        pdf.setTextColor(120, 100, 90);
-        const entStr = Number.isFinite(anatEntry.entropy_bits) ? anatEntry.entropy_bits.toFixed(2) : '—';
-        pdf.text(
-          `purity ${anatEntry.purity.toFixed(2)}  ·  entropy ${entStr} bits  ·  ${anatEntry.n_total ?? '?'} samples (${anatEntry.n_unknown ?? '?'} unknown)`,
-          colRightX, rY
-        );
-        pdf.setTextColor(0, 0, 0);
+      pdf.setFont('helvetica', 'normal');
+      pdf.setTextColor(120, 100, 90);
+      pdf.setFontSize(7.5);
+      const entStr = Number.isFinite(anatEntry.entropy_bits) ? anatEntry.entropy_bits.toFixed(2) : '—';
+      const purStr = Number.isFinite(anatEntry.purity) ? anatEntry.purity.toFixed(2) : '—';
+      pdf.text(`purity ${purStr}  ·  entropy ${entStr} bits`, colAnatX, rY);
+      rY += 3.8;
+      if (anatEntry.n_total != null) {
+        pdf.text(`${anatEntry.n_total} samples (${anatEntry.n_unknown ?? 0} unknown)`, colAnatX, rY);
         rY += 4;
       }
+      pdf.setTextColor(0, 0, 0);
     } else {
       pdf.setTextColor(140, 120, 100);
-      pdf.text('(no anatomy data — run 211 Section C)', colRightX, rY);
+      pdf.text('(no anatomy data — run 211 Section C)', colAnatX, rY);
       pdf.setTextColor(0, 0, 0);
       rY += 4;
     }
 
-    // -- Right: Conditions ----------------------------------------------------
-    rY += 3;
-    pdf.setFontSize(10);
-    pdf.setTextColor(0, 0, 0);
-    pdf.text('Conditions', colRightX, rY);
-    rY += 4.5;
+    // -- Conditions -----------------------------------------------------------
+    let cY = sectionY + 4.5;
     pdf.setFontSize(8.5);
-    const totalSamps = samples.length;
     Object.entries(condCounts).sort((a, b) => b[1] - a[1]).forEach(([cn, count]) => {
       const rgb = colorToRgb255(COND_COLORS[cn] || '#888');
       pdf.setFillColor(rgb[0], rgb[1], rgb[2]);
-      pdf.rect(colRightX, rY - 2.6, 2.8, 2.8, 'F');
-      pdf.text(cn, colRightX + 4.5, rY);
+      pdf.rect(colCondX, cY - 2.6, 2.8, 2.8, 'F');
+      pdf.setTextColor(0, 0, 0);
+      pdf.text(cn, colCondX + 4.5, cY);
       const pct = totalSamps ? (count / totalSamps * 100).toFixed(1) : '0.0';
-      pdf.text(`${count}  (${pct}%)`, colRightX + 55, rY, { align: 'right' });
-      rY += 4;
+      pdf.text(`${count}  (${pct}%)`, colCondX + 44, cY, { align: 'right' });
+      cY += 4.6;
     });
 
-    y = Math.max(leftBottomY, rY) + 6;
+    y = Math.max(leftBottomY, rY, cY) + 7;
 
     // === PATIENTS BREAKDOWN ==================================================
     pdf.setFontSize(10);

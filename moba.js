@@ -1184,23 +1184,11 @@ function buildFilterChips() {
     const labelText = nick ? `${cid + 1}: ${nick}` : String(cid + 1);
     num.innerHTML = `<span class="chip-swatch" style="background:${clusterColor(cid, k)}"></span>${labelText}`;
 
-    // Patient-diversity badge: "n_pat / n_centers". A 1/1 means single-patient
-    // (likely artifact), a 6/3 means cross-patient cross-center (likely real).
-    // Computed client-side from allLabels so it stays correct at any K-slider
-    // position. Title = comma-separated patient list for the hover tooltip.
-    const div = _clusterDiversity(cid);
-    if (div) {
-      const badge = document.createElement('span');
-      badge.className = 'cluster-chip-divbadge';
-      badge.title = `${div.size} samples · ${div.patients.join(', ')}`;
-      // Warmth scale: 1/1 = washed-out grey (suspect), >=4 patients = green
-      const tier = div.nPatients >= 4 ? 'good'
-                 : div.nPatients >= 2 ? 'mixed'
-                 : 'solo';
-      badge.dataset.tier = tier;
-      badge.textContent = `${div.nPatients}/${div.nCenters}`;
-      chip.appendChild(badge);
-    }
+    // (Removed per user request: the "n_patients/n_centers" diversity badge
+    // that used to sit at the top-right of each chip. The same info still
+    // lives on the chip's score badge tooltip + the Stats tab table. The
+    // _clusterDiversity helper is still exported because other places like
+    // the PDF generator and stats table consume it.)
 
     // Wrap the centroid thumbnail in a .img-stim-divider span so the CSS
     // ::after paints a thin gray vertical line at the 50% x-axis mark

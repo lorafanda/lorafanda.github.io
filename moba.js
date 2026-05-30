@@ -1202,7 +1202,15 @@ function buildFilterChips() {
       chip.appendChild(badge);
     }
 
-    chip.appendChild(img);
+    // Wrap the centroid thumbnail in a .img-stim-divider span so the CSS
+    // ::after paints a thin gray vertical line at the 50% x-axis mark
+    // (stimulus / response boundary on TN-warped centroids). Display-only —
+    // the actual PNG isn't modified. The wrapper inherits img dimensions
+    // so the line always spans the exact image bounds.
+    const imgWrap = document.createElement('span');
+    imgWrap.className = 'img-stim-divider';
+    imgWrap.appendChild(img);
+    chip.appendChild(imgWrap);
     chip.appendChild(num);
 
     // Score badge — shown only when a ranking is loaded and the active sort
@@ -1790,7 +1798,14 @@ function renderSamples(highlightOnly = false) {
     const cap = document.createElement('div');
     cap.className = 'output-caption';
     cap.textContent = filename;
-    card.appendChild(img);
+    // Wrap the sample img in .img-stim-divider so CSS paints the same
+    // mid-x-axis vertical line used on cluster chip thumbnails. Wrapper
+    // sized to img (display:inline-block + line-height:0) so the line
+    // always lines up with the actual image bounds.
+    const imgWrap = document.createElement('div');
+    imgWrap.className = 'img-stim-divider';
+    imgWrap.appendChild(img);
+    card.appendChild(imgWrap);
     card.appendChild(cap);
     grid.appendChild(card);
   });

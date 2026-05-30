@@ -341,6 +341,26 @@
     .brain-mobile-placeholder .icon { font-size: 1.8rem; margin-bottom: 0.5rem; }
     .brain-mobile-placeholder .label { font-size: 0.72rem; color: var(--text); margin-bottom: 0.2rem; font-weight: 500; }
     .brain-mobile-placeholder .hint { font-size: 0.65rem; max-width: 320px; }
+
+    /* Wrapper that paints a thin gray vertical line at the 50% mark on top
+       of the contained <img>. Used on cluster-chip centroid thumbnails,
+       sample-card thumbnails, and the lightbox image to mark the
+       stimulus-vs-response boundary on TN-warped images (each frame's
+       x-axis is half stimulus, half post-stimulus). Display-side only —
+       the underlying PNGs are not modified. The wrapper inherits its size
+       from the img (display:inline-block + line-height:0), so the line
+       always spans the exact image bounds even as the layout reflows.
+       transform: translateX(-0.5px) keeps the line crisp at 1px. */
+    .img-stim-divider { position: relative; display: inline-block; line-height: 0; }
+    .img-stim-divider::after {
+      content: '';
+      position: absolute;
+      left: 50%; top: 0; bottom: 0;
+      width: 1px;
+      background: rgba(58, 46, 42, 0.55);
+      pointer-events: none;
+      transform: translateX(-0.5px);
+    }
   </style>
 </head>
 <body>
@@ -570,7 +590,7 @@
 <!-- LIGHTBOX -->
 <div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
   <button class="lightbox-close" onclick="closeLightbox()">✕</button>
-  <img id="lightboxImg" src="" alt=""/>
+  <span class="img-stim-divider"><img id="lightboxImg" src="" alt=""/></span>
   <div class="lightbox-caption" id="lightboxCaption"></div>
 </div>
 

@@ -1595,19 +1595,35 @@ async function renderBrain() {
       const url = URL.createObjectURL(blob);
       try {
         const c = categoryColors[Math.min(cat, categoryColors.length - 1)] || [128, 128, 128];
-        // HSL-based pre-light (see preLightElectrodeRGB). Bumps perceptual
-        // lightness floor to 60% so the shaded hemisphere stays the right
-        // hue instead of going near-black, while preserving hue + saturation.
-        // Replaces the previous RGB ×1.6 multiply which over-saturated
-        // bright hues and lost dark ones in the shadow.
-        const [r, g, b] = preLightElectrodeRGB(c);
+        // Render at the TRUE category RGB — no pre-light boost needed,
+        // because we kill the mesh shader's lambertian + specular terms
+        // below so the sphere renders flat at its base colour regardless
+        // of camera angle. (preLightElectrodeRGB stays in the file as dead
+        // code for now — easy to revert if the flat-shader path breaks.)
+        const [r, g, b] = c;
         await mobaState.nv.addMeshFromUrl({
           url,
           name: `electrodes_${cat}.obj`,
           rgba255: [r, g, b, 255],
         });
         const last = mobaState.nv.meshes[mobaState.nv.meshes.length - 1];
-        if (last && last.id != null) mobaState._electrodeMeshIds.push(last.id);
+        if (last) {
+          // Suppress the diffuse + specular shading that gave electrodes
+          // a dark "shadow" side on lateral views. Two paths, applied
+          // belt-and-suspenders so either Niivue version works:
+          //   1) setMeshShader(id, 'Flat') — newer Niivue named-shader API
+          //   2) per-mesh material props      — older Niivue mesh objects
+          try {
+            if (typeof mobaState.nv.setMeshShader === 'function' && last.id != null) {
+              mobaState.nv.setMeshShader(last.id, 'Flat');
+            }
+          } catch (e) { /* 'Flat' not in this Niivue build's shader list */ }
+          if ('ambient'   in last) last.ambient   = 1.0;   // full base RGB regardless of light
+          if ('diffuse'   in last) last.diffuse   = 0.0;   // no lambertian darkening
+          if ('specular'  in last) last.specular  = 0.0;   // no highlight bump
+          if ('shininess' in last) last.shininess = 0.0;
+          if (last.id != null) mobaState._electrodeMeshIds.push(last.id);
+        }
       } catch (e) {
         console.warn(`[MOBA] Failed to add electrode mesh for category ${cat}:`, e);
       } finally {

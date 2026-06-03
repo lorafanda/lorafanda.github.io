@@ -539,6 +539,13 @@
       <button class="filter-btn" id="hideIgnoredBtn" onclick="toggleHideIgnored()" title="Hide clusters you've marked as 'not important' via the chip edit modal">Hide not-important</button>
       <button class="filter-btn" id="highSilBtn" onclick="toggleHighSil()" title="Hide samples with silhouette ≤ 0">High-sil only</button>
       <button class="filter-btn active" id="brainBtn" onclick="toggleBrainMesh()" title="Toggle the fsaverage cortex mesh (electrodes always shown)">🧠 Brain</button>
+      <button class="filter-btn" id="surfaceBtn" onclick="toggleSurfaceMode()" title="Toggle between pial (anatomical) and inflated cortex (smoothed; sulci flattened so all contacts are visible)">Surface: Pial</button>
+      <button class="filter-btn" id="t1Btn" onclick="toggleT1Overlay()" title="Show the fsaverage T1 anatomical volume — helps see where depth contacts sit relative to subcortical structures">T1 overlay</button>
+      <span id="t1OpacityWrap" style="display:none; align-items:center; gap:0.4rem;">
+        <span class="filter-label" style="font-size:0.65rem;">T1 α</span>
+        <input type="range" id="t1OpacitySlider" min="0" max="100" value="30"
+               style="width:80px;" oninput="setT1Opacity(this.value)">
+      </span>
     </div>
     <div class="filter-row" id="kSliderRow" style="display:none;">
       <span class="filter-label">K cut</span>

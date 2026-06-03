@@ -532,6 +532,8 @@
       <button class="filter-btn active" data-mode="cluster"   onclick="setColorMode('cluster')">Cluster</button>
       <button class="filter-btn"        data-mode="patient"   onclick="setColorMode('patient')">Patient</button>
       <button class="filter-btn"        data-mode="condition" onclick="setColorMode('condition')">Condition</button>
+      <button class="filter-btn"        data-mode="yeo17"     onclick="setColorMode('yeo17')" title="Color electrodes by Yeo 2011 17-network functional parcellation. Depth contacts (white matter) render gray.">Yeo 17</button>
+      <button class="filter-btn"        data-mode="yeo7"      onclick="setColorMode('yeo7')"  title="Color electrodes by Yeo 2011 7-network functional parcellation. Coarser than Yeo 17, easier to read in figures.">Yeo 7</button>
       <button class="filter-btn" id="paletteBtn" onclick="togglePatientPalette()" title="Switch the patient-mode palette between the curated colors_config.json set and the 32-color glasbey perceptually-spaced set">Palette: Curated</button>
       <span style="flex:1"></span>
       <button class="filter-btn" id="hideIgnoredBtn" onclick="toggleHideIgnored()" title="Hide clusters you've marked as 'not important' via the chip edit modal">Hide not-important</button>

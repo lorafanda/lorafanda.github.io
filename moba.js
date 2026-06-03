@@ -1416,6 +1416,59 @@ function rerender() {
   }, 30);
 }
 
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Yeo 2011 functional-network palettes (canonical colors from the annot CTAB)
+//   - Network names match the strings 251 writes into yeo7_network / yeo17_network
+//   - "WhiteMatter" (depth contacts) renders gray
+//   - "Unavailable" (Yeo annot not installed) renders darker gray
+// ─────────────────────────────────────────────────────────────────────────────
+const YEO_GRAY      = [128, 128, 128];
+const YEO_DARK_GRAY = [80, 80, 80];
+
+const YEO_17_COLORS = {
+  '17Networks_1':  [120,  18, 134],   // VisCent       (purple)
+  '17Networks_2':  [255,   0,   0],   // VisPeri       (red)
+  '17Networks_3':  [ 70, 130, 180],   // SomMotA       (steelblue)
+  '17Networks_4':  [ 42, 204, 164],   // SomMotB       (teal)
+  '17Networks_5':  [ 74, 155,  60],   // DorsAttnA     (green)
+  '17Networks_6':  [  0, 118,  14],   // DorsAttnB     (dark green)
+  '17Networks_7':  [196,  58, 250],   // SalVentAttnA  (orchid)
+  '17Networks_8':  [255, 152, 213],   // SalVentAttnB  (rose)
+  '17Networks_9':  [220, 248, 164],   // Limbic_OFC    (tan)
+  '17Networks_10': [122, 135,  50],   // Limbic_Temp   (olive)
+  '17Networks_11': [119, 140, 176],   // ContA         (slate)
+  '17Networks_12': [230, 148,  34],   // ContB         (orange)
+  '17Networks_13': [135,  50,  74],   // ContC         (plum)
+  '17Networks_14': [ 12,  48, 255],   // DefaultA      (blue)
+  '17Networks_15': [  0,   0, 130],   // DefaultB      (navy)
+  '17Networks_16': [255, 255,   0],   // DefaultC      (yellow)
+  '17Networks_17': [205,  62,  78],   // TempPar       (red-pink)
+  'WhiteMatter':   YEO_GRAY,
+  'Unavailable':   YEO_DARK_GRAY,
+};
+
+const YEO_7_COLORS = {
+  '7Networks_1':   [120,  18, 134],   // Visual
+  '7Networks_2':   [ 70, 130, 180],   // Somatomotor
+  '7Networks_3':   [  0, 118,  14],   // DorsAttn
+  '7Networks_4':   [196,  58, 250],   // SalVentAttn
+  '7Networks_5':   [220, 248, 164],   // Limbic
+  '7Networks_6':   [230, 148,  34],   // Cont (Frontoparietal)
+  '7Networks_7':   [205,  62,  78],   // Default
+  'WhiteMatter':   YEO_GRAY,
+  'Unavailable':   YEO_DARK_GRAY,
+};
+
+function _yeoNetworksFromCoords(coords, key) {
+  const seen = new Set();
+  for (const r of (coords || [])) {
+    const v = r[key];
+    if (v !== undefined && v !== null && v !== '') seen.add(String(v));
+  }
+  return [...seen].sort();
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // BRAIN RENDER
 // ─────────────────────────────────────────────────────────────────────────────
@@ -1547,6 +1600,21 @@ async function renderBrain() {
     const idxOf = new Map(mobaState.patients.map((pid, i) => [pid, i]));
     nodeColorOf = r => idxOf.get(r.patient_id) ?? 0;
     categoryCount = mobaState.patients.length;
+  } else if (colorMode === 'yeo17' || colorMode === 'yeo7') {
+    const palette = colorMode === 'yeo17' ? YEO_17_COLORS : YEO_7_COLORS;
+    const key     = colorMode === 'yeo17' ? 'yeo17_network' : 'yeo7_network';
+    // Build a stable category list from the coords actually present, then
+    // map each into the palette. Unknown labels (e.g. medial wall id=0) and
+    // anything missing from the palette render as YEO_GRAY.
+    const networks = _yeoNetworksFromCoords(mobaState.coords, key);
+    categoryColors = networks.map(n => palette[n] || YEO_GRAY);
+    const idxOf = new Map(networks.map((n, i) => [n, i]));
+    nodeColorOf = r => idxOf.get(String(r[key] ?? '')) ?? 0;
+    categoryCount = networks.length || 1;
+    if (!networks.length) {
+      console.warn('[MOBA] Yeo color mode: no yeo*_network values found in coords. ' +
+                   'Re-run 251 + 252 with the Yeo-enabled recon, then refresh.');
+    }
   } else { // condition
     categoryColors = mobaState.conditions.map(c => colorToRgb255(COND_COLORS[c] || '#888'));
     const idxOf = new Map(mobaState.conditions.map((c, i) => [c, i]));

@@ -573,6 +573,11 @@ async function initBrain() {
   const NV = window.niivue?.Niivue || window.Niivue;
   if (!NV) { setStatus('Niivue not loaded — check your network'); return; }
 
+  // Opt into WebGPU when the browser supports it. Niivue silently falls back
+  // to WebGL2 if useWebGPU=true but no WebGPU adapter is available, so this
+  // is safe to set unconditionally. On WebGPU machines (Chrome/Edge on Mac,
+  // Chrome on recent Win) it gives better perf + cleaner mesh shading.
+  const supportsWebGPU = !!navigator.gpu;
   const nv = new NV({
     backColor: [1, 1, 1, 1],              // white — matches the look of the existing recon PNGs
     show3Dcrosshair: false,
@@ -581,7 +586,9 @@ async function initBrain() {
     isColorbar: false,
     meshXRay: 0,                          // 0.3 was breaking the shader on ANGLE Metal; rely on rgba alpha alone
     isHighResolutionCapable: true,
+    useWebGPU: supportsWebGPU,            // best-effort; falls back to WebGL2 if the constructor ignores it
   });
+  console.log(`[MOBA] Niivue init: useWebGPU=${supportsWebGPU}`);
 
   try {
     await nv.attachToCanvas(canvas);
@@ -1413,12 +1420,13 @@ function rerender() {
 // BRAIN RENDER
 // ─────────────────────────────────────────────────────────────────────────────
 // ─────────────────────────────────────────────────────────────────────────────
-// ICOSPHERE — minimal sphere geometry (12 verts, 20 faces) used to bake
-// electrode markers into regular OBJ meshes. Niivue's connectome path
-// is broken on ANGLE Metal; mesh path works everywhere.
+// ICOSPHERE — one Loop subdivision of the base 12-vert icosahedron gives a
+// 42-vertex, 80-face sphere. Per-electrode cost is negligible (1000 electrodes
+// = 42k vertices; well under any GPU limit), and the rounder silhouette is
+// visibly better than the 12-vert original.
 // ─────────────────────────────────────────────────────────────────────────────
 const _PHI = (1 + Math.sqrt(5)) / 2;
-const ICO_VERTS = (() => {
+const _ICO_BASE_VERTS = (() => {
   const raw = [
     [-1,  _PHI,    0], [1,  _PHI,    0], [-1, -_PHI,   0], [1, -_PHI,   0],
     [ 0, -1,    _PHI], [0,  1,    _PHI], [ 0, -1,   -_PHI], [0,  1,   -_PHI],
@@ -1429,42 +1437,59 @@ const ICO_VERTS = (() => {
     return [v[0]/len, v[1]/len, v[2]/len];
   });
 })();
-const ICO_FACES = [
+const _ICO_BASE_FACES = [
   [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
   [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
   [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
   [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1],
 ];
 
+// Loop subdivision: split each edge with a midpoint, project the midpoint
+// back to the unit sphere, replace each triangle with 4 children.
+function _subdivideIcosphere(verts, faces) {
+  const newVerts = verts.map(v => [...v]);
+  const newFaces = [];
+  const midCache = new Map();
+  function mid(a, b) {
+    const key = a < b ? `${a}_${b}` : `${b}_${a}`;
+    if (midCache.has(key)) return midCache.get(key);
+    const va = newVerts[a], vb = newVerts[b];
+    let mx = (va[0]+vb[0])/2, my = (va[1]+vb[1])/2, mz = (va[2]+vb[2])/2;
+    const len = Math.hypot(mx, my, mz);
+    mx /= len; my /= len; mz /= len;
+    const idx = newVerts.length;
+    newVerts.push([mx, my, mz]);
+    midCache.set(key, idx);
+    return idx;
+  }
+  for (const [a, b, c] of faces) {
+    const ab = mid(a, b), bc = mid(b, c), ca = mid(c, a);
+    newFaces.push([a, ab, ca], [b, bc, ab], [c, ca, bc], [ab, bc, ca]);
+  }
+  return { verts: newVerts, faces: newFaces };
+}
+
+const { verts: SPHERE_VERTS, faces: SPHERE_FACES } =
+  _subdivideIcosphere(_ICO_BASE_VERTS, _ICO_BASE_FACES);   // 42 verts, 80 faces
+
 // Build an OBJ text containing one icosphere per electrode, each at
 // (e.x, e.y, e.z) with the given mm radius. Returns a string ready to
 // blob-URL into addMeshFromUrl.
 //
-// We emit FOUR shared vertex normals pointing in four different world-space
-// directions (forward / back / up / down combined with side components) and
-// reference all of them per face via averaged indices. Niivue's mesh shader
-// uses provided normals when present; by giving it a spread of normals
-// instead of the per-face normals it would otherwise compute from geometry,
-// the Lambertian diffuse term averages out across the sphere and we get
-// near-flat shading — preserves patient-color identity on the unlit
-// hemisphere instead of darkening to grey/brown.
+// Single shared normal (0,0,1). Lighting is handled at mesh-load time —
+// we set the mesh shader to 'Flat' + zero out diffuse/specular so the
+// sphere renders unlit at its true RGB regardless of camera angle.
 function buildSpheresOBJ(electrodes, radius) {
-  const out = [`# MOBA generated · ${electrodes.length} spheres · radius=${radius}mm`];
-  // 12 vertices per electrode
+  const out = [`# MOBA generated · ${electrodes.length} spheres · radius=${radius}mm · ${SPHERE_VERTS.length} verts each`];
   for (const e of electrodes) {
-    for (const v of ICO_VERTS) {
+    for (const v of SPHERE_VERTS) {
       out.push(`v ${(e.x + v[0]*radius).toFixed(3)} ${(e.y + v[1]*radius).toFixed(3)} ${(e.z + v[2]*radius).toFixed(3)}`);
     }
   }
-  // Shared normals (1-based indexing). Index 1 = (0, 0, 1). Most Niivue
-  // viewports look down +Z so this is approximately camera-forward → faces
-  // referencing this normal render as fully-lit regardless of geometry.
   out.push('vn 0 0 1');
-  // OBJ vertex indices are 1-based and global across the file
   for (let i = 0; i < electrodes.length; i++) {
-    const off = i * ICO_VERTS.length + 1;
-    for (const f of ICO_FACES) {
-      // f v//vn syntax — vertex index // normal index (texture omitted)
+    const off = i * SPHERE_VERTS.length + 1;
+    for (const f of SPHERE_FACES) {
       out.push(`f ${f[0]+off}//1 ${f[1]+off}//1 ${f[2]+off}//1`);
     }
   }
@@ -1529,13 +1554,20 @@ async function renderBrain() {
     categoryCount = mobaState.conditions.length;
   }
 
-  const nodes = visible.map(r => ({
-    name: `${r.patient_id}/${r.contact_name || r.electrode || '?'}/${r.condition}`,
-    x: r.x, y: r.y, z: r.z,
-    Color: nodeColorOf(r),
-    Size:  1.0,
-    _row:  r,
-  }));
+  const nodes = visible.map(r => {
+    // is_cortical added by 251 — defaults to 1 (treat as cortical) when
+    // the column is missing so older runs still render at full sphere size.
+    const rawIc = r.is_cortical;
+    const ic = (rawIc === 0 || rawIc === '0' || rawIc === false || rawIc === 'false') ? 0 : 1;
+    return {
+      name: `${r.patient_id}/${r.contact_name || r.electrode || '?'}/${r.condition}`,
+      x: r.x, y: r.y, z: r.z,
+      Color: nodeColorOf(r),
+      Size:  1.0,
+      is_cortical: ic,
+      _row:  r,
+    };
+  });
 
   // Render lock — drop concurrent renderBrain calls so they don't pile up
   if (mobaState._brainBusy) {
@@ -1585,50 +1617,76 @@ async function renderBrain() {
       }
     }
 
-    // For each category, bake one OBJ mesh of all its electrodes' icospheres
-    // and load via Niivue's standard mesh path — same path that successfully
-    // renders the brain, so we know the GPU/version handles it.
-    const SPHERE_RADIUS_MM = 2.52;       // 10% smaller than the previous 2.8mm
+    // For each category, bake OBJ meshes of its electrodes' icospheres and
+    // load via Niivue's standard mesh path. We split each category into
+    // CORTICAL and DEPTH subsets so depth contacts (is_cortical === 0,
+    // sourced from the coord CSV's is_cortical column) render smaller and
+    // semi-transparent — makes their interior position visually obvious
+    // instead of looking like they sit on the cortex.
+    //
+    // is_cortical comes from 251's recon. Until you re-run 251 + 252,
+    // older runs won't have the column and every electrode is treated as
+    // cortical (matches the pre-refactor behaviour).
+    const SPHERE_RADIUS_CORTICAL_MM = 2.52;   // surface contacts: prominent
+    const SPHERE_RADIUS_DEPTH_MM    = 1.65;   // depth contacts: ~65% size
+    const ALPHA_CORTICAL            = 255;
+    const ALPHA_DEPTH               = 180;    // ~70% opacity — fades a bit
+
+    const subsetsByCategory = new Map();
     for (const [cat, electrodes] of byCategory.entries()) {
-      const obj = buildSpheresOBJ(electrodes, SPHERE_RADIUS_MM);
+      const cortical = [];
+      const depth    = [];
+      for (const e of electrodes) {
+        // Default to cortical when is_cortical is missing/undefined so old
+        // runs without the column behave like they used to.
+        if (e.is_cortical === 0 || e.is_cortical === '0' || e.is_cortical === false) {
+          depth.push(e);
+        } else {
+          cortical.push(e);
+        }
+      }
+      subsetsByCategory.set(cat, { cortical, depth });
+    }
+
+    async function _addElectrodeMesh(cat, subset, radius, alpha, suffix) {
+      if (!subset.length) return;
+      const obj = buildSpheresOBJ(subset, radius);
       const blob = new Blob([obj], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       try {
         const c = categoryColors[Math.min(cat, categoryColors.length - 1)] || [128, 128, 128];
-        // Render at the TRUE category RGB — no pre-light boost needed,
-        // because we kill the mesh shader's lambertian + specular terms
-        // below so the sphere renders flat at its base colour regardless
-        // of camera angle. (preLightElectrodeRGB stays in the file as dead
-        // code for now — easy to revert if the flat-shader path breaks.)
         const [r, g, b] = c;
         await mobaState.nv.addMeshFromUrl({
           url,
-          name: `electrodes_${cat}.obj`,
-          rgba255: [r, g, b, 255],
+          name: `electrodes_${cat}_${suffix}.obj`,
+          rgba255: [r, g, b, alpha],
         });
         const last = mobaState.nv.meshes[mobaState.nv.meshes.length - 1];
         if (last) {
-          // Suppress the diffuse + specular shading that gave electrodes
-          // a dark "shadow" side on lateral views. Two paths, applied
-          // belt-and-suspenders so either Niivue version works:
-          //   1) setMeshShader(id, 'Flat') — newer Niivue named-shader API
-          //   2) per-mesh material props      — older Niivue mesh objects
           try {
             if (typeof mobaState.nv.setMeshShader === 'function' && last.id != null) {
               mobaState.nv.setMeshShader(last.id, 'Flat');
             }
           } catch (e) { /* 'Flat' not in this Niivue build's shader list */ }
-          if ('ambient'   in last) last.ambient   = 1.0;   // full base RGB regardless of light
-          if ('diffuse'   in last) last.diffuse   = 0.0;   // no lambertian darkening
-          if ('specular'  in last) last.specular  = 0.0;   // no highlight bump
+          if ('ambient'   in last) last.ambient   = 1.0;
+          if ('diffuse'   in last) last.diffuse   = 0.0;
+          if ('specular'  in last) last.specular  = 0.0;
           if ('shininess' in last) last.shininess = 0.0;
+          // Per-mesh opacity (alpha already in rgba255, but older Niivue
+          // versions use this property instead).
+          if ('opacity'   in last) last.opacity   = alpha / 255;
           if (last.id != null) mobaState._electrodeMeshIds.push(last.id);
         }
       } catch (e) {
-        console.warn(`[MOBA] Failed to add electrode mesh for category ${cat}:`, e);
+        console.warn(`[MOBA] Failed to add electrode mesh for category ${cat} ${suffix}:`, e);
       } finally {
         URL.revokeObjectURL(url);
       }
+    }
+
+    for (const [cat, { cortical, depth }] of subsetsByCategory.entries()) {
+      await _addElectrodeMesh(cat, cortical, SPHERE_RADIUS_CORTICAL_MM, ALPHA_CORTICAL, 'cortex');
+      await _addElectrodeMesh(cat, depth,    SPHERE_RADIUS_DEPTH_MM,    ALPHA_DEPTH,    'depth');
     }
 
     // Re-apply any active highlight after a re-render (filter changed,

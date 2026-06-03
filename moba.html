@@ -10,7 +10,11 @@
        GPU regardless of version (tested 0.45 and 0.68). MOBA bypasses
        connectomes entirely and bakes electrodes into regular OBJ meshes
        (see renderBrain), so latest is fine. -->
-  <script src="https://unpkg.com/@niivue/niivue@latest/dist/niivue.umd.js"></script>
+  <!-- Pinned to @0.69.0 so a Niivue release can't silently break the dashboard.
+       To upgrade: change the version below, hard-refresh, verify
+       (a) brain mesh + electrodes still render, (b) the highlight pulse still
+       works, (c) the flat-shader 'Flat' name still exists in nv.meshShaderNames. -->
+  <script src="https://unpkg.com/@niivue/niivue@0.69.0/dist/niivue.umd.js"></script>
   <!-- jsPDF for the per-cluster summary PDF download -->
   <script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
   <style>

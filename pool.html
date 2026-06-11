@@ -201,10 +201,14 @@ document.getElementById("patNone").onclick   = () => setAllPatients(false);
     await nv.attachToCanvas(document.getElementById("gl"));
 
     setStatus("loading brain meshes…");
-    await nv.loadMeshes([
-      { url:`${FSAV_MESH_BASE}/fsaverage_lh.mz3`, rgba255:MESH_RGBA, visible:true },
-      { url:`${FSAV_MESH_BASE}/fsaverage_rh.mz3`, rgba255:MESH_RGBA, visible:true },
-    ]);
+    // niivue 0.69 chokes on the gzipped .mz3 ("Invalid MZ3"); fall back to .gii
+    // exactly like MOBA's loadBrainSurfaceMeshes does.
+    const meshUrls = [`${FSAV_MESH_BASE}/fsaverage_lh.mz3`, `${FSAV_MESH_BASE}/fsaverage_rh.mz3`];
+    try {
+      await nv.loadMeshes(meshUrls.map(u => ({ url:u, rgba255:MESH_RGBA, visible:true })));
+    } catch (e) {
+      await nv.loadMeshes(meshUrls.map(u => ({ url:u.replace(".mz3",".gii"), rgba255:MESH_RGBA, visible:true })));
+    }
 
     setStatus("loading pool data…");
     let idx = {}; try { idx = await (await fetch(POOL_INDEX)).json(); } catch(e) {}

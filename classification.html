@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <title>Classification Results Viewer — Lora Fanda (DRAFT)</title>
+  <title>Classification Results — Lora Fanda (DRAFT)</title>
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -19,439 +19,391 @@
     * { box-sizing: border-box; }
     body { margin: 0; font-family: 'Instrument Sans', sans-serif; background: var(--bg); color: var(--text); font-size: 16px; line-height: 1.5; }
 
-    /* ───────── Top bar ───────── */
-    .topbar {
-      height: var(--nav-h);
-      display: flex; align-items: center; gap: 1rem;
-      padding: 0 1.5rem;
-      background: rgba(240,235,228,0.95); backdrop-filter: blur(16px);
-      border-bottom: 1px solid var(--border);
-      position: sticky; top: 0; z-index: 50;
-    }
+    .topbar { height: var(--nav-h); display: flex; align-items: center; gap: 1rem; padding: 0 1.5rem;
+      background: rgba(240,235,228,0.95); backdrop-filter: blur(16px); border-bottom: 1px solid var(--border);
+      position: sticky; top: 0; z-index: 50; }
     .topbar .brand { font-family: 'Playfair Display', serif; font-size: 1.05rem; font-weight: 600; letter-spacing: 0.04em; }
     .topbar .brand .sub { color: var(--muted); font-style: italic; font-weight: 400; font-size: 0.85rem; margin-left: 0.4rem; }
     .topbar .draft-badge { background: var(--accent); color: #fff; font-size: 0.65rem; padding: 2px 8px; border-radius: 4px; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.1em; }
-    .topbar select { padding: 6px 10px; font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; min-width: 320px; cursor: pointer; }
-    .topbar a.back { font-size: 0.78rem; color: var(--muted); text-decoration: none; letter-spacing: 0.04em; transition: color 0.2s; }
-    .topbar a.back:hover { color: var(--text); }
-    .topbar button.glossary-btn { padding: 6px 12px; font-size: 0.75rem; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
-    .topbar button.glossary-btn:hover { background: var(--surface2); }
+    .topbar select { padding: 6px 10px; font-size: 0.78rem; font-family: 'JetBrains Mono', monospace; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; min-width: 300px; cursor: pointer; }
+    .topbar a.back, .topbar a.guide { font-size: 0.78rem; color: var(--muted); text-decoration: none; letter-spacing: 0.04em; }
+    .topbar a.back:hover, .topbar a.guide:hover { color: var(--text); }
     .topbar .spacer { flex: 1; }
 
-    /* ───────── Layout ───────── */
     main { max-width: 1400px; margin: 0 auto; padding: 1.5rem; display: grid; gap: 1.25rem; grid-template-columns: 1fr 1fr; }
     @media (max-width: 950px) { main { grid-template-columns: 1fr; } }
     section.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; align-self: start; }
     section.panel.span2 { grid-column: 1 / -1; }
-    section.panel h2 {
-      font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 600;
-      letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted);
-      margin: 0; padding: 1rem 1.5rem; cursor: pointer; user-select: none;
-      display: flex; align-items: center; gap: 0.55rem;
-      border-bottom: 1px solid var(--border);
-    }
+    section.panel h2 { font-family: 'Playfair Display', serif; font-size: 1rem; font-weight: 600;
+      letter-spacing: 0.05em; text-transform: uppercase; color: var(--muted); margin: 0; padding: 0.9rem 1.5rem;
+      cursor: pointer; user-select: none; display: flex; align-items: center; gap: 0.55rem; border-bottom: 1px solid var(--border); }
     section.panel h2 .chev { font-size: 0.75rem; transition: transform 0.2s; color: var(--muted); }
+    section.panel h2 .step { font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; background: var(--surface2); color: var(--muted); border-radius: 4px; padding: 1px 7px; }
     section.panel.collapsed h2 { border-bottom: none; }
     section.panel.collapsed h2 .chev { transform: rotate(-90deg); }
-    section.panel h2 .hint-i {
-      margin-left: auto; width: 18px; height: 18px; border-radius: 50%;
-      background: var(--surface2); color: var(--muted); font-size: 0.7rem;
-      display: inline-flex; align-items: center; justify-content: center;
-      font-style: italic; font-family: 'Playfair Display', serif; cursor: help;
-    }
     section.panel .body { padding: 1.25rem 1.5rem; }
     section.panel.collapsed .body { display: none; }
-    .how-to { font-size: 0.78rem; color: var(--muted); font-style: italic; background: var(--bg); border-left: 3px solid var(--accent2); padding: 0.55rem 0.85rem; border-radius: 0 6px 6px 0; margin-bottom: 1rem; }
+    .lead { font-size: 0.88rem; color: var(--text); margin: 0 0 1rem; }
+    .lead em { color: var(--muted); }
 
-    /* ───────── Summary metrics ───────── */
-    .metric-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.85rem; }
-    .metric { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 0.85rem 1rem; position: relative; }
-    .metric .label { font-size: 0.7rem; color: var(--muted); letter-spacing: 0.06em; text-transform: uppercase; cursor: help; }
-    .metric .value { font-family: 'JetBrains Mono', monospace; font-size: 1.4rem; font-weight: 500; color: var(--text); margin-top: 0.2rem; }
-    .metric .value.good { color: var(--good); } .metric .value.warn { color: var(--warn); } .metric .value.bad { color: var(--bad); }
+    /* Verdict */
+    .verdict-grid { display: grid; grid-template-columns: 1.6fr 1fr 1fr 1fr; gap: 1rem; align-items: stretch; }
+    @media (max-width: 800px){ .verdict-grid { grid-template-columns: 1fr 1fr; } }
+    .vtile { background: var(--bg); border: 1px solid var(--border); border-radius: 10px; padding: 0.9rem 1.1rem; }
+    .vtile .vlabel { font-size: 0.68rem; color: var(--muted); letter-spacing: 0.07em; text-transform: uppercase; }
+    .vtile .vbig { font-family: 'JetBrains Mono', monospace; font-size: 2rem; font-weight: 500; line-height: 1.15; margin-top: 0.2rem; }
+    .vtile .vsub { font-size: 0.74rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 0.15rem; }
+    .vbig.good { color: var(--good); } .vbig.warn { color: var(--warn); } .vbig.bad { color: var(--bad); }
+    .verdict-line { font-size: 0.92rem; margin: 0 0 1rem; }
+    .verdict-line .primary-badge { background: var(--accent3); color: #fff; font-size: 0.62rem; font-family: 'JetBrains Mono', monospace; letter-spacing: 0.08em; padding: 2px 7px; border-radius: 4px; margin-left: 0.5rem; vertical-align: middle; }
+    .secondary { font-size: 0.78rem; color: var(--muted); font-family: 'JetBrains Mono', monospace; margin-top: 0.9rem; }
 
-    /* ───────── Confusion matrix ───────── */
-    .cm-axis { font-style: italic; color: var(--muted); font-size: 0.78rem; text-align: center; margin: 0.2rem 0 0.5rem; }
-    .cm-table { border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; margin: 0 auto; }
-    .cm-table th, .cm-table td { padding: 0.4rem 0.6rem; text-align: center; min-width: 50px; border: 1px solid var(--border); }
-    .cm-table th { background: var(--surface2); color: var(--muted); font-weight: 500; font-size: 0.72rem; }
-    .cm-cell { color: var(--text); } .cm-cell.diag { font-weight: 600; }
+    /* Bars vs chance (triad + robustness) */
+    .bar-row { display: grid; grid-template-columns: 150px 1fr 86px; align-items: center; gap: 0.6rem; margin: 0.3rem 0; font-size: 0.78rem; }
+    .bar-row .blab { font-family: 'JetBrains Mono', monospace; color: var(--text); }
+    .bar-row .blab.primary { font-weight: 600; }
+    .bar-track { position: relative; height: 16px; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; overflow: hidden; }
+    .bar-track .fill { position: absolute; left: 0; top: 0; bottom: 0; background: var(--accent3); opacity: 0.85; }
+    .bar-track .fill.warn { background: var(--warn); } .bar-track .fill.bad { background: var(--muted); opacity: 0.5; }
+    .bar-track .chance { position: absolute; top: -1px; bottom: -1px; width: 0; border-left: 2px dashed var(--accent); }
+    .bar-row .bval { font-family: 'JetBrains Mono', monospace; text-align: right; color: var(--muted); }
+    .bar-row .bval b { color: var(--text); }
+    .triad-block { margin-bottom: 1rem; }
+    .triad-block .tt { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 0.35rem; }
 
-    /* ───────── Per-class table with bars ───────── */
-    .pc-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.8rem; }
-    .pc-table th, .pc-table td { padding: 0.45rem 0.6rem; text-align: right; border-bottom: 1px solid var(--border); }
-    .pc-table th { color: var(--muted); font-size: 0.7rem; letter-spacing: 0.05em; text-transform: uppercase; font-weight: 500; }
+    /* Confusion */
+    .cm-axis { font-style: italic; color: var(--muted); font-size: 0.76rem; text-align: center; margin: 0.1rem 0 0.4rem; }
+    .cm-table { border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.74rem; margin: 0 auto; }
+    .cm-table th, .cm-table td { padding: 0.35rem 0.5rem; text-align: center; min-width: 42px; border: 1px solid var(--border); }
+    .cm-table th { background: var(--surface2); color: var(--muted); font-weight: 500; font-size: 0.68rem; }
+    .cm-cell.diag { font-weight: 600; }
+
+    /* Per-class */
+    .pc-table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; }
+    .pc-table th, .pc-table td { padding: 0.4rem 0.5rem; text-align: right; border-bottom: 1px solid var(--border); white-space: nowrap; }
+    .pc-table th { color: var(--muted); font-size: 0.68rem; letter-spacing: 0.04em; text-transform: uppercase; font-weight: 500; }
     .pc-table td:first-child, .pc-table th:first-child { text-align: left; font-weight: 500; }
-    .pc-table tr:hover td { background: var(--bg); }
-    .pc-netnum { display: inline-block; min-width: 1.4em; text-align: center; background: var(--surface2); color: var(--muted); border-radius: 3px; font-size: 0.7rem; padding: 0 4px; margin-right: 6px; }
-    .bar-wrap { display: inline-block; width: 46px; height: 8px; background: var(--bg); border-radius: 2px; vertical-align: middle; margin-right: 7px; overflow: hidden; }
-    .bar-fill { display: block; height: 100%; background: var(--accent); }
+    .pc-netnum { display: inline-block; min-width: 1.4em; text-align: center; background: var(--surface2); color: var(--muted); border-radius: 3px; font-size: 0.68rem; padding: 0 4px; margin-right: 5px; }
+    .recall-cell { display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end; }
+    .rbar { position: relative; width: 70px; height: 9px; background: var(--bg); border-radius: 2px; overflow: visible; flex: none; }
+    .rbar .rfill { position: absolute; left:0; top:0; bottom:0; background: var(--accent3); border-radius: 2px; }
+    .rbar .rfill.ns { background: var(--muted); opacity: 0.45; }
+    .rbar .rchance { position: absolute; top:-2px; bottom:-2px; width:0; border-left: 2px dashed var(--accent); }
+    .star { color: var(--good); font-weight: 600; } .star.ns { color: var(--muted); font-weight: 400; font-style: italic; }
 
-    /* ───────── Brain (two side by side) ───────── */
-    .brain-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
-    @media (max-width: 700px) { .brain-row { grid-template-columns: 1fr; } }
-    .brain-slot { display: flex; flex-direction: column; }
-    .brain-slot .brain-title { font-size: 0.72rem; color: var(--muted); text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.4rem; text-align: center; }
-    .brain-canvas {
-      min-height: 240px; border-radius: 8px; background: var(--bg);
-      border: 1px dashed var(--border-strong);
-      display: flex; align-items: center; justify-content: center;
-      color: var(--muted); font-style: italic; text-align: center; font-size: 0.85rem; padding: 1rem;
-    }
+    /* Figures */
+    .fig { background: #fff; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+    .fig img { width: 100%; display: block; }
+    .fig .missing { display: flex; align-items: center; justify-content: center; min-height: 150px; color: var(--muted); font-style: italic; font-size: 0.82rem; text-align: center; padding: 1rem; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem; }
+    @media (max-width: 750px){ .two-col { grid-template-columns: 1fr; } }
+    .expl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 1rem; }
 
-    /* ───────── Plots gallery ───────── */
-    .plots-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 1rem; }
-    .plot-card { background: var(--bg); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-    .plot-card .cap { font-size: 0.72rem; color: var(--muted); padding: 0.45rem 0.7rem; border-top: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; }
-    .plot-card img { width: 100%; display: block; background: #fff; }
-    .plot-card .missing { display: flex; align-items: center; justify-content: center; min-height: 150px; color: var(--muted); font-style: italic; font-size: 0.8rem; text-align: center; padding: 1rem; }
-
-    /* ───────── Manifest ───────── */
-    pre.notes { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.85rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.78rem; color: var(--text); overflow-x: auto; margin: 0; }
-
-    /* ───────── Glossary modal ───────── */
-    .modal-bg { position: fixed; inset: 0; background: rgba(58,46,42,0.45); z-index: 200; display: none; align-items: center; justify-content: center; padding: 2rem; }
-    .modal-bg.open { display: flex; }
-    .modal { background: var(--surface); border: 1px solid var(--border-strong); border-radius: 14px; max-width: 640px; width: 100%; max-height: 80vh; overflow-y: auto; padding: 1.75rem 2rem; }
-    .modal h3 { font-family: 'Playfair Display', serif; margin: 0 0 1rem; font-size: 1.2rem; }
-    .modal dl { margin: 0; }
-    .modal dt { font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 0.85rem; color: var(--accent); margin-top: 0.85rem; }
-    .modal dd { margin: 0.15rem 0 0; font-size: 0.88rem; color: var(--text); }
-    .modal .close { float: right; cursor: pointer; color: var(--muted); font-size: 1.3rem; line-height: 1; }
-
-    footer { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem 2rem; color: var(--muted); font-size: 0.75rem; }
+    pre.notes { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.85rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; color: var(--text); overflow-x: auto; margin: 0; }
+    .caveat { font-size: 0.78rem; color: var(--muted); font-style: italic; background: var(--bg); border-left: 3px solid var(--warn); padding: 0.55rem 0.85rem; border-radius: 0 6px 6px 0; margin-bottom: 1rem; }
+    .empty-state { max-width: 1400px; margin: 2rem auto; padding: 2rem; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; }
+    .empty-state h3 { font-family: 'Playfair Display', serif; margin: 0 0 0.6rem; }
+    .empty-state code { font-family: 'JetBrains Mono', monospace; background: var(--bg); padding: 1px 5px; border-radius: 3px; font-size: 0.85rem; }
+    footer { max-width: 1400px; margin: 0 auto; padding: 0 1.5rem 2rem; color: var(--muted); font-size: 0.74rem; }
     footer code { font-family: 'JetBrains Mono', monospace; background: var(--surface); padding: 1px 5px; border-radius: 3px; }
   </style>
 </head>
 <body>
   <div class="topbar">
-    <span class="brand">Classification Viewer <span class="sub">— Lora Fanda</span></span>
+    <span class="brand">Classification <span class="sub">— Lora Fanda</span></span>
     <span class="draft-badge">DRAFT</span>
     <span class="spacer"></span>
     <select id="runPicker" title="Switch run"></select>
-    <button class="glossary-btn" onclick="document.getElementById('glossary').classList.add('open')">ⓘ Glossary</button>
-    <a class="back" href="moba.html">← MOBA (clustering)</a>
+    <a class="guide" id="guideLink" href="#" target="_blank" rel="noopener">Reading guide ↗</a>
+    <a class="back" href="moba.html">← MOBA</a>
   </div>
 
-  <main>
-    <section class="panel" id="summaryPanel">
-      <h2 data-key="summary"><span class="chev">▾</span> Summary <span class="hint-i" title="Headline classifier performance. Hover any metric label for its definition.">i</span></h2>
-      <div class="body">
-        <div class="how-to">Each tile is a headline metric. Colour = green above ~0.65, orange above chance+0.10, red near chance. Hover a label for the definition.</div>
-        <div class="metric-grid" id="summaryGrid"></div>
-      </div>
-    </section>
-
-    <section class="panel" id="cmPanel">
-      <h2 data-key="cm"><span class="chev">▾</span> Confusion matrix <span class="hint-i" title="Rows = true class, columns = predicted class. Diagonal = correct.">i</span></h2>
-      <div class="body">
-        <div class="how-to">Rows = <b>true</b> class, columns = <b>predicted</b>. Diagonal (sage) = correct; off-diagonal (rose) = errors. Cell intensity scales with count.</div>
-        <div class="cm-axis">predicted →</div>
-        <div id="cmCanvas"></div>
-      </div>
-    </section>
-
-    <section class="panel" id="perClassPanel">
-      <h2 data-key="perclass"><span class="chev">▾</span> Per-class metrics <span class="hint-i" title="Precision / recall / F1 / support per class. Bars normalized to the max F1 across all classes in this run.">i</span></h2>
-      <div class="body">
-        <div class="how-to">F1 bars are normalized to the <b>maximum F1 across all classes in this run</b>, so the longest bar = best-classified class. Network number shown in the chip for Yeo targets.</div>
-        <table class="pc-table" id="perClassTable">
-          <thead><tr><th>Class</th><th>Precision</th><th>Recall</th><th>F1</th><th>Support</th></tr></thead>
-          <tbody></tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="panel" id="manifestPanel">
-      <h2 data-key="manifest"><span class="chev">▾</span> Run manifest <span class="hint-i" title="The exact config that produced this run — classifier, target, CV scheme, split sizes.">i</span></h2>
-      <div class="body"><pre class="notes" id="manifestPre">—</pre></div>
-    </section>
-
-    <section class="panel span2" id="brainPanel">
-      <h2 data-key="brain"><span class="chev">▾</span> Per-electrode accuracy on fsaverage <span class="hint-i" title="Two fsaverage views; each electrode coloured by the classifier's accuracy at that contact.">i</span></h2>
-      <div class="body">
-        <div class="how-to">Two fsaverage brains side by side (lateral + frontal). Each electrode dot is coloured by per-electrode classifier accuracy — green = well-classified, red = at/below chance. Reuses MOBA's Niivue renderer; activates once <code>per_electrode.csv</code> exists in the run dir.</div>
-        <div class="brain-row">
-          <div class="brain-slot">
-            <div class="brain-title">Lateral view</div>
-            <div class="brain-canvas" id="brainLeft">Niivue panel — lateral.<br><small>placeholder until per_electrode.csv lands</small></div>
-          </div>
-          <div class="brain-slot">
-            <div class="brain-title">Frontal view</div>
-            <div class="brain-canvas" id="brainRight">Niivue panel — frontal.<br><small>placeholder until per_electrode.csv lands</small></div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <section class="panel span2" id="plotsPanel">
-      <h2 data-key="plots"><span class="chev">▾</span> Diagnostic plots <span class="hint-i" title="PNGs written by the classification notebook. Missing ones show a placeholder.">i</span></h2>
-      <div class="body">
-        <div class="how-to">Plots are PNGs loaded from the run directory. Any that don't exist yet show a placeholder with the expected filename, so you know what to generate.</div>
-        <div class="plots-grid" id="plotsGrid"></div>
-      </div>
-    </section>
-
-    <section class="panel span2" id="featsPanel">
-      <h2 data-key="feats"><span class="chev">▾</span> Feature importance (top 15) <span class="hint-i" title="Most informative features. Bars normalized to the single largest importance across all shown.">i</span></h2>
-      <div class="body">
-        <div class="how-to">Bars are normalized to the <b>maximum importance across all rows shown</b> — the top row is always a full bar; everything else is relative to it.</div>
-        <div id="featImpHeatmap"></div>
-      </div>
-    </section>
-  </main>
+  <div id="app"></div>
 
   <footer>
-    <p><strong>Expected data path:</strong>
-      <code>02_FBM_Clustering/outputs/classification/&lt;method&gt;/&lt;target&gt;/&lt;feature_set&gt;/runs/&lt;run_id&gt;/</code>
-      with <code>manifest.json</code>, <code>metrics.json</code>, <code>confusion_matrix.json</code>,
-      <code>predictions.csv</code>, and optional <code>feature_importance.json</code>, <code>per_electrode.csv</code>,
-      plus plot PNGs (<code>roc_curve.png</code>, <code>pr_curve.png</code>, <code>learning_curve.png</code>, <code>perm_null.png</code>).</p>
-    <p><strong>Index:</strong> <code>02_FBM_Clustering/outputs/classification/index.json</code>. Currently inline demo data; real fetch wires up once that file exists.</p>
+    <p>Reads <code id="indexUrl">…</code>. Each run dir holds <code>metrics.json</code>, <code>manifest.json</code>,
+      <code>confusion_matrix.csv</code>, <code>per_class_metrics.csv</code>, and the figure PNGs
+      (<code>permutation_null</code>, <code>per_class_strength</code>, <code>class_ersp_profile</code>,
+      <code>class_feature_heatmap</code>, <code>coef_heatmap</code>, <code>feature_importance</code>).</p>
   </footer>
 
-  <!-- Glossary modal -->
-  <div class="modal-bg" id="glossary">
-    <div class="modal">
-      <span class="close" onclick="document.getElementById('glossary').classList.remove('open')">×</span>
-      <h3>How to read this page</h3>
-      <dl>
-        <dt>Accuracy</dt><dd>Fraction of test samples classified into the correct class. Compare against the <b>chance baseline</b> (1 / n_classes) — accuracy near chance means the classifier learned nothing.</dd>
-        <dt>F1 (macro)</dt><dd>Harmonic mean of precision and recall, averaged equally across classes (so rare classes count as much as common ones). Robust to class imbalance.</dd>
-        <dt>ROC-AUC (macro)</dt><dd>Area under the ROC curve, one-vs-rest, averaged across classes. 0.5 = chance, 1.0 = perfect ranking. Measures how well scores separate classes regardless of threshold.</dd>
-        <dt>Precision</dt><dd>Of the samples predicted as this class, what fraction actually are. High precision = few false positives.</dd>
-        <dt>Recall (sensitivity)</dt><dd>Of the samples that truly are this class, what fraction were found. High recall = few false negatives.</dd>
-        <dt>Support</dt><dd>Number of true test samples in this class. Small support → noisy per-class metrics.</dd>
-        <dt>Confusion matrix</dt><dd>Rows = true class, columns = predicted. Diagonal = correct. A bright off-diagonal cell shows a systematic confusion between two classes.</dd>
-        <dt>Chance baseline</dt><dd>Accuracy a random classifier would get: 1 / n_classes (e.g. 33% for 3 classes, 14% for 7). Always read accuracy relative to this.</dd>
-        <dt>Yeo network number</dt><dd>The chip before each Yeo class name is its canonical network index (7-network: 1=Visual … 7=Default; 17-network: 1–17). Lets you cross-reference the standard atlas.</dd>
-        <dt>Feature importance</dt><dd>How much each input feature contributed to the model's decisions (e.g. RF impurity decrease, or |coef| for linear models). Tells you which frequency band × time bin drives the classification.</dd>
-        <dt>GroupKFold</dt><dd>Cross-validation where a whole patient is held out together — no patient spans train and test. Prevents the model from "memorising" a patient and inflating accuracy.</dd>
-      </dl>
-    </div>
-  </div>
-
   <script>
-  // ─────────────────────────────────────────────────────────────────────────
-  // INLINE DEMO DATA — replace with fetch() once index.json exists.
-  // per_class now carries a `net_num` (network index) shown as a chip.
-  // ─────────────────────────────────────────────────────────────────────────
-  const DEMO_RUNS = [
-    {
-      run_id: '20260603_192000',
-      label: 'RF · condition · rawds',
-      run_dir: 'random_forest/condition/rawds/runs/20260603_192000',
-      manifest: { method: 'random_forest', target: 'condition', feature_set: 'rawds (15×30)',
-        classifier: 'RandomForestClassifier', n_estimators: 300, max_depth: 20,
-        class_weight: 'balanced', cv: 'GroupKFold(5)', group_col: 'patient_id',
-        n_train: 1230, n_test: 308, random_state: 42,
-        notes: 'Group-aware split (patient never spans train/test).' },
-      metrics: {
-        accuracy: 0.742, f1_macro: 0.728, roc_auc_macro: 0.871, n_samples: 308, n_classes: 3,
-        per_class: [
-          { net_num: '',  name: 'picture', precision: 0.78, recall: 0.74, f1: 0.76, support: 110 },
-          { net_num: '',  name: 'audio',   precision: 0.71, recall: 0.79, f1: 0.75, support: 96  },
-          { net_num: '',  name: 'reading', precision: 0.74, recall: 0.69, f1: 0.71, support: 102 }
-        ],
-        confusion_matrix: { labels: ['picture','audio','reading'], cm: [[81,18,11],[12,76,8],[13,18,71]] },
-        feature_importance_top: [
-          { feature: 'band 8 (70–100Hz) · t=18', importance: 0.044, band: 'HG-low' },
-          { feature: 'band 7 (50–70Hz) · t=20',  importance: 0.038, band: 'mid-gamma' },
-          { feature: 'band 8 (70–100Hz) · t=16', importance: 0.036, band: 'HG-low' },
-          { feature: 'band 9 (100–130Hz)· t=18', importance: 0.033, band: 'HG-mid' },
-          { feature: 'band 6 (30–50Hz) · t=15',  importance: 0.030, band: 'low-gamma' },
-          { feature: 'band 7 (50–70Hz) · t=22',  importance: 0.028, band: 'mid-gamma' },
-          { feature: 'band 10 (130–170)· t=17',  importance: 0.025, band: 'HG-high' },
-          { feature: 'band 8 (70–100Hz) · t=12', importance: 0.024, band: 'HG-low' },
-          { feature: 'band 3 (8–13Hz) · t=8',    importance: 0.022, band: 'alpha' },
-          { feature: 'band 5 (20–30Hz) · t=14',  importance: 0.021, band: 'beta' },
-          { feature: 'band 9 (100–130) · t=20',  importance: 0.020, band: 'HG-mid' },
-          { feature: 'band 4 (13–20Hz) · t=10',  importance: 0.020, band: 'low-beta' },
-          { feature: 'band 8 (70–100Hz) · t=24', importance: 0.019, band: 'HG-low' },
-          { feature: 'band 7 (50–70Hz) · t=15',  importance: 0.019, band: 'mid-gamma' },
-          { feature: 'band 6 (30–50Hz) · t=23',  importance: 0.018, band: 'low-gamma' }
-        ]
+  // ════════════════════════════════════════════════════════════════════════
+  //  CONFIG
+  // ════════════════════════════════════════════════════════════════════════
+  // Outputs are read from this git ref. They must be on it — merge
+  // feat/03-fbm-classifying → main, then leave REF = 'main'.
+  const REF = 'main';
+  const REPO_RAW = `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${REF}`;
+  const CLF_BASE = `${REPO_RAW}/03_FBM_Classifying/outputs/classification`;
+  const GUIDE_URL = `https://github.com/lorafanda/Analysis_LoraFanda/blob/${REF}/03_FBM_Classifying/READING_GUIDE.md`;
+
+  // The PRIMARY run leads the page. Pick the representation that has already
+  // survived the amplitude confound — not the one that scores highest.
+  const PRIMARY = { task: 'condition', variant: 'm101_300', classifier: 'logreg' };
+
+  // Amplitude triad (matched grids) + the full robustness family.
+  const TRIAD = {
+    300: [['full_300','continuous'], ['full_300_rn','row-normed'], ['m101_300','discretized']],
+    30:  [['full_30','continuous'],  ['full_30_rn','row-normed'],  ['m101_30','discretized']],
+  };
+  const ROBUST_ORDER = ['full_300','full_300_rn','m101_300','hg_300','full_30','full_30_rn','m101_30','hg_30'];
+  const YEO7 = {1:'Visual',2:'Somatomotor',3:'DorsAttn',4:'SalVentAttn',5:'Limbic',6:'Control',7:'Default'};
+
+  // ════════════════════════════════════════════════════════════════════════
+  //  HELPERS
+  // ════════════════════════════════════════════════════════════════════════
+  const pct = v => (v==null||isNaN(v)) ? '—' : (v*100).toFixed(1)+'%';
+  const f3  = v => (v==null||isNaN(v)) ? '—' : Number(v).toFixed(3);
+  const headroom = (ba,ch) => (ba-ch)/(1-ch);   // fraction of the gap-to-perfect captured
+
+  // Verdict colour: significance + CI clearing chance, NEVER an absolute value.
+  function verdictClass(o){
+    const lo = (o.balanced_accuracy_ci||[])[0];
+    const sig = (o.permutation_p!=null && o.permutation_p<0.05);
+    if (!sig || (lo!=null && lo<=o.chance_level)) return 'bad';     // not credibly above chance
+    return headroom(o.balanced_accuracy,o.chance_level) >= 0.25 ? 'good' : 'warn';
+  }
+  function barClass(ba,ch,p){
+    if (p!=null && p>=0.05) return 'bad';
+    return headroom(ba,ch) >= 0.25 ? '' : 'warn';
+  }
+  function stars(pfdr){
+    if (pfdr==null) return '<span class="star ns">·</span>';
+    if (pfdr<0.001) return '<span class="star">***</span>';
+    if (pfdr<0.01)  return '<span class="star">**</span>';
+    if (pfdr<0.05)  return '<span class="star">*</span>';
+    return '<span class="star ns">ns</span>';
+  }
+  function taskLabel(t){
+    return t==='condition' ? 'condition (audio / picture / reading)'
+      : t==='parcellation_yeo7' ? 'Yeo-7 network' : t==='parcellation_yeo17' ? 'Yeo-17 network' : t;
+  }
+  function prettyClass(label, task){
+    const m = String(label).match(/(\d+)Networks_(\d+)/);
+    if (m){ const n=+m[2]; return { chip:String(n), name: (m[1]==='7'?YEO7[n]:'')||'' }; }
+    return { chip:'', name:String(label) };
+  }
+  function parseCSVMatrix(text){
+    const rows = text.trim().split(/\r?\n/).map(r=>r.split(','));
+    const labels = rows[0].slice(1);
+    const cm = rows.slice(1).map(r => r.slice(1).map(Number));
+    return { labels, cm };
+  }
+  async function getJSON(url){ const r = await fetch(url); if(!r.ok) throw new Error(url); return r.json(); }
+  async function getText(url){ const r = await fetch(url); if(!r.ok) throw new Error(url); return r.text(); }
+
+  // ════════════════════════════════════════════════════════════════════════
+  //  PANEL SHELL  (story order, important first)
+  // ════════════════════════════════════════════════════════════════════════
+  function panel(id, step, title, bodyHTML){
+    return `<section class="panel span2" id="${id}">
+      <h2 data-key="${id}"><span class="chev">▾</span><span class="step">${step}</span> ${title}</h2>
+      <div class="body">${bodyHTML}</div></section>`;
+  }
+  function figCard(file, run){
+    const url = `${CLF_BASE}/${run.path}/${file}`;
+    return `<div class="fig"><img src="${url}" alt="${file}"
+      onerror="this.parentNode.innerHTML='<div class=&quot;missing&quot;>${file} — not generated for this run</div>'"></div>`;
+  }
+
+  // ════════════════════════════════════════════════════════════════════════
+  //  RENDER
+  // ════════════════════════════════════════════════════════════════════════
+  async function loadRun(run, index){
+    const app = document.getElementById('app');
+    app.innerHTML = '<main><section class="panel span2"><div class="body"><em>loading…</em></div></section></main>';
+
+    let metrics, manifest, conf;
+    try {
+      [metrics, manifest] = await Promise.all([
+        getJSON(`${CLF_BASE}/${run.path}/metrics.json`),
+        getJSON(`${CLF_BASE}/${run.path}/manifest.json`),
+      ]);
+      try { conf = parseCSVMatrix(await getText(`${CLF_BASE}/${run.path}/confusion_matrix.csv`)); } catch { conf=null; }
+    } catch(e){ app.innerHTML = emptyState(`Couldn't load this run from <code>${REF}</code>.`); return; }
+
+    const o = metrics.overall, isPrimary = (run.task===PRIMARY.task && run.variant===PRIMARY.variant && run.classifier===PRIMARY.classifier);
+
+    let html = '<main>';
+
+    // ── 1 · VERDICT ───────────────────────────────────────────────────────
+    const vc = verdictClass(o), ci = o.balanced_accuracy_ci||[];
+    html += panel('verdict','1','The result',
+      `<p class="verdict-line">Decoding <b>${taskLabel(run.task)}</b> from the ERSP — <code>${run.variant}</code>, ${run.classifier}.
+        ${isPrimary?'<span class="primary-badge">PRIMARY</span>':''}</p>
+      <p class="lead"><em>Read it against chance, not against 100%.</em></p>
+      <div class="verdict-grid">
+        <div class="vtile"><div class="vlabel">Balanced accuracy</div>
+          <div class="vbig ${vc}">${pct(o.balanced_accuracy)}</div>
+          <div class="vsub">chance ${pct(o.chance_level)} · 95% CI [${pct(ci[0])}, ${pct(ci[1])}]</div></div>
+        <div class="vtile"><div class="vlabel">vs chance</div>
+          <div class="vbig ${vc}">×${(o.balanced_accuracy/o.chance_level).toFixed(2)}</div>
+          <div class="vsub">${(headroom(o.balanced_accuracy,o.chance_level)*100).toFixed(0)}% of the gap</div></div>
+        <div class="vtile"><div class="vlabel">Permutation p</div>
+          <div class="vbig ${o.permutation_p!=null&&o.permutation_p<0.05?'good':'bad'}">${o.permutation_p==null?'—':o.permutation_p<0.001?'<.001':o.permutation_p.toFixed(3)}</div>
+          <div class="vsub">label-shuffled null</div></div>
+        <div class="vtile"><div class="vlabel">Generalisation</div>
+          <div class="vbig">${o.n_patients}</div>
+          <div class="vsub">patients · nested GroupKFold</div></div>
+      </div>
+      <div class="secondary">secondary — accuracy ${pct(o.accuracy)} · macro-F1 ${f3(o.macro_f1)} · n=${o.n_samples} electrodes</div>`);
+
+    // ── 2 · IS IT REAL ────────────────────────────────────────────────────
+    html += panel('real','2','Is it real?',
+      `<p class="lead">The dashed line is what label-shuffling gets. <em>If the observed line isn't clear of it, there's nothing here.</em></p>
+       ${figCard('permutation_null.png', run)}`);
+
+    // ── 3 · PATTERN OR POWER ──────────────────────────────────────────────
+    html += panel('triad','3','Pattern or power?', triadHTML(run, index) +
+      `<p class="lead" style="margin-top:1rem">Strong electrodes are easy to find. Strip amplitude to sign only (−1/0/+1) and re-run.
+        <em>If the score holds, we're reading the response shape — not its loudness. If it collapses, we were decoding power.</em></p>`);
+
+    // ── 4 · WHAT SEPARATES ────────────────────────────────────────────────
+    html += panel('perclass','4','What separates?',
+      `<p class="lead">The average hides which classes actually separate. Stars are FDR-corrected against the null.
+        <em>A bar with no star is a class we can't tell apart — and we say so.</em> Dashed mark = chance.</p>
+       <div class="two-col">
+         <div>${perClassTable(metrics.per_class, o.chance_level, run.task)}</div>
+         <div>${conf ? confusionHTML(conf, run.task) : '<div class="missing">confusion_matrix.csv not found</div>'}</div>
+       </div>`);
+
+    // ── 5 · THE SIGNATURE ─────────────────────────────────────────────────
+    html += panel('signature','5','The response signature',
+      `<p class="lead">Left of the line is sensing, right is response.
+        <em>This is the response itself — not what the model leaned on.</em></p>
+       ${figCard('class_ersp_profile.png', run)}`);
+
+    // ── 6 · EXPLORATORY (collapsed) ───────────────────────────────────────
+    html += `<section class="panel span2 collapsed" id="expl">
+        <h2 data-key="expl"><span class="chev">▾</span><span class="step">6</span> Exploratory — what the model used</h2>
+        <div class="body">
+          <div class="caveat">Descriptive, not a claim. Correlated bands and heavy regularisation make this ranking soft — don't report it as "these bands drive it."</div>
+          <div class="expl-grid">${figCard('class_feature_heatmap.png',run)}${figCard('coef_heatmap.png',run)}${figCard('feature_importance.png',run)}</div>
+        </div></section>`;
+
+    // ── 7 · MANIFEST ──────────────────────────────────────────────────────
+    html += `<section class="panel span2 collapsed" id="manifest">
+        <h2 data-key="manifest"><span class="chev">▾</span><span class="step">7</span> Run config</h2>
+        <div class="body"><pre class="notes">${escapeHTML(JSON.stringify({run_id:run.run_id, ...manifest, summary:undefined}, null, 2))}</pre></div></section>`;
+
+    html += '</main>';
+    app.innerHTML = html;
+    wireCollapse();
+  }
+
+  function triadHTML(run, index){
+    const find = v => index.find(r => r.task===run.task && r.classifier===run.classifier && r.variant===v);
+    let out = '';
+    for (const grid of [300,30]){
+      out += `<div class="triad-block"><div class="tt">${grid}-time grid</div>`;
+      for (const [v,labelTxt] of TRIAD[grid]){
+        const e = find(v);
+        out += barRow(labelTxt, e, run.variant===v);
       }
-    },
-    {
-      run_id: '20260603_201500',
-      label: 'LogReg · yeo7_network · hg',
-      run_dir: 'logistic_regression/yeo7_network/hg/runs/20260603_201500',
-      manifest: { method: 'logistic_regression', target: 'yeo7_network', feature_set: 'hg (1×300 envelope)',
-        classifier: 'LogisticRegression (L2)', C: 1.0, class_weight: 'balanced',
-        cv: 'GroupKFold(5)', group_col: 'patient_id', n_train: 2814, n_test: 703, random_state: 42,
-        notes: 'Yeo7 target; depth contacts (WhiteMatter) excluded from train + test.' },
-      metrics: {
-        accuracy: 0.516, f1_macro: 0.481, roc_auc_macro: 0.768, n_samples: 703, n_classes: 7,
-        per_class: [
-          { net_num: '1', name: 'Visual',      precision: 0.58, recall: 0.61, f1: 0.59, support: 88 },
-          { net_num: '2', name: 'Somatomotor', precision: 0.55, recall: 0.62, f1: 0.58, support: 121 },
-          { net_num: '3', name: 'DorsAttn',    precision: 0.48, recall: 0.44, f1: 0.46, support: 76 },
-          { net_num: '4', name: 'SalVentAttn', precision: 0.42, recall: 0.39, f1: 0.40, support: 64 },
-          { net_num: '5', name: 'Limbic',      precision: 0.38, recall: 0.31, f1: 0.34, support: 49 },
-          { net_num: '6', name: 'Cont',        precision: 0.46, recall: 0.45, f1: 0.45, support: 115 },
-          { net_num: '7', name: 'Default',     precision: 0.59, recall: 0.62, f1: 0.60, support: 190 }
-        ],
-        confusion_matrix: {
-          labels: ['1 Vis','2 SomMot','3 DorsAtt','4 SalVent','5 Limbic','6 Cont','7 Default'],
-          cm: [[54,8,6,4,2,9,5],[7,75,10,6,3,11,9],[8,11,33,5,3,9,7],[4,6,5,25,3,9,12],[3,3,2,3,15,9,14],[9,14,8,9,4,52,19],[8,19,10,10,6,19,118]]
-        },
-        feature_importance_top: [
-          { feature: 't=180–200 ms', importance: 0.061, band: 'response-onset' },
-          { feature: 't=120–140 ms', importance: 0.054, band: 'stim-late' },
-          { feature: 't=80–100 ms',  importance: 0.048, band: 'stim-mid' },
-          { feature: 't=200–220 ms', importance: 0.045, band: 'response-early' },
-          { feature: 't=140–160 ms', importance: 0.039, band: 'stim-offset' },
-          { feature: 't=60–80 ms',   importance: 0.036, band: 'stim-early' },
-          { feature: 't=220–240 ms', importance: 0.032, band: 'response-mid' },
-          { feature: 't=240–260 ms', importance: 0.028, band: 'response-mid' },
-          { feature: 't=100–120 ms', importance: 0.027, band: 'stim-mid' },
-          { feature: 't=20–40 ms',   importance: 0.023, band: 'pre-stim' },
-          { feature: 't=160–180 ms', importance: 0.022, band: 'stim-offset' },
-          { feature: 't=40–60 ms',   importance: 0.020, band: 'stim-early' },
-          { feature: 't=260–280 ms', importance: 0.018, band: 'response-late' },
-          { feature: 't=280–300 ms', importance: 0.017, band: 'response-late' },
-          { feature: 't=0–20 ms',    importance: 0.015, band: 'pre-stim' }
-        ]
-      }
+      out += '</div>';
     }
-  ];
-
-  const REPO_RAW = 'https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/main';
-  const CLF_BASE = `${REPO_RAW}/02_FBM_Clustering/outputs/classification`;
-  // Diagnostic plots we try to load per run (missing → placeholder card).
-  const PLOT_FILES = [
-    { file: 'roc_curve.png',      cap: 'ROC curves (one-vs-rest)' },
-    { file: 'pr_curve.png',       cap: 'Precision–recall curves' },
-    { file: 'confusion_matrix.png', cap: 'Confusion matrix (rendered)' },
-    { file: 'learning_curve.png', cap: 'Learning curve (train vs CV)' },
-    { file: 'perm_null.png',      cap: 'Permutation null vs observed accuracy' },
-    { file: 'calibration.png',    cap: 'Calibration (reliability) curve' }
-  ];
-
-  // ─────────────────────────────────────────────────────────────────────────
-  function metricBand(value, t) { return value >= t.good ? 'good' : value >= t.warn ? 'warn' : 'bad'; }
-
-  function renderSummary(run) {
-    const m = run.metrics, chance = 1 / m.n_classes;
-    const thr = { good: 0.65, warn: chance + 0.10 };
-    const grid = document.getElementById('summaryGrid'); grid.innerHTML = '';
-    const items = [
-      { label: 'Accuracy', tip: 'Correct / total test samples', value: (m.accuracy*100).toFixed(1)+'%', cls: metricBand(m.accuracy, thr) },
-      { label: 'F1 (macro)', tip: 'Class-balanced harmonic mean of precision & recall', value: m.f1_macro.toFixed(3), cls: metricBand(m.f1_macro, thr) },
-      { label: 'ROC-AUC (macro)', tip: '0.5 = chance, 1.0 = perfect ranking', value: m.roc_auc_macro ? m.roc_auc_macro.toFixed(3) : '—', cls: m.roc_auc_macro ? metricBand(m.roc_auc_macro, {good:0.85,warn:0.70}) : '' },
-      { label: 'n samples', tip: 'Test-set size', value: m.n_samples.toLocaleString(), cls: '' },
-      { label: 'n classes', tip: 'Number of target classes', value: m.n_classes, cls: '' },
-      { label: 'chance baseline', tip: '1 / n_classes — random-guess accuracy', value: (chance*100).toFixed(1)+'%', cls: '' }
-    ];
-    for (const it of items) {
-      const d = document.createElement('div'); d.className = 'metric';
-      d.innerHTML = `<div class="label" title="${it.tip}">${it.label}</div><div class="value ${it.cls}">${it.value}</div>`;
-      grid.appendChild(d);
-    }
+    return out;
+  }
+  function barRow(labelTxt, e, isSel){
+    if (!e) return `<div class="bar-row"><span class="blab">${labelTxt}</span><div class="bar-track"></div><span class="bval">—</span></div>`;
+    const w = Math.max(0, Math.min(100, e.balanced_accuracy*100));
+    const cw = Math.max(0, Math.min(100, e.chance_level*100));
+    const cls = barClass(e.balanced_accuracy, e.chance_level, e.permutation_p);
+    const sig = (e.permutation_p!=null && e.permutation_p<0.05) ? '' : ' ns';
+    return `<div class="bar-row">
+      <span class="blab${isSel?' primary':''}">${labelTxt}${isSel?' ◄':''}</span>
+      <div class="bar-track"><div class="fill ${cls}" style="width:${w}%"></div><div class="chance" style="left:${cw}%"></div></div>
+      <span class="bval"><b>${pct(e.balanced_accuracy)}</b>${sig?' ns':''}</span></div>`;
   }
 
-  function renderConfusion(run) {
-    const { labels, cm } = run.metrics.confusion_matrix, n = labels.length, maxVal = Math.max(...cm.flat());
-    let html = '<table class="cm-table"><thead><tr><th></th>';
-    for (const lab of labels) html += `<th>${lab}</th>`;
-    html += '</tr></thead><tbody>';
-    for (let i=0;i<n;i++){ html += `<tr><th>${labels[i]}</th>`;
-      for (let j=0;j<n;j++){ const v=cm[i][j], isDiag=i===j, a=Math.min(0.85, v/Math.max(maxVal,1));
-        const c = isDiag ? `rgba(94,125,94,${a.toFixed(2)})` : `rgba(184,92,110,${(a*0.6).toFixed(2)})`;
-        html += `<td class="cm-cell ${isDiag?'diag':''}" style="background:${c}">${v}</td>`; }
-      html += '</tr>'; }
-    html += '</tbody></table>';
-    document.getElementById('cmCanvas').innerHTML = html;
-  }
-
-  function renderPerClass(run) {
-    const tbody = document.querySelector('#perClassTable tbody'); tbody.innerHTML = '';
-    const maxF1 = Math.max(...run.metrics.per_class.map(r => r.f1)) || 1;
-    for (const r of run.metrics.per_class) {
-      const chip = r.net_num ? `<span class="pc-netnum">${r.net_num}</span>` : '';
-      const w = (r.f1 / maxF1 * 100).toFixed(0);
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td>${chip}${r.name}</td>
-        <td>${r.precision.toFixed(2)}</td>
-        <td>${r.recall.toFixed(2)}</td>
-        <td><span class="bar-wrap"><span class="bar-fill" style="width:${w}%"></span></span>${r.f1.toFixed(2)}</td>
-        <td>${r.support}</td>`;
-      tbody.appendChild(tr);
+  function perClassTable(perClass, chance, task){
+    if (!perClass || !perClass.length) return '<div class="missing">no per-class metrics</div>';
+    let h = `<table class="pc-table"><thead><tr><th>Class</th><th>Recall (vs chance)</th><th>Prec</th><th>F1</th><th>AUC</th><th>n</th><th>sig</th></tr></thead><tbody>`;
+    for (const r of perClass){
+      const p = prettyClass(r.class, task);
+      const chip = p.chip ? `<span class="pc-netnum">${p.chip}</span>` : '';
+      const w = Math.max(0,Math.min(100,(r.recall||0)*100)), cw = Math.max(0,Math.min(100,chance*100));
+      const isSig = (r.perm_p_fdr!=null && r.perm_p_fdr<0.05);
+      const ci = (r.recall_ci_lo!=null) ? `[${(r.recall_ci_lo).toFixed(2)}–${(r.recall_ci_hi).toFixed(2)}]` : '';
+      h += `<tr>
+        <td>${chip}${p.name||r.class}</td>
+        <td><div class="recall-cell"><span class="rbar"><span class="rfill${isSig?'':' ns'}" style="width:${w}%"></span><span class="rchance" style="left:${cw}%"></span></span><span>${(r.recall||0).toFixed(2)} <span style="color:var(--muted)">${ci}</span></span></div></td>
+        <td>${(r.precision||0).toFixed(2)}</td><td>${(r.f1||0).toFixed(2)}</td>
+        <td>${r.roc_auc_ovr!=null?Number(r.roc_auc_ovr).toFixed(2):'—'}</td>
+        <td>${r.support}</td><td>${stars(r.perm_p_fdr)}</td></tr>`;
     }
+    return h + '</tbody></table>';
   }
 
-  function renderFeatureImportance(run) {
-    const root = document.getElementById('featImpHeatmap'); root.innerHTML = '';
-    const items = run.metrics.feature_importance_top || [];
-    if (!items.length) { root.innerHTML = '<div class="how-to">No feature_importance.json in this run.</div>'; return; }
-    const maxImp = Math.max(...items.map(d => d.importance));
-    let html = '<table class="pc-table" style="table-layout:fixed"><thead><tr><th>#</th><th style="width:50%;text-align:left">Feature</th><th>Band</th><th>Importance</th></tr></thead><tbody>';
-    items.forEach((d,i) => {
-      const w = (d.importance/maxImp*100).toFixed(0);
-      html += `<tr><td>${i+1}</td>
-        <td style="text-align:left;font-family:'JetBrains Mono',monospace;font-size:0.78rem">${d.feature}</td>
-        <td><span style="background:var(--bg);padding:1px 6px;border-radius:3px;font-size:0.7rem">${d.band||'—'}</span></td>
-        <td><span class="bar-wrap"><span class="bar-fill" style="width:${w}%"></span></span>${d.importance.toFixed(3)}</td></tr>`;
+  function confusionHTML(conf, task){
+    const { labels, cm } = conf, n=labels.length;
+    const rowSums = cm.map(r => r.reduce((a,b)=>a+b,0)||1);
+    const short = labels.map(l => { const p=prettyClass(l,task); return p.chip?p.chip:String(l).slice(0,6); });
+    let h = '<div class="cm-axis">predicted →</div><table class="cm-table"><thead><tr><th></th>';
+    short.forEach(s => h+=`<th>${s}</th>`); h+='</tr></thead><tbody>';
+    for (let i=0;i<n;i++){ h+=`<tr><th>${short[i]}</th>`;
+      for (let j=0;j<n;j++){ const frac=cm[i][j]/rowSums[i], diag=i===j, a=Math.min(0.85,frac);
+        const c = diag?`rgba(94,125,94,${a.toFixed(2)})`:`rgba(184,92,110,${(a*0.7).toFixed(2)})`;
+        h+=`<td class="cm-cell ${diag?'diag':''}" style="background:${c}" title="${cm[i][j]} (${(frac*100).toFixed(0)}%)">${(frac*100).toFixed(0)}</td>`; }
+      h+='</tr>'; }
+    return h+'</tbody></table><div class="cm-axis">row = true · cells = % of true class</div>';
+  }
+
+  function escapeHTML(s){ return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+
+  function emptyState(msg){
+    return `<div class="empty-state"><h3>No runs on <code>${REF}</code> yet</h3>
+      <p>${msg||''}</p>
+      <p>Run <code>320</code> / <code>330</code> in <code>03_FBM_Classifying</code>, then merge
+      <code>feat/03-fbm-classifying → main</code> so the figures resolve. The page reads
+      <code>${CLF_BASE}/index.json</code>.</p></div>`;
+  }
+
+  // ── Collapse (persisted) ──
+  function wireCollapse(){
+    const KEY='clf_collapsed_v2'; let set;
+    try { set = new Set(JSON.parse(localStorage.getItem(KEY)||'[]')); } catch { set=new Set(); }
+    document.querySelectorAll('section.panel h2').forEach(h2=>{
+      const k=h2.dataset.key, panel=h2.closest('section.panel');
+      if (set.has(k)) panel.classList.add('collapsed');
+      h2.addEventListener('click',()=>{ panel.classList.toggle('collapsed');
+        panel.classList.contains('collapsed')?set.add(k):set.delete(k);
+        localStorage.setItem(KEY,JSON.stringify([...set])); });
     });
-    html += '</tbody></table>';
-    root.innerHTML = html;
   }
 
-  function renderPlots(run) {
-    const grid = document.getElementById('plotsGrid'); grid.innerHTML = '';
-    for (const p of PLOT_FILES) {
-      const url = `${CLF_BASE}/${run.run_dir}/${p.file}`;
-      const card = document.createElement('div'); card.className = 'plot-card';
-      const img = new Image();
-      img.alt = p.cap;
-      img.onload = () => { card.innerHTML = ''; card.appendChild(img); const cap = document.createElement('div'); cap.className='cap'; cap.textContent = p.file; card.appendChild(cap); };
-      img.onerror = () => { card.innerHTML = `<div class="missing">${p.cap}<br><small style="opacity:0.7">${p.file} — not generated yet</small></div>`; };
-      card.innerHTML = `<div class="missing">loading ${p.file}…</div>`;
-      img.src = url;
-      grid.appendChild(card);
+  // ── Run picker, grouped + primary-first ──
+  function fillPicker(index){
+    const picker = document.getElementById('runPicker'); picker.innerHTML='';
+    const score = r => (r.task===PRIMARY.task && r.variant===PRIMARY.variant && r.classifier===PRIMARY.classifier) ? 0 : 1;
+    const sorted = [...index].sort((a,b)=> score(a)-score(b) || a.task.localeCompare(b.task) || a.variant.localeCompare(b.variant) || a.classifier.localeCompare(b.classifier));
+    for (const r of sorted){
+      const o=document.createElement('option'); o.value=r.path;
+      const star = score(r)===0?'★ ':'';
+      o.textContent = `${star}${r.task} · ${r.variant} · ${r.classifier}`;
+      picker.appendChild(o);
     }
+    return sorted;
   }
 
-  function renderManifest(run) {
-    document.getElementById('manifestPre').textContent = JSON.stringify({ run_id: run.run_id, ...run.manifest }, null, 2);
-  }
-
-  function loadRun(run) {
-    renderSummary(run); renderConfusion(run); renderPerClass(run);
-    renderFeatureImportance(run); renderPlots(run); renderManifest(run);
-  }
-
-  // ── Collapsible panels (persist state in localStorage) ──
-  const COLLAPSE_KEY = 'clf_collapsed_panels';
-  function loadCollapsed() { try { return new Set(JSON.parse(localStorage.getItem(COLLAPSE_KEY) || '[]')); } catch { return new Set(); } }
-  function saveCollapsed(set) { localStorage.setItem(COLLAPSE_KEY, JSON.stringify([...set])); }
-  const collapsed = loadCollapsed();
-  document.querySelectorAll('section.panel h2').forEach(h2 => {
-    const key = h2.dataset.key, panel = h2.closest('section.panel');
-    if (collapsed.has(key)) panel.classList.add('collapsed');
-    h2.addEventListener('click', e => {
-      if (e.target.classList.contains('hint-i')) return;  // don't toggle when hovering the i
-      panel.classList.toggle('collapsed');
-      if (panel.classList.contains('collapsed')) collapsed.add(key); else collapsed.delete(key);
-      saveCollapsed(collapsed);
-    });
-  });
-
-  // ── Glossary close on backdrop click ──
-  document.getElementById('glossary').addEventListener('click', e => {
-    if (e.target.id === 'glossary') e.currentTarget.classList.remove('open');
-  });
-
-  // ── Run picker + initial load ──
-  const picker = document.getElementById('runPicker');
-  for (const r of DEMO_RUNS) {
-    const opt = document.createElement('option'); opt.value = r.run_id;
-    opt.textContent = `${r.label} — ${r.run_id}`; picker.appendChild(opt);
-  }
-  picker.addEventListener('change', e => { const run = DEMO_RUNS.find(r => r.run_id === e.target.value); if (run) loadRun(run); });
-  loadRun(DEMO_RUNS[0]);
+  // ── Boot ──
+  (async function(){
+    document.getElementById('guideLink').href = GUIDE_URL;
+    document.getElementById('indexUrl').textContent = `${CLF_BASE}/index.json`;
+    let index;
+    try { const idx = await getJSON(`${CLF_BASE}/index.json`); index = idx.runs||idx; }
+    catch(e){ document.getElementById('app').innerHTML = emptyState('Index not reachable.'); return; }
+    if (!index || !index.length){ document.getElementById('app').innerHTML = emptyState('Index is empty.'); return; }
+    // keep latest run per (task,variant,classifier)
+    const latest = {};
+    for (const r of index){ const k=`${r.task}|${r.variant}|${r.classifier}`; if(!latest[k]||r.created_at>latest[k].created_at) latest[k]=r; }
+    index = Object.values(latest);
+    const sorted = fillPicker(index);
+    const picker = document.getElementById('runPicker');
+    picker.addEventListener('change', e => { const r = index.find(x=>x.path===e.target.value); if(r) loadRun(r, index); });
+    loadRun(sorted[0], index);   // primary first
+  })();
   </script>
 </body>
 </html>

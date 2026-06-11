@@ -42,7 +42,23 @@
   .mini { font-size:11px; padding:2px 7px; }
   #status { color:var(--muted); font-size:12px; margin-top:14px; line-height:1.5; }
   .na { color:var(--muted); font-size:11px; font-style:italic; margin-top:4px; }
-  #gl { width:100%; height:100%; display:block; }
+  #main { display:flex; flex-direction:column; min-height:0; height:100vh; }
+  #gl { width:100%; flex:1 1 auto; min-height:0; display:block; }
+  #samples { flex:0 0 218px; border-top:1px solid var(--line); background:var(--panel);
+             overflow-x:auto; overflow-y:hidden; white-space:nowrap; padding:8px; }
+  #samples .shead { font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+             color:var(--muted); margin:0 0 6px 2px; }
+  #samples .row { display:flex; gap:8px; align-items:flex-start; }
+  .scard { flex:0 0 auto; width:172px; background:#fff; border:1px solid var(--line);
+           border-radius:7px; padding:6px 7px; }
+  .scard .lab { font-size:11px; line-height:1.3; margin-bottom:5px; white-space:normal; }
+  .scard .lab b { font-size:12px; }
+  .scard .imgs { display:flex; gap:3px; }
+  .scard .imgs > div { text-align:center; }
+  .scard img { width:50px; height:auto; display:block; border:1px solid var(--line);
+               border-radius:3px; background:#fff; }
+  .scard .cond { font-size:8px; color:var(--muted); margin-top:1px; }
+  #samples .empty { color:var(--muted); font-size:12px; padding:10px; font-style:italic; }
   button { background:#fff; color:var(--fg); border:1px solid var(--line); border-radius:6px;
            padding:4px 9px; font-size:12px; cursor:pointer; }
   button:hover { background:#eef1f5; }
@@ -66,7 +82,10 @@
 
     <div id="status">loading…</div>
   </aside>
-  <canvas id="gl"></canvas>
+  <div id="main">
+    <canvas id="gl"></canvas>
+    <div id="samples"></div>
+  </div>
 </div>
 
 <script>
@@ -77,6 +96,7 @@ const FSAV_MESH_BASE = `${REPO_RAW}/02_FBM_Clustering/outputs/250_recon/fsaverag
 const POOL_BASE      = `${REPO_RAW}/04_FBM_Pooling/outputs/pooling/pool_web`;
 const POOL_INDEX = `${POOL_BASE}/pool_index.json`;
 const POOL_CSV   = `${POOL_BASE}/contacts_pool.csv`;
+const POOL_SAMPLES = `${POOL_BASE}/pool_samples.json`;   // per-contact ERSP image paths (460 export)
 const MESH_RGBA  = [205, 198, 190, 30];                       // bone, translucent (MOBA)
 const RADII = { cortical:{ r:2.52, a:255 }, depth:{ r:1.65, a:180 } };  // MOBA radii
 // =================================================================================
@@ -121,7 +141,7 @@ function parseCSV(text) {
     head.forEach((h,i)=> o[h]=(c[i]??"").trim()); return o; });
 }
 
-let CONTACTS = [], ROLES = [], PATIENTS = [];
+let CONTACTS = [], ROLES = [], PATIENTS = [], SAMPLES = {};
 const enabledRoles = new Set(), enabledPatients = new Set();
 let nv = null, _timer = null;
 
@@ -154,6 +174,37 @@ async function renderElectrodes() {
   }
   nv.drawScene();
   setStatus(`${shown} / ${CONTACTS.length} contacts shown`);
+  renderSamples();
+}
+
+// ---------- samples strip (the visible contacts' ERSPs, MOBA-style) ----------
+const CONDS = ["audio", "picture", "reading"];
+function renderSamples() {
+  const el = document.getElementById("samples");
+  const vis = CONTACTS.filter(isVisible);
+  if (!Object.keys(SAMPLES).length) {
+    el.innerHTML = `<div class="empty">No sample images yet — re-run notebook 460 (the export now writes
+      <code>pool_samples.json</code>), then refresh.</div>`;
+    return;
+  }
+  const CAP = 300;                                  // lazy-loaded; cap keeps the DOM sane
+  const show = vis.slice(0, CAP);
+  let h = `<div class="shead">${vis.length} contact(s) in the selected pool(s)</div><div class="row">`;
+  for (const c of show) {
+    const imgs = SAMPLES[`${c.patient}|${c.contact}`] || {};
+    let cells = "";
+    for (const cond of CONDS) {
+      if (!imgs[cond]) continue;
+      cells += `<div><img loading="lazy" src="${REPO_RAW}/${imgs[cond]}" alt="${cond}"
+                  onerror="this.style.display='none'"><div class="cond">${cond.slice(0,3)}</div></div>`;
+    }
+    h += `<div class="scard"><div class="lab"><b>${c.contact}</b> · ${c.patient}
+            <br><span style="color:${roleColor(c.role)}">${c.role}</span></div>
+            <div class="imgs">${cells || '<span class="cond">no ERSP</span>'}</div></div>`;
+  }
+  h += `</div>`;
+  if (vis.length > CAP) h += `<div class="empty">+${vis.length - CAP} more — narrow the role/patient filters to see them.</div>`;
+  el.innerHTML = h;
 }
 function rerender() { clearTimeout(_timer); _timer = setTimeout(renderElectrodes, 30); }
 
@@ -213,6 +264,7 @@ document.getElementById("patNone").onclick   = () => setAllPatients(false);
     setStatus("loading pool data…");
     let idx = {}; try { idx = await (await fetch(POOL_INDEX)).json(); } catch(e) {}
     CONTACTS = parseCSV(await (await fetch(POOL_CSV)).text()).filter(c => c.x && c.y && c.z);
+    try { SAMPLES = await (await fetch(POOL_SAMPLES)).json(); } catch (e) { SAMPLES = {}; }
     ROLES = (idx.roles && idx.roles.length) ? idx.roles : (() => {
       const seen = new Map(); CONTACTS.forEach(c => { if (!seen.has(c.role)) seen.set(c.role, c.color); });
       return [...seen].map(([role,color]) => ({ role, color, n: CONTACTS.filter(x=>x.role===role).length }));

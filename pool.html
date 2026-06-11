@@ -261,6 +261,23 @@ document.getElementById("patNone").onclick   = () => setAllPatients(false);
       await nv.loadMeshes(meshUrls.map(u => ({ url:u.replace(".mz3",".gii"), rgba255:MESH_RGBA, visible:true })));
     }
 
+    // MOBA parity: load-time alpha is ignored by the mesh shader on ANGLE/Metal,
+    // so force the glass-like brain opacity directly, then set MOBA's camera angle.
+    try {
+      for (const m of (nv.meshes || [])) {
+        if (typeof m.name === "string" && /fsaverage/i.test(m.name)) {
+          const op = 0.18;
+          if ("opacity" in m)      m.opacity = op;
+          if ("layerOpacity" in m) m.layerOpacity = op;
+          if ("meshOpacity" in m)  m.meshOpacity = op;
+          if (m.rgba255 && m.rgba255.length >= 4) m.rgba255[3] = Math.round(op * 255);
+        }
+      }
+      if (typeof nv.updateGLVolume === "function") nv.updateGLVolume();
+      if (typeof nv.setRenderAzimuthElevation === "function") nv.setRenderAzimuthElevation(180, 35);
+      nv.drawScene();
+    } catch (e) { console.warn("[POOL] brain styling:", e); }
+
     setStatus("loading pool data…");
     let idx = {}; try { idx = await (await fetch(POOL_INDEX)).json(); } catch(e) {}
     CONTACTS = parseCSV(await (await fetch(POOL_CSV)).text()).filter(c => c.x && c.y && c.z);

@@ -42,23 +42,29 @@
   .mini { font-size:11px; padding:2px 7px; }
   #status { color:var(--muted); font-size:12px; margin-top:14px; line-height:1.5; }
   .na { color:var(--muted); font-size:11px; font-style:italic; margin-top:4px; }
-  #main { display:flex; flex-direction:column; min-height:0; height:100vh; }
+  #main { display:flex; flex-direction:column; min-height:0; height:100vh; position:relative; }
   #gl { width:100%; flex:1 1 auto; min-height:0; display:block; }
-  #samples { flex:0 0 218px; border-top:1px solid var(--line); background:var(--panel);
-             overflow-x:auto; overflow-y:hidden; white-space:nowrap; padding:8px; }
+  /* samples: scroll UP/DOWN (cards wrap), 1.5x bigger */
+  #samples { flex:0 0 42vh; border-top:1px solid var(--line); background:var(--panel);
+             overflow-y:auto; overflow-x:hidden; padding:10px; }
   #samples .shead { font-size:11px; text-transform:uppercase; letter-spacing:.06em;
-             color:var(--muted); margin:0 0 6px 2px; }
-  #samples .row { display:flex; gap:8px; align-items:flex-start; }
-  .scard { flex:0 0 auto; width:172px; background:#fff; border:1px solid var(--line);
-           border-radius:7px; padding:6px 7px; }
-  .scard .lab { font-size:11px; line-height:1.3; margin-bottom:5px; white-space:normal; }
-  .scard .lab b { font-size:12px; }
-  .scard .imgs { display:flex; gap:3px; }
+             color:var(--muted); margin:0 0 8px 2px; }
+  #samples .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
+  .scard { flex:0 0 auto; width:258px; background:#fff; border:1px solid var(--line);
+           border-radius:8px; padding:9px 10px; cursor:pointer; }
+  .scard:hover { border-color:#9bb7e8; }
+  .scard.sel { border-color:#f5c000; box-shadow:0 0 0 2px #f5c00066; }
+  .scard .lab { font-size:16px; line-height:1.3; margin-bottom:7px; white-space:normal; }
+  .scard .lab b { font-size:18px; }
+  .scard .imgs { display:flex; gap:4px; }
   .scard .imgs > div { text-align:center; }
-  .scard img { width:50px; height:auto; display:block; border:1px solid var(--line);
+  .scard img { width:75px; height:auto; display:block; border:1px solid var(--line);
                border-radius:3px; background:#fff; }
-  .scard .cond { font-size:8px; color:var(--muted); margin-top:1px; }
+  .scard .cond { font-size:12px; color:var(--muted); margin-top:2px; }
   #samples .empty { color:var(--muted); font-size:12px; padding:10px; font-style:italic; }
+  #brainTooltip { position:absolute; display:none; pointer-events:none; z-index:20;
+             background:#111c; color:#fff; font-size:12px; line-height:1.35; white-space:pre;
+             padding:5px 8px; border-radius:6px; transform:translate(10px, 10px); }
   button { background:#fff; color:var(--fg); border:1px solid var(--line); border-radius:6px;
            padding:4px 9px; font-size:12px; cursor:pointer; }
   button:hover { background:#eef1f5; }
@@ -84,6 +90,7 @@
   </aside>
   <div id="main">
     <canvas id="gl"></canvas>
+    <div id="brainTooltip"></div>
     <div id="samples"></div>
   </div>
 </div>
@@ -155,7 +162,7 @@ function parseCSV(text) {
 
 let CONTACTS = [], ROLES = [], PATIENTS = [], SAMPLES = {}, roleOrder = [];
 const enabledRoles = new Set(), enabledPatients = new Set();
-let nv = null, _timer = null;
+let nv = null, _timer = null, highlightedKey = null, _pulseRaf = null;
 
 const roleColor = (role) => (ROLES.find(r=>r.role===role)?.color) || "#888888";
 const roleColorV = (role) => vivid(roleColor(role));     // brightened
@@ -213,7 +220,9 @@ function renderSamples() {
       cells += `<div><img loading="lazy" src="${REPO_RAW}/${imgs[cond]}" alt="${cond}"
                   onerror="this.style.display='none'"><div class="cond">${cond.slice(0,3)}</div></div>`;
     }
-    h += `<div class="scard"><div class="lab"><b>${c.contact}</b> · ${c.patient}
+    const key = `${c.patient}|${c.contact}`;
+    h += `<div class="scard${key===highlightedKey?' sel':''}" data-key="${key}">
+            <div class="lab"><b>${c.contact}</b> · ${c.patient}
             <br><span style="color:${roleColorV(c.role)}">${c.role}</span></div>
             <div class="imgs">${cells || '<span class="cond">no ERSP</span>'}</div></div>`;
   }
@@ -222,6 +231,52 @@ function renderSamples() {
   el.innerHTML = h;
 }
 function rerender() { clearTimeout(_timer); _timer = setTimeout(renderElectrodes, 30); }
+
+// ---------- click a sample -> pulse that electrode on the brain (MOBA-style) ----------
+const findByKey = (key) => CONTACTS.find(c => `${c.patient}|${c.contact}` === key);
+async function updateHighlight() {
+  if (!nv) return;
+  for (const m of [...nv.meshes]) if (m.name === "highlight.obj") { try { nv.removeMesh(m); } catch(e){ try{ nv.removeMesh(m.id); }catch(e2){} } }
+  if (_pulseRaf) { cancelAnimationFrame(_pulseRaf); _pulseRaf = null; }
+  if (!highlightedKey) { nv.drawScene(); return; }
+  const c = findByKey(highlightedKey); if (!c) return;
+  const url = URL.createObjectURL(new Blob([buildSpheresOBJ([{x:+c.x,y:+c.y,z:+c.z}], 4.5)], { type:"text/plain" }));
+  let mesh; try { mesh = await nv.addMeshFromUrl({ url, name:"highlight.obj", rgba255:[255,235,0,255] }); }
+  catch(e){ URL.revokeObjectURL(url); return; }
+  try { nv.setMeshShader(mesh.id, "Flat"); } catch(e){}
+  URL.revokeObjectURL(url);
+  const start = performance.now(), PERIOD = 1400;
+  (function pulse(ts){
+    if (!highlightedKey) { _pulseRaf = null; return; }
+    const a = 0.5 - 0.5*Math.cos(2*Math.PI*(ts-start)/PERIOD);
+    const m = (nv.meshes||[]).find(x => x.name === "highlight.obj");
+    if (m){ if("opacity" in m) m.opacity=a; if("layerOpacity" in m) m.layerOpacity=a;
+            if (m.rgba255 && m.rgba255.length>=4) m.rgba255[3]=Math.round(60+a*195); nv.drawScene(); }
+    _pulseRaf = requestAnimationFrame(pulse);
+  })(performance.now());
+}
+document.getElementById("samples").addEventListener("click", (e) => {
+  const card = e.target.closest(".scard"); if (!card) return;
+  const key = card.dataset.key;
+  highlightedKey = (highlightedKey === key) ? null : key;
+  document.querySelectorAll("#samples .scard").forEach(c => c.classList.toggle("sel", c.dataset.key === highlightedKey));
+  updateHighlight();
+});
+
+// ---------- hover the brain -> tooltip with the nearest contact (MOBA-style) ----------
+const tipEl = document.getElementById("brainTooltip");
+function onBrainMouseMove(ev) {
+  if (!nv || !CONTACTS.length || typeof nv.canvasPosToWorldXYZ !== "function") { tipEl.style.display="none"; return; }
+  let world = null; try { world = nv.canvasPosToWorldXYZ(ev.offsetX, ev.offsetY); } catch(e){}
+  if (!world) { tipEl.style.display="none"; return; }
+  let best=null, bestD=1e9;
+  for (const c of CONTACTS) { if (!isVisible(c)) continue;
+    const dx=+c.x-world[0], dy=+c.y-world[1], dz=+c.z-world[2]; const d=dx*dx+dy*dy+dz*dz;
+    if (d<bestD){ bestD=d; best=c; } }
+  if (!best || bestD > 36) { tipEl.style.display="none"; return; }   // ~6mm cutoff
+  tipEl.textContent = `${best.patient}\n${best.contact}\n${best.role}`;
+  tipEl.style.left = ev.offsetX + "px"; tipEl.style.top = ev.offsetY + "px"; tipEl.style.display="block";
+}
 
 // ---------- legends ----------
 function buildRoleLegend() {
@@ -267,6 +322,9 @@ document.getElementById("patNone").onclick   = () => setAllPatients(false);
                              isResizeCanvas:true, isColorbar:false, meshXRay:0,
                              isHighResolutionCapable:true, useWebGPU:supportsWebGPU });
     await nv.attachToCanvas(document.getElementById("gl"));
+    const _cv = document.getElementById("gl");
+    _cv.addEventListener("mousemove", onBrainMouseMove);
+    _cv.addEventListener("mouseleave", () => { tipEl.style.display = "none"; });
 
     setStatus("loading brain meshes…");
     // niivue 0.69 chokes on the gzipped .mz3 ("Invalid MZ3"); fall back to .gii

@@ -98,7 +98,12 @@
 <script>
 // ============================ CONFIG — matches moba.js ============================
 const BRANCH   = "main";
-const REPO_RAW = `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${BRANCH}`;
+// Host-aware data source. Served from localhost (server-side preview via
+// `python -m http.server` at the ANALYSIS-repo root) -> read freshly-generated
+// files locally, relative to the repo root, so NO git push is needed to iterate.
+// Otherwise (GitHub Pages) -> read the committed data via GitHub raw.
+const LOCAL    = ["localhost", "127.0.0.1", "0.0.0.0", ""].includes(location.hostname);
+const REPO_RAW = LOCAL ? "." : `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${BRANCH}`;
 const FSAV_MESH_BASE = `${REPO_RAW}/02_FBM_Clustering/outputs/250_recon/fsaverage/meshes`;
 const POOL_BASE      = `${REPO_RAW}/04_FBM_Pooling/outputs/pooling/pool_web`;
 const POOL_INDEX = `${POOL_BASE}/pool_index.json`;

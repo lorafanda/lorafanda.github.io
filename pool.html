@@ -192,10 +192,13 @@ async function renderElectrodes() {
     for (const cls of ["cortical","depth"]) {
       const pts = byClass[cls]; if (!pts.length) continue;
       const { r:rad, a:alpha } = RADII[cls];
-      const url = URL.createObjectURL(new Blob([buildSpheresOBJ(pts, rad)], { type:"text/plain" }));
-      const mesh = await nv.addMeshFromUrl({ url, name:`electrodes_${role}_${cls}.obj`, rgba255:[r,g,b,alpha] });
+      // niivue 0.69 addMeshFromUrl detects format from the URL extension; a blob:
+      // URL has none, so it throws "toUpperCase of undefined". Build the mesh from a
+      // File with a real .obj name (NVMesh.readMesh keys off the name) and add it.
+      const file = new File([buildSpheresOBJ(pts, rad)], `electrodes_${role}_${cls}.obj`, { type:"text/plain" });
+      const mesh = await niivue.NVMesh.loadFromFile({ file, gl:nv.gl, name:`electrodes_${role}_${cls}.obj`, rgba255:[r,g,b,alpha], visible:true });
+      nv.addMesh(mesh);
       try { nv.setMeshShader(mesh.id, "Flat"); } catch(e) {}
-      URL.revokeObjectURL(url);
       shown += pts.length;
     }
   }
@@ -245,11 +248,11 @@ async function updateHighlight() {
   if (_pulseRaf) { cancelAnimationFrame(_pulseRaf); _pulseRaf = null; }
   if (!highlightedKey) { nv.drawScene(); return; }
   const c = findByKey(highlightedKey); if (!c) return;
-  const url = URL.createObjectURL(new Blob([buildSpheresOBJ([{x:+c.x,y:+c.y,z:+c.z}], 4.5)], { type:"text/plain" }));
-  let mesh; try { mesh = await nv.addMeshFromUrl({ url, name:"highlight.obj", rgba255:[255,235,0,255] }); }
-  catch(e){ URL.revokeObjectURL(url); return; }
+  const file = new File([buildSpheresOBJ([{x:+c.x,y:+c.y,z:+c.z}], 4.5)], "highlight.obj", { type:"text/plain" });
+  let mesh; try { mesh = await niivue.NVMesh.loadFromFile({ file, gl:nv.gl, name:"highlight.obj", rgba255:[255,235,0,255], visible:true }); }
+  catch(e){ return; }
+  nv.addMesh(mesh);
   try { nv.setMeshShader(mesh.id, "Flat"); } catch(e){}
-  URL.revokeObjectURL(url);
   const start = performance.now(), PERIOD = 1400;
   (function pulse(ts){
     if (!highlightedKey) { _pulseRaf = null; return; }

@@ -44,6 +44,29 @@
   .na { color:var(--muted); font-size:11px; font-style:italic; margin-top:4px; }
   #main { display:flex; flex-direction:column; min-height:0; height:100vh; position:relative; }
   #gl { width:100%; flex:1 1 auto; min-height:0; display:block; }
+  .mini.on { background:#3a6ea5; color:#fff; border-color:#3a6ea5; }
+  #yeoLegend { position:absolute; top:10px; right:10px; z-index:20; display:none;
+               background:rgba(255,255,255,.92); border:1px solid var(--line); border-radius:8px;
+               padding:8px 10px; font-size:12px; max-height:62vh; overflow:auto;
+               box-shadow:0 2px 10px rgba(0,0,0,.12); }
+  #yeoLegend .yeo-title { font-weight:600; font-size:10px; text-transform:uppercase;
+               letter-spacing:.06em; color:var(--muted); margin-bottom:6px; }
+  #yeoLegend .yeo-empty { color:var(--muted); font-style:italic; max-width:210px; line-height:1.4; }
+  #yeoLegend .yeo-row { display:flex; align-items:center; gap:6px; cursor:pointer; padding:1px 0; }
+  #yeoLegend .yeo-sw  { width:12px; height:12px; border-radius:3px; flex:0 0 auto; }
+  .info-btn { margin-left:6px; cursor:pointer; border:1px solid var(--line); border-radius:4px;
+              font-size:10px; padding:0 4px; background:var(--panel); color:var(--muted); }
+  .info-btn.on { background:#3a6ea5; color:#fff; border-color:#3a6ea5; }
+  #roleInfo { position:absolute; top:10px; left:10px; z-index:20; display:none; width:310px;
+              max-height:84vh; overflow:auto; background:rgba(255,255,255,.96); border:1px solid var(--line);
+              border-radius:8px; padding:10px 12px; box-shadow:0 2px 10px rgba(0,0,0,.14); font-size:12px; }
+  #roleInfo .ri-card { margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--line); }
+  #roleInfo .ri-card:last-child { margin-bottom:0; padding-bottom:0; border-bottom:none; }
+  #roleInfo .ri-title { font-weight:600; font-size:13px; margin-bottom:4px; display:flex; align-items:center; gap:6px; }
+  #roleInfo .ri-sw { width:12px; height:12px; border-radius:3px; flex:0 0 auto; }
+  #roleInfo .ri-x { margin-left:auto; cursor:pointer; color:var(--muted); font-weight:400; }
+  #roleInfo .ri-desc { color:var(--text); line-height:1.45; margin-bottom:6px; }
+  #roleInfo img { width:100%; height:auto; border:1px solid var(--line); border-radius:4px; }
   /* samples: scroll UP/DOWN (cards wrap), 1.5x bigger */
   #samples { flex:0 0 42vh; border-top:1px solid var(--line); background:var(--panel);
              overflow-y:auto; overflow-x:hidden; padding:10px; }
@@ -76,6 +99,19 @@
     <h1>POOL</h1>
     <div class="sub">Functional-role activity on fsaverage</div>
 
+    <h2>Matching</h2>
+    <div id="poolMethod" class="chips">
+      <button class="mini on" data-method="box"      onclick="setPoolMethod('box')">Box</button>
+      <button class="mini"     data-method="gaussian" onclick="setPoolMethod('gaussian')">Gaussian</button>
+    </div>
+
+    <h2>Colour by</h2>
+    <div id="colorMode" class="chips">
+      <button class="mini on" data-mode="role"  onclick="setColorMode('role')">Role</button>
+      <button class="mini"     data-mode="yeo7"  onclick="setColorMode('yeo7')">Yeo 7</button>
+      <button class="mini"     data-mode="yeo17" onclick="setColorMode('yeo17')">Yeo 17</button>
+    </div>
+
     <h2>Roles <button id="rolesAll" class="mini">all</button><button id="rolesNone" class="mini">none</button></h2>
     <div id="roles"></div>
 
@@ -86,10 +122,15 @@
     <div class="na">n/a — POOL contacts are collapsed across audio·picture·reading
        (the role is the cross-condition pattern).</div>
 
+    <h2>Brain</h2>
+    <label class="role"><input type="checkbox" id="pialToggle" checked><span>fsaverage pial surface</span></label>
+
     <div id="status">loading…</div>
   </aside>
   <div id="main">
     <canvas id="gl"></canvas>
+    <div id="roleInfo"></div>
+    <div id="yeoLegend"></div>
     <div id="brainTooltip"></div>
     <div id="samples"></div>
   </div>
@@ -105,11 +146,37 @@ const BRANCH   = "main";
 const LOCAL    = ["localhost", "127.0.0.1", "0.0.0.0", ""].includes(location.hostname);
 const REPO_RAW = LOCAL ? "." : `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${BRANCH}`;
 const FSAV_MESH_BASE = `${REPO_RAW}/02_FBM_Clustering/outputs/250_recon/fsaverage/meshes`;
-const POOL_BASE      = `${REPO_RAW}/04_FBM_Pooling/outputs/pooling/pool_web`;
-const POOL_INDEX = `${POOL_BASE}/pool_index.json`;
-const POOL_CSV   = `${POOL_BASE}/contacts_pool.csv`;
-const POOL_SAMPLES = `${POOL_BASE}/pool_samples.json`;   // per-contact ERSP image paths (460 export)
+// Matching method -> data folder: 'box' = pool_web (460), 'gaussian' = pool_web_gaussian (465).
+let poolMethod = "box";
+const poolDir = () => `${REPO_RAW}/04_FBM_Pooling/outputs/pooling/${poolMethod === "gaussian" ? "pool_web_gaussian" : "pool_web"}`;
+// Yeo labels come straight from the clustering recon's coords (same file moba reads),
+// so the Yeo colour mode works without re-running the pool export.
+const YEO_COORDS = `${REPO_RAW}/02_FBM_Clustering/outputs/250_recon/fsaverage/coords/ALL_PATIENTS_contacts_fsaverage.csv`;
 const MESH_RGBA  = [205, 198, 190, 30];                       // bone, translucent (MOBA)
+
+// Yeo 2011 functional-network palettes (canonical annot CTAB colours, from moba.js).
+// Keys match the strings recon 251/252 writes into yeo7_network / yeo17_network.
+const YEO7_COLORS = {
+  '7Networks_1':'#781286','7Networks_2':'#4682b4','7Networks_3':'#00760e','7Networks_4':'#c43afa',
+  '7Networks_5':'#dcf8a4','7Networks_6':'#e69422','7Networks_7':'#cd3e4e',
+  'WhiteMatter':'#808080','Unavailable':'#505050' };
+const YEO7_NAMES = {
+  '7Networks_1':'Visual','7Networks_2':'Somatomotor','7Networks_3':'DorsAttn','7Networks_4':'SalVentAttn',
+  '7Networks_5':'Limbic','7Networks_6':'Control','7Networks_7':'Default',
+  'WhiteMatter':'White matter','FreeSurfer_Defined_Medial_Wall':'Medial wall','Unavailable':'Unavailable' };
+const YEO17_COLORS = {
+  '17Networks_1':'#781286','17Networks_2':'#ff0000','17Networks_3':'#4682b4','17Networks_4':'#2acca4',
+  '17Networks_5':'#4a9b3c','17Networks_6':'#00760e','17Networks_7':'#c43afa','17Networks_8':'#ff98d5',
+  '17Networks_9':'#dcf8a4','17Networks_10':'#7a8732','17Networks_11':'#778cb0','17Networks_12':'#e69422',
+  '17Networks_13':'#87324a','17Networks_14':'#0c30ff','17Networks_15':'#000082','17Networks_16':'#ffff00',
+  '17Networks_17':'#cd3e4e','WhiteMatter':'#808080','Unavailable':'#505050' };
+const YEO17_NAMES = {
+  '17Networks_1':'VisCent','17Networks_2':'VisPeri','17Networks_3':'SomMotA','17Networks_4':'SomMotB',
+  '17Networks_5':'DorsAttnA','17Networks_6':'DorsAttnB','17Networks_7':'SalVentAttnA','17Networks_8':'SalVentAttnB',
+  '17Networks_9':'Limbic_OFC','17Networks_10':'Limbic_Temp','17Networks_11':'ContA','17Networks_12':'ContB',
+  '17Networks_13':'ContC','17Networks_14':'DefaultA','17Networks_15':'DefaultB','17Networks_16':'DefaultC',
+  '17Networks_17':'TempPar','WhiteMatter':'White matter',
+  'FreeSurfer_Defined_Medial_Wall':'Medial wall','Unavailable':'Unavailable' };
 const RADII = { cortical:{ r:2.52, a:255 }, depth:{ r:1.65, a:180 } };  // MOBA radii
 // =================================================================================
 
@@ -175,36 +242,168 @@ const bumpOrder = (role) => { roleOrder = roleOrder.filter(x=>x!==role); roleOrd
 const depthClass = (c) => { const v = c.is_cortical;            // export writes "1.0"/"0.0"
   if (v === undefined || v === "") return "cortical";
   return (parseFloat(v) >= 0.5) ? "cortical" : "depth"; };
-const isVisible = (c) => enabledRoles.has(c.role) && enabledPatients.has(c.patient);
+// ---------- colour mode: 'role' (default) | 'yeo7' | 'yeo17' ----------
+let colorMode = "role";
+const enabledNetworks = new Set();                 // active Yeo networks (yeo modes only)
+const yeoKey     = () => colorMode === "yeo17" ? "yeo17_network" : "yeo7_network";
+const yeoPalette = () => colorMode === "yeo17" ? YEO17_COLORS : YEO7_COLORS;
+const yeoNames   = () => colorMode === "yeo17" ? YEO17_NAMES  : YEO7_NAMES;
+const netOf      = (c) => (c[yeoKey()] || "Unavailable");
+function colorOf(c) {
+  if (colorMode === "role") return roleColorV(c.role);
+  return yeoPalette()[netOf(c)] || "#808080";
+}
+
+// Cross-filtering: role selection and network selection BOTH narrow the visible set.
+// roleOK: no role selected -> all matched contacts (role mode) / all contacts (yeo mode);
+//         else require ALL selected roles (intersection). Networks filter in yeo modes.
+function roleOK(c) {
+  if (enabledRoles.size === 0) return colorMode === "role" ? c.mset.size > 0 : true;
+  return [...enabledRoles].every(r => c.mset.has(r));
+}
+const isVisible = (c) => enabledPatients.has(c.patient) && roleOK(c) &&
+  (colorMode === "role" ? true : enabledNetworks.has(netOf(c)));
 
 async function renderElectrodes() {
   for (const m of [...nv.meshes]) if (String(m.name||"").startsWith("electrodes_")) nv.removeMesh(m);
   let shown = 0;
-  // draw in SELECTION ORDER so the most-recently-enabled role is added LAST (on top)
-  for (const role of roleOrder) {
-    if (!enabledRoles.has(role)) continue;
-    const byClass = { cortical:[], depth:[] };
-    for (const c of CONTACTS) {
-      if (c.role !== role || !enabledPatients.has(c.patient)) continue;
-      byClass[depthClass(c)].push({ x:+c.x, y:+c.y, z:+c.z });
-    }
-    const [r,g,b] = hexToRgb(roleColorV(role));         // brightened
+  const vis = CONTACTS.filter(isVisible);
+  // group visible contacts by their (mode-dependent) colour -> one sphere mesh per colour × class
+  const groups = new Map();                          // colourHex -> { cortical:[], depth:[] }
+  for (const c of vis) {
+    const col = colorOf(c);
+    if (!groups.has(col)) groups.set(col, { cortical:[], depth:[] });
+    groups.get(col)[depthClass(c)].push({ x:+c.x, y:+c.y, z:+c.z });
+  }
+  let gi = 0;
+  for (const [col, byClass] of groups) {
+    const [r,g,b] = hexToRgb(col);
     for (const cls of ["cortical","depth"]) {
       const pts = byClass[cls]; if (!pts.length) continue;
       const { r:rad, a:alpha } = RADII[cls];
-      // niivue 0.69 addMeshFromUrl detects format from the URL extension; a blob:
-      // URL has none, so it throws "toUpperCase of undefined". Build the mesh from a
-      // File with a real .obj name (NVMesh.readMesh keys off the name) and add it.
-      const file = new File([buildSpheresOBJ(pts, rad)], `electrodes_${role}_${cls}.obj`, { type:"text/plain" });
-      const mesh = await niivue.NVMesh.loadFromFile({ file, gl:nv.gl, name:`electrodes_${role}_${cls}.obj`, rgba255:[r,g,b,alpha], visible:true });
+      // niivue 0.69 detects mesh format from the name extension -> give a real .obj name.
+      const file = new File([buildSpheresOBJ(pts, rad)], `electrodes_${gi}_${cls}.obj`, { type:"text/plain" });
+      const mesh = await niivue.NVMesh.loadFromFile({ file, gl:nv.gl, name:`electrodes_${gi}_${cls}.obj`, rgba255:[r,g,b,alpha], visible:true });
       nv.addMesh(mesh);
       try { nv.setMeshShader(mesh.id, "Flat"); } catch(e) {}
       shown += pts.length;
     }
+    gi++;
   }
   nv.drawScene();
-  setStatus(`${shown} / ${CONTACTS.length} contacts shown`);
+  setStatus(`${shown} / ${CONTACTS.length} contacts shown · colour: ${colorMode}`);
   renderSamples();
+}
+
+// ---------- Yeo network legend (top-right of the brain) + per-network toggles ----------
+function buildYeoLegend() {
+  const el = document.getElementById("yeoLegend");
+  if (colorMode === "role") { el.style.display = "none"; el.innerHTML = ""; return; }
+  const key = yeoKey(), pal = yeoPalette(), names = yeoNames();
+  const present = new Set(CONTACTS.map(c => netOf(c)));            // includes 'Unavailable' + medial wall etc.
+  // palette order first, then any extra labels present in the data (medial wall, …) -> gray
+  const order = Object.keys(pal).filter(n => present.has(n))
+                .concat([...present].filter(n => !(n in pal)).sort());
+  enabledNetworks.clear(); order.forEach(n => enabledNetworks.add(n));
+  let h = `<div class="yeo-title">${colorMode === "yeo17" ? "Yeo 17" : "Yeo 7"} networks`
+        + `<button class="mini" id="netAll">all</button><button class="mini" id="netNone">none</button></div>`;
+  if (!order.length)
+    h += `<div class="yeo-empty">No Yeo labels loaded (clustering coords unreachable?). Check the
+          console.</div>`;
+  for (const n of order)
+    h += `<label class="yeo-row"><input type="checkbox" checked data-net="${n}">`
+       + `<span class="yeo-sw" style="background:${pal[n] || '#808080'}"></span>${names[n] || n}</label>`;
+  el.innerHTML = h; el.style.display = "block";
+  el.querySelectorAll("input[data-net]").forEach(cb => cb.onchange = () => {
+    if (cb.checked) enabledNetworks.add(cb.dataset.net); else enabledNetworks.delete(cb.dataset.net);
+    rerender();
+  });
+  const setAllNets = (on) => {
+    enabledNetworks.clear(); if (on) order.forEach(n => enabledNetworks.add(n));
+    el.querySelectorAll("input[data-net]").forEach(cb => cb.checked = on);
+    rerender();
+  };
+  const ba = el.querySelector("#netAll"), bn = el.querySelector("#netNone");
+  if (ba) ba.onclick = () => setAllNets(true);
+  if (bn) bn.onclick = () => setAllNets(false);
+}
+function setColorMode(mode) {
+  colorMode = mode;
+  document.querySelectorAll("#colorMode button").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+  buildYeoLegend();
+  rerender();
+}
+
+// ---------- per-role info panel (left of the brain): explanation + box/gaussian card ----------
+let ROLE_INFO = {};                 // role -> {description, color, img, n_primary}
+const openInfo = new Set();         // roles whose info card is currently shown
+function toggleRoleInfo(role, btn) {
+  if (openInfo.has(role)) openInfo.delete(role); else openInfo.add(role);
+  if (btn) btn.classList.toggle("on", openInfo.has(role));
+  renderRoleInfo();
+}
+function renderRoleInfo() {
+  const el = document.getElementById("roleInfo");
+  if (!openInfo.size) { el.style.display = "none"; el.innerHTML = ""; return; }
+  let h = "";
+  for (const role of openInfo) {
+    const inf = ROLE_INFO[role] || {};
+    const col = vivid(inf.color || roleColor(role));
+    const img = inf.img ? `<img loading="lazy" src="${poolDir()}/${inf.img}" alt="${role}" onerror="this.style.display='none'">` : "";
+    h += `<div class="ri-card"><div class="ri-title"><span class="ri-sw" style="background:${col}"></span>${role}`
+       + `<span class="ri-x" data-role="${role}">✕</span></div>`
+       + `<div class="ri-desc">${inf.description || "(no description — re-run the export to write role_info.json)"}</div>${img}</div>`;
+  }
+  el.innerHTML = h; el.style.display = "block";
+  el.querySelectorAll(".ri-x").forEach(x => x.onclick = () =>
+    toggleRoleInfo(x.dataset.role, document.querySelector(`#roles .info-btn[data-role="${x.dataset.role}"]`)));
+}
+
+// ---------- pool data load (box vs gaussian, toggleable) ----------
+let _yeoMap = null;
+async function loadYeoMap() {
+  if (_yeoMap) return _yeoMap;
+  _yeoMap = new Map();
+  try {
+    const yrows = parseCSV(await (await fetch(YEO_COORDS)).text());
+    _yeoMap = new Map(yrows.map(r => [`${r.patient}|${r.name}`, r]));
+  } catch (e) { console.warn("[POOL] Yeo coords not loaded:", e); }
+  return _yeoMap;
+}
+async function loadPoolData() {
+  const base = poolDir();
+  setStatus(`loading ${poolMethod} pool data…`);
+  let idx = {}; try { idx = await (await fetch(`${base}/pool_index.json`)).json(); } catch (e) {}
+  let csvText = null;
+  try { const r = await fetch(`${base}/contacts_pool.csv`); if (!r.ok) throw new Error("HTTP " + r.status); csvText = await r.text(); }
+  catch (e) {
+    CONTACTS = []; ROLES = []; PATIENTS = []; SAMPLES = {}; ROLE_INFO = {};
+    enabledRoles.clear(); enabledPatients.clear(); openInfo.clear();
+    buildRoleLegend(); buildPatientChips(); buildYeoLegend(); renderRoleInfo(); await renderElectrodes();
+    setStatus(`⚠️ no ${poolMethod} data — run notebook ${poolMethod === "gaussian" ? "465" : "460"} to write its pool_web${poolMethod === "gaussian" ? "_gaussian" : ""}/ export.`);
+    return;
+  }
+  CONTACTS = parseCSV(csvText).filter(c => c.x && c.y && c.z);
+  CONTACTS.forEach(c => c.mset = new Set((c.roles_matched || "").split(";").map(s => s.trim()).filter(Boolean)));
+  const ymap = await loadYeoMap();                          // attach Yeo from the clustering coords (moba source)
+  CONTACTS.forEach(c => { const y = ymap.get(`${c.patient}|${c.contact}`);
+                          if (y) { c.yeo7_network = y.yeo7_network; c.yeo17_network = y.yeo17_network; } });
+  try { SAMPLES = await (await fetch(`${base}/pool_samples.json`)).json(); } catch (e) { SAMPLES = {}; }
+  try { ROLE_INFO = await (await fetch(`${base}/role_info.json`)).json(); } catch (e) { ROLE_INFO = {}; }
+  ROLES = (idx.roles && idx.roles.length) ? idx.roles : (() => {
+    const seen = new Map(); CONTACTS.forEach(c => { if (!seen.has(c.role)) seen.set(c.role, c.color); });
+    return [...seen].map(([role, color]) => ({ role, color, n: CONTACTS.filter(x => x.role === role).length }));
+  })();
+  PATIENTS = [...new Set(CONTACTS.map(c => c.patient))].sort();
+  enabledRoles.clear(); enabledPatients.clear(); openInfo.clear();   // reset filters + info panel for the new set
+  buildRoleLegend(); buildPatientChips(); renderRoleInfo();
+  if (colorMode !== "role") buildYeoLegend();              // refresh network legend for the new contacts
+  await renderElectrodes();
+}
+function setPoolMethod(m) {
+  poolMethod = m;
+  document.querySelectorAll("#poolMethod button").forEach(b => b.classList.toggle("on", b.dataset.method === m));
+  loadPoolData();
 }
 
 // ---------- samples strip (the visible contacts' ERSPs, MOBA-style) ----------
@@ -229,9 +428,14 @@ function renderSamples() {
                   onerror="this.style.display='none'"><div class="cond">${cond.slice(0,3)}</div></div>`;
     }
     const key = `${c.patient}|${c.contact}`;
+    // show EVERY role this contact matches (roles_matched), each abbreviated to 3 chars
+    // and coloured by its role colour; full name on hover.
+    const roleTags = c.mset.size
+      ? [...c.mset].map(r => `<span style="color:${roleColorV(r)}" title="${r}">${r.slice(0,3)}</span>`).join(" ")
+      : `<span style="color:#999">none</span>`;
     h += `<div class="scard${key===highlightedKey?' sel':''}" data-key="${key}">
             <div class="lab"><b>${c.contact}</b> · ${c.patient}
-            <br><span style="color:${roleColorV(c.role)}">${c.role}</span></div>
+            <br>${roleTags}</div>
             <div class="imgs">${cells || '<span class="cond">no ERSP</span>'}</div></div>`;
   }
   h += `</div>`;
@@ -291,16 +495,20 @@ function buildRoleLegend() {
   const el = document.getElementById("roles"); el.innerHTML = "";
   roleOrder = ROLES.map(r => r.role);      // initial paint order (file order)
   for (const r of ROLES) {
-    const on = r.role !== "none";          // hide the unmatched 'none' contacts by default
-    if (on) enabledRoles.add(r.role);
+    if (r.role === "none") continue;       // 'none' = unmatched; not a selectable filter
     const row = document.createElement("label"); row.className = "role";
-    const cb = document.createElement("input"); cb.type="checkbox"; cb.checked=on;
+    // default: nothing checked -> all matched contacts shown; checking roles AND-narrows
+    const cb = document.createElement("input"); cb.type="checkbox"; cb.checked=false;
     cb.onchange = () => { if (cb.checked) { enabledRoles.add(r.role); bumpOrder(r.role); }
                           else enabledRoles.delete(r.role); rerender(); };
     const sw = document.createElement("span"); sw.className="swatch"; sw.style.background=vivid(r.color);
     const tx = document.createElement("span"); tx.textContent=r.role;
     const ct = document.createElement("span"); ct.className="count"; ct.textContent=r.n ?? "";
-    row.append(cb, sw, tx, ct); el.append(row);
+    const info = document.createElement("span"); info.className="info-btn"; info.textContent="ⓘ";
+    info.title="explanation + box/gaussian template"; info.dataset.role=r.role;
+    if (openInfo.has(r.role)) info.classList.add("on");
+    info.onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggleRoleInfo(r.role, info); };
+    row.append(cb, sw, tx, ct, info); el.append(row);
   }
 }
 function buildPatientChips() {
@@ -317,6 +525,22 @@ const setAllRoles = (on) => { ROLES.forEach(r => on?(enabledRoles.add(r.role),bu
   document.querySelectorAll("#roles input").forEach(c=>c.checked=on); rerender(); };
 const setAllPatients = (on) => { PATIENTS.forEach(p => on?enabledPatients.add(p):enabledPatients.delete(p));
   document.querySelectorAll("#patients .chip").forEach(c=>c.classList.toggle("off", !on)); rerender(); };
+const BRAIN_OP = 0.18;   // glass-brain opacity when the pial surface is ON
+function setBrainSurface(on) {
+  for (const m of (nv ? nv.meshes || [] : [])) {
+    if (typeof m.name === "string" && /fsaverage/i.test(m.name)) {
+      const op = on ? BRAIN_OP : 0.0;
+      if ("opacity" in m)      m.opacity = op;
+      if ("layerOpacity" in m) m.layerOpacity = op;
+      if ("meshOpacity" in m)  m.meshOpacity = op;
+      if ("visible" in m)      m.visible = on;
+      if (m.rgba255 && m.rgba255.length >= 4) m.rgba255[3] = Math.round(op * 255);
+    }
+  }
+  if (nv && typeof nv.updateGLVolume === "function") nv.updateGLVolume();
+  if (nv) nv.drawScene();
+}
+document.getElementById("pialToggle").onchange = (e) => setBrainSurface(e.target.checked);
 document.getElementById("rolesAll").onclick  = () => setAllRoles(true);
 document.getElementById("rolesNone").onclick = () => setAllRoles(false);
 document.getElementById("patAll").onclick    = () => setAllPatients(true);
@@ -347,31 +571,12 @@ document.getElementById("patNone").onclick   = () => setAllPatients(false);
     // MOBA parity: load-time alpha is ignored by the mesh shader on ANGLE/Metal,
     // so force the glass-like brain opacity directly, then set MOBA's camera angle.
     try {
-      for (const m of (nv.meshes || [])) {
-        if (typeof m.name === "string" && /fsaverage/i.test(m.name)) {
-          const op = 0.18;
-          if ("opacity" in m)      m.opacity = op;
-          if ("layerOpacity" in m) m.layerOpacity = op;
-          if ("meshOpacity" in m)  m.meshOpacity = op;
-          if (m.rgba255 && m.rgba255.length >= 4) m.rgba255[3] = Math.round(op * 255);
-        }
-      }
-      if (typeof nv.updateGLVolume === "function") nv.updateGLVolume();
+      setBrainSurface(document.getElementById("pialToggle").checked);   // glass brain; honors the toggle (default ON)
       if (typeof nv.setRenderAzimuthElevation === "function") nv.setRenderAzimuthElevation(180, 35);
       nv.drawScene();
     } catch (e) { console.warn("[POOL] brain styling:", e); }
 
-    setStatus("loading pool data…");
-    let idx = {}; try { idx = await (await fetch(POOL_INDEX)).json(); } catch(e) {}
-    CONTACTS = parseCSV(await (await fetch(POOL_CSV)).text()).filter(c => c.x && c.y && c.z);
-    try { SAMPLES = await (await fetch(POOL_SAMPLES)).json(); } catch (e) { SAMPLES = {}; }
-    ROLES = (idx.roles && idx.roles.length) ? idx.roles : (() => {
-      const seen = new Map(); CONTACTS.forEach(c => { if (!seen.has(c.role)) seen.set(c.role, c.color); });
-      return [...seen].map(([role,color]) => ({ role, color, n: CONTACTS.filter(x=>x.role===role).length }));
-    })();
-    PATIENTS = [...new Set(CONTACTS.map(c => c.patient))].sort();
-    buildRoleLegend(); buildPatientChips();
-    await renderElectrodes();
+    await loadPoolData();   // box (pool_web) by default; the Matching toggle reloads gaussian
   } catch (e) {
     setStatus("⚠️ " + e.message + "  (check REPO_RAW / branch / data paths)");
     console.error(e);

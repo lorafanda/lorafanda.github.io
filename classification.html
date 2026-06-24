@@ -100,10 +100,15 @@
     .pc-table td:first-child, .pc-table th:first-child { text-align: left; font-weight: 500; }
     .pc-netnum { display: inline-block; min-width: 1.4em; text-align: center; background: var(--surface2); color: var(--muted); border-radius: 3px; font-size: 0.68rem; padding: 0 4px; margin-right: 5px; }
     .recall-cell { display: flex; align-items: center; gap: 0.5rem; justify-content: flex-end; }
-    .rbar { position: relative; width: 70px; height: 9px; background: var(--bg); border-radius: 2px; overflow: visible; flex: none; }
+    .rbar { position: relative; width: 96px; height: 9px; background: var(--bg); border-radius: 2px; overflow: visible; flex: none; }
     .rbar .rfill { position: absolute; left:0; top:0; bottom:0; background: var(--accent3); border-radius: 2px; }
     .rbar .rfill.ns { background: var(--muted); opacity: 0.45; }
     .rbar .rchance { position: absolute; top:-2px; bottom:-2px; width:0; border-left: 2px dashed var(--accent); }
+    /* bootstrap 95% CI whisker on recall */
+    .rbar .rci { position: absolute; top:50%; transform:translateY(-50%); height:7px; pointer-events:none;
+                 border-left:1.5px solid var(--text); border-right:1.5px solid var(--text); }
+    .rbar .rci::after { content:""; position:absolute; top:50%; left:0; right:0; height:1.5px;
+                 background:var(--text); transform:translateY(-50%); }
     .star { color: var(--good); font-weight: 600; } .star.ns { color: var(--muted); font-weight: 400; font-style: italic; }
 
     /* Figures */
@@ -342,10 +347,14 @@
       const chip = p.chip ? `<span class="pc-netnum">${p.chip}</span>` : '';
       const w = Math.max(0,Math.min(100,(r.recall||0)*100)), cw = Math.max(0,Math.min(100,chance*100));
       const isSig = (r.perm_p_fdr!=null && r.perm_p_fdr<0.05);
-      const ci = (r.recall_ci_lo!=null) ? `[${(r.recall_ci_lo).toFixed(2)}–${(r.recall_ci_hi).toFixed(2)}]` : '';
+      const hasCI = (r.recall_ci_lo!=null && r.recall_ci_hi!=null);
+      const lo = hasCI ? Math.max(0,Math.min(100,r.recall_ci_lo*100)) : 0;
+      const hi = hasCI ? Math.max(0,Math.min(100,r.recall_ci_hi*100)) : 0;
+      const ciWhisker = hasCI ? `<span class="rci" style="left:${lo}%;width:${Math.max(0,hi-lo)}%"></span>` : '';
+      const ci = hasCI ? `[${(r.recall_ci_lo).toFixed(2)}–${(r.recall_ci_hi).toFixed(2)}]` : '';
       h += `<tr>
         <td>${chip}${p.name||r.class}</td>
-        <td><div class="recall-cell"><span class="rbar"><span class="rfill${isSig?'':' ns'}" style="width:${w}%"></span><span class="rchance" style="left:${cw}%"></span></span><span>${(r.recall||0).toFixed(2)} <span style="color:var(--muted)">${ci}</span></span></div></td>
+        <td><div class="recall-cell"><span class="rbar"><span class="rfill${isSig?'':' ns'}" style="width:${w}%"></span><span class="rchance" style="left:${cw}%"></span>${ciWhisker}</span><span>${(r.recall||0).toFixed(2)} <span style="color:var(--muted)">${ci}</span></span></div></td>
         <td>${(r.precision||0).toFixed(2)}</td><td>${(r.f1||0).toFixed(2)}</td>
         <td>${r.roc_auc_ovr!=null?Number(r.roc_auc_ovr).toFixed(2):'—'}</td>
         <td>${r.support}</td><td>${stars(r.perm_p_fdr)}</td></tr>`;
@@ -425,7 +434,7 @@
       b.onclick = () => onPick(b.dataset.dim, b.dataset.val));
   }
 
-  function onPick(dim, val){
+  async function onPick(dim, val){
     SEL = { ...SEL, [dim]:val };
     let r = exact(SEL);
     if (!r){   // snap: keep the just-clicked dimension, find the nearest valid combo for the other two
@@ -435,7 +444,26 @@
       if (r) SEL = { task:r.task, variant:r.variant, classifier:r.classifier };
     }
     buildBars();
-    if (r) loadRun(r, INDEX);
+    if (r){ const a = getAnchor(); await loadRun(r, INDEX); restoreAnchor(a); }
+  }
+
+  // ── Scroll lock: stay on the same section when switching runs (compare across features) ──
+  function getAnchor(){
+    const head = (document.querySelector('.topbar')?.offsetHeight || 0)
+               + (document.getElementById('selbars')?.offsetHeight || 0);
+    for (const p of document.querySelectorAll('#app section.panel')){
+      const r = p.getBoundingClientRect();
+      if (r.bottom > head + 6) return { id:p.id, top:r.top };   // topmost still-visible panel
+    }
+    return null;
+  }
+  function restoreAnchor(a){
+    if (!a) return;
+    const put = () => { const el = document.getElementById(a.id);
+                        if (el) window.scrollBy(0, el.getBoundingClientRect().top - a.top); };
+    put();                       // restore now
+    setTimeout(put, 250);        // re-settle after images above reflow
+    setTimeout(put, 900);
   }
 
   // ── Boot ──

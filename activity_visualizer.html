@@ -1,0 +1,800 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Activity Visualizer</title>
+<style>
+  :root { --panel-bg: rgba(18,18,22,.82); --fg:#e8e8ec; --muted:#9aa0aa; --accent:#5ab0ff; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:#000; color:var(--fg);
+    font:13px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; overflow:hidden; }
+  /* brain area: sits above the bottom transport panel (shifted up so the panel doesn't cover it) */
+  #brains { position:fixed; top:0; left:0; right:0; bottom:210px; display:flex; gap:2px; }
+  .braincell { flex:1; min-width:0; position:relative; display:none; }
+  .braincell.show { display:block; }
+  .braincell canvas { width:100%; height:100%; display:block; }
+  .blabel { position:absolute; top:8px; left:0; right:0; text-align:center; z-index:2;
+    font-size:12px; font-weight:600; letter-spacing:.5px; color:var(--muted); pointer-events:none; }
+  #brains.single .blabel { display:none; }   /* hide label when only one brain is shown */
+
+  /* floating panels — the brain is the page; these overlay it and can be hidden with "h" */
+  .panel { position:fixed; background:var(--panel-bg); backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:12px 14px;
+    box-shadow:0 6px 24px rgba(0,0,0,.4); transition:opacity .18s ease; z-index:5; }
+  .panel.hidden { opacity:0; pointer-events:none; }
+
+  #controls { top:14px; left:14px; width:240px; }
+  #controls h2 { cursor:pointer; user-select:none; display:flex; align-items:center; gap:6px; }
+  #ctlChevron { margin-left:auto; font-size:11px; opacity:.7; }
+  #ctlBody { overflow:hidden; max-height:84vh; opacity:1; transition:max-height .22s ease, opacity .18s ease; }
+  #controls.collapsed #ctlBody { max-height:0; opacity:0; }
+  #controls.collapsed h2 { margin-bottom:0; }
+  #controls h2 { margin:0 0 8px; font-size:13px; font-weight:600; letter-spacing:.3px; }
+  #controls .grp { margin:10px 0 0; }
+  #controls .grp > label.title { display:block; font-size:11px; text-transform:uppercase;
+    letter-spacing:.6px; color:var(--muted); margin-bottom:5px; }
+  .bands { display:grid; grid-template-columns:1fr 1fr; gap:3px 8px; }
+  .bands label, .conds label { display:flex; align-items:center; gap:6px; cursor:pointer;
+    padding:2px 0; white-space:nowrap; }
+  .bands input, .conds input { accent-color:var(--accent); }
+  .conds { display:flex; gap:12px; flex-wrap:wrap; }
+  .row { display:flex; align-items:center; gap:8px; margin-top:6px; }
+  .row label { color:var(--muted); min-width:54px; }
+  .row input[type=range] { flex:1; accent-color:var(--accent); }
+  .row .val { min-width:42px; text-align:right; font-variant-numeric:tabular-nums; }
+  button.link { background:none; border:none; color:var(--accent); cursor:pointer; padding:0; font-size:12px; }
+
+  #transport { bottom:16px; left:50%; transform:translateX(-50%);
+    width:min(900px,94vw); display:flex; flex-direction:column; gap:8px; }
+  .trow { display:flex; align-items:center; gap:14px; }
+  #playBtn { width:42px; height:42px; flex:none; border-radius:50%; border:none; cursor:pointer;
+    background:var(--accent); color:#001; font-size:16px; display:grid; place-items:center; }
+  #playBtn:hover { filter:brightness(1.1); }
+  #scrubWrap { flex:1; position:relative; }
+  #scrub { accent-color:var(--accent); display:block; }
+  #timeLabel { font-variant-numeric:tabular-nums; white-space:nowrap; flex:1;
+    text-align:left; color:var(--muted); }
+  #timeLabel b { color:var(--fg); }
+  /* annotation track (expectation legend) */
+  #annoTrack { display:block; width:100%; height:132px; }
+  #annoTrack text { font-family:inherit; }
+  #annoCaption { font-size:10px; color:var(--muted); line-height:1.35; margin-top:2px;
+    border-top:1px solid rgba(255,255,255,.08); padding-top:4px; }
+  #annoCaption b { color:#cdd3dc; }
+
+  /* colorbar (bwr) */
+  #cbar { position:fixed; right:16px; top:50%; transform:translateY(-50%); width:54px;
+    text-align:center; z-index:5; }
+  #cbar .bar { height:200px; width:16px; margin:4px auto; border-radius:4px;
+    border:1px solid rgba(255,255,255,.15);
+    background:linear-gradient(to top,#0000ff,#ffffff 50%,#ff0000); }
+  #cbar .lab { font-size:11px; color:var(--muted); }
+
+  /* anatomical landmark legend (bottom-left, static — no leader lines) */
+  #regionLegend { left:14px; bottom:16px; max-width:240px; max-height:48vh; overflow:auto;
+    font-size:11px; display:none; }
+  #regionLegend.on { display:block; }
+  #regionLegend .sys { margin:7px 0 2px; font-size:9.5px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.5px; color:#aab0ba; }
+  #regionLegend .sys:first-child { margin-top:0; }
+  #regionLegend .ritem { display:flex; align-items:center; gap:7px; padding:1px 0 1px 4px; }
+  #regionLegend .sw { width:12px; height:12px; border-radius:3px; flex:none; border:1px solid rgba(255,255,255,.25); }
+  #hint { position:fixed; bottom:6px; left:8px; color:#5a5f68; font-size:11px; z-index:5; }
+  #status { position:fixed; inset:0; display:grid; place-items:center; text-align:center;
+    color:var(--muted); font-size:15px; padding:24px; z-index:9; pointer-events:none; }
+</style>
+</head>
+<body>
+  <div id="brains">
+    <div class="braincell show" data-cond="audio"><div class="blabel">Audio</div><canvas></canvas></div>
+    <div class="braincell show" data-cond="picture"><div class="blabel">Picture</div><canvas></canvas></div>
+    <div class="braincell show" data-cond="reading"><div class="blabel">Reading</div><canvas></canvas></div>
+  </div>
+
+  <div id="status">Loading brain &amp; activity…</div>
+
+  <div id="controls" class="panel">
+    <h2 id="ctlToggle" title="Collapse / expand (c)">🧠 Activity Visualizer <span id="ctlChevron">▾</span></h2>
+    <div id="ctlBody">
+
+    <div class="grp">
+      <label class="title">Conditions (one brain each)</label>
+      <div class="conds" id="conds"></div>
+    </div>
+
+    <div class="grp">
+      <div class="row" style="margin-bottom:5px">
+        <label class="title" style="margin:0;flex:1">Frequency bands</label>
+        <label style="min-width:auto;font-size:11px"><input type="checkbox" id="diffMode"> equation A−B</label>
+      </div>
+      <div id="bandsAwrap"><div class="bands" id="bands"></div>
+        <div class="row" style="margin-top:2px">
+          <span id="groupAlbl" style="display:none;color:var(--accent);min-width:54px">group A</span>
+          <button class="link" id="bandsAll">all</button>
+          <button class="link" id="bandsNone">none</button>
+        </div>
+      </div>
+      <div id="bandsBwrap" style="display:none;margin-top:6px">
+        <div class="bands" id="bandsB"></div>
+        <div class="row" style="margin-top:2px">
+          <span style="color:#ff8d6b;min-width:54px">minus B</span>
+          <button class="link" id="bandsBAll">all</button>
+          <button class="link" id="bandsBNone">none</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="grp">
+      <label class="title">Window &amp; display</label>
+      <div class="row"><label>Width</label>
+        <input type="range" id="width" min="1" max="120" step="1">
+        <span class="val" id="widthVal"></span></div>
+      <div class="row"><label>Speed</label>
+        <input type="range" id="speed" min="0.1" max="4" step="0.1" value="1">
+        <span class="val" id="speedVal">1.0×</span></div>
+      <div class="row"><label>Color ±</label>
+        <input type="range" id="clim" min="1" max="12" step="0.5">
+        <span class="val" id="climVal"></span></div>
+      <div class="row"><label>Surface</label>
+        <select id="surf"><option value="pial">pial</option><option value="inflated">inflated</option></select>
+        <label style="min-width:auto;margin-left:8px"><input type="checkbox" id="loop" checked> loop</label>
+      </div>
+      <div class="row">
+        <label style="min-width:auto"><input type="checkbox" id="transp"> transparent surface</label>
+      </div>
+      <div class="row">
+        <label style="min-width:auto"><input type="checkbox" id="showElec"> electrodes</label>
+        <label style="min-width:auto;margin-left:10px"><input type="checkbox" id="showRegions"> regions</label>
+      </div>
+    </div>
+    </div><!-- /#ctlBody -->
+  </div>
+
+  <div id="transport" class="panel">
+    <div class="trow">
+      <button id="playBtn" title="Play / pause (space)">▶</button>
+      <div id="timeLabel"></div>
+    </div>
+    <input type="range" id="scrub" min="0" max="299" step="1" value="0">
+    <svg id="annoTrack" preserveAspectRatio="none" viewBox="0 0 1000 132"></svg>
+    <div id="annoCaption"></div>
+  </div>
+
+  <div id="cbar" class="panel">
+    <div class="lab" id="cbHi">+6</div>
+    <div class="bar"></div>
+    <div class="lab" id="cbLo">−6</div>
+    <div class="lab" id="cbMode" style="margin-top:4px">ERSP</div>
+  </div>
+
+  <div id="regionLegend" class="panel"></div>
+
+  <div id="hint">drag = rotate · scroll = zoom · <b>h</b> = hide panels · <b>space</b> = play</div>
+
+<script type="module">
+import { Niivue, NVMesh } from "https://unpkg.com/@niivue/niivue@0.45.1/dist/index.js";
+
+// Data is served from the Analysis_LoraFanda repo via raw.githubusercontent (CORS-open),
+// same pattern as moba.js / pool.html. This branch holds the activity-visualizer bundle.
+const BRANCH = "activity-visualizer";
+const BUNDLE = `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${BRANCH}/02_FBM_Clustering/outputs/250_recon/fsaverage/activity_viz/`;
+const $ = (id) => document.getElementById(id);
+const statusEl = $("status");
+const fail = (msg) => { statusEl.style.display="grid"; statusEl.innerHTML = msg; console.error(msg); };
+
+// ---- typed-array fetch helpers ------------------------------------------
+async function fetchBin(url, dtype) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${url} → HTTP ${r.status}`);
+  const buf = await r.arrayBuffer();
+  return dtype === "uint16" ? new Uint16Array(buf)
+       : dtype === "float32" ? new Float32Array(buf)
+       : dtype === "float16" ? decodeF16(new Uint16Array(buf))
+       : new Uint8Array(buf);
+}
+
+// decode IEEE-754 half-floats -> Float32Array (cube is stored f16 to fit GitHub's 100 MB limit)
+const _F16LUT = (() => {
+  const t = new Float32Array(65536);
+  for (let h = 0; h < 65536; h++) {
+    const s = (h & 0x8000) >> 15, e = (h & 0x7C00) >> 10, f = h & 0x03FF;
+    t[h] = e === 0 ? (s ? -1 : 1) * Math.pow(2, -14) * (f / 1024)
+         : e === 0x1F ? (f ? NaN : (s ? -Infinity : Infinity))
+         : (s ? -1 : 1) * Math.pow(2, e - 15) * (1 + f / 1024);
+  }
+  return t;
+})();
+function decodeF16(u16) {
+  const out = new Float32Array(u16.length);
+  for (let i = 0; i < u16.length; i++) out[i] = _F16LUT[u16[i]];
+  return out;
+}
+
+// ---- bwr colormap (matplotlib): blue→white→red --------------------------
+function bwr(t) { // t in [0,1]
+  if (t <= 0.5) { const u = t*2; return [u, u, 1]; }
+  const u = (t-0.5)*2; return [1, 1-u, 1-u];
+}
+
+let M, cube, projLhIdx, projLhW, projRhIdx, projRhW, CONTACTS = [], REG = null, REGCOL = {};
+const INFLATED_SHIFT = 65;   // mm to separate inflated hemispheres (they're each centered at origin)
+const BRAIN_CONDS = ["audio", "picture", "reading"];   // one Niivue instance per condition (display order)
+const BR = {};               // condName -> { nv, cell, hemis:{lh,rh} }; coverage is fixed per condition
+const state = {
+  conds: new Set(BRAIN_CONDS),   // which conditions are shown (one brain each)
+  bands: new Set(),              // group A frequency bands
+  bandsB: new Set(),             // group B (used only in difference mode)
+  diff: false,                   // equation mode: (avg A) − (avg B)
+  center: 0, width: 15, vmax: 6, playing: false, speed: 1.0, loop: true,
+  surf: "pial", opacity: 1.0, showElec: false, showRegions: false,
+};
+const visibleConds = () => BRAIN_CONDS.filter(c => state.conds.has(c));
+
+async function loadBundle() {
+  M = await (await fetch(BUNDLE + "manifest.json")).json();
+  const f = M.files;
+  [cube, projLhIdx, projLhW, projRhIdx, projRhW] = await Promise.all([
+    fetchBin(BUNDLE + f.cube.name, f.cube.dtype || "float32"),
+    fetchBin(BUNDLE + f.proj_lh_idx.name, "uint16"),
+    fetchBin(BUNDLE + f.proj_lh_w.name, "float32"),
+    fetchBin(BUNDLE + f.proj_rh_idx.name, "uint16"),
+    fetchBin(BUNDLE + f.proj_rh_w.name, "float32"),
+  ]);
+  try { CONTACTS = await (await fetch(BUNDLE + "contacts.json")).json(); } catch (e) { CONTACTS = []; }
+  // anatomical landmark overlays (optional)
+  if (M.region_files) {
+    const rf = M.region_files;
+    try {
+      const [el, er, fl, fr] = await Promise.all([
+        fetchBin(BUNDLE+rf.edge_lh,"uint8"), fetchBin(BUNDLE+rf.edge_rh,"uint8"),
+        fetchBin(BUNDLE+rf.fill_lh,"uint8"), fetchBin(BUNDLE+rf.fill_rh,"uint8"),
+      ]);
+      REG = { edgelh:el, edgerh:er, filllh:fl, fillrh:fr };
+      REGCOL = {}; for (const r of (M.regions||[])) REGCOL[r.id] = r.color;
+    } catch (e) { REG = null; }
+  }
+  state.vmax = M.vmax;
+  state.center = Math.round(M.n_time * 0.5);
+  for (let b = 0; b < M.n_band; b++) state.bands.add(b);   // group A starts with all bands
+  state.bandsB.add(M.n_band - 1);                          // group B defaults to the top band
+}
+
+// flat cube index: [cond, band, contact, time]
+function cubeAt(cond, band, c, t) {
+  return cube[((cond*M.n_band + band)*M.n_contact + c)*M.n_time + t];
+}
+
+// mean ERSP over a band set & the time window for one contact (NaN if no data)
+function bandMean(condIdx, c, bandList, t0, t1) {
+  let sum = 0, cnt = 0;
+  for (const b of bandList)
+    for (let t = t0; t <= t1; t++) {
+      const v = cubeAt(condIdx, b, c, t);
+      if (v === v) { sum += v; cnt++; }   // v===v rejects NaN
+    }
+  return cnt ? sum/cnt : NaN;
+}
+
+// per-contact scalar for a condition: avg(group A), or the equation avg(A) − avg(B)
+function computeContactVals(condIdx) {
+  const center = Math.max(0, Math.min(M.n_time-1, Math.round(state.center)));
+  const half = Math.floor(state.width/2);
+  const t0 = Math.max(0, center-half), t1 = Math.min(M.n_time-1, center+half);
+  const A = [...state.bands], B = [...state.bandsB], diff = state.diff;
+  const cv = new Float32Array(M.n_contact);
+  for (let c = 0; c < M.n_contact; c++) {
+    const a = bandMean(condIdx, c, A, t0, t1);
+    cv[c] = diff ? (a - bandMean(condIdx, c, B, t0, t1)) : a;   // NaN propagates if no data
+  }
+  return cv;
+}
+
+// per-condition density + alpha (depends only on which contacts are present) — computed once per brain
+function computeCoverage(condIdx, hemisObj) {
+  const present = new Uint8Array(M.n_contact);
+  for (let c = 0; c < M.n_contact; c++) {
+    let ok = 0;
+    for (let b = 0; b < M.n_band && !ok; b++)
+      for (let t = 0; t < M.n_time; t++) { const v = cubeAt(condIdx,b,c,t); if (v===v){ok=1;break;} }
+    present[c] = ok;
+  }
+  for (const h of ["lh","rh"]) {
+    const H = hemisObj[h], K = M.k_nearest, den = new Float32Array(H.nvert);
+    for (let v = 0; v < H.nvert; v++) {
+      let s = 0;
+      for (let k = 0; k < K; k++) { const ci = H.idx[v*K+k]; if (present[ci]) s += H.w[v*K+k]; }
+      den[v] = s;
+    }
+    const pos = Float32Array.from(den).filter(x => x > 0).sort();   // density normalize by high quantile
+    const q = pos.length ? pos[Math.min(pos.length-1, Math.floor(pos.length*M.density_norm_q))] : 1;
+    const alpha = new Float32Array(H.nvert);
+    const aMin=M.alpha_min, aMax=M.alpha_max, g=M.alpha_gamma;
+    for (let v = 0; v < H.nvert; v++) {
+      if (den[v] <= 0) { alpha[v] = 0; continue; }
+      const dn = Math.min(1, den[v]/Math.max(q,1e-8));
+      alpha[v] = aMin + (aMax-aMin)*Math.pow(dn, g);
+    }
+    H.den = den; H.alpha = alpha;
+  }
+  return present;
+}
+
+// color one brain (condition) at the current time/bands and push to its GPU
+function colorBrain(cond) {
+  const B = BR[cond]; if (!B || !B.hemis.lh) return;
+  const condIdx = M.conditions.indexOf(cond);
+  const cv = computeContactVals(condIdx);
+  const gray = M.base_brain_gray_rgb, vmax = state.vmax, K = M.k_nearest;
+  for (const h of ["lh","rh"]) {
+    const H = B.hemis[h], rgba = H.rgba;
+    const edgeH = (state.showRegions && REG) ? REG["edge"+h] : null;
+    for (let v = 0; v < H.nvert; v++) {
+      let num = 0; const den = H.den[v];
+      if (den > 0) {
+        for (let k = 0; k < K; k++) {
+          const ci = H.idx[v*K+k]; const val = cv[ci];
+          if (val === val) num += H.w[v*K+k] * val;
+        }
+      }
+      let r=gray[0], g=gray[1], b=gray[2];
+      if (den > 0) {
+        const val = num/den;
+        const t = Math.max(0, Math.min(1, (val + vmax)/(2*vmax)));
+        const c = bwr(t), a = H.alpha[v];
+        r = gray[0]*(1-a)+c[0]*a; g = gray[1]*(1-a)+c[1]*a; b = gray[2]*(1-a)+c[2]*a;
+      }
+      const rid = edgeH ? edgeH[v] : 0;
+      if (rid) { const col = REGCOL[rid]; if (col) { r = col[0]/255; g = col[1]/255; b = col[2]/255; } }  // colored region outline
+      const o = v*4;
+      rgba[o] = (r*255)|0; rgba[o+1] = (g*255)|0; rgba[o+2] = (b*255)|0; rgba[o+3] = 255;
+    }
+    H.mesh.rgba255 = rgba;             // assign full per-vertex buffer (Niivue default isn't nvert*4)
+    H.mesh.updateMesh(B.nv.gl);
+  }
+  B.nv.drawScene();
+}
+
+// surface transparency. In Niivue 0.45 the mesh shader alpha is a single scene value, not
+// per-mesh opacity — the only see-through lever is nv.opts.meshXRay (the X-ray pass), as in MOBA.
+function applyOpacity() {
+  const xray = state.opacity < 1 ? state.opacity : 0;   // 0 = solid; >0 = see-through at that alpha
+  for (const cond of BRAIN_CONDS) {
+    const B = BR[cond]; if (!B) continue;
+    B.nv.opts.meshXRay = xray;
+    try { B.nv.drawScene(); } catch (e) {}
+  }
+}
+
+// render every visible brain at the current state
+function render() {
+  for (const cond of visibleConds()) colorBrain(cond);
+  updateTimeLabel();
+}
+
+// Map a time bin to its warped phase + percentage-through-phase.
+// (TN mode: bins 0..boundary = Stimulus phase, boundary..n_time = Response phase — no real seconds.)
+function binPhase(bin) {
+  const phs = M.phases || [{name:"time", start:0, end:M.n_time}];
+  for (const p of phs) {
+    if (bin < p.end || p === phs[phs.length-1]) {
+      const pct = (bin - p.start) / Math.max(1, p.end - p.start) * 100;
+      return { name: p.name, pct: Math.max(0, Math.min(100, pct)) };
+    }
+  }
+}
+function updateTimeLabel() {
+  const half = Math.floor(state.width/2);
+  const c = Math.max(0, Math.min(M.n_time-1, Math.round(state.center)));
+  const t0 = Math.max(0,c-half), t1 = Math.min(M.n_time-1,c+half);
+  const p = binPhase(c);
+  $("timeLabel").innerHTML = `<b>${p.name} ${p.pct.toFixed(0)}%</b> ` +
+    `&nbsp;<span style="color:var(--muted)">warped · bins ${t0}–${t1}</span>`;
+  $("scrub").value = c;
+  updateTrackPlayhead(c);
+}
+
+// =========================================================================
+//  TIME-ANNOTATION TRACK  (expectation legend — what neural activity to
+//  EXPECT at each warped time, by frequency band. NOT measured data.)
+// =========================================================================
+const VOICE_ONSET_PCT = 67;        // editable: assumed voice-onset % (production markers derive from it)
+const CUE_PCT = 50, TAIL_PCT = 85;
+
+// Stacked lanes (top→bottom). hz = range used to decide if a selected band lights the lane.
+const LANES = [
+  { key:"hg",    short:"High γ", hz:[70,150], color:"#e4572e" },  // warm red
+  { key:"theta", short:"Theta",  hz:[4,8],    color:"#37b8a8" },  // teal
+  { key:"delta", short:"Delta",  hz:[1,4],    color:"#2191a6" },  // deep teal
+  { key:"beta",  short:"Beta",   hz:[13,30],  color:"#9aa6bd" },  // cool grey
+  { key:"alpha", short:"Alpha",  hz:[8,12],   color:"#b8c0cf" },  // light cool grey
+];
+const LANEIDX = Object.fromEntries(LANES.map((l,i)=>[l.key,i]));
+
+// Production markers — SAME % in every condition; fuzzy because voice onset floats.
+function prodMarkers() { return [
+  { lane:"hg",    s:CUE_PCT, e:62,              label:"preSMA/SMA initiation",              sign:"+", style:"fuzzy" },
+  { lane:"hg",    s:CUE_PCT, e:VOICE_ONSET_PCT, label:"Phonological encoding (IFG)",        sign:"+", style:"fuzzy" },
+  { lane:"hg",    s:VOICE_ONSET_PCT, e:TAIL_PCT,label:"Ventral sensorimotor articulation", sign:"+", style:"fuzzy" },
+  { lane:"beta",  s:45, e:TAIL_PCT,             label:"Beta ERD (motor)",                   sign:"-", style:"trough" },
+  { lane:"beta",  s:TAIL_PCT, e:90,             label:"Beta rebound",                       sign:"+", style:"bump" },
+  { lane:"alpha", s:2, e:90,                    label:"Alpha processing ERD",               sign:"-", style:"strip", faint:true },
+]; }
+
+// Perception markers — CONDITION-SPECIFIC, within the 0–50% window.
+const PERC = {
+  audio: [
+    { lane:"hg",    s:2,  e:5,  label:"Auditory onset (Heschl's/STG)", sign:"+", style:"tick" },
+    { lane:"hg",    s:30, e:48, label:"Lexical–semantic retrieval",    sign:"+", style:"fuzzy" },
+    { lane:"theta", s:2,  e:48, label:"Auditory syllabic tracking",    sign:"+", style:"strip" },
+    { lane:"delta", s:2,  e:48, label:"Prosodic / phrasal tracking",   sign:"+", style:"strip" },
+    { lane:"delta", s:40, e:50, label:"Semantic / N400 (ant. temporal)", sign:"-", style:"fuzzy" },
+  ],
+  picture: [
+    { lane:"hg",    s:8,  e:12, label:"Visual onset (occipital/fusiform)", sign:"+", style:"tick" },
+    { lane:"hg",    s:10, e:25, label:"Lexical–semantic retrieval (early)", sign:"+", style:"fuzzy" },
+    { lane:"hg",    s:2,  e:48, label:"Sustained visual",              sign:"+", style:"strip", faint:true },
+    { lane:"delta", s:40, e:50, label:"Semantic / N400 (ant. temporal)", sign:"-", style:"fuzzy" },
+  ],
+  reading: [
+    { lane:"hg",    s:2,  e:5,  label:"Visual onset",                  sign:"+", style:"tick" },
+    { lane:"hg",    s:40, e:48, label:"Lexical–semantic retrieval (sentence-final blank)", sign:"+", style:"fuzzy" },
+    { lane:"hg",    s:2,  e:48, label:"Sustained reading (visual)",    sign:"+", style:"strip", faint:true },
+    { lane:"theta", s:2,  e:48, label:"Syllabic tracking (read sentence)", sign:"+", style:"strip" },
+    { lane:"delta", s:2,  e:48, label:"Prosodic / phrasal tracking",   sign:"+", style:"strip" },
+    { lane:"delta", s:40, e:50, label:"Semantic / N400 (ant. temporal)", sign:"-", style:"fuzzy" },
+  ],
+};
+
+const _esc = (s)=>String(s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+
+// blocks shown: one per visible condition (mirrors the brains above).
+function trackBlocks() {
+  const v = visibleConds();
+  return v.length ? v : ["audio","picture","reading"];
+}
+// lanes whose Hz range overlaps ANY selected band -> highlighted; others dim.
+function lanesLit() {
+  const lit = new Set();
+  const sel = [...state.bands].map(i => M.bands_hz[i]);
+  for (const L of LANES)
+    for (const [lo,hi] of sel) if (lo < L.hz[1] && hi > L.hz[0]) { lit.add(L.key); break; }
+  return lit;
+}
+
+const TK = { topH:18, laneH:19, gut:70 };   // gut = left gutter (viewBox units) for lane labels
+TK.bodyTop = TK.topH; TK.bodyH = LANES.length*TK.laneH; TK.bottom = TK.bodyTop + TK.bodyH;
+const GUT_FRAC = TK.gut / 1000;             // gutter as a fraction of the track width
+
+function segSVG(j, m, X, L) {
+  const xs=X(m.s), xe=X(m.e), w=Math.max(0.6, xe-xs);
+  const y=TK.bodyTop + j*TK.laneH, pad=4, h=TK.laneH-2*pad, cy=y+TK.laneH/2, mid=(xs+xe)/2;
+  const tip=_esc(`${m.label} · ${L.short} · ${m.sign==="+"?"expected power ↑":"expected power ↓ (ERD)"}`);
+  const title=`<title>${tip}</title>`;
+  if (m.style==="tick")
+    return `<g>${title}<line x1="${mid}" y1="${y+2}" x2="${mid}" y2="${y+TK.laneH-2}" stroke="${L.color}" stroke-width="2.4"/><circle cx="${mid}" cy="${y+3}" r="2.2" fill="${L.color}"/></g>`;
+  if (m.style==="strip")
+    return `<rect x="${xs}" y="${y+pad}" width="${w}" height="${h}" rx="3" fill="${L.color}" opacity="${m.faint?0.16:0.40}">${title}</rect>`;
+  if (m.style==="trough")
+    return `<g>${title}<rect x="${xs}" y="${y+pad}" width="${w}" height="${h}" rx="3" fill="${L.color}" opacity="0.10"/>`+
+           `<path d="M ${xs} ${cy} Q ${mid} ${y+TK.laneH-3} ${xe} ${cy}" fill="none" stroke="${L.color}" stroke-width="1.8" opacity="0.85"/></g>`;
+  if (m.style==="bump")
+    return `<g>${title}<path d="M ${xs} ${y+TK.laneH-4} Q ${mid} ${y+3} ${xe} ${y+TK.laneH-4}" fill="none" stroke="${L.color}" stroke-width="1.8" opacity="0.9"/></g>`;
+  return `<rect x="${xs}" y="${y+pad}" width="${w}" height="${h}" rx="3" fill="url(#g_${L.key})" opacity="0.85">${title}</rect>`;  // fuzzy
+}
+
+function renderTrack() {
+  const svg = document.getElementById("annoTrack"); if (!svg) return;
+  const blocks = trackBlocks(), nB = blocks.length, VBW = 1000, bw = (VBW-TK.gut)/nB;
+  const lit = lanesLit();
+  const xOf = (i,p)=> TK.gut + i*bw + p/100*bw;
+  const curPct = Math.max(0, Math.min(100, Math.round(state.center)/(M.n_time-1)*100));
+  let s = "<defs>";
+  for (const L of LANES)
+    s += `<linearGradient id="g_${L.key}"><stop offset="0" stop-color="${L.color}" stop-opacity="0"/>`+
+         `<stop offset="0.5" stop-color="${L.color}" stop-opacity="0.8"/>`+
+         `<stop offset="1" stop-color="${L.color}" stop-opacity="0"/></linearGradient>`;
+  s += "</defs>";
+
+  blocks.forEach((cond, i) => {
+    const X = (p)=>xOf(i,p);
+    // phase shading
+    s += `<rect x="${X(0)}"  y="${TK.bodyTop}" width="${X(50)-X(0)}"  height="${TK.bodyH}" fill="#5ab0ff" opacity="0.06"/>`;
+    s += `<rect x="${X(50)}" y="${TK.bodyTop}" width="${X(100)-X(50)}" height="${TK.bodyH}" fill="#ffb45a" opacity="0.06"/>`;
+    s += `<rect x="${X(42)}" y="${TK.bodyTop}" width="${X(58)-X(42)}" height="${TK.bodyH}" fill="#ffffff" opacity="0.05"/>`;  // delay/maintenance
+    s += `<rect x="${X(85)}" y="${TK.bodyTop}" width="${X(100)-X(85)}" height="${TK.bodyH}" fill="#000000" opacity="0.16"/>`; // silent tail
+    if (i>0) { const dxv=TK.gut+i*bw; s += `<line x1="${dxv}" y1="0" x2="${dxv}" y2="${TK.bottom+2}" stroke="#ffffff" stroke-opacity="0.18"/>`; }
+    s += `<text x="${X(50)}" y="12" text-anchor="middle" font-size="10" font-weight="600" fill="#cdd3dc">${_esc(cond[0].toUpperCase()+cond.slice(1))}</text>`;
+    for (let j=0;j<LANES.length;j++){ const y=TK.bodyTop+j*TK.laneH;
+      s += `<line x1="${X(0)}" y1="${y+TK.laneH}" x2="${X(100)}" y2="${y+TK.laneH}" stroke="#ffffff" stroke-opacity="0.05"/>`; }
+    // markers (production shared + perception for this block's condition)
+    for (const m of prodMarkers().concat(PERC[cond]||[])) {
+      const j=LANEIDX[m.lane]; if (j==null) continue; const L=LANES[j];
+      s += `<g opacity="${lit.has(L.key)?1:0.22}">${segSVG(j,m,X,L)}</g>`;
+    }
+    // cue + voice-onset lines, phase words
+    s += `<line x1="${X(50)}" y1="${TK.bodyTop-2}" x2="${X(50)}" y2="${TK.bottom+2}" stroke="#e8e8ec" stroke-width="1.5" opacity="0.85"/>`;
+    s += `<text x="${X(50)}" y="${TK.bottom+10}" text-anchor="middle" font-size="8.5" fill="#e8e8ec">▲ “?” cue</text>`;
+    s += `<line x1="${X(VOICE_ONSET_PCT)}" y1="${TK.bodyTop-2}" x2="${X(VOICE_ONSET_PCT)}" y2="${TK.bottom+2}" stroke="#ffd27f" stroke-width="1.2" stroke-dasharray="3 3" opacity="0.8"/>`;
+    s += `<text x="${X(VOICE_ONSET_PCT)}" y="${TK.bottom+10}" text-anchor="middle" font-size="8" fill="#ffd27f">voice ${VOICE_ONSET_PCT}%</text>`;
+    s += `<text x="${X(24)}" y="${TK.bottom+10}" text-anchor="middle" font-size="8" fill="#7f8794">PERCEPTION</text>`;
+    s += `<text x="${X(78)}" y="${TK.bottom+10}" text-anchor="middle" font-size="8" fill="#7f8794">PRODUCTION</text>`;
+    // playhead
+    const px=X(curPct);
+    s += `<line id="ph${i}" x1="${px}" y1="${TK.bodyTop-3}" x2="${px}" y2="${TK.bottom+2}" stroke="#ffffff" stroke-width="1.4" opacity="0.9"/>`;
+  });
+
+  // lane labels — in the left gutter, OUTSIDE the plot (no longer overwriting markers)
+  for (let j=0;j<LANES.length;j++){ const L=LANES[j], y=TK.bodyTop+j*TK.laneH;
+    s += `<g opacity="${lit.has(L.key)?1:0.45}">`+
+         `<text x="${TK.gut-6}" y="${y+TK.laneH/2+3}" text-anchor="end" font-size="9" font-weight="600" fill="${L.color}">${L.short}</text></g>`;
+  }
+  svg.innerHTML = s;
+
+  const cap = document.getElementById("annoCaption");
+  if (cap) cap.innerHTML =
+    `<b>Expected activity — reference, not measured.</b> Perception tags align proportionally across ` +
+    `conditions (sustained stimuli); production tags are <b>fuzzy</b> because voice onset is <b>not anchored</b> — ` +
+    `it floats with reaction time even on the warped axis. <b>50% = cue (“?”), not voice onset.</b>`;
+}
+
+function updateTrackPlayhead(bin) {
+  const nB = trackBlocks().length, bw = (1000-TK.gut)/nB;
+  const pct = Math.max(0, Math.min(100, bin/(M.n_time-1)*100));
+  for (let i=0;i<nB;i++){ const el=document.getElementById("ph"+i);
+    if (el){ const x=TK.gut + i*bw + pct/100*bw; el.setAttribute("x1",x); el.setAttribute("x2",x); } }
+}
+
+// ---- animation loop ------------------------------------------------------
+let lastT = null;
+function tick(now) {
+  if (!state.playing) { lastT = null; return; }
+  if (lastT == null) lastT = now;
+  const dt = (now - lastT)/1000; lastT = now;
+  // TN axis has no real seconds: sweep all bins in ~10 s at 1x (×speed).
+  const binsPerSec = M.n_time / 10;
+  state.center += dt * binsPerSec * state.speed;
+  if (state.center >= M.n_time-1) {
+    if (state.loop) state.center = 0; else { state.center = M.n_time-1; setPlaying(false); }
+  }
+  render();
+  requestAnimationFrame(tick);
+}
+function setPlaying(p) {
+  state.playing = p; $("playBtn").textContent = p ? "❚❚" : "▶";
+  if (p) requestAnimationFrame(tick);
+}
+
+// ---- UI wiring -----------------------------------------------------------
+function buildUI() {
+  // conditions (checkboxes — one brain per checked condition, in BRAIN_CONDS order)
+  const conds = $("conds");
+  BRAIN_CONDS.forEach(c => {
+    const lab = document.createElement("label");
+    lab.innerHTML = `<input type="checkbox" value="${c}" checked> ${c}`;
+    conds.appendChild(lab);
+  });
+  conds.addEventListener("change", e => {
+    const c = e.target.value;
+    if (e.target.checked) state.conds.add(c); else state.conds.delete(c);
+    if (state.conds.size === 0) { state.conds.add(c); e.target.checked = true; }  // keep ≥1
+    setLayout(); render(); renderTrack(); updateElectrodes(); updateRegions();
+  });
+
+  // frequency bands — group A (always) and group B (difference mode)
+  const mkBands = (elId, set) => {
+    const el = $(elId);
+    M.bands_hz.forEach((b,i) => {
+      const lab = document.createElement("label");
+      lab.innerHTML = `<input type="checkbox" value="${i}" ${set.has(i)?"checked":""}> ${b[0]}–${b[1]}`;
+      el.appendChild(lab);
+    });
+    el.addEventListener("change", e => {
+      const i = +e.target.value;
+      if (e.target.checked) set.add(i); else set.delete(i);
+      render(); renderTrack();
+    });
+    return el;
+  };
+  const bandsEl  = mkBands("bands",  state.bands);
+  const bandsBEl = mkBands("bandsB", state.bandsB);
+  const setAll = (el,set,on) => { set.clear();
+    el.querySelectorAll("input").forEach((cb,i)=>{ cb.checked=on; if(on) set.add(i); }); render(); renderTrack(); };
+  $("bandsAll").onclick  = () => setAll(bandsEl,  state.bands,  true);
+  $("bandsNone").onclick = () => setAll(bandsEl,  state.bands,  false);
+  $("bandsBAll").onclick  = () => setAll(bandsBEl, state.bandsB, true);
+  $("bandsBNone").onclick = () => setAll(bandsBEl, state.bandsB, false);
+  $("diffMode").onchange = e => {
+    state.diff = e.target.checked;
+    $("bandsBwrap").style.display = state.diff ? "block" : "none";
+    $("groupAlbl").style.display  = state.diff ? "inline" : "none";
+    $("cbMode").textContent = state.diff ? "Δ A−B" : "ERSP";
+    render(); renderTrack();
+  };
+
+  // width / speed / clim
+  const width = $("width"); width.value = state.width; $("widthVal").textContent = state.width;
+  width.oninput = () => { state.width = +width.value; $("widthVal").textContent = state.width; render(); };
+  const speed = $("speed");
+  speed.oninput = () => { state.speed = +speed.value; $("speedVal").textContent = state.speed.toFixed(1)+"×"; };
+  const clim = $("clim"); clim.value = state.vmax; $("climVal").textContent = "±"+state.vmax;
+  clim.oninput = () => { state.vmax = +clim.value; $("climVal").textContent = "±"+state.vmax;
+    $("cbHi").textContent = "+"+state.vmax; $("cbLo").textContent = "−"+state.vmax; render(); };
+  $("transp").onchange = e => { state.opacity = e.target.checked ? 0.18 : 1.0; applyOpacity(); };
+
+  $("loop").onchange = e => state.loop = e.target.checked;
+  $("surf").onchange = e => switchSurface(e.target.value);
+  $("showElec").onchange = e => { state.showElec = e.target.checked; updateElectrodes(); };
+  $("showRegions").onchange = e => { state.showRegions = e.target.checked; updateRegions(); };
+  if (!REG) $("showRegions").closest("label").style.display = "none";  // hide if no region data
+
+  // transport — inset the scrubber to align its travel with the track's block region
+  $("playBtn").onclick = () => setPlaying(!state.playing);
+  const sc = $("scrub");
+  sc.max = M.n_time-1;
+  sc.style.marginLeft = (GUT_FRAC*100) + "%";
+  sc.style.width = ((1-GUT_FRAC)*100) + "%";
+
+  $("scrub").oninput = (e) => { setPlaying(false); state.center = +e.target.value; render(); };
+
+  // collapsible controls panel (so it doesn't cover the brains)
+  const toggleCtl = () => {
+    const c = $("controls").classList.toggle("collapsed");
+    $("ctlChevron").textContent = c ? "▸" : "▾";
+  };
+  $("ctlToggle").onclick = toggleCtl;
+
+  // hotkeys
+  window.addEventListener("keydown", (e) => {
+    if (e.key === "h") document.querySelectorAll(".panel").forEach(p => p.classList.toggle("hidden"));
+    else if (e.key === "c") toggleCtl();
+    else if (e.key === " ") { e.preventDefault(); setPlaying(!state.playing); }
+  });
+
+  renderTrack();
+}
+
+// bind a brain instance's two meshes (loaded in order [lh, rh]) to its hemis object
+function bindMeshesFor(nvInst, hemisObj) {
+  ["lh","rh"].forEach((h,i) => {
+    const m = nvInst.meshes[i];
+    const idx = h==="lh"?projLhIdx:projRhIdx, w = h==="lh"?projLhW:projRhW;
+    const nvert = m.pts.length/3;
+    hemisObj[h] = { mesh:m, idx, w, nvert, rgba:new Uint8Array(nvert*4) };
+  });
+  // FreeSurfer inflated hemispheres are each centered at the origin and overlap into a
+  // blob — slide LH left and RH right so both are visible.
+  if (state.surf === "inflated") {
+    [[-INFLATED_SHIFT, hemisObj.lh.mesh], [INFLATED_SHIFT, hemisObj.rh.mesh]].forEach(([dx, m]) => {
+      const p = m.pts; for (let k=0;k<p.length;k+=3) p[k] += dx;
+      m.updateMesh(nvInst.gl);
+    });
+  }
+}
+
+// show/hide brain cells for the selected conditions and resize the visible Niivue views
+function setLayout() {
+  const vis = new Set(visibleConds());
+  for (const cond of BRAIN_CONDS) BR[cond].cell.classList.toggle("show", vis.has(cond));
+  $("brains").classList.toggle("single", vis.size === 1);
+  fitBrains();
+}
+function fitBrains() {
+  const t = $("transport");
+  const vh = window.innerHeight || 800;
+  let reserve = (t ? t.offsetHeight : 230) + 26;
+  reserve = Math.max(180, Math.min(reserve, Math.round(vh * 0.55)));  // brains always keep ≥45% height
+  $("brains").style.bottom = reserve + "px";
+  for (const cond of BRAIN_CONDS) {
+    const B = BR[cond];
+    if (B && B.cell.classList.contains("show")) { try { B.nv.resizeListener(); } catch (e) {} }
+  }
+}
+
+async function switchSurface(kind) {
+  state.surf = kind;
+  const lhUrl = BUNDLE + (kind==="inflated" ? M.hemis.lh.mesh_inflated : M.hemis.lh.mesh);
+  const rhUrl = BUNDLE + (kind==="inflated" ? M.hemis.rh.mesh_inflated : M.hemis.rh.mesh);
+  for (const cond of BRAIN_CONDS) {
+    const B = BR[cond];
+    B.elec = null;
+    [...B.nv.meshes].forEach(m => B.nv.removeMesh(m));
+    await B.nv.loadMeshes([{url:lhUrl}, {url:rhUrl}]);
+    bindMeshesFor(B.nv, B.hemis);
+    B.present = computeCoverage(M.conditions.indexOf(cond), B.hemis);
+  }
+  render();
+  applyOpacity();      // meshes were recreated — reapply transparency
+  updateElectrodes();  // electrodes only render on pial (see below)
+  updateRegions();     // re-anchor landmark labels to the new surface
+}
+
+// electrode-coverage overlay: one small octahedron per present contact, as a single light mesh
+// (a sphere-per-node connectome is far too heavy at ~2700 contacts × 3 brains).
+const _OCT = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
+const _OCTF = [[0,2,4],[2,1,4],[1,3,4],[3,0,4],[2,0,5],[1,2,5],[3,1,5],[0,3,5]];
+function buildElectrodeMesh(B, condName) {
+  const present = B.present || [], r = 1.7, pts = [], tris = [];
+  let vi = 0;
+  for (let c=0;c<CONTACTS.length;c++) {
+    if (!present[c]) continue;
+    const ct = CONTACTS[c];
+    const dx = state.surf==="inflated" ? (ct.hemi==="lh"?-INFLATED_SHIFT:INFLATED_SHIFT) : 0;
+    for (const o of _OCT) pts.push(ct.x+dx+o[0]*r, ct.y+o[1]*r, ct.z+o[2]*r);
+    for (const f of _OCTF) tris.push(vi+f[0], vi+f[1], vi+f[2]);
+    vi += 6;
+  }
+  const nVert = pts.length/3, rgba = new Uint8Array(nVert*4);
+  for (let i=0;i<nVert;i++){ rgba[i*4]=255; rgba[i*4+1]=232; rgba[i*4+2]=64; rgba[i*4+3]=255; }  // amber nodes
+  return new NVMesh(new Float32Array(pts), new Uint32Array(tris),
+                    "electrodes_"+condName, rgba, 1.0, true, B.nv.gl);
+}
+function updateElectrodes() {
+  for (const cond of BRAIN_CONDS) {
+    const B = BR[cond]; if (!B) continue;
+    if (B.elec) { try { B.nv.removeMesh(B.elec); } catch (e) {} B.elec = null; }
+    // electrodes are in anatomical (pial) space — they don't lie on the inflated surface, so skip there
+    if (state.showElec && state.surf !== "inflated" && state.conds.has(cond) && CONTACTS.length) {
+      try { const m = buildElectrodeMesh(B, cond); B.nv.addMesh(m); B.elec = m; B.nv.drawScene(); }
+      catch (e) { console.error("electrode overlay failed:", e); }
+    }
+  }
+}
+
+// anatomical landmarks: colored outlines on the surface + a static bottom-left legend
+// (grouped by functional system, color = the outline shade). No leader lines.
+let _legendBuilt = false;
+function buildRegionLegend() {
+  if (_legendBuilt || !REG) return;
+  const el = $("regionLegend"); let html = "", lastSys = null;
+  for (const r of (M.regions || [])) {
+    if (r.system !== lastSys) { html += `<div class="sys">${r.system}</div>`; lastSys = r.system; }
+    const c = r.color;
+    html += `<div class="ritem"><span class="sw" style="background:rgb(${c[0]},${c[1]},${c[2]})"></span>${r.name}</div>`;
+  }
+  el.innerHTML = html; _legendBuilt = true;
+}
+function updateRegions() {
+  buildRegionLegend();
+  $("regionLegend").classList.toggle("on", !!(state.showRegions && REG));
+  render();   // repaint outlines (colorBrain reads state.showRegions)
+}
+
+async function main() {
+  try {
+    await loadBundle();
+  } catch (e) { return fail(`Failed to load data bundle.<br><small>${e.message}</small><br><br>
+    Serve over http (browsers block local file fetches):<br>
+    <code>python -m http.server</code> from <code>02_FBM_Clustering/</code>, then open<br>
+    <code>http://localhost:8000/scripts/activity_visualizer.html</code>`); }
+
+  try {
+    // one Niivue instance per condition (cells are visible at init so canvases size correctly)
+    for (const cond of BRAIN_CONDS) {
+      const cell = document.querySelector(`.braincell[data-cond="${cond}"]`);
+      const nvI = new Niivue({ backColor:[0,0,0,1], show3Dcrosshair:false, isColorbar:false,
+                               meshXRay:0.0, isOrientCube:false });
+      nvI.attachToCanvas(cell.querySelector("canvas"));
+      nvI.setSliceType(nvI.sliceTypeRender);
+      BR[cond] = { nv:nvI, cell, hemis:{} };
+    }
+    for (const cond of BRAIN_CONDS) {
+      await BR[cond].nv.loadMeshes([{url:BUNDLE+M.hemis.lh.mesh}, {url:BUNDLE+M.hemis.rh.mesh}]);
+      bindMeshesFor(BR[cond].nv, BR[cond].hemis);
+      BR[cond].present = computeCoverage(M.conditions.indexOf(cond), BR[cond].hemis);
+    }
+  } catch (e) { return fail(`Mesh load failed.<br><small>${e.message}</small>`); }
+
+  try {
+    buildUI();
+    setLayout();
+    render();
+    window.addEventListener("resize", fitBrains);
+    statusEl.style.display = "none";
+    window.__viz = { BR, state, M, render, setLayout, fitBrains, renderTrack, updateElectrodes, updateRegions, applyOpacity, switchSurface, tick, setPlaying };  // debug hook
+  } catch (e) { fail("Init error: " + e.message); throw e; }
+}
+main();
+</script>
+</body>
+</html>

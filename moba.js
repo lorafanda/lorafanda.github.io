@@ -669,10 +669,30 @@ function setT1Opacity(pct) {
   if (typeof nv.drawScene === 'function') nv.drawScene();
 }
 
+// Toggle the cortex between translucent "glass" (default) and solid.
+function toggleBrainAlpha() {
+  const nv = mobaState.nv; if (!nv) return;
+  mobaState.brainOpaque = !mobaState.brainOpaque;
+  const o = mobaState.brainOpaque ? 1.0 : 0.18;
+  for (const m of (nv.meshes || [])) {
+    if (typeof m.name === 'string' && /fsaverage/i.test(m.name)) {
+      if ('opacity' in m)      m.opacity = o;
+      if ('layerOpacity' in m) m.layerOpacity = o;
+      if ('meshOpacity' in m)  m.meshOpacity = o;
+      if (m.rgba255 && m.rgba255.length >= 4) m.rgba255[3] = Math.round(o * 255);
+    }
+  }
+  const btn = document.getElementById('brainAlphaBtn');
+  if (btn) { btn.textContent = mobaState.brainOpaque ? 'Brain: Solid' : 'Brain: Glass';
+             btn.classList.toggle('active', !mobaState.brainOpaque); }
+  if (typeof nv.drawScene === 'function') nv.drawScene();
+}
+
 // Expose so the inline onclick handlers in the HTML can reach them.
 window.toggleSurfaceMode = toggleSurfaceMode;
 window.toggleT1Overlay   = toggleT1Overlay;
 window.setT1Opacity      = setT1Opacity;
+window.toggleBrainAlpha  = toggleBrainAlpha;
 
 async function initBrain() {
   const canvas = document.getElementById('brainCanvas');
@@ -766,8 +786,8 @@ async function initBrain() {
     if (typeof nv.drawScene === 'function')      nv.drawScene();
   } catch (e) { console.warn('[MOBA] Could not set brain opacity:', e); }
 
-  // anatomical landmark outlines + legend (region_overlays.js)
-  try { if (window.roInit) window.roInit(nv); } catch (e) { console.warn('[MOBA] roInit:', e); }
+  // anatomical landmark outlines + legend (region_overlays.js) — legend bottom-right
+  try { if (window.roInit) window.roInit(nv, { corner: 'bottom-right' }); } catch (e) { console.warn('[MOBA] roInit:', e); }
 
   // Default view: dorsal-anterior (similar feel to the "dorsal" recon PNG;
   // both hemispheres visible in the same frame).
@@ -1814,8 +1834,8 @@ async function renderBrain() {
     // is_cortical comes from 251's recon. Until you re-run 251 + 252,
     // older runs won't have the column and every electrode is treated as
     // cortical (matches the pre-refactor behaviour).
-    const SPHERE_RADIUS_CORTICAL_MM = 2.52;   // surface contacts: prominent
-    const SPHERE_RADIUS_DEPTH_MM    = 1.65;   // depth contacts: ~65% size
+    const SPHERE_RADIUS_CORTICAL_MM = 1.7;    // smaller — matches activity_visualizer
+    const SPHERE_RADIUS_DEPTH_MM    = 1.4;    // depth contacts: a touch smaller
     const ALPHA_CORTICAL            = 255;
     const ALPHA_DEPTH               = 180;    // ~70% opacity — fades a bit
 

@@ -1,74 +1,107 @@
 /*
- * region_overlays.js — anatomical landmark outlines + bottom-left legend.
+ * region_overlays.js — anatomical landmark outlines + legend (MOBA / Pool).
  *
- * Shared by activity_visualizer / moba / pool. After the fsaverage brain meshes
- * are loaded into a Niivue instance, call:  roInit(nv)
- * It injects a "Anatomical regions" toggle (bottom-left) + a grouped color legend,
- * and on toggle paints colored outlines of small Destrieux landmarks onto the
- * fsaverage cortical surface (per-vertex rgba255).
+ * After the fsaverage brain meshes are loaded into a Niivue instance, call:
+ *     roInit(nv, { corner: "top-left" | "bottom-right" | ... })
+ * It adds an "Anatomical regions" toggle + grouped color legend (in `corner`),
+ * and on toggle draws colored outlines of small Destrieux landmarks.
  *
- * Data (per-vertex region-id outline bands + region table) lives in the
- * Analysis_LoraFanda repo and is fetched via raw.githubusercontent (CORS-open).
- * The arrays are in fsaverage vertex order, identical to the lh/rh meshes the
- * pages load — so no remapping is needed.
+ * The outlines are rendered as SEPARATE opaque band meshes (one per region),
+ * lifted slightly off the cortex — so they read at full (electrode-like) opacity
+ * even when the brain itself is a translucent "glass" surface. The brain mesh is
+ * never modified, so this can't disturb the page's own coloring/opacity.
  *
- * After a page reloads/swaps the brain meshes (e.g. MOBA's pial<->inflated), call
- * roRefresh(nv) to re-apply the outlines if the toggle is on.
+ * Call roRefresh(nv) after the page swaps the brain meshes (e.g. pial<->inflated).
+ *
+ * Data lives in Analysis_LoraFanda; fetched via raw.githubusercontent (CORS-open).
+ * Override the source by setting window.RO_BASE before this script's first init.
  */
 (function () {
-  // Region bundle currently lives on the 'activity-visualizer' branch. If it is
-  // ever merged into main, change this to .../main/...
-  const BASE = "https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/" +
-               "activity-visualizer/02_FBM_Clustering/outputs/250_recon/fsaverage/activity_viz/";
+  const DEFAULT_BASE =
+    "https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/" +
+    "activity-visualizer/02_FBM_Clustering/outputs/250_recon/fsaverage/activity_viz/";
+  const OUTLINE_ALPHA = 255;   // opaque (same as cortical electrodes)
+  const OFFSET_MM = 1.0;       // lift bands off the cortex so they sit above a glass brain
 
   const RO = { nv: null, on: false, loaded: false, regions: [], regcol: {}, edge: { lh: null, rh: null } };
+
+  const base = () => (window.RO_BASE || DEFAULT_BASE);
 
   async function load() {
     if (RO.loaded) return true;
     try {
-      RO.regions = ((await (await fetch(BASE + "regions.json")).json()).regions) || [];
+      const B = base();
+      RO.regions = ((await (await fetch(B + "regions.json")).json()).regions) || [];
       RO.regcol = {};
       for (const r of RO.regions) RO.regcol[r.id] = r.color;
       const u8 = async (u) => new Uint8Array(await (await fetch(u)).arrayBuffer());
-      RO.edge.lh = await u8(BASE + "region_edge_lh_u8.bin");
-      RO.edge.rh = await u8(BASE + "region_edge_rh_u8.bin");
+      RO.edge.lh = await u8(B + "region_edge_lh_u8.bin");
+      RO.edge.rh = await u8(B + "region_edge_rh_u8.bin");
       RO.loaded = true;
       return true;
     } catch (e) { console.error("[regions] data load failed:", e); return false; }
   }
 
   const brainMeshes = (nv) => (nv.meshes || []).filter(
-    (m) => typeof m.name === "string" && /fsaverage/i.test(m.name));
+    (m) => typeof m.name === "string" && /fsaverage/i.test(m.name) && m.pts && m.tris);
   const hemiOf = (m) => /rh/i.test(String(m.name).replace(/fsaverage/i, "")) ? "rh" : "lh";
 
-  // paint outlines (or restore bone) onto every fsaverage brain mesh
-  function apply() {
-    const nv = RO.nv; if (!nv) return;
+  // OBJ string of the boundary-band triangles for one region (both hemispheres),
+  // lifted outward from each hemisphere's centroid so they float just off the cortex.
+  function buildRegionOBJ(id) {
+    const nv = RO.nv, v = [], f = []; let vi = 0;
     for (const m of brainMeshes(nv)) {
-      const nvert = m.pts ? (m.pts.length / 3) : 0;
-      if (!nvert) continue;
-      if (!m._roBase) {                                    // capture the bone base color once
-        const r = m.rgba255;
-        m._roBase = (r && r.length >= 4) ? [r[0], r[1], r[2], r[3]] : [205, 198, 190, 46];
+      const e = RO.edge[hemiOf(m)]; if (!e) continue;
+      const pts = m.pts, tris = m.tris, n = pts.length / 3;
+      let cx = 0, cy = 0, cz = 0;
+      for (let k = 0; k < pts.length; k += 3) { cx += pts[k]; cy += pts[k + 1]; cz += pts[k + 2]; }
+      cx /= n; cy /= n; cz /= n;
+      for (let t = 0; t < tris.length; t += 3) {
+        const a = tris[t], b = tris[t + 1], c = tris[t + 2];
+        if (e[a] === id && e[b] === id && e[c] === id) {
+          for (const idx of [a, b, c]) {
+            const o = idx * 3; let x = pts[o], y = pts[o + 1], z = pts[o + 2];
+            const dx = x - cx, dy = y - cy, dz = z - cz, L = Math.hypot(dx, dy, dz) || 1, s = OFFSET_MM / L;
+            v.push("v " + (x + dx * s).toFixed(2) + " " + (y + dy * s).toFixed(2) + " " + (z + dz * s).toFixed(2));
+          }
+          f.push("f " + (vi + 1) + " " + (vi + 2) + " " + (vi + 3)); vi += 3;
+        }
       }
-      const base = m._roBase, rgba = new Uint8Array(nvert * 4);
-      for (let v = 0; v < nvert; v++) { const o = v * 4; rgba[o] = base[0]; rgba[o + 1] = base[1]; rgba[o + 2] = base[2]; rgba[o + 3] = base[3]; }
-      if (RO.on) {
-        const e = RO.edge[hemiOf(m)];
-        if (e) { const n = Math.min(nvert, e.length);
-          for (let v = 0; v < n; v++) { const rid = e[v];
-            if (rid) { const c = RO.regcol[rid]; const o = v * 4; rgba[o] = c[0]; rgba[o + 1] = c[1]; rgba[o + 2] = c[2]; rgba[o + 3] = 255; } } }
+    }
+    return f.length ? ("# region " + id + "\n" + v.join("\n") + "\n" + f.join("\n") + "\n") : null;
+  }
+
+  async function apply() {
+    const nv = RO.nv; if (!nv) return;
+    for (const m of [...(nv.meshes || [])])
+      if (String(m.name || "").startsWith("region_")) { try { nv.removeMesh(m); } catch (e) {} }
+    if (RO.on) {
+      for (const r of RO.regions) {
+        const obj = buildRegionOBJ(r.id); if (!obj) continue;
+        const url = URL.createObjectURL(new Blob([obj], { type: "text/plain" }));
+        try {
+          await nv.addMeshFromUrl({ url, name: "region_" + r.id + ".obj",
+            rgba255: [r.color[0], r.color[1], r.color[2], OUTLINE_ALPHA] });
+          const mm = nv.meshes[nv.meshes.length - 1];
+          if (mm) try { nv.setMeshShader(mm.id, "Flat"); } catch (e) {}
+        } catch (e) { console.error("[regions] add", r.id, e); }
+        URL.revokeObjectURL(url);
       }
-      m.rgba255 = rgba;
-      try { if (typeof m.updateMesh === "function") m.updateMesh(nv.gl); } catch (e) {}
     }
     try { nv.drawScene(); } catch (e) {}
   }
 
-  function buildUI() {
+  function cornerCSS(corner) {
+    const c = corner || "bottom-left";
+    const v = c.includes("top") ? "top:14px;" : "bottom:14px;";
+    const h = c.includes("right") ? "right:14px;" : "left:14px;";
+    return v + h;
+  }
+
+  function buildUI(corner) {
     if (document.getElementById("roPanel")) return;
     const css =
-      "#roPanel{position:fixed;left:14px;bottom:14px;z-index:9999;font:12px -apple-system,Segoe UI,Roboto,Arial,sans-serif;" +
+      "#roPanel{position:fixed;" + cornerCSS(corner) + "z-index:9999;font:12px -apple-system,Segoe UI,Roboto,Arial,sans-serif;" +
       "background:rgba(18,18,22,.86);color:#e8e8ec;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;" +
       "max-width:240px;max-height:52vh;overflow:auto;backdrop-filter:blur(6px)}" +
       "#roPanel label.hd{display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:600;user-select:none}" +
@@ -84,9 +117,9 @@
 
     let html = "", last = null;
     for (const r of RO.regions) {
-      if (r.system !== last) { html += `<div class="sys">${r.system}</div>`; last = r.system; }
+      if (r.system !== last) { html += '<div class="sys">' + r.system + "</div>"; last = r.system; }
       const c = r.color;
-      html += `<div class="ritem"><span class="sw" style="background:rgb(${c[0]},${c[1]},${c[2]})"></span>${r.name}</div>`;
+      html += '<div class="ritem"><span class="sw" style="background:rgb(' + c[0] + "," + c[1] + "," + c[2] + ')"></span>' + r.name + "</div>";
     }
     document.getElementById("roLegend").innerHTML = html;
     document.getElementById("roChk").addEventListener("change", (e) => {
@@ -96,10 +129,10 @@
     });
   }
 
-  async function roInit(nv) { RO.nv = nv; if (!(await load())) return; buildUI(); if (RO.on) apply(); }
+  async function roInit(nv, opts) { RO.nv = nv; if (!(await load())) return; buildUI((opts || {}).corner); if (RO.on) apply(); }
   function roRefresh(nv) { if (nv) RO.nv = nv; if (RO.on) apply(); }
 
   window.roInit = roInit;
   window.roRefresh = roRefresh;
-  window.__RO = RO;   // debug hook
+  window.__RO = RO;
 })();

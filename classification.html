@@ -30,6 +30,21 @@
     .topbar a.back:hover, .topbar a.guide:hover { color: var(--text); }
     .topbar .spacer { flex: 1; }
 
+    /* ── Selector button-bars (replaces the run dropdown) ── */
+    #selbars { position: sticky; top: var(--nav-h); z-index: 40; background: var(--surface);
+               border-bottom: 1px solid var(--border); padding: 8px 1.5rem; }
+    .selrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin: 3px 0; }
+    .sellabel { font-size: 0.62rem; letter-spacing: 0.08em; text-transform: uppercase;
+                color: var(--muted); width: 76px; flex: 0 0 76px; }
+    .selbtn { font-family: 'JetBrains Mono', monospace; font-size: 0.72rem; padding: 4px 10px;
+              background: var(--bg); color: var(--text); border: 1px solid var(--border);
+              border-radius: 6px; cursor: pointer; }
+    .selbtn:hover { background: var(--surface2); }
+    .selbtn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+    .selbtn.missing { opacity: 0.4; }     /* this combo (with the other two selections) wasn't run */
+    .selbtn.legacy { font-style: italic; opacity: 0.65; }
+    .selbtn.legacy.active { opacity: 1; }
+
     main { max-width: 1400px; margin: 0 auto; padding: 1.5rem; display: grid; gap: 1.25rem; grid-template-columns: 1fr 1fr; }
     @media (max-width: 950px) { main { grid-template-columns: 1fr; } }
     section.panel { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; align-self: start; }
@@ -113,11 +128,11 @@
     <span class="brand">Classification <span class="sub">— Lora Fanda</span></span>
     <span class="draft-badge">DRAFT</span>
     <span class="spacer"></span>
-    <select id="runPicker" title="Switch run"></select>
     <a class="guide" id="guideLink" href="#" target="_blank" rel="noopener">Reading guide ↗</a>
     <a class="back" href="moba.html">← MOBA</a>
   </div>
 
+  <div id="selbars"></div>
   <div id="app"></div>
 
   <footer>
@@ -373,18 +388,52 @@
     });
   }
 
-  // ── Run picker, grouped + primary-first ──
-  function fillPicker(index){
-    const picker = document.getElementById('runPicker'); picker.innerHTML='';
-    const score = r => (r.task===PRIMARY.task && r.variant===PRIMARY.variant && r.classifier===PRIMARY.classifier) ? 0 : 1;
-    const sorted = [...index].sort((a,b)=> score(a)-score(b) || a.task.localeCompare(b.task) || a.variant.localeCompare(b.variant) || a.classifier.localeCompare(b.classifier));
-    for (const r of sorted){
-      const o=document.createElement('option'); o.value=r.path;
-      const star = score(r)===0?'★ ':'';
-      o.textContent = `${star}${r.task} · ${r.variant} · ${r.classifier}`;
-      picker.appendChild(o);
+  // ── Selector button-bars (Task · Feature · Classifier) ──
+  const TASK_LABEL = { condition:'Condition', parcellation_yeo7:'Yeo-7', parcellation_yeo17:'Yeo-17' };
+  const CLF_LABEL  = { logreg:'LogReg', rf:'Random Forest' };
+  const TASK_ORDER = ['condition','parcellation_yeo7','parcellation_yeo17'];
+  const VAR_ORDER  = ['full_300','full_30','hg_300','hg_30','m101_300','m101_30','full_300_rn','full_30_rn'];
+  const CLF_ORDER  = ['logreg','rf'];
+  const LEGACY_VARS = new Set(['rawds','hg','hg_ds']);   // pre-refactor variants
+
+  let SEL = {}, INDEX = [];
+  const ordered = (vals, pref) => [...pref.filter(v=>vals.has(v)), ...[...vals].filter(v=>!pref.includes(v)).sort()];
+  const exact = sel => INDEX.find(r => r.task===sel.task && r.variant===sel.variant && r.classifier===sel.classifier);
+
+  function buildBars(){
+    const tasks = ordered(new Set(INDEX.map(r=>r.task)), TASK_ORDER);
+    const vars  = ordered(new Set(INDEX.map(r=>r.variant)), VAR_ORDER);
+    const clfs  = ordered(new Set(INDEX.map(r=>r.classifier)), CLF_ORDER);
+    const bar = (dim, label, vals, labeler) => {
+      let h = `<div class="selrow"><span class="sellabel">${label}</span>`;
+      for (const v of vals){
+        const active  = SEL[dim]===v;
+        const missing = !exact({ ...SEL, [dim]:v });          // this combo (with current others) wasn't run
+        const legacy  = dim==='variant' && LEGACY_VARS.has(v);
+        h += `<button class="selbtn${active?' active':''}${missing?' missing':''}${legacy?' legacy':''}"
+                data-dim="${dim}" data-val="${v}">${labeler?labeler(v):v}</button>`;
+      }
+      return h + '</div>';
+    };
+    document.getElementById('selbars').innerHTML =
+        bar('task','Task', tasks, v=>TASK_LABEL[v]||v)
+      + bar('variant','Feature', vars, null)
+      + bar('classifier','Model', clfs, v=>CLF_LABEL[v]||v);
+    document.querySelectorAll('#selbars .selbtn').forEach(b =>
+      b.onclick = () => onPick(b.dataset.dim, b.dataset.val));
+  }
+
+  function onPick(dim, val){
+    SEL = { ...SEL, [dim]:val };
+    let r = exact(SEL);
+    if (!r){   // snap: keep the just-clicked dimension, find the nearest valid combo for the other two
+      r = INDEX.find(x => x[dim]===val && x.classifier===SEL.classifier)
+       || INDEX.find(x => x[dim]===val && x.task===SEL.task)
+       || INDEX.find(x => x[dim]===val);
+      if (r) SEL = { task:r.task, variant:r.variant, classifier:r.classifier };
     }
-    return sorted;
+    buildBars();
+    if (r) loadRun(r, INDEX);
   }
 
   // ── Boot ──
@@ -395,14 +444,13 @@
     try { const idx = await getJSON(`${CLF_BASE}/index.json`); index = idx.runs||idx; }
     catch(e){ document.getElementById('app').innerHTML = emptyState('Index not reachable.'); return; }
     if (!index || !index.length){ document.getElementById('app').innerHTML = emptyState('Index is empty.'); return; }
-    // keep latest run per (task,variant,classifier)
-    const latest = {};
+    const latest = {};   // keep latest run per (task,variant,classifier)
     for (const r of index){ const k=`${r.task}|${r.variant}|${r.classifier}`; if(!latest[k]||r.created_at>latest[k].created_at) latest[k]=r; }
-    index = Object.values(latest);
-    const sorted = fillPicker(index);
-    const picker = document.getElementById('runPicker');
-    picker.addEventListener('change', e => { const r = index.find(x=>x.path===e.target.value); if(r) loadRun(r, index); });
-    loadRun(sorted[0], index);   // primary first
+    INDEX = Object.values(latest);
+    SEL = exact(PRIMARY) ? { ...PRIMARY }
+                         : (r => ({ task:r.task, variant:r.variant, classifier:r.classifier }))(INDEX[0]);
+    buildBars();
+    loadRun(exact(SEL), INDEX);
   })();
   </script>
 </body>

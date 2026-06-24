@@ -260,9 +260,9 @@
         <div class="vtile"><div class="vlabel">vs chance</div>
           <div class="vbig ${vc}">×${(o.balanced_accuracy/o.chance_level).toFixed(2)}</div>
           <div class="vsub">${(headroom(o.balanced_accuracy,o.chance_level)*100).toFixed(0)}% of the gap</div></div>
-        <div class="vtile"><div class="vlabel">Permutation p</div>
-          <div class="vbig ${o.permutation_p!=null&&o.permutation_p<0.05?'good':'bad'}">${o.permutation_p==null?'—':o.permutation_p<0.001?'<.001':o.permutation_p.toFixed(3)}</div>
-          <div class="vsub">label-shuffled null</div></div>
+        <div class="vtile"><div class="vlabel" title="Standard deviations above the label-shuffled null (z = (obs − null_mean) / null_std). Tells you HOW far past chance once the permutation p floors. Big = definitely real, not necessarily strong; normal-approx.">Above null (z)</div>
+          <div class="vbig ${o.perm_z!=null ? (o.perm_z>=3?'good':o.perm_z>=2?'warn':'bad') : (o.permutation_p!=null&&o.permutation_p<0.05?'good':'bad')}">${o.perm_z!=null ? o.perm_z.toFixed(1)+'σ' : (o.permutation_p==null?'—':o.permutation_p<0.001?'<.001':o.permutation_p.toFixed(3))}</div>
+          <div class="vsub">${o.permutation_p!=null ? 'perm p '+(o.permutation_p<0.001?'<.001':'= '+o.permutation_p.toFixed(3)) : 'label-shuffled null'} · normal-approx</div></div>
         <div class="vtile"><div class="vlabel">Generalisation</div>
           <div class="vbig">${o.n_patients}</div>
           <div class="vsub">patients · nested GroupKFold</div></div>

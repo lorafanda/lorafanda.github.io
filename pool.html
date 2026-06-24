@@ -111,6 +111,7 @@
       <button class="mini on" data-mode="role"  onclick="setColorMode('role')">Role</button>
       <button class="mini"     data-mode="yeo7"  onclick="setColorMode('yeo7')">Yeo 7</button>
       <button class="mini"     data-mode="yeo17" onclick="setColorMode('yeo17')">Yeo 17</button>
+      <button class="mini"     data-mode="neurosynth" onclick="setColorMode('neurosynth')">Neurosynth</button>
     </div>
 
     <h2>Roles <button id="rolesAll" class="mini">all</button><button id="rolesNone" class="mini">none</button></h2>
@@ -153,6 +154,8 @@ const poolDir = () => `${REPO_RAW}/04_FBM_Pooling/outputs/pooling/${poolMethod =
 // Yeo labels come straight from the clustering recon's coords (same file moba reads),
 // so the Yeo colour mode works without re-running the pool export.
 const YEO_COORDS = `${REPO_RAW}/02_FBM_Clustering/outputs/250_recon/fsaverage/coords/ALL_PATIENTS_contacts_fsaverage.csv`;
+// Neurosynth meta-analytic region labels + region-average ERSP cards (notebook 480).
+const NS_BASE = `${REPO_RAW}/04_FBM_Pooling/outputs/pooling/neurosynth`;
 const MESH_RGBA  = [205, 198, 190, 30];                       // bone, translucent (MOBA)
 
 // Yeo 2011 functional-network palettes (canonical annot CTAB colours, from moba.js).
@@ -252,6 +255,7 @@ const yeoNames   = () => colorMode === "yeo17" ? YEO17_NAMES  : YEO7_NAMES;
 const netOf      = (c) => (c[yeoKey()] || "Unavailable");
 function colorOf(c) {
   if (colorMode === "role") return roleColorV(c.role);
+  if (colorMode === "neurosynth") return (NS_INFO[c.ns_primary] && NS_INFO[c.ns_primary].color) || "#888888";
   return yeoPalette()[netOf(c)] || "#808080";
 }
 
@@ -262,8 +266,12 @@ function roleOK(c) {
   if (enabledRoles.size === 0) return colorMode === "role" ? c.mset.size > 0 : true;
   return [...enabledRoles].every(r => c.mset.has(r));
 }
+function catVisible(c) {                            // categorical (yeo / neurosynth) membership filter
+  if (colorMode === "neurosynth") return !!(c.ns && [...c.ns].some(r => enabledNetworks.has(r)));
+  return enabledNetworks.has(netOf(c));
+}
 const isVisible = (c) => enabledPatients.has(c.patient) && roleOK(c) &&
-  (colorMode === "role" ? true : enabledNetworks.has(netOf(c)));
+  (colorMode === "role" ? true : catVisible(c));
 
 async function renderElectrodes() {
   for (const m of [...nv.meshes]) if (String(m.name||"").startsWith("electrodes_")) nv.removeMesh(m);
@@ -300,24 +308,39 @@ async function renderElectrodes() {
 function buildYeoLegend() {
   const el = document.getElementById("yeoLegend");
   if (colorMode === "role") { el.style.display = "none"; el.innerHTML = ""; return; }
-  const key = yeoKey(), pal = yeoPalette(), names = yeoNames();
-  const present = new Set(CONTACTS.map(c => netOf(c)));            // includes 'Unavailable' + medial wall etc.
-  // palette order first, then any extra labels present in the data (medial wall, …) -> gray
-  const order = Object.keys(pal).filter(n => present.has(n))
-                .concat([...present].filter(n => !(n in pal)).sort());
+  let pal, names, order, title, infoSrc = null;
+  if (colorMode === "neurosynth") {              // multi-label regions from notebook 480
+    pal = {}; names = {};
+    for (const [k, v] of Object.entries(NS_INFO)) { pal[k] = v.color; names[k] = k; }
+    const present = new Set(CONTACTS.flatMap(c => [...(c.ns || [])]));
+    order = Object.keys(NS_INFO).filter(n => present.has(n))
+            .concat([...present].filter(n => !(n in NS_INFO)).sort());
+    title = "Neurosynth regions"; infoSrc = NS_INFO;
+  } else {                                        // Yeo single-label networks
+    pal = yeoPalette(); names = yeoNames();
+    const present = new Set(CONTACTS.map(c => netOf(c)));
+    order = Object.keys(pal).filter(n => present.has(n))
+            .concat([...present].filter(n => !(n in pal)).sort());
+    title = colorMode === "yeo17" ? "Yeo 17 networks" : "Yeo 7 networks";
+  }
   enabledNetworks.clear(); order.forEach(n => enabledNetworks.add(n));
-  let h = `<div class="yeo-title">${colorMode === "yeo17" ? "Yeo 17" : "Yeo 7"} networks`
-        + `<button class="mini" id="netAll">all</button><button class="mini" id="netNone">none</button></div>`;
+  let h = `<div class="yeo-title">${title}<button class="mini" id="netAll">all</button><button class="mini" id="netNone">none</button></div>`;
   if (!order.length)
-    h += `<div class="yeo-empty">No Yeo labels loaded (clustering coords unreachable?). Check the
-          console.</div>`;
-  for (const n of order)
+    h += `<div class="yeo-empty">No labels loaded${colorMode === "neurosynth" ? " — run notebook 480, then refresh" : " (clustering coords unreachable?)"}.</div>`;
+  for (const n of order) {
+    const card = infoSrc && infoSrc[n] && infoSrc[n].img;
     h += `<label class="yeo-row"><input type="checkbox" checked data-net="${n}">`
-       + `<span class="yeo-sw" style="background:${pal[n] || '#808080'}"></span>${names[n] || n}</label>`;
+       + `<span class="yeo-sw" style="background:${pal[n] || '#808080'}"></span>${names[n] || n}`
+       + (card ? `<span class="info-btn" data-nscard="${n}">ⓘ</span>` : "")
+       + `</label>`;
+  }
   el.innerHTML = h; el.style.display = "block";
   el.querySelectorAll("input[data-net]").forEach(cb => cb.onchange = () => {
     if (cb.checked) enabledNetworks.add(cb.dataset.net); else enabledNetworks.delete(cb.dataset.net);
     rerender();
+  });
+  el.querySelectorAll("[data-nscard]").forEach(b => b.onclick = (e) => {
+    e.preventDefault(); e.stopPropagation(); toggleNsInfo(b.dataset.nscard, b);
   });
   const setAllNets = (on) => {
     enabledNetworks.clear(); if (on) order.forEach(n => enabledNetworks.add(n));
@@ -335,29 +358,40 @@ function setColorMode(mode) {
   rerender();
 }
 
-// ---------- per-role info panel (left of the brain): explanation + box/gaussian card ----------
-let ROLE_INFO = {};                 // role -> {description, color, img, n_primary}
-const openInfo = new Set();         // roles whose info card is currently shown
-function toggleRoleInfo(role, btn) {
-  if (openInfo.has(role)) openInfo.delete(role); else openInfo.add(role);
-  if (btn) btn.classList.toggle("on", openInfo.has(role));
+// ---------- info panel (left of the brain): role explanations + neurosynth region cards ----------
+let ROLE_INFO = {};                 // role   -> {description, color, img, n_primary}
+let NS_INFO = {};                   // region -> {color, img, n}
+const openInfo = new Set();         // keys: "role:<name>" or "ns:<region>"
+function toggleInfo(key, btn) {
+  if (openInfo.has(key)) openInfo.delete(key); else openInfo.add(key);
+  if (btn) btn.classList.toggle("on", openInfo.has(key));
   renderRoleInfo();
 }
+const toggleRoleInfo = (role, btn)   => toggleInfo("role:" + role, btn);
+const toggleNsInfo   = (region, btn) => toggleInfo("ns:" + region, btn);
 function renderRoleInfo() {
   const el = document.getElementById("roleInfo");
   if (!openInfo.size) { el.style.display = "none"; el.innerHTML = ""; return; }
   let h = "";
-  for (const role of openInfo) {
-    const inf = ROLE_INFO[role] || {};
-    const col = vivid(inf.color || roleColor(role));
-    const img = inf.img ? `<img loading="lazy" src="${poolDir()}/${inf.img}" alt="${role}" onerror="this.style.display='none'">` : "";
-    h += `<div class="ri-card"><div class="ri-title"><span class="ri-sw" style="background:${col}"></span>${role}`
-       + `<span class="ri-x" data-role="${role}">✕</span></div>`
-       + `<div class="ri-desc">${inf.description || "(no description — re-run the export to write role_info.json)"}</div>${img}</div>`;
+  for (const key of openInfo) {
+    const isNs = key.startsWith("ns:"); const name = key.slice(isNs ? 3 : 5);
+    const inf = (isNs ? NS_INFO : ROLE_INFO)[name] || {};
+    const base = isNs ? NS_BASE : poolDir();
+    const col = vivid(inf.color || (isNs ? "#888888" : roleColor(name)));
+    const img = inf.img ? `<img loading="lazy" src="${base}/${inf.img}" alt="${name}" onerror="this.style.display='none'">` : "";
+    const desc = isNs ? `Neurosynth region — mean ERSP of ${inf.n || 0} contacts in this map.`
+                      : (inf.description || "(no description — re-run the export to write role_info.json)");
+    h += `<div class="ri-card"><div class="ri-title"><span class="ri-sw" style="background:${col}"></span>${name}`
+       + `<span class="ri-x" data-key="${key}">✕</span></div>`
+       + `<div class="ri-desc">${desc}</div>${img}</div>`;
   }
   el.innerHTML = h; el.style.display = "block";
-  el.querySelectorAll(".ri-x").forEach(x => x.onclick = () =>
-    toggleRoleInfo(x.dataset.role, document.querySelector(`#roles .info-btn[data-role="${x.dataset.role}"]`)));
+  el.querySelectorAll(".ri-x").forEach(x => x.onclick = () => {
+    const key = x.dataset.key, isNs = key.startsWith("ns:"), name = key.slice(isNs ? 3 : 5);
+    const btn = isNs ? document.querySelector(`#yeoLegend [data-nscard="${name}"]`)
+                     : document.querySelector(`#roles .info-btn[data-role="${name}"]`);
+    toggleInfo(key, btn);
+  });
 }
 
 // ---------- pool data load (box vs gaussian, toggleable) ----------
@@ -371,6 +405,17 @@ async function loadYeoMap() {
   } catch (e) { console.warn("[POOL] Yeo coords not loaded:", e); }
   return _yeoMap;
 }
+let _nsMap = null, _nsInfo = null;
+async function loadNeurosynth() {                  // region labels + info (anatomy-based, notebook 480)
+  if (_nsMap) return { map: _nsMap, info: _nsInfo };
+  _nsMap = new Map(); _nsInfo = {};
+  try {
+    const nrows = parseCSV(await (await fetch(`${NS_BASE}/neurosynth_labels.csv`)).text());
+    _nsMap = new Map(nrows.map(r => [`${r.patient}|${r.contact}`, r]));
+  } catch (e) { console.warn("[POOL] neurosynth labels not loaded:", e); }
+  try { _nsInfo = await (await fetch(`${NS_BASE}/neurosynth_info.json`)).json(); } catch (e) { _nsInfo = {}; }
+  return { map: _nsMap, info: _nsInfo };
+}
 async function loadPoolData() {
   const base = poolDir();
   setStatus(`loading ${poolMethod} pool data…`);
@@ -378,7 +423,7 @@ async function loadPoolData() {
   let csvText = null;
   try { const r = await fetch(`${base}/contacts_pool.csv`); if (!r.ok) throw new Error("HTTP " + r.status); csvText = await r.text(); }
   catch (e) {
-    CONTACTS = []; ROLES = []; PATIENTS = []; SAMPLES = {}; ROLE_INFO = {};
+    CONTACTS = []; ROLES = []; PATIENTS = []; SAMPLES = {}; ROLE_INFO = {}; NS_INFO = {};
     enabledRoles.clear(); enabledPatients.clear(); openInfo.clear();
     buildRoleLegend(); buildPatientChips(); buildYeoLegend(); renderRoleInfo(); await renderElectrodes();
     setStatus(`⚠️ no ${poolMethod} data — run notebook ${poolMethod === "gaussian" ? "465" : "460"} to write its pool_web${poolMethod === "gaussian" ? "_gaussian" : ""}/ export.`);
@@ -389,6 +434,11 @@ async function loadPoolData() {
   const ymap = await loadYeoMap();                          // attach Yeo from the clustering coords (moba source)
   CONTACTS.forEach(c => { const y = ymap.get(`${c.patient}|${c.contact}`);
                           if (y) { c.yeo7_network = y.yeo7_network; c.yeo17_network = y.yeo17_network; } });
+  const ns = await loadNeurosynth();                        // attach neurosynth region labels (multi-label)
+  NS_INFO = ns.info;
+  CONTACTS.forEach(c => { const r = ns.map.get(`${c.patient}|${c.contact}`);
+    c.ns = new Set(r ? String(r.neurosynth || "").split(";").map(s => s.trim()).filter(Boolean) : []);
+    c.ns_primary = r ? r.neurosynth_primary : ""; });
   try { SAMPLES = await (await fetch(`${base}/pool_samples.json`)).json(); } catch (e) { SAMPLES = {}; }
   try { ROLE_INFO = await (await fetch(`${base}/role_info.json`)).json(); } catch (e) { ROLE_INFO = {}; }
   ROLES = (idx.roles && idx.roles.length) ? idx.roles : (() => {
@@ -507,7 +557,7 @@ function buildRoleLegend() {
     const ct = document.createElement("span"); ct.className="count"; ct.textContent=r.n ?? "";
     const info = document.createElement("span"); info.className="info-btn"; info.textContent="ⓘ";
     info.title="explanation + box/gaussian template"; info.dataset.role=r.role;
-    if (openInfo.has(r.role)) info.classList.add("on");
+    if (openInfo.has("role:" + r.role)) info.classList.add("on");
     info.onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggleRoleInfo(r.role, info); };
     row.append(cb, sw, tx, ct, info); el.append(row);
   }

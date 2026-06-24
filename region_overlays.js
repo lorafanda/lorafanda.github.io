@@ -98,10 +98,13 @@
     return v + h;
   }
 
-  function buildUI(corner) {
+  function buildUI(corner, mount) {
     if (document.getElementById("roPanel")) return;
+    // mount inside a container (absolute, e.g. the brain window) or float over the viewport (fixed)
+    const host = mount ? (typeof mount === "string" ? document.querySelector(mount) : mount) : null;
+    const posMode = host ? "absolute" : "fixed";
     const css =
-      "#roPanel{position:fixed;" + cornerCSS(corner) + "z-index:9999;font:12px -apple-system,Segoe UI,Roboto,Arial,sans-serif;" +
+      "#roPanel{position:" + posMode + ";" + cornerCSS(corner) + "z-index:9999;font:12px -apple-system,Segoe UI,Roboto,Arial,sans-serif;" +
       "background:rgba(18,18,22,.86);color:#e8e8ec;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:8px 10px;" +
       "max-width:240px;max-height:52vh;overflow:auto;backdrop-filter:blur(6px)}" +
       "#roPanel label.hd{display:flex;align-items:center;gap:7px;cursor:pointer;font-weight:600;user-select:none}" +
@@ -113,7 +116,7 @@
 
     const p = document.createElement("div"); p.id = "roPanel";
     p.innerHTML = '<label class="hd"><input type="checkbox" id="roChk"> Anatomical regions</label><div id="roLegend"></div>';
-    document.body.appendChild(p);
+    (host || document.body).appendChild(p);
 
     let html = "", last = null;
     for (const r of RO.regions) {
@@ -129,7 +132,7 @@
     });
   }
 
-  async function roInit(nv, opts) { RO.nv = nv; if (!(await load())) return; buildUI((opts || {}).corner); if (RO.on) apply(); }
+  async function roInit(nv, opts) { opts = opts || {}; RO.nv = nv; if (!(await load())) return; buildUI(opts.corner, opts.mount); if (RO.on) apply(); }
   function roRefresh(nv) { if (nv) RO.nv = nv; if (RO.on) apply(); }
 
   window.roInit = roInit;

@@ -578,7 +578,7 @@ document.getElementById("patNone").onclick   = () => setAllPatients(false);
     } catch (e) { console.warn("[POOL] brain styling:", e); }
 
     await loadPoolData();   // box (pool_web) by default; the Matching toggle reloads gaussian
-    try { if (window.roInit) await window.roInit(nv, { corner: "top-left" }); } catch (e) { console.warn("[POOL] roInit:", e); }
+    try { if (window.roInit) await window.roInit(nv, { corner: "top-right", mount: "#main" }); } catch (e) { console.warn("[POOL] roInit:", e); }
 
     // bottom-right brain transparency toggle (glass <-> solid; outlines/electrodes unaffected)
     try {

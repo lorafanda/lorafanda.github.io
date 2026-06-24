@@ -613,6 +613,8 @@ async function toggleSurfaceMode() {
     `Surface: ${newMode === 'pial' ? 'Pial' : 'Inflated'}`;
   // Re-render electrodes on top of the new surface.
   try { await renderBrain(); } catch (e) { console.warn('[MOBA] renderBrain after surface swap:', e); }
+  // re-apply landmark outlines on the freshly loaded meshes (if toggle is on)
+  try { if (window.roRefresh) window.roRefresh(mobaState.nv); } catch (e) {}
 }
 
 // User-facing toggle for the T1 volume overlay.
@@ -763,6 +765,9 @@ async function initBrain() {
     if (typeof nv.updateGLVolume === 'function') nv.updateGLVolume();
     if (typeof nv.drawScene === 'function')      nv.drawScene();
   } catch (e) { console.warn('[MOBA] Could not set brain opacity:', e); }
+
+  // anatomical landmark outlines + legend (region_overlays.js)
+  try { if (window.roInit) window.roInit(nv); } catch (e) { console.warn('[MOBA] roInit:', e); }
 
   // Default view: dorsal-anterior (similar feel to the "dorsal" recon PNG;
   // both hemispheres visible in the same frame).

@@ -21,6 +21,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
 <title>POOL — functional-role brain map</title>
 <script src="https://unpkg.com/@niivue/niivue@0.69.0/dist/niivue.umd.js"></script>
+<script src="region_overlays.js"></script>
 <style>
   :root { --bg:#fff; --panel:#f4f5f7; --fg:#1c2330; --muted:#6b7280; --line:#e3e6eb; }
   html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
@@ -577,6 +578,7 @@ document.getElementById("patNone").onclick   = () => setAllPatients(false);
     } catch (e) { console.warn("[POOL] brain styling:", e); }
 
     await loadPoolData();   // box (pool_web) by default; the Matching toggle reloads gaussian
+    try { if (window.roInit) await window.roInit(nv); } catch (e) { console.warn("[POOL] roInit:", e); }
   } catch (e) {
     setStatus("⚠️ " + e.message + "  (check REPO_RAW / branch / data paths)");
     console.error(e);

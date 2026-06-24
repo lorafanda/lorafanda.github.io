@@ -294,6 +294,8 @@
         <h2 data-key="expl"><span class="chev">▾</span><span class="step">6</span> Exploratory — what the model used</h2>
         <div class="body">
           <div class="caveat">Descriptive, not a claim. Correlated bands and heavy regularisation make this ranking soft — don't report it as "these bands drive it."</div>
+          <p class="how-to"><b>LR coefficients as the full band × time ERSP</b> (LogReg only): for each class, which time–frequency cells the model weights — red pushes toward the class, blue away; dashed grey = stim→response. This is <em>where</em> in the ERSP the classification is led from.</p>
+          ${figCard('coef_ersp_maps.png', run)}
           <div class="expl-grid">${figCard('class_feature_heatmap.png',run)}${figCard('coef_heatmap.png',run)}${figCard('feature_importance.png',run)}</div>
         </div></section>`;
 

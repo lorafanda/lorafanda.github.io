@@ -690,6 +690,14 @@ const pxBlockPct = (px) => { const g = dsgGeom(), bl = _clamp(Math.floor(px / g.
 const pyHz = (py) => _clamp((1 - py / dsgGeom().H) * dsgFmax(), 0, dsgFmax());
 function dsgDraw() {
   const g = dsgGeom(); dsgCtx.clearRect(0, 0, g.W, g.H);
+  // frequency-band guides: faint dashed horizontal lines at each ds band edge
+  if (CUBE_MAN && CUBE_MAN.band_hz) {
+    const fm = dsgFmax(); const edges = new Set();
+    CUBE_MAN.band_hz.forEach(b => { edges.add(b[0]); edges.add(b[1]); });
+    dsgCtx.save(); dsgCtx.strokeStyle = "#e8e8e8"; dsgCtx.lineWidth = 1; dsgCtx.setLineDash([2, 3]);
+    edges.forEach(hz => { const y = g.H - hz / fm * g.H; dsgCtx.beginPath(); dsgCtx.moveTo(0, y); dsgCtx.lineTo(g.W, y); dsgCtx.stroke(); });
+    dsgCtx.restore();
+  }
   const labs = ["audio", "picture", "reading"];
   for (let i = 0; i < NB; i++) {
     if (i) { dsgCtx.strokeStyle = "#222"; dsgCtx.lineWidth = 1.5; dsgCtx.beginPath(); dsgCtx.moveTo(i * g.bw, 0); dsgCtx.lineTo(i * g.bw, g.H); dsgCtx.stroke(); }
@@ -796,7 +804,7 @@ dsgDraw();
     } catch (e) { console.warn("[POOL] brain styling:", e); }
 
     await loadPoolData();   // box (pool_web) by default; the Matching toggle reloads gaussian
-    loadCube();             // poolv2: preload the ds ERSP cube for the role designer (fire-and-forget)
+    loadCube().then(() => dsgDraw());   // poolv2: preload the ds ERSP cube + redraw band guides
     try { if (window.roInit) await window.roInit(nv, { corner: "top-right", mount: "#main" }); } catch (e) { console.warn("[POOL] roInit:", e); }
 
     // bottom-right brain transparency toggle (glass <-> solid; outlines/electrodes unaffected)

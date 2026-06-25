@@ -696,6 +696,13 @@ function dsgDraw() {
     CUBE_MAN.band_hz.forEach(b => { edges.add(b[0]); edges.add(b[1]); });
     dsgCtx.save(); dsgCtx.strokeStyle = "#e8e8e8"; dsgCtx.lineWidth = 1; dsgCtx.setLineDash([2, 3]);
     edges.forEach(hz => { const y = g.H - hz / fm * g.H; dsgCtx.beginPath(); dsgCtx.moveTo(0, y); dsgCtx.lineTo(g.W, y); dsgCtx.stroke(); });
+    // y-axis Hz labels at each band edge (anti-overlap)
+    dsgCtx.setLineDash([]); dsgCtx.fillStyle = "#888"; dsgCtx.font = "8px sans-serif"; dsgCtx.textAlign = "left";
+    let lastY = 1e9;
+    [...edges].sort((a, b) => b - a).forEach(hz => {
+      const y = g.H - hz / fm * g.H;
+      if (Math.abs(y - lastY) >= 11) { dsgCtx.fillText(Math.round(hz), 2, Math.min(g.H - 2, Math.max(8, y - 1))); lastY = y; }
+    });
     dsgCtx.restore();
   }
   const labs = ["audio", "picture", "reading"];
@@ -751,13 +758,18 @@ _thr.oninput = () => { EDITOR.thr = +_thr.value; document.getElementById("dsgThr
 _frac.oninput = () => { EDITOR.minProp = +_frac.value; document.getElementById("dsgFracV").textContent = EDITOR.minProp.toFixed(2); };
 document.getElementById("dsgApply").onclick = async () => {
   if (!CUBE && !(await loadCube())) { setStatus("⚠️ cube not loaded — run 460 (writes pool_cube/)"); return; }
+  // only consider DISPLAYED contacts (the pool) so 'match' == 'shown' on the brain
   DESIGN_MATCH.clear();
-  if (EDITOR.boxes.length) for (const [key, ci] of CUBE_IDX) if (EDITOR.boxes.every(bx => boxPass(ci, bx, EDITOR.thr, EDITOR.minProp))) DESIGN_MATCH.add(key);
+  if (EDITOR.boxes.length) for (const c of CONTACTS) {
+    const ci = CUBE_IDX.get(`${c.patient}|${c.contact}`);
+    if (ci !== undefined && EDITOR.boxes.every(bx => boxPass(ci, bx, EDITOR.thr, EDITOR.minProp)))
+      DESIGN_MATCH.add(`${c.patient}|${c.contact}`);
+  }
   colorMode = "design";
   document.querySelectorAll("#colorMode button").forEach(b => b.classList.remove("on"));
   buildYeoLegend();
-  document.getElementById("dsgCount").textContent = DESIGN_MATCH.size + " match";
-  setStatus(`design: ${DESIGN_MATCH.size} contacts match · thr=${EDITOR.thr} frac≥${EDITOR.minProp}`);
+  const shownN = CONTACTS.filter(isVisible).length;   // matched AND patient-enabled == drawn
+  document.getElementById("dsgCount").textContent = shownN + " match";
   await renderElectrodes();
 };
 document.getElementById("dsgExport").onclick = () => {

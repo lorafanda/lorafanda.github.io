@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<!--
+  POOL — functional-role brain map. Sibling of MOBA (moba.html / moba.js).
+  Mirrors MOBA's working renderer EXACTLY: Niivue UMD 0.69, fsaverage .mz3 meshes,
+  electrodes BAKED INTO OBJ sphere meshes (one mesh per colour×depth group) — MOBA
+  avoids Niivue connectomes (blank on the ANGLE/Metal GPU).
+
+  Filters: ROLE + PATIENT (MOBA parity). Cortical vs depth electrodes get MOBA's
+  radii (2.52mm α255 / 1.65mm α180). NOTE on condition: POOL contacts are ONE ROW
+  PER CONTACT, collapsed across audio/picture/reading (the role *is* the cross-
+  condition pattern), so a per-condition filter does not apply here.
+
+  DATA (04_FBM_Pooling/460 -> lf_pool.export_pool_web, committed under
+  04_FBM_Pooling/outputs/pooling/pool_web/):
+    contacts_pool.csv : patient,contact,name,hemi,x,y,z,is_cortical,role,roles_matched,color
+    pool_index.json   : { grid, n_contacts, csv, roles:[{role,color,n}] }
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>POOLv2 — interactive role designer</title>
+<script src="https://unpkg.com/@niivue/niivue@0.69.0/dist/niivue.umd.js"></script>
+<script src="region_overlays.js"></script>
+<style>
+  :root { --bg:#fff; --panel:#f4f5f7; --fg:#1c2330; --muted:#6b7280; --line:#e3e6eb; }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--fg);
+              font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  #wrap { display:grid; grid-template-columns:280px 1fr; height:100vh; }
+  #side { background:var(--panel); padding:14px 16px; overflow:auto; border-right:1px solid var(--line); }
+  #side h1 { font-size:19px; margin:0 0 2px; }
+  #side .sub { color:var(--muted); font-size:12px; margin-bottom:8px; }
+  #side h2 { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted);
+             margin:16px 0 6px; display:flex; align-items:center; gap:8px; }
+  .role { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:14px; cursor:pointer; }
+  .role input { accent-color:#2563eb; }
+  .swatch { width:14px; height:14px; border-radius:3px; flex:0 0 auto; border:1px solid #0002; }
+  .count { margin-left:auto; color:var(--muted); font-size:12px; }
+  .chips { display:flex; flex-wrap:wrap; gap:5px; }
+  .chip { font-size:12px; padding:3px 8px; border:1px solid var(--line); border-radius:999px;
+          background:#fff; cursor:pointer; user-select:none; }
+  .chip.off { opacity:.4; text-decoration:line-through; }
+  .mini { font-size:11px; padding:2px 7px; }
+  #status { color:var(--muted); font-size:12px; margin-top:14px; line-height:1.5; }
+  .na { color:var(--muted); font-size:11px; font-style:italic; margin-top:4px; }
+  #main { display:flex; flex-direction:column; min-height:0; height:100vh; position:relative; }
+  #gl { width:100%; flex:1 1 auto; min-height:0; display:block; }
+  .mini.on { background:#3a6ea5; color:#fff; border-color:#3a6ea5; }
+  #yeoLegend { position:absolute; top:10px; right:10px; z-index:20; display:none;
+               background:rgba(255,255,255,.92); border:1px solid var(--line); border-radius:8px;
+               padding:8px 10px; font-size:12px; max-height:62vh; overflow:auto;
+               box-shadow:0 2px 10px rgba(0,0,0,.12); }
+  #yeoLegend .yeo-title { font-weight:600; font-size:10px; text-transform:uppercase;
+               letter-spacing:.06em; color:var(--muted); margin-bottom:6px; }
+  #yeoLegend .yeo-empty { color:var(--muted); font-style:italic; max-width:210px; line-height:1.4; }
+  #yeoLegend .yeo-row { display:flex; align-items:center; gap:6px; cursor:pointer; padding:1px 0; }
+  #yeoLegend .yeo-sw  { width:12px; height:12px; border-radius:3px; flex:0 0 auto; }
+  .info-btn { margin-left:6px; cursor:pointer; border:1px solid var(--line); border-radius:4px;
+              font-size:10px; padding:0 4px; background:var(--panel); color:var(--muted); }
+  .info-btn.on { background:#3a6ea5; color:#fff; border-color:#3a6ea5; }
+  #roleInfo { position:absolute; top:10px; left:10px; z-index:20; display:none; width:310px;
+              max-height:84vh; overflow:auto; background:rgba(255,255,255,.96); border:1px solid var(--line);
+              border-radius:8px; padding:10px 12px; box-shadow:0 2px 10px rgba(0,0,0,.14); font-size:12px; }
+  #roleInfo .ri-card { margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--line); }
+  #roleInfo .ri-card:last-child { margin-bottom:0; padding-bottom:0; border-bottom:none; }
+  #roleInfo .ri-title { font-weight:600; font-size:13px; margin-bottom:4px; display:flex; align-items:center; gap:6px; }
+  #roleInfo .ri-sw { width:12px; height:12px; border-radius:3px; flex:0 0 auto; }
+  #roleInfo .ri-x { margin-left:auto; cursor:pointer; color:var(--muted); font-weight:400; }
+  #roleInfo .ri-desc { color:var(--text); line-height:1.45; margin-bottom:6px; }
+  #roleInfo img { width:100%; height:auto; border:1px solid var(--line); border-radius:4px; }
+  #designer { position:absolute; right:12px; bottom:calc(42vh + 10px); z-index:30; width:600px; max-width:64vw;
+              background:rgba(255,255,255,.97); border:1px solid var(--line); border-radius:10px;
+              box-shadow:0 4px 16px rgba(0,0,0,.18); font-size:12px; }
+  #dsgHead { display:flex; align-items:center; gap:8px; padding:7px 10px; }
+  #dsgHead #dsgToggle { margin-left:auto; }
+  #dsgBody { padding:0 10px 10px; }
+  .dsgHint { color:var(--muted); line-height:1.4; margin:2px 0 8px; }
+  #dsgCanvas { width:560px; max-width:100%; height:190px; border:1px solid var(--line);
+               border-radius:6px; background:#fafbfc; display:block; cursor:crosshair; }
+  #dsgCtrls { display:flex; flex-wrap:wrap; align-items:center; gap:6px; margin-top:8px; }
+  #dsgCtrls label { display:flex; align-items:center; gap:4px; color:var(--muted); }
+  #dsgCtrls input[type=range] { width:78px; }
+  .dsgCount { margin-left:auto; font-weight:600; }
+  #dsgOut { width:100%; height:60px; margin-top:8px; font:11px/1.4 monospace; resize:vertical;
+            border:1px solid var(--line); border-radius:6px; box-sizing:border-box; display:none; }
+  /* samples: scroll UP/DOWN (cards wrap), 1.5x bigger */
+  #samples { flex:0 0 42vh; border-top:1px solid var(--line); background:var(--panel);
+             overflow-y:auto; overflow-x:hidden; padding:10px; }
+  #samples .shead { font-size:11px; text-transform:uppercase; letter-spacing:.06em;
+             color:var(--muted); margin:0 0 8px 2px; }
+  #samples .row { display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; }
+  .scard { flex:0 0 auto; width:258px; background:#fff; border:1px solid var(--line);
+           border-radius:8px; padding:9px 10px; cursor:pointer; }
+  .scard:hover { border-color:#9bb7e8; }
+  .scard.sel { border-color:#f5c000; box-shadow:0 0 0 2px #f5c00066; }
+  .scard .lab { font-size:16px; line-height:1.3; margin-bottom:7px; white-space:normal; }
+  .scard .lab b { font-size:18px; }
+  .scard .imgs { display:flex; gap:4px; }
+  .scard .imgs > div { text-align:center; }
+  .scard img { width:75px; height:auto; display:block; border:1px solid var(--line);
+               border-radius:3px; background:#fff; }
+  .scard .cond { font-size:12px; color:var(--muted); margin-top:2px; }
+  #samples .empty { color:var(--muted); font-size:12px; padding:10px; font-style:italic; }
+  #brainTooltip { position:absolute; display:none; pointer-events:none; z-index:20;
+             background:#111c; color:#fff; font-size:12px; line-height:1.35; white-space:pre;
+             padding:5px 8px; border-radius:6px; transform:translate(10px, 10px); }
+  button { background:#fff; color:var(--fg); border:1px solid var(--line); border-radius:6px;
+           padding:4px 9px; font-size:12px; cursor:pointer; }
+  button:hover { background:#eef1f5; }
+</style>
+</head>
+<body>
+<div id="wrap">
+  <aside id="side">
+    <h1>POOL</h1>
+    <div class="sub">Functional-role activity on fsaverage</div>
+
+    <h2>Matching</h2>
+    <div id="poolMethod" class="chips">
+      <button class="mini on" data-method="box"      onclick="setPoolMethod('box')">Box</button>
+      <button class="mini"     data-method="gaussian" onclick="setPoolMethod('gaussian')">Gaussian</button>
+    </div>
+
+    <h2>Colour by</h2>
+    <div id="colorMode" class="chips">
+      <button class="mini on" data-mode="role"  onclick="setColorMode('role')">Role</button>
+      <button class="mini"     data-mode="yeo7"  onclick="setColorMode('yeo7')">Yeo 7</button>
+      <button class="mini"     data-mode="yeo17" onclick="setColorMode('yeo17')">Yeo 17</button>
+      <button class="mini"     data-mode="neurosynth" onclick="setColorMode('neurosynth')">Neurosynth</button>
+    </div>
+
+    <h2>Roles <button id="rolesAll" class="mini">all</button><button id="rolesNone" class="mini">none</button></h2>
+    <div id="roles"></div>
+
+    <h2>Patients <button id="patAll" class="mini">all</button><button id="patNone" class="mini">none</button></h2>
+    <div id="patients" class="chips"></div>
+
+    <h2>Condition</h2>
+    <div class="na">n/a — POOL contacts are collapsed across audio·picture·reading
+       (the role is the cross-condition pattern).</div>
+
+    <h2>Brain</h2>
+    <label class="role"><input type="checkbox" id="pialToggle" checked><span>fsaverage pial surface</span></label>
+
+    <div id="status">loading…</div>
+  </aside>
+  <div id="main">
+    <canvas id="gl"></canvas>
+    <div id="roleInfo"></div>
+    <div id="yeoLegend"></div>
+    <div id="brainTooltip"></div>
+    <div id="designer">
+      <div id="dsgHead"><b>Role designer</b><button id="dsgToggle" class="mini">▸</button></div>
+      <div id="dsgBody" style="display:none">
+        <div class="dsgHint">Draw boxes on the blank [audio | picture | reading] grid. A contact MATCHES if every
+          box has ≥ <i>frac</i> of its cells past <i>thr</i> in the box's sign. Hit <b>Apply</b> to recolor.</div>
+        <canvas id="dsgCanvas" width="560" height="190"></canvas>
+        <div id="dsgCtrls">
+          <button class="mini" id="dsgAdd">+ box</button>
+          <button class="mini" id="dsgSign">sign: pos</button>
+          <button class="mini" id="dsgDel">del box</button>
+          <button class="mini" id="dsgClear">clear</button>
+          <label>thr <input type="range" id="dsgThr" min="0" max="8" step="0.5" value="2"> <span id="dsgThrV">2.0</span> dB</label>
+          <label>frac≥ <input type="range" id="dsgFrac" min="0.05" max="1" step="0.05" value="0.3"> <span id="dsgFracV">0.30</span></label>
+          <button class="mini on" id="dsgApply">Apply</button>
+          <button class="mini" id="dsgExport">export role</button>
+          <span id="dsgCount" class="dsgCount"></span>
+        </div>
+        <textarea id="dsgOut" readonly placeholder="export role → JSON for roi_config_concatenated.py"></textarea>
+      </div>
+    </div>
+    <div id="samples"></div>
+  </div>
+</div>
+
+<script>
+// ============================ CONFIG — matches moba.js ============================
+const BRANCH   = "main";
+// Host-aware data source. Served from localhost (server-side preview via
+// `python -m http.server` at the ANALYSIS-repo root) -> read freshly-generated
+// files locally, relative to the repo root, so NO git push is needed to iterate.
+// Otherwise (GitHub Pages) -> read the committed data via GitHub raw.
+const LOCAL    = ["localhost", "127.0.0.1", "0.0.0.0", ""].includes(location.hostname);
+const REPO_RAW = LOCAL ? "." : `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${BRANCH}`;
+const FSAV_MESH_BASE = `${REPO_RAW}/02_FBM_Clustering/outputs/250_recon/fsaverage/meshes`;
+// Matching method -> data folder: 'box' = pool_web (460), 'gaussian' = pool_web_gaussian (465).
+let poolMethod = "box";
+const poolDir = () => `${REPO_RAW}/04_FBM_Pooling/outputs/pooling/${poolMethod === "gaussian" ? "pool_web_gaussian" : "pool_web"}`;
+// Yeo labels come straight from the clustering recon's coords (same file moba reads),
+// so the Yeo colour mode works without re-running the pool export.
+const YEO_COORDS = `${REPO_RAW}/02_FBM_Clustering/outputs/250_recon/fsaverage/coords/ALL_PATIENTS_contacts_fsaverage.csv`;
+// Neurosynth meta-analytic region labels + region-average ERSP cards (notebook 480).
+const NS_BASE = `${REPO_RAW}/04_FBM_Pooling/outputs/pooling/neurosynth`;
+const MESH_RGBA  = [205, 198, 190, 30];                       // bone, translucent (MOBA)
+
+// Yeo 2011 functional-network palettes (canonical annot CTAB colours, from moba.js).
+// Keys match the strings recon 251/252 writes into yeo7_network / yeo17_network.
+const YEO7_COLORS = {
+  '7Networks_1':'#781286','7Networks_2':'#4682b4','7Networks_3':'#00760e','7Networks_4':'#c43afa',
+  '7Networks_5':'#dcf8a4','7Networks_6':'#e69422','7Networks_7':'#cd3e4e',
+  'WhiteMatter':'#808080','Unavailable':'#505050' };
+const YEO7_NAMES = {
+  '7Networks_1':'Visual','7Networks_2':'Somatomotor','7Networks_3':'DorsAttn','7Networks_4':'SalVentAttn',
+  '7Networks_5':'Limbic','7Networks_6':'Control','7Networks_7':'Default',
+  'WhiteMatter':'White matter','FreeSurfer_Defined_Medial_Wall':'Medial wall','Unavailable':'Unavailable' };
+const YEO17_COLORS = {
+  '17Networks_1':'#781286','17Networks_2':'#ff0000','17Networks_3':'#4682b4','17Networks_4':'#2acca4',
+  '17Networks_5':'#4a9b3c','17Networks_6':'#00760e','17Networks_7':'#c43afa','17Networks_8':'#ff98d5',
+  '17Networks_9':'#dcf8a4','17Networks_10':'#7a8732','17Networks_11':'#778cb0','17Networks_12':'#e69422',
+  '17Networks_13':'#87324a','17Networks_14':'#0c30ff','17Networks_15':'#000082','17Networks_16':'#ffff00',
+  '17Networks_17':'#cd3e4e','WhiteMatter':'#808080','Unavailable':'#505050' };
+const YEO17_NAMES = {
+  '17Networks_1':'VisCent','17Networks_2':'VisPeri','17Networks_3':'SomMotA','17Networks_4':'SomMotB',
+  '17Networks_5':'DorsAttnA','17Networks_6':'DorsAttnB','17Networks_7':'SalVentAttnA','17Networks_8':'SalVentAttnB',
+  '17Networks_9':'Limbic_OFC','17Networks_10':'Limbic_Temp','17Networks_11':'ContA','17Networks_12':'ContB',
+  '17Networks_13':'ContC','17Networks_14':'DefaultA','17Networks_15':'DefaultB','17Networks_16':'DefaultC',
+  '17Networks_17':'TempPar','WhiteMatter':'White matter',
+  'FreeSurfer_Defined_Medial_Wall':'Medial wall','Unavailable':'Unavailable' };
+const RADII = { cortical:{ r:1.7, a:255 }, depth:{ r:1.4, a:180 } };  // smaller — matches activity_visualizer
+// =================================================================================
+
+const statusEl = document.getElementById("status");
+const setStatus = (m) => (statusEl.textContent = m);
+const hexToRgb = (h) => { const n = parseInt(String(h).replace("#",""),16); return [(n>>16)&255,(n>>8)&255,n&255]; };
+const toHex = (r,g,b) => "#" + [r,g,b].map(v=>Math.max(0,Math.min(255,v|0)).toString(16).padStart(2,"0")).join("");
+// brighten (vivid): boost saturation + lightness, keep neutrals (none = grey)
+function rgbToHsl(r,g,b){ r/=255;g/=255;b/=255; const mx=Math.max(r,g,b),mn=Math.min(r,g,b);
+  let h,s,l=(mx+mn)/2; if(mx===mn){h=s=0;} else { const d=mx-mn; s=l>0.5?d/(2-mx-mn):d/(mx+mn);
+    switch(mx){case r:h=(g-b)/d+(g<b?6:0);break;case g:h=(b-r)/d+2;break;default:h=(r-g)/d+4;} h/=6; } return [h,s,l]; }
+function hslToRgb(h,s,l){ if(s===0){const v=Math.round(l*255);return[v,v,v];}
+  const hue=(p,q,t)=>{if(t<0)t+=1;if(t>1)t-=1;if(t<1/6)return p+(q-p)*6*t;if(t<1/2)return q;if(t<2/3)return p+(q-p)*(2/3-t)*6;return p;};
+  const q=l<0.5?l*(1+s):l+s-l*s, p=2*l-q;
+  return [Math.round(hue(p,q,h+1/3)*255),Math.round(hue(p,q,h)*255),Math.round(hue(p,q,h-1/3)*255)]; }
+function vivid(hex){ const [r,g,b]=hexToRgb(hex); let [h,s,l]=rgbToHsl(r,g,b);
+  if (s < 0.06) return hex; s = Math.min(1, s*1.6 + 0.15); l = Math.min(0.62, Math.max(0.50, l*1.10));
+  const [R,G,B]=hslToRgb(h,s,l); return toHex(R,G,B); }
+
+// ---------- icosphere (42v / 80f) ----------
+function buildIcosphere() {
+  const t = (1 + Math.sqrt(5)) / 2;
+  let verts = [[-1,t,0],[1,t,0],[-1,-t,0],[1,-t,0],[0,-1,t],[0,1,t],
+               [0,-1,-t],[0,1,-t],[t,0,-1],[t,0,1],[-t,0,-1],[-t,0,1]]
+              .map(v => { const L = Math.hypot(...v); return [v[0]/L,v[1]/L,v[2]/L]; });
+  let faces = [[0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],[1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+               [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],[4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1]];
+  const mid = new Map();
+  const midpoint = (a,b) => { const key = a<b?`${a}_${b}`:`${b}_${a}`;
+    if (mid.has(key)) return mid.get(key);
+    const va=verts[a], vb=verts[b]; let m=[(va[0]+vb[0])/2,(va[1]+vb[1])/2,(va[2]+vb[2])/2];
+    const L=Math.hypot(...m); m=[m[0]/L,m[1]/L,m[2]/L]; const idx=verts.push(m)-1; mid.set(key,idx); return idx; };
+  const f2 = [];
+  for (const [a,b,c] of faces) { const ab=midpoint(a,b), bc=midpoint(b,c), ca=midpoint(c,a);
+    f2.push([a,ab,ca],[b,bc,ab],[c,ca,bc],[ab,bc,ca]); }
+  return { verts, faces: f2 };
+}
+const SPHERE = buildIcosphere();
+function buildSpheresOBJ(pts, radius) {
+  const out = [`# POOL · ${pts.length} spheres · r=${radius}mm`];
+  for (const e of pts) for (const v of SPHERE.verts)
+    out.push(`v ${(e.x+v[0]*radius).toFixed(3)} ${(e.y+v[1]*radius).toFixed(3)} ${(e.z+v[2]*radius).toFixed(3)}`);
+  out.push("vn 0 0 1");
+  for (let i=0;i<pts.length;i++){ const off=i*SPHERE.verts.length+1;
+    for (const f of SPHERE.faces) out.push(`f ${f[0]+off}//1 ${f[1]+off}//1 ${f[2]+off}//1`); }
+  return out.join("\n") + "\n";
+}
+
+// ---------- data ----------
+function parseCSV(text) {
+  const lines = text.trim().split(/\r?\n/); const head = lines[0].split(",").map(h=>h.trim());
+  return lines.slice(1).map(line => { const c=line.split(","); const o={};
+    head.forEach((h,i)=> o[h]=(c[i]??"").trim()); return o; });
+}
+
+let CONTACTS = [], ROLES = [], PATIENTS = [], SAMPLES = {}, roleOrder = [];
+const enabledRoles = new Set(), enabledPatients = new Set();
+let nv = null, _timer = null, highlightedKey = null, _pulseRaf = null;
+
+const roleColor = (role) => (ROLES.find(r=>r.role===role)?.color) || "#888888";
+const roleColorV = (role) => vivid(roleColor(role));     // brightened
+const bumpOrder = (role) => { roleOrder = roleOrder.filter(x=>x!==role); roleOrder.push(role); };  // -> drawn last (on top)
+const depthClass = (c) => { const v = c.is_cortical;            // export writes "1.0"/"0.0"
+  if (v === undefined || v === "") return "cortical";
+  return (parseFloat(v) >= 0.5) ? "cortical" : "depth"; };
+// ---------- colour mode: 'role' (default) | 'yeo7' | 'yeo17' ----------
+let colorMode = "role";
+const enabledNetworks = new Set();                 // active Yeo networks (yeo modes only)
+const yeoKey     = () => colorMode === "yeo17" ? "yeo17_network" : "yeo7_network";
+const yeoPalette = () => colorMode === "yeo17" ? YEO17_COLORS : YEO7_COLORS;
+const yeoNames   = () => colorMode === "yeo17" ? YEO17_NAMES  : YEO7_NAMES;
+const netOf      = (c) => (c[yeoKey()] || "Unavailable");
+const DESIGN_COLOR = "#ff3b30";                     // poolv2: contacts matching the drawn role
+const DESIGN_MATCH = new Set();                     // keys "patient|contact" matching the current design
+function colorOf(c) {
+  if (colorMode === "design") return DESIGN_COLOR;
+  if (colorMode === "role") return roleColorV(c.role);
+  if (colorMode === "neurosynth") return (NS_INFO[c.ns_primary] && NS_INFO[c.ns_primary].color) || "#888888";
+  return yeoPalette()[netOf(c)] || "#808080";
+}
+
+// Cross-filtering: role selection and network selection BOTH narrow the visible set.
+// roleOK: no role selected -> all matched contacts (role mode) / all contacts (yeo mode);
+//         else require ALL selected roles (intersection). Networks filter in yeo modes.
+function roleOK(c) {
+  if (enabledRoles.size === 0) return colorMode === "role" ? c.mset.size > 0 : true;
+  return [...enabledRoles].every(r => c.mset.has(r));
+}
+function catVisible(c) {                            // categorical (yeo / neurosynth) membership filter
+  if (colorMode === "neurosynth") return !!(c.ns && [...c.ns].some(r => enabledNetworks.has(r)));
+  return enabledNetworks.has(netOf(c));
+}
+const isVisible = (c) => colorMode === "design"
+  ? (enabledPatients.has(c.patient) && DESIGN_MATCH.has(`${c.patient}|${c.contact}`))
+  : (enabledPatients.has(c.patient) && roleOK(c) && (colorMode === "role" ? true : catVisible(c)));
+
+async function renderElectrodes() {
+  for (const m of [...nv.meshes]) if (String(m.name||"").startsWith("electrodes_")) nv.removeMesh(m);
+  let shown = 0;
+  const vis = CONTACTS.filter(isVisible);
+  // group visible contacts by their (mode-dependent) colour -> one sphere mesh per colour × class
+  const groups = new Map();                          // colourHex -> { cortical:[], depth:[] }
+  for (const c of vis) {
+    const col = colorOf(c);
+    if (!groups.has(col)) groups.set(col, { cortical:[], depth:[] });
+    groups.get(col)[depthClass(c)].push({ x:+c.x, y:+c.y, z:+c.z });
+  }
+  let gi = 0;
+  for (const [col, byClass] of groups) {
+    const [r,g,b] = hexToRgb(col);
+    for (const cls of ["cortical","depth"]) {
+      const pts = byClass[cls]; if (!pts.length) continue;
+      const { r:rad, a:alpha } = RADII[cls];
+      // niivue 0.69 detects mesh format from the name extension -> give a real .obj name.
+      const file = new File([buildSpheresOBJ(pts, rad)], `electrodes_${gi}_${cls}.obj`, { type:"text/plain" });
+      const mesh = await niivue.NVMesh.loadFromFile({ file, gl:nv.gl, name:`electrodes_${gi}_${cls}.obj`, rgba255:[r,g,b,alpha], visible:true });
+      nv.addMesh(mesh);
+      try { nv.setMeshShader(mesh.id, "Flat"); } catch(e) {}
+      shown += pts.length;
+    }
+    gi++;
+  }
+  nv.drawScene();
+  setStatus(`${shown} / ${CONTACTS.length} contacts shown · colour: ${colorMode}`);
+  renderSamples();
+}
+
+// ---------- Yeo network legend (top-right of the brain) + per-network toggles ----------
+function buildYeoLegend() {
+  const el = document.getElementById("yeoLegend");
+  if (colorMode === "role" || colorMode === "design") { el.style.display = "none"; el.innerHTML = ""; return; }
+  let pal, names, order, title, infoSrc = null;
+  if (colorMode === "neurosynth") {              // multi-label regions from notebook 480
+    pal = {}; names = {};
+    for (const [k, v] of Object.entries(NS_INFO)) { pal[k] = v.color; names[k] = k; }
+    const present = new Set(CONTACTS.flatMap(c => [...(c.ns || [])]));
+    order = Object.keys(NS_INFO).filter(n => present.has(n))
+            .concat([...present].filter(n => !(n in NS_INFO)).sort());
+    title = "Neurosynth regions"; infoSrc = NS_INFO;
+  } else {                                        // Yeo single-label networks
+    pal = yeoPalette(); names = yeoNames();
+    const present = new Set(CONTACTS.map(c => netOf(c)));
+    order = Object.keys(pal).filter(n => present.has(n))
+            .concat([...present].filter(n => !(n in pal)).sort());
+    title = colorMode === "yeo17" ? "Yeo 17 networks" : "Yeo 7 networks";
+  }
+  enabledNetworks.clear(); order.forEach(n => enabledNetworks.add(n));
+  let h = `<div class="yeo-title">${title}<button class="mini" id="netAll">all</button><button class="mini" id="netNone">none</button></div>`;
+  if (!order.length)
+    h += `<div class="yeo-empty">No labels loaded${colorMode === "neurosynth" ? " — run notebook 480, then refresh" : " (clustering coords unreachable?)"}.</div>`;
+  for (const n of order) {
+    const card = infoSrc && infoSrc[n] && infoSrc[n].img;
+    h += `<label class="yeo-row"><input type="checkbox" checked data-net="${n}">`
+       + `<span class="yeo-sw" style="background:${pal[n] || '#808080'}"></span>${names[n] || n}`
+       + (card ? `<span class="info-btn" data-nscard="${n}">ⓘ</span>` : "")
+       + `</label>`;
+  }
+  el.innerHTML = h; el.style.display = "block";
+  el.querySelectorAll("input[data-net]").forEach(cb => cb.onchange = () => {
+    if (cb.checked) enabledNetworks.add(cb.dataset.net); else enabledNetworks.delete(cb.dataset.net);
+    rerender();
+  });
+  el.querySelectorAll("[data-nscard]").forEach(b => b.onclick = (e) => {
+    e.preventDefault(); e.stopPropagation(); toggleNsInfo(b.dataset.nscard, b);
+  });
+  const setAllNets = (on) => {
+    enabledNetworks.clear(); if (on) order.forEach(n => enabledNetworks.add(n));
+    el.querySelectorAll("input[data-net]").forEach(cb => cb.checked = on);
+    rerender();
+  };
+  const ba = el.querySelector("#netAll"), bn = el.querySelector("#netNone");
+  if (ba) ba.onclick = () => setAllNets(true);
+  if (bn) bn.onclick = () => setAllNets(false);
+}
+function setColorMode(mode) {
+  colorMode = mode;
+  document.querySelectorAll("#colorMode button").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+  buildYeoLegend();
+  rerender();
+}
+
+// ---------- info panel (left of the brain): role explanations + neurosynth region cards ----------
+let ROLE_INFO = {};                 // role   -> {description, color, img, n_primary}
+let NS_INFO = {};                   // region -> {color, img, n}
+const openInfo = new Set();         // keys: "role:<name>" or "ns:<region>"
+function toggleInfo(key, btn) {
+  if (openInfo.has(key)) openInfo.delete(key); else openInfo.add(key);
+  if (btn) btn.classList.toggle("on", openInfo.has(key));
+  renderRoleInfo();
+}
+const toggleRoleInfo = (role, btn)   => toggleInfo("role:" + role, btn);
+const toggleNsInfo   = (region, btn) => toggleInfo("ns:" + region, btn);
+function renderRoleInfo() {
+  const el = document.getElementById("roleInfo");
+  if (!openInfo.size) { el.style.display = "none"; el.innerHTML = ""; return; }
+  let h = "";
+  for (const key of openInfo) {
+    const isNs = key.startsWith("ns:"); const name = key.slice(isNs ? 3 : 5);
+    const inf = (isNs ? NS_INFO : ROLE_INFO)[name] || {};
+    const base = isNs ? NS_BASE : poolDir();
+    const col = vivid(inf.color || (isNs ? "#888888" : roleColor(name)));
+    const img = inf.img ? `<img loading="lazy" src="${base}/${inf.img}" alt="${name}" onerror="this.style.display='none'">` : "";
+    const desc = isNs ? `Neurosynth region — mean ERSP of ${inf.n || 0} contacts in this map.`
+                      : (inf.description || "(no description — re-run the export to write role_info.json)");
+    h += `<div class="ri-card"><div class="ri-title"><span class="ri-sw" style="background:${col}"></span>${name}`
+       + `<span class="ri-x" data-key="${key}">✕</span></div>`
+       + `<div class="ri-desc">${desc}</div>${img}</div>`;
+  }
+  el.innerHTML = h; el.style.display = "block";
+  el.querySelectorAll(".ri-x").forEach(x => x.onclick = () => {
+    const key = x.dataset.key, isNs = key.startsWith("ns:"), name = key.slice(isNs ? 3 : 5);
+    const btn = isNs ? document.querySelector(`#yeoLegend [data-nscard="${name}"]`)
+                     : document.querySelector(`#roles .info-btn[data-role="${name}"]`);
+    toggleInfo(key, btn);
+  });
+}
+
+// ---------- pool data load (box vs gaussian, toggleable) ----------
+let _yeoMap = null;
+async function loadYeoMap() {
+  if (_yeoMap) return _yeoMap;
+  _yeoMap = new Map();
+  try {
+    const yrows = parseCSV(await (await fetch(YEO_COORDS)).text());
+    _yeoMap = new Map(yrows.map(r => [`${r.patient}|${r.name}`, r]));
+  } catch (e) { console.warn("[POOL] Yeo coords not loaded:", e); }
+  return _yeoMap;
+}
+let _nsMap = null, _nsInfo = null;
+async function loadNeurosynth() {                  // region labels + info (anatomy-based, notebook 480)
+  if (_nsMap) return { map: _nsMap, info: _nsInfo };
+  _nsMap = new Map(); _nsInfo = {};
+  try {
+    const nrows = parseCSV(await (await fetch(`${NS_BASE}/neurosynth_labels.csv`)).text());
+    _nsMap = new Map(nrows.map(r => [`${r.patient}|${r.contact}`, r]));
+  } catch (e) { console.warn("[POOL] neurosynth labels not loaded:", e); }
+  try { _nsInfo = await (await fetch(`${NS_BASE}/neurosynth_info.json`)).json(); } catch (e) { _nsInfo = {}; }
+  return { map: _nsMap, info: _nsInfo };
+}
+async function loadPoolData() {
+  const base = poolDir();
+  setStatus(`loading ${poolMethod} pool data…`);
+  let idx = {}; try { idx = await (await fetch(`${base}/pool_index.json`)).json(); } catch (e) {}
+  let csvText = null;
+  try { const r = await fetch(`${base}/contacts_pool.csv`); if (!r.ok) throw new Error("HTTP " + r.status); csvText = await r.text(); }
+  catch (e) {
+    CONTACTS = []; ROLES = []; PATIENTS = []; SAMPLES = {}; ROLE_INFO = {}; NS_INFO = {};
+    enabledRoles.clear(); enabledPatients.clear(); openInfo.clear();
+    buildRoleLegend(); buildPatientChips(); buildYeoLegend(); renderRoleInfo(); await renderElectrodes();
+    setStatus(`⚠️ no ${poolMethod} data — run notebook ${poolMethod === "gaussian" ? "465" : "460"} to write its pool_web${poolMethod === "gaussian" ? "_gaussian" : ""}/ export.`);
+    return;
+  }
+  CONTACTS = parseCSV(csvText).filter(c => c.x && c.y && c.z);
+  CONTACTS.forEach(c => c.mset = new Set((c.roles_matched || "").split(";").map(s => s.trim()).filter(Boolean)));
+  const ymap = await loadYeoMap();                          // attach Yeo from the clustering coords (moba source)
+  CONTACTS.forEach(c => { const y = ymap.get(`${c.patient}|${c.contact}`);
+                          if (y) { c.yeo7_network = y.yeo7_network; c.yeo17_network = y.yeo17_network; } });
+  const ns = await loadNeurosynth();                        // attach neurosynth region labels (multi-label)
+  NS_INFO = ns.info;
+  CONTACTS.forEach(c => { const r = ns.map.get(`${c.patient}|${c.contact}`);
+    c.ns = new Set(r ? String(r.neurosynth || "").split(";").map(s => s.trim()).filter(Boolean) : []);
+    c.ns_primary = r ? r.neurosynth_primary : ""; });
+  try { SAMPLES = await (await fetch(`${base}/pool_samples.json`)).json(); } catch (e) { SAMPLES = {}; }
+  try { ROLE_INFO = await (await fetch(`${base}/role_info.json`)).json(); } catch (e) { ROLE_INFO = {}; }
+  ROLES = (idx.roles && idx.roles.length) ? idx.roles : (() => {
+    const seen = new Map(); CONTACTS.forEach(c => { if (!seen.has(c.role)) seen.set(c.role, c.color); });
+    return [...seen].map(([role, color]) => ({ role, color, n: CONTACTS.filter(x => x.role === role).length }));
+  })();
+  PATIENTS = [...new Set(CONTACTS.map(c => c.patient))].sort();
+  enabledRoles.clear(); enabledPatients.clear(); openInfo.clear();   // reset filters + info panel for the new set
+  buildRoleLegend(); buildPatientChips(); renderRoleInfo();
+  if (colorMode !== "role") buildYeoLegend();              // refresh network legend for the new contacts
+  await renderElectrodes();
+}
+function setPoolMethod(m) {
+  poolMethod = m;
+  document.querySelectorAll("#poolMethod button").forEach(b => b.classList.toggle("on", b.dataset.method === m));
+  loadPoolData();
+}
+
+// ---------- samples strip (the visible contacts' ERSPs, MOBA-style) ----------
+const CONDS = ["audio", "picture", "reading"];
+function renderSamples() {
+  const el = document.getElementById("samples");
+  const vis = CONTACTS.filter(isVisible);
+  if (!Object.keys(SAMPLES).length) {
+    el.innerHTML = `<div class="empty">No sample images yet — re-run notebook 460 (the export now writes
+      <code>pool_samples.json</code>), then refresh.</div>`;
+    return;
+  }
+  const CAP = 300;                                  // lazy-loaded; cap keeps the DOM sane
+  const show = vis.slice(0, CAP);
+  let h = `<div class="shead">${vis.length} contact(s) in the selected pool(s)</div><div class="row">`;
+  for (const c of show) {
+    const imgs = SAMPLES[`${c.patient}|${c.contact}`] || {};
+    let cells = "";
+    for (const cond of CONDS) {
+      if (!imgs[cond]) continue;
+      cells += `<div><img loading="lazy" src="${REPO_RAW}/${imgs[cond]}" alt="${cond}"
+                  onerror="this.style.display='none'"><div class="cond">${cond.slice(0,3)}</div></div>`;
+    }
+    const key = `${c.patient}|${c.contact}`;
+    // show EVERY role this contact matches (roles_matched), each abbreviated to 3 chars
+    // and coloured by its role colour; full name on hover.
+    const roleTags = c.mset.size
+      ? [...c.mset].map(r => `<span style="color:${roleColorV(r)}" title="${r}">${r.slice(0,3)}</span>`).join(" ")
+      : `<span style="color:#999">none</span>`;
+    h += `<div class="scard${key===highlightedKey?' sel':''}" data-key="${key}">
+            <div class="lab"><b>${c.contact}</b> · ${c.patient}
+            <br>${roleTags}</div>
+            <div class="imgs">${cells || '<span class="cond">no ERSP</span>'}</div></div>`;
+  }
+  h += `</div>`;
+  if (vis.length > CAP) h += `<div class="empty">+${vis.length - CAP} more — narrow the role/patient filters to see them.</div>`;
+  el.innerHTML = h;
+}
+function rerender() { clearTimeout(_timer); _timer = setTimeout(renderElectrodes, 30); }
+
+// ---------- click a sample -> pulse that electrode on the brain (MOBA-style) ----------
+const findByKey = (key) => CONTACTS.find(c => `${c.patient}|${c.contact}` === key);
+async function updateHighlight() {
+  if (!nv) return;
+  for (const m of [...nv.meshes]) if (m.name === "highlight.obj") { try { nv.removeMesh(m); } catch(e){ try{ nv.removeMesh(m.id); }catch(e2){} } }
+  if (_pulseRaf) { cancelAnimationFrame(_pulseRaf); _pulseRaf = null; }
+  if (!highlightedKey) { nv.drawScene(); return; }
+  const c = findByKey(highlightedKey); if (!c) return;
+  const file = new File([buildSpheresOBJ([{x:+c.x,y:+c.y,z:+c.z}], 4.5)], "highlight.obj", { type:"text/plain" });
+  let mesh; try { mesh = await niivue.NVMesh.loadFromFile({ file, gl:nv.gl, name:"highlight.obj", rgba255:[255,235,0,255], visible:true }); }
+  catch(e){ return; }
+  nv.addMesh(mesh);
+  try { nv.setMeshShader(mesh.id, "Flat"); } catch(e){}
+  const start = performance.now(), PERIOD = 1400;
+  (function pulse(ts){
+    if (!highlightedKey) { _pulseRaf = null; return; }
+    const a = 0.5 - 0.5*Math.cos(2*Math.PI*(ts-start)/PERIOD);
+    const m = (nv.meshes||[]).find(x => x.name === "highlight.obj");
+    if (m){ if("opacity" in m) m.opacity=a; if("layerOpacity" in m) m.layerOpacity=a;
+            if (m.rgba255 && m.rgba255.length>=4) m.rgba255[3]=Math.round(60+a*195); nv.drawScene(); }
+    _pulseRaf = requestAnimationFrame(pulse);
+  })(performance.now());
+}
+document.getElementById("samples").addEventListener("click", (e) => {
+  const card = e.target.closest(".scard"); if (!card) return;
+  const key = card.dataset.key;
+  highlightedKey = (highlightedKey === key) ? null : key;
+  document.querySelectorAll("#samples .scard").forEach(c => c.classList.toggle("sel", c.dataset.key === highlightedKey));
+  updateHighlight();
+});
+
+// ---------- hover the brain -> tooltip with the nearest contact (MOBA-style) ----------
+const tipEl = document.getElementById("brainTooltip");
+function onBrainMouseMove(ev) {
+  if (!nv || !CONTACTS.length || typeof nv.canvasPosToWorldXYZ !== "function") { tipEl.style.display="none"; return; }
+  let world = null; try { world = nv.canvasPosToWorldXYZ(ev.offsetX, ev.offsetY); } catch(e){}
+  if (!world) { tipEl.style.display="none"; return; }
+  let best=null, bestD=1e9;
+  for (const c of CONTACTS) { if (!isVisible(c)) continue;
+    const dx=+c.x-world[0], dy=+c.y-world[1], dz=+c.z-world[2]; const d=dx*dx+dy*dy+dz*dz;
+    if (d<bestD){ bestD=d; best=c; } }
+  if (!best || bestD > 36) { tipEl.style.display="none"; return; }   // ~6mm cutoff
+  tipEl.textContent = `${best.patient}\n${best.contact}\n${best.role}`;
+  tipEl.style.left = ev.offsetX + "px"; tipEl.style.top = ev.offsetY + "px"; tipEl.style.display="block";
+}
+
+// ---------- legends ----------
+function buildRoleLegend() {
+  const el = document.getElementById("roles"); el.innerHTML = "";
+  roleOrder = ROLES.map(r => r.role);      // initial paint order (file order)
+  for (const r of ROLES) {
+    if (r.role === "none") continue;       // 'none' = unmatched; not a selectable filter
+    const row = document.createElement("label"); row.className = "role";
+    // default: nothing checked -> all matched contacts shown; checking roles AND-narrows
+    const cb = document.createElement("input"); cb.type="checkbox"; cb.checked=false;
+    cb.onchange = () => { if (cb.checked) { enabledRoles.add(r.role); bumpOrder(r.role); }
+                          else enabledRoles.delete(r.role); rerender(); };
+    const sw = document.createElement("span"); sw.className="swatch"; sw.style.background=vivid(r.color);
+    const tx = document.createElement("span"); tx.textContent=r.role;
+    const ct = document.createElement("span"); ct.className="count"; ct.textContent=r.n ?? "";
+    const info = document.createElement("span"); info.className="info-btn"; info.textContent="ⓘ";
+    info.title="explanation + box/gaussian template"; info.dataset.role=r.role;
+    if (openInfo.has("role:" + r.role)) info.classList.add("on");
+    info.onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggleRoleInfo(r.role, info); };
+    row.append(cb, sw, tx, ct, info); el.append(row);
+  }
+}
+function buildPatientChips() {
+  const el = document.getElementById("patients"); el.innerHTML = "";
+  for (const p of PATIENTS) {
+    enabledPatients.add(p);
+    const chip = document.createElement("span"); chip.className="chip"; chip.textContent=p;
+    chip.onclick = () => { if (enabledPatients.has(p)) { enabledPatients.delete(p); chip.classList.add("off"); }
+                           else { enabledPatients.add(p); chip.classList.remove("off"); } rerender(); };
+    el.append(chip);
+  }
+}
+const setAllRoles = (on) => { ROLES.forEach(r => on?(enabledRoles.add(r.role),bumpOrder(r.role)):enabledRoles.delete(r.role));
+  document.querySelectorAll("#roles input").forEach(c=>c.checked=on); rerender(); };
+const setAllPatients = (on) => { PATIENTS.forEach(p => on?enabledPatients.add(p):enabledPatients.delete(p));
+  document.querySelectorAll("#patients .chip").forEach(c=>c.classList.toggle("off", !on)); rerender(); };
+const BRAIN_OP = 0.18;   // glass-brain opacity when the pial surface is ON
+function setBrainSurface(on) {
+  for (const m of (nv ? nv.meshes || [] : [])) {
+    if (typeof m.name === "string" && /fsaverage/i.test(m.name)) {
+      const op = on ? BRAIN_OP : 0.0;
+      if ("opacity" in m)      m.opacity = op;
+      if ("layerOpacity" in m) m.layerOpacity = op;
+      if ("meshOpacity" in m)  m.meshOpacity = op;
+      if ("visible" in m)      m.visible = on;
+      if (m.rgba255 && m.rgba255.length >= 4) m.rgba255[3] = Math.round(op * 255);
+    }
+  }
+  if (nv && typeof nv.updateGLVolume === "function") nv.updateGLVolume();
+  if (nv) nv.drawScene();
+}
+document.getElementById("pialToggle").onchange = (e) => setBrainSurface(e.target.checked);
+document.getElementById("rolesAll").onclick  = () => setAllRoles(true);
+document.getElementById("rolesNone").onclick = () => setAllRoles(false);
+document.getElementById("patAll").onclick    = () => setAllPatients(true);
+document.getElementById("patNone").onclick   = () => setAllPatients(false);
+
+// ============================ POOLv2 — interactive role designer ============================
+const CUBE_BASE = `${REPO_RAW}/04_FBM_Pooling/outputs/pooling/pool_cube`;
+let CUBE = null, CUBE_MAN = null, CUBE_IDX = null;      // Int8Array, manifest, key->row
+async function loadCube() {
+  if (CUBE) return true;
+  try {
+    CUBE_MAN = await (await fetch(`${CUBE_BASE}/cube_manifest.json`)).json();
+    CUBE = new Int8Array(await (await fetch(`${CUBE_BASE}/cube_i8.bin`)).arrayBuffer());
+    CUBE_IDX = new Map(CUBE_MAN.contacts.map((k, i) => [k, i]));
+    return true;
+  } catch (e) { console.warn("[POOLv2] cube not loaded:", e); return false; }
+}
+const _clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// box gate: fraction of the box's cells past `thr` (in the box's sign) >= minProp
+function boxPass(ci, box, thr, minProp) {
+  const m = CUBE_MAN, F = m.n_freq, T = m.n_time, S = m.scale, bpb = m.bins_per_block;
+  const a = box.block * bpb + Math.round(Math.min(box.t0, box.t1) / 100 * bpb);
+  const b = box.block * bpb + Math.round(Math.max(box.t0, box.t1) / 100 * bpb);
+  const t0 = _clamp(Math.min(a, b), box.block * bpb, (box.block + 1) * bpb - 1);
+  const t1 = _clamp(Math.max(b, t0 + 1), box.block * bpb + 1, (box.block + 1) * bpb);
+  const lo = Math.min(box.fLo, box.fHi), hi = Math.max(box.fLo, box.fHi);
+  const frows = [];
+  for (let f = 0; f < F; f++) { const bd = m.band_hz[f]; if (bd[1] >= lo && bd[0] <= hi) frows.push(f); }
+  if (!frows.length) frows.push(_clamp(Math.round((lo + hi) / 2 / m.fmax_hz * F), 0, F - 1));
+  let n = 0, k = 0; const base = ci * F * T;
+  for (const f of frows) for (let t = t0; t < t1; t++) {
+    const db = CUBE[base + f * T + t] / S; n++;
+    if (box.sign === "pos") { if (db > thr) k++; }
+    else if (box.sign === "neg") { if (db < -thr) k++; }
+    else { if (Math.abs(db) > thr) k++; }       // 'zero' = must be silent
+  }
+  if (!n) return box.sign === "zero";
+  const frac = k / n;
+  return box.sign === "zero" ? (frac < minProp) : (frac >= minProp);
+}
+
+// ---- editor: blank [a|p|r] canvas with draggable/resizable boxes ----
+const EDITOR = { boxes: [], thr: 2.0, minProp: 0.3, sel: -1, drag: null };
+const DSG_SIGNS = ["pos", "neg", "zero"], DSG_SIGNCOL = { pos: "#cc0033", neg: "#1f4fd8", zero: "#777777" };
+const dsgCv = document.getElementById("dsgCanvas"), dsgCtx = dsgCv.getContext("2d"), NB = 3;
+const dsgFmax = () => (CUBE_MAN && CUBE_MAN.fmax_hz) || 500;
+const dsgGeom = () => ({ W: dsgCv.width, H: dsgCv.height, bw: dsgCv.width / NB });
+function boxRect(bx) {
+  const g = dsgGeom(), fm = dsgFmax();
+  const X = (p) => bx.block * g.bw + p / 100 * g.bw, Y = (hz) => g.H - hz / fm * g.H;
+  const x0 = X(Math.min(bx.t0, bx.t1)), x1 = X(Math.max(bx.t0, bx.t1));
+  const y0 = Y(Math.max(bx.fLo, bx.fHi)), y1 = Y(Math.min(bx.fLo, bx.fHi));
+  return { x: x0, y: y0, w: x1 - x0, h: y1 - y0 };
+}
+const pxBlockPct = (px) => { const g = dsgGeom(), bl = _clamp(Math.floor(px / g.bw), 0, NB - 1); return { block: bl, t: _clamp((px - bl * g.bw) / g.bw * 100, 0, 100) }; };
+const pyHz = (py) => _clamp((1 - py / dsgGeom().H) * dsgFmax(), 0, dsgFmax());
+function dsgDraw() {
+  const g = dsgGeom(); dsgCtx.clearRect(0, 0, g.W, g.H);
+  const labs = ["audio", "picture", "reading"];
+  for (let i = 0; i < NB; i++) {
+    if (i) { dsgCtx.strokeStyle = "#222"; dsgCtx.lineWidth = 1.5; dsgCtx.beginPath(); dsgCtx.moveTo(i * g.bw, 0); dsgCtx.lineTo(i * g.bw, g.H); dsgCtx.stroke(); }
+    dsgCtx.strokeStyle = "#ccc"; dsgCtx.setLineDash([3, 3]); dsgCtx.beginPath(); dsgCtx.moveTo(i * g.bw + g.bw / 2, 0); dsgCtx.lineTo(i * g.bw + g.bw / 2, g.H); dsgCtx.stroke(); dsgCtx.setLineDash([]);
+    dsgCtx.fillStyle = "#555"; dsgCtx.font = "10px sans-serif"; dsgCtx.textAlign = "center"; dsgCtx.fillText(labs[i], i * g.bw + g.bw / 2, 11);
+  }
+  EDITOR.boxes.forEach((bx, i) => {
+    const r = boxRect(bx), c = DSG_SIGNCOL[bx.sign];
+    dsgCtx.fillStyle = c + "22"; dsgCtx.fillRect(r.x, r.y, r.w, r.h);
+    dsgCtx.strokeStyle = c; dsgCtx.lineWidth = i === EDITOR.sel ? 2.5 : 1.4; dsgCtx.strokeRect(r.x, r.y, r.w, r.h);
+    if (i === EDITOR.sel) { dsgCtx.fillStyle = c; [[r.x, r.y], [r.x + r.w, r.y], [r.x, r.y + r.h], [r.x + r.w, r.y + r.h]].forEach(([hx, hy]) => dsgCtx.fillRect(hx - 4, hy - 4, 8, 8)); }
+  });
+}
+function dsgHit(px, py) {
+  for (let i = EDITOR.boxes.length - 1; i >= 0; i--) {
+    const r = boxRect(EDITOR.boxes[i]);
+    for (const [cn, cx, cy] of [["nw", r.x, r.y], ["ne", r.x + r.w, r.y], ["sw", r.x, r.y + r.h], ["se", r.x + r.w, r.y + r.h]])
+      if (Math.abs(px - cx) < 6 && Math.abs(py - cy) < 6) return { i, corner: cn };
+    if (px >= r.x - 2 && px <= r.x + r.w + 2 && py >= r.y - 2 && py <= r.y + r.h + 2) return { i, corner: null };
+  }
+  return { i: -1 };
+}
+const dsgPx = (e) => { const r = dsgCv.getBoundingClientRect(); return [(e.clientX - r.left) * dsgCv.width / r.width, (e.clientY - r.top) * dsgCv.height / r.height]; };
+dsgCv.addEventListener("mousedown", (e) => {
+  const [px, py] = dsgPx(e), h = dsgHit(px, py); EDITOR.sel = h.i;
+  if (h.i >= 0) EDITOR.drag = { mode: h.corner ? "rz:" + h.corner : "mv", box: { ...EDITOR.boxes[h.i] } };
+  dsgSignBtn(); dsgDraw();
+});
+window.addEventListener("mousemove", (e) => {
+  if (!EDITOR.drag || EDITOR.sel < 0) return;
+  const [px, py] = dsgPx(e), bx = EDITOR.boxes[EDITOR.sel], o = EDITOR.drag.box, p = pxBlockPct(px), hz = pyHz(py), fm = dsgFmax();
+  if (EDITOR.drag.mode === "mv") {
+    const wt = Math.abs(o.t1 - o.t0), wf = Math.abs(o.fHi - o.fLo);
+    bx.block = p.block; bx.t0 = _clamp(p.t - wt / 2, 0, 100); bx.t1 = _clamp(p.t + wt / 2, 0, 100);
+    bx.fLo = _clamp(hz - wf / 2, 0, fm); bx.fHi = _clamp(hz + wf / 2, 0, fm);
+  } else {
+    const cn = EDITOR.drag.mode.split(":")[1];
+    if (p.block === bx.block) { if (cn.includes("w")) bx.t0 = p.t; else bx.t1 = p.t; }
+    if (cn[0] === "n") bx.fHi = hz; else bx.fLo = hz;
+  }
+  dsgDraw();
+});
+window.addEventListener("mouseup", () => { EDITOR.drag = null; });
+function dsgSignBtn() { const bx = EDITOR.boxes[EDITOR.sel]; document.getElementById("dsgSign").textContent = "sign: " + (bx ? bx.sign : "pos"); }
+document.getElementById("dsgAdd").onclick = () => { EDITOR.boxes.push({ block: 0, t0: 10, t1: 45, fLo: 70, fHi: 150, sign: "pos" }); EDITOR.sel = EDITOR.boxes.length - 1; dsgSignBtn(); dsgDraw(); };
+document.getElementById("dsgSign").onclick = () => { const bx = EDITOR.boxes[EDITOR.sel]; if (!bx) return; bx.sign = DSG_SIGNS[(DSG_SIGNS.indexOf(bx.sign) + 1) % 3]; dsgSignBtn(); dsgDraw(); };
+document.getElementById("dsgDel").onclick = () => { if (EDITOR.sel >= 0) { EDITOR.boxes.splice(EDITOR.sel, 1); EDITOR.sel = -1; dsgSignBtn(); dsgDraw(); } };
+document.getElementById("dsgClear").onclick = () => { EDITOR.boxes = []; EDITOR.sel = -1; dsgSignBtn(); dsgDraw(); };
+const _thr = document.getElementById("dsgThr"), _frac = document.getElementById("dsgFrac");
+_thr.oninput = () => { EDITOR.thr = +_thr.value; document.getElementById("dsgThrV").textContent = EDITOR.thr.toFixed(1); };
+_frac.oninput = () => { EDITOR.minProp = +_frac.value; document.getElementById("dsgFracV").textContent = EDITOR.minProp.toFixed(2); };
+document.getElementById("dsgApply").onclick = async () => {
+  if (!CUBE && !(await loadCube())) { setStatus("⚠️ cube not loaded — run 460 (writes pool_cube/)"); return; }
+  DESIGN_MATCH.clear();
+  if (EDITOR.boxes.length) for (const [key, ci] of CUBE_IDX) if (EDITOR.boxes.every(bx => boxPass(ci, bx, EDITOR.thr, EDITOR.minProp))) DESIGN_MATCH.add(key);
+  colorMode = "design";
+  document.querySelectorAll("#colorMode button").forEach(b => b.classList.remove("on"));
+  buildYeoLegend();
+  document.getElementById("dsgCount").textContent = DESIGN_MATCH.size + " match";
+  setStatus(`design: ${DESIGN_MATCH.size} contacts match · thr=${EDITOR.thr} frac≥${EDITOR.minProp}`);
+  await renderElectrodes();
+};
+document.getElementById("dsgExport").onclick = () => {
+  const blocks = ["audio", "picture", "reading"];
+  const boxes = EDITOR.boxes.map(bx => ({ block: blocks[bx.block], t_pct: [Math.round(Math.min(bx.t0, bx.t1)), Math.round(Math.max(bx.t0, bx.t1))], f_hz: [Math.round(Math.min(bx.fLo, bx.fHi)), Math.round(Math.max(bx.fLo, bx.fHi))], sign: bx.sign }));
+  const out = document.getElementById("dsgOut");
+  out.value = JSON.stringify({ role: "my_role", match: "all", thr: EDITOR.thr, frac: EDITOR.minProp, boxes }, null, 1);
+  out.style.display = "block"; out.select();
+};
+document.getElementById("dsgToggle").onclick = () => {
+  const body = document.getElementById("dsgBody"), t = document.getElementById("dsgToggle"), open = body.style.display === "none";
+  body.style.display = open ? "block" : "none"; t.textContent = open ? "▾" : "▸"; if (open) dsgDraw();
+};
+dsgDraw();
+
+// ---------- boot ----------
+(async () => {
+  try {
+    const supportsWebGPU = !!navigator.gpu;
+    nv = new niivue.Niivue({ backColor:[1,1,1,1], show3Dcrosshair:false, isOrientCube:false,
+                             isResizeCanvas:true, isColorbar:false, meshXRay:0,
+                             isHighResolutionCapable:true, useWebGPU:supportsWebGPU });
+    await nv.attachToCanvas(document.getElementById("gl"));
+    const _cv = document.getElementById("gl");
+    _cv.addEventListener("mousemove", onBrainMouseMove);
+    _cv.addEventListener("mouseleave", () => { tipEl.style.display = "none"; });
+
+    setStatus("loading brain meshes…");
+    // niivue 0.69 chokes on the gzipped .mz3 ("Invalid MZ3"); fall back to .gii
+    // exactly like MOBA's loadBrainSurfaceMeshes does.
+    const meshUrls = [`${FSAV_MESH_BASE}/fsaverage_lh.mz3`, `${FSAV_MESH_BASE}/fsaverage_rh.mz3`];
+    try {
+      await nv.loadMeshes(meshUrls.map(u => ({ url:u, rgba255:MESH_RGBA, visible:true })));
+    } catch (e) {
+      await nv.loadMeshes(meshUrls.map(u => ({ url:u.replace(".mz3",".gii"), rgba255:MESH_RGBA, visible:true })));
+    }
+
+    // MOBA parity: load-time alpha is ignored by the mesh shader on ANGLE/Metal,
+    // so force the glass-like brain opacity directly, then set MOBA's camera angle.
+    try {
+      setBrainSurface(document.getElementById("pialToggle").checked);   // glass brain; honors the toggle (default ON)
+      if (typeof nv.setRenderAzimuthElevation === "function") nv.setRenderAzimuthElevation(180, 35);
+      nv.drawScene();
+    } catch (e) { console.warn("[POOL] brain styling:", e); }
+
+    await loadPoolData();   // box (pool_web) by default; the Matching toggle reloads gaussian
+    loadCube();             // poolv2: preload the ds ERSP cube for the role designer (fire-and-forget)
+    try { if (window.roInit) await window.roInit(nv, { corner: "top-right", mount: "#main" }); } catch (e) { console.warn("[POOL] roInit:", e); }
+
+    // bottom-right brain transparency toggle (glass <-> solid; outlines/electrodes unaffected)
+    try {
+      const wrap = document.createElement("div");
+      wrap.style.cssText = "position:fixed;right:14px;bottom:14px;z-index:9999;background:rgba(18,18,22,.86);" +
+        "color:#e8e8ec;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:7px 10px;" +
+        "font:12px -apple-system,Segoe UI,Roboto,Arial,sans-serif";
+      wrap.innerHTML = '<label style="display:flex;gap:7px;align-items:center;cursor:pointer;user-select:none">' +
+        '<input type="checkbox" id="brainAlphaChk" checked> Transparent brain</label>';
+      document.body.appendChild(wrap);
+      document.getElementById("brainAlphaChk").addEventListener("change", (e) => {
+        const op = e.target.checked ? BRAIN_OP : 1.0;
+        for (const m of (nv ? nv.meshes || [] : []))
+          if (typeof m.name === "string" && /fsaverage/i.test(m.name)) {
+            if ("opacity" in m) m.opacity = op;
+            if ("layerOpacity" in m) m.layerOpacity = op;
+            if ("meshOpacity" in m) m.meshOpacity = op;
+            if (m.rgba255 && m.rgba255.length >= 4) m.rgba255[3] = Math.round(op * 255);
+          }
+        if (nv) nv.drawScene();
+      });
+    } catch (e) { console.warn("[POOL] transparency toggle:", e); }
+  } catch (e) {
+    setStatus("⚠️ " + e.message + "  (check REPO_RAW / branch / data paths)");
+    console.error(e);
+  }
+})();
+</script>
+</body>
+</html>

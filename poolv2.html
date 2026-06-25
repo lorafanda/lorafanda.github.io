@@ -164,6 +164,7 @@
           <label>frac≥ <input type="range" id="dsgFrac" min="0.05" max="1" step="0.05" value="0.3"> <span id="dsgFracV">0.30</span></label>
           <button class="mini on" id="dsgApply">Apply</button>
           <button class="mini" id="dsgExport">export role</button>
+          <button class="mini" id="dsgBg">bg: off</button>
           <span id="dsgCount" class="dsgCount"></span>
         </div>
         <textarea id="dsgOut" readonly placeholder="export role → JSON for roi_config_concatenated.py"></textarea>
@@ -563,6 +564,7 @@ document.getElementById("samples").addEventListener("click", (e) => {
   highlightedKey = (highlightedKey === key) ? null : key;
   document.querySelectorAll("#samples .scard").forEach(c => c.classList.toggle("sel", c.dataset.key === highlightedKey));
   updateHighlight();
+  if (EDITOR.bgOn) dsgDraw();
 });
 
 // ---------- hover the brain -> tooltip with the nearest contact (MOBA-style) ----------
@@ -674,7 +676,7 @@ function boxPass(ci, box, thr, minProp) {
 }
 
 // ---- editor: blank [a|p|r] canvas with draggable/resizable boxes ----
-const EDITOR = { boxes: [], thr: 2.0, minProp: 0.3, sel: -1, drag: null };
+const EDITOR = { boxes: [], thr: 2.0, minProp: 0.3, sel: -1, drag: null, bgOn: false };
 const DSG_SIGNS = ["pos", "neg", "zero"], DSG_SIGNCOL = { pos: "#cc0033", neg: "#1f4fd8", zero: "#777777" };
 const dsgCv = document.getElementById("dsgCanvas"), dsgCtx = dsgCv.getContext("2d"), NB = 3;
 const dsgFmax = () => (CUBE_MAN && CUBE_MAN.fmax_hz) || 500;
@@ -688,8 +690,46 @@ function boxRect(bx) {
 }
 const pxBlockPct = (px) => { const g = dsgGeom(), bl = _clamp(Math.floor(px / g.bw), 0, NB - 1); return { block: bl, t: _clamp((px - bl * g.bw) / g.bw * 100, 0, 100) }; };
 const pyHz = (py) => _clamp((1 - py / dsgGeom().H) * dsgFmax(), 0, dsgFmax());
+function dsgDrawBg() {
+  if (!EDITOR.bgOn || !highlightedKey || !CUBE || !CUBE_MAN) return;
+  const ci = CUBE_IDX.get(highlightedKey);
+  if (ci === undefined) return;
+  const { W, H, bw } = dsgGeom(), nF = CUBE_MAN.n_freq, nT = CUBE_MAN.n_time;
+  const bpb = CUBE_MAN.bins_per_block, sc = CUBE_MAN.scale, fm = dsgFmax();
+  // pre-compute freq-band index for each pixel row
+  const fiRow = new Int16Array(H);
+  for (let py = 0; py < H; py++) {
+    const hz = (1 - py / H) * fm;
+    let best = 0, bestD = Infinity;
+    for (let f = 0; f < nF; f++) {
+      const bd = CUBE_MAN.band_hz[f];
+      if (hz >= bd[0] && hz <= bd[1]) { best = f; bestD = 0; break; }
+      const d = Math.min(Math.abs(hz - bd[0]), Math.abs(hz - bd[1]));
+      if (d < bestD) { bestD = d; best = f; }
+    }
+    fiRow[py] = best;
+  }
+  const img = dsgCtx.createImageData(W, H);
+  const base = ci * nF * nT;
+  for (let px = 0; px < W; px++) {
+    const bl = _clamp(Math.floor(px / bw), 0, NB - 1);
+    const tFrac = (px - bl * bw) / bw;
+    const tBin = _clamp(Math.floor(tFrac * bpb) + bl * bpb, bl * bpb, (bl + 1) * bpb - 1);
+    for (let py = 0; py < H; py++) {
+      const db = CUBE[base + fiRow[py] * nT + tBin] / sc;
+      const t = _clamp(db / 8, -1, 1);
+      let r, g, b;
+      if (t >= 0) { r = 255; g = Math.round(255 * (1 - t)); b = Math.round(255 * (1 - t)); }
+      else { r = Math.round(255 * (1 + t)); g = Math.round(255 * (1 + t)); b = 255; }
+      const idx = (py * W + px) * 4;
+      img.data[idx] = r; img.data[idx + 1] = g; img.data[idx + 2] = b; img.data[idx + 3] = 180;
+    }
+  }
+  dsgCtx.putImageData(img, 0, 0);
+}
 function dsgDraw() {
   const g = dsgGeom(); dsgCtx.clearRect(0, 0, g.W, g.H);
+  dsgDrawBg();
   // frequency-band guides: faint dashed horizontal lines at each ds band edge
   if (CUBE_MAN && CUBE_MAN.band_hz) {
     const fm = dsgFmax(); const edges = new Set();
@@ -778,6 +818,11 @@ document.getElementById("dsgExport").onclick = () => {
   const out = document.getElementById("dsgOut");
   out.value = JSON.stringify({ role: "my_role", match: "all", thr: EDITOR.thr, frac: EDITOR.minProp, boxes }, null, 1);
   out.style.display = "block"; out.select();
+};
+document.getElementById("dsgBg").onclick = () => {
+  EDITOR.bgOn = !EDITOR.bgOn;
+  document.getElementById("dsgBg").textContent = "bg: " + (EDITOR.bgOn ? "on" : "off");
+  dsgDraw();
 };
 document.getElementById("dsgToggle").onclick = () => {
   const body = document.getElementById("dsgBody"), t = document.getElementById("dsgToggle"), open = body.style.display === "none";

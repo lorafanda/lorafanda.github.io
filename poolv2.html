@@ -226,7 +226,23 @@ const YEO17_NAMES = {
 const RADII = { cortical:{ r:1.7, a:255 }, depth:{ r:1.4, a:180 } };  // smaller — matches activity_visualizer
 // =================================================================================
 
-const statusEl = document.getElementById("status");
+const statusEl      = document.getElementById("status");
+const samplesEl     = document.getElementById("samples");
+const _roleInfoEl   = document.getElementById("roleInfo");
+const _yeoLegendEl  = document.getElementById("yeoLegend");
+const _colorModeBtns = document.querySelectorAll("#colorMode button");
+const _poolMethodBtns = document.querySelectorAll("#poolMethod button");
+// designer controls — defined here so loadRoleDesign and event handlers share one ref
+const _thr      = document.getElementById("dsgThr");
+const _frac     = document.getElementById("dsgFrac");
+const _dsgThrV  = document.getElementById("dsgThrV");
+const _dsgFracV = document.getElementById("dsgFracV");
+const _dsgBody  = document.getElementById("dsgBody");
+const _dsgToggle = document.getElementById("dsgToggle");
+const _dsgSign  = document.getElementById("dsgSign");
+const _dsgCount = document.getElementById("dsgCount");
+const _dsgBgBtn = document.getElementById("dsgBg");
+const _dsgOut   = document.getElementById("dsgOut");
 const setStatus = (m) => (statusEl.textContent = m);
 const hexToRgb = (h) => { const n = parseInt(String(h).replace("#",""),16); return [(n>>16)&255,(n>>8)&255,n&255]; };
 const toHex = (r,g,b) => "#" + [r,g,b].map(v=>Math.max(0,Math.min(255,v|0)).toString(16).padStart(2,"0")).join("");
@@ -353,7 +369,7 @@ async function renderElectrodes() {
 
 // ---------- Yeo network legend (top-right of the brain) + per-network toggles ----------
 function buildYeoLegend() {
-  const el = document.getElementById("yeoLegend");
+  const el = _yeoLegendEl;
   if (colorMode === "role" || colorMode === "design") { el.style.display = "none"; el.innerHTML = ""; return; }
   let pal, names, order, title, infoSrc = null;
   if (colorMode === "neurosynth") {              // multi-label regions from notebook 480
@@ -400,7 +416,7 @@ function buildYeoLegend() {
 }
 function setColorMode(mode) {
   colorMode = mode;
-  document.querySelectorAll("#colorMode button").forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
+  _colorModeBtns.forEach(b => b.classList.toggle("on", b.dataset.mode === mode));
   buildYeoLegend();
   rerender();
 }
@@ -417,7 +433,7 @@ function toggleInfo(key, btn) {
 const toggleRoleInfo = (role, btn)   => toggleInfo("role:" + role, btn);
 const toggleNsInfo   = (region, btn) => toggleInfo("ns:" + region, btn);
 function renderRoleInfo() {
-  const el = document.getElementById("roleInfo");
+  const el = _roleInfoEl;
   if (!openInfo.size) { el.style.display = "none"; el.innerHTML = ""; return; }
   let h = "";
   for (const key of openInfo) {
@@ -500,14 +516,14 @@ async function loadPoolData() {
 }
 function setPoolMethod(m) {
   poolMethod = m;
-  document.querySelectorAll("#poolMethod button").forEach(b => b.classList.toggle("on", b.dataset.method === m));
+  _poolMethodBtns.forEach(b => b.classList.toggle("on", b.dataset.method === m));
   loadPoolData();
 }
 
 // ---------- samples strip (the visible contacts' ERSPs, MOBA-style) ----------
 const CONDS = ["audio", "picture", "reading"];
 function renderSamples() {
-  const el = document.getElementById("samples");
+  const el = samplesEl;
   const vis = CONTACTS.filter(isVisible);
   if (!Object.keys(SAMPLES).length) {
     el.innerHTML = `<div class="empty">No sample images yet — re-run notebook 460 (the export now writes
@@ -566,7 +582,7 @@ async function updateHighlight() {
     _pulseRaf = requestAnimationFrame(pulse);
   })(performance.now());
 }
-document.getElementById("samples").addEventListener("click", (e) => {
+samplesEl.addEventListener("click", (e) => {
   const card = e.target.closest(".scard"); if (!card) return;
   const key = card.dataset.key;
   if (e.ctrlKey || e.metaKey) {
@@ -581,7 +597,7 @@ document.getElementById("samples").addEventListener("click", (e) => {
     MULTI_SEL.clear();
     if (!wasOnly) { MULTI_SEL.add(key); highlightedKey = key; } else highlightedKey = null;
   }
-  document.querySelectorAll("#samples .scard").forEach(c => c.classList.toggle("sel", MULTI_SEL.has(c.dataset.key)));
+  samplesEl.querySelectorAll(".scard").forEach(c => c.classList.toggle("sel", MULTI_SEL.has(c.dataset.key)));
   updateHighlight();
   if (EDITOR.bgOn) dsgDraw();
 });
@@ -620,12 +636,9 @@ function loadRoleDesign(roleName) {
   EDITOR.sel = -1;
   EDITOR.thr = ri.thr ?? 2.0;
   EDITOR.minProp = ri.frac ?? 0.30;
-  const thrSlider = document.getElementById("dsgThr");
-  const fracSlider = document.getElementById("dsgFrac");
-  if (thrSlider) { thrSlider.value = EDITOR.thr; document.getElementById("dsgThrV").textContent = EDITOR.thr.toFixed(1); }
-  if (fracSlider) { fracSlider.value = EDITOR.minProp; document.getElementById("dsgFracV").textContent = EDITOR.minProp.toFixed(2); }
-  const body = document.getElementById("dsgBody"), t = document.getElementById("dsgToggle");
-  if (body && body.style.display === "none") { body.style.display = "block"; if (t) t.textContent = "▾"; }
+  _thr.value = EDITOR.thr;    _dsgThrV.textContent  = EDITOR.thr.toFixed(1);
+  _frac.value = EDITOR.minProp; _dsgFracV.textContent = EDITOR.minProp.toFixed(2);
+  if (_dsgBody.style.display === "none") { _dsgBody.style.display = "block"; _dsgToggle.textContent = "▾"; }
   dsgSignBtn(); dsgDraw();
 }
 
@@ -676,20 +689,19 @@ const setAllRoles = (on) => { _setRolesInEl("roles", on); _setRolesInEl("dRoles"
 const setAllPatients = (on) => { PATIENTS.forEach(p => on?enabledPatients.add(p):enabledPatients.delete(p));
   document.querySelectorAll("#patients .chip").forEach(c=>c.classList.toggle("off", !on)); rerender(); };
 const BRAIN_OP = 0.18;   // glass-brain opacity when the pial surface is ON
-function setBrainSurface(on) {
-  for (const m of (nv ? nv.meshes || [] : [])) {
+function applyBrainOpacity(op, setVisible) {
+  for (const m of (nv ? nv.meshes || [] : []))
     if (typeof m.name === "string" && /fsaverage/i.test(m.name)) {
-      const op = on ? BRAIN_OP : 0.0;
       if ("opacity" in m)      m.opacity = op;
       if ("layerOpacity" in m) m.layerOpacity = op;
       if ("meshOpacity" in m)  m.meshOpacity = op;
-      if ("visible" in m)      m.visible = on;
+      if (setVisible && "visible" in m) m.visible = op > 0;
       if (m.rgba255 && m.rgba255.length >= 4) m.rgba255[3] = Math.round(op * 255);
     }
-  }
   if (nv && typeof nv.updateGLVolume === "function") nv.updateGLVolume();
   if (nv) nv.drawScene();
 }
+function setBrainSurface(on) { applyBrainOpacity(on ? BRAIN_OP : 0.0, true); }
 document.getElementById("pialToggle").onchange = (e) => setBrainSurface(e.target.checked);
 document.getElementById("rolesAll").onclick  = () => _setRolesInEl("roles", true);
 document.getElementById("rolesNone").onclick = () => _setRolesInEl("roles", false);
@@ -741,6 +753,22 @@ const DSG_SIGNS = ["pos", "neg", "zero"], DSG_SIGNCOL = { pos: "#cc0033", neg: "
 const dsgCv = document.getElementById("dsgCanvas"), dsgCtx = dsgCv.getContext("2d"), NB = 3;
 const dsgFmax = () => (CUBE_MAN && CUBE_MAN.fmax_hz) || 500;
 const dsgGeom = () => ({ W: dsgCv.width, H: dsgCv.height, bw: dsgCv.width / NB });
+let _fiRowCache = null, _fiRowFmax = -1;
+function _getFreqRows(H, fm) {
+  if (_fiRowCache && _fiRowFmax === fm && _fiRowCache.length === H) return _fiRowCache;
+  const nF = CUBE_MAN.n_freq, fiRow = new Int16Array(H);
+  for (let py = 0; py < H; py++) {
+    const hz = (1 - py / H) * fm; let best = 0, bestD = Infinity;
+    for (let f = 0; f < nF; f++) {
+      const bd = CUBE_MAN.band_hz[f];
+      if (hz >= bd[0] && hz <= bd[1]) { best = f; break; }
+      const d = Math.min(Math.abs(hz - bd[0]), Math.abs(hz - bd[1]));
+      if (d < bestD) { bestD = d; best = f; }
+    }
+    fiRow[py] = best;
+  }
+  _fiRowCache = fiRow; _fiRowFmax = fm; return fiRow;
+}
 function boxRect(bx) {
   const g = dsgGeom(), fm = dsgFmax();
   const X = (p) => bx.block * g.bw + p / 100 * g.bw, Y = (hz) => g.H - hz / fm * g.H;
@@ -754,21 +782,9 @@ function dsgDrawBg() {
   if (!EDITOR.bgOn || !highlightedKey || !CUBE || !CUBE_MAN) return;
   const ci = CUBE_IDX.get(highlightedKey);
   if (ci === undefined) return;
-  const { W, H, bw } = dsgGeom(), nF = CUBE_MAN.n_freq, nT = CUBE_MAN.n_time;
+  const { W, H, bw } = dsgGeom(), nT = CUBE_MAN.n_time;
   const bpb = CUBE_MAN.bins_per_block, sc = CUBE_MAN.scale, fm = dsgFmax();
-  // pre-compute freq-band index for each pixel row
-  const fiRow = new Int16Array(H);
-  for (let py = 0; py < H; py++) {
-    const hz = (1 - py / H) * fm;
-    let best = 0, bestD = Infinity;
-    for (let f = 0; f < nF; f++) {
-      const bd = CUBE_MAN.band_hz[f];
-      if (hz >= bd[0] && hz <= bd[1]) { best = f; bestD = 0; break; }
-      const d = Math.min(Math.abs(hz - bd[0]), Math.abs(hz - bd[1]));
-      if (d < bestD) { bestD = d; best = f; }
-    }
-    fiRow[py] = best;
-  }
+  const fiRow = _getFreqRows(H, fm);
   const img = dsgCtx.createImageData(W, H);
   const base = ci * nF * nT;
   for (let px = 0; px < W; px++) {
@@ -848,14 +864,13 @@ window.addEventListener("mousemove", (e) => {
   dsgDraw();
 });
 window.addEventListener("mouseup", () => { EDITOR.drag = null; });
-function dsgSignBtn() { const bx = EDITOR.boxes[EDITOR.sel]; document.getElementById("dsgSign").textContent = "sign: " + (bx ? bx.sign : "pos"); }
+function dsgSignBtn() { const bx = EDITOR.boxes[EDITOR.sel]; _dsgSign.textContent = "sign: " + (bx ? bx.sign : "pos"); }
 document.getElementById("dsgAdd").onclick = () => { EDITOR.boxes.push({ block: 0, t0: 10, t1: 45, fLo: 70, fHi: 150, sign: "pos" }); EDITOR.sel = EDITOR.boxes.length - 1; dsgSignBtn(); dsgDraw(); };
-document.getElementById("dsgSign").onclick = () => { const bx = EDITOR.boxes[EDITOR.sel]; if (!bx) return; bx.sign = DSG_SIGNS[(DSG_SIGNS.indexOf(bx.sign) + 1) % 3]; dsgSignBtn(); dsgDraw(); };
+_dsgSign.onclick = () => { const bx = EDITOR.boxes[EDITOR.sel]; if (!bx) return; bx.sign = DSG_SIGNS[(DSG_SIGNS.indexOf(bx.sign) + 1) % 3]; dsgSignBtn(); dsgDraw(); };
 document.getElementById("dsgDel").onclick = () => { if (EDITOR.sel >= 0) { EDITOR.boxes.splice(EDITOR.sel, 1); EDITOR.sel = -1; dsgSignBtn(); dsgDraw(); } };
 document.getElementById("dsgClear").onclick = () => { EDITOR.boxes = []; EDITOR.sel = -1; dsgSignBtn(); dsgDraw(); };
-const _thr = document.getElementById("dsgThr"), _frac = document.getElementById("dsgFrac");
-_thr.oninput = () => { EDITOR.thr = +_thr.value; document.getElementById("dsgThrV").textContent = EDITOR.thr.toFixed(1); };
-_frac.oninput = () => { EDITOR.minProp = +_frac.value; document.getElementById("dsgFracV").textContent = EDITOR.minProp.toFixed(2); };
+_thr.oninput  = () => { EDITOR.thr      = +_thr.value;  _dsgThrV.textContent  = EDITOR.thr.toFixed(1); };
+_frac.oninput = () => { EDITOR.minProp  = +_frac.value; _dsgFracV.textContent = EDITOR.minProp.toFixed(2); };
 document.getElementById("dsgApply").onclick = async () => {
   if (!CUBE && !(await loadCube())) { setStatus("⚠️ cube not loaded — run 460 (writes pool_cube/)"); return; }
   // only consider DISPLAYED contacts (the pool) so 'match' == 'shown' on the brain
@@ -866,27 +881,26 @@ document.getElementById("dsgApply").onclick = async () => {
       DESIGN_MATCH.add(`${c.patient}|${c.contact}`);
   }
   colorMode = "design";
-  document.querySelectorAll("#colorMode button").forEach(b => b.classList.remove("on"));
+  _colorModeBtns.forEach(b => b.classList.remove("on"));
   buildYeoLegend();
-  const shownN = CONTACTS.filter(isVisible).length;   // matched AND patient-enabled == drawn
-  document.getElementById("dsgCount").textContent = shownN + " match";
+  const shownN = CONTACTS.filter(isVisible).length;
+  _dsgCount.textContent = shownN + " match";
   await renderElectrodes();
 };
 document.getElementById("dsgExport").onclick = () => {
   const blocks = ["audio", "picture", "reading"];
   const boxes = EDITOR.boxes.map(bx => ({ block: blocks[bx.block], t_pct: [Math.round(Math.min(bx.t0, bx.t1)), Math.round(Math.max(bx.t0, bx.t1))], f_hz: [Math.round(Math.min(bx.fLo, bx.fHi)), Math.round(Math.max(bx.fLo, bx.fHi))], sign: bx.sign }));
-  const out = document.getElementById("dsgOut");
-  out.value = JSON.stringify({ role: "my_role", match: "all", thr: EDITOR.thr, frac: EDITOR.minProp, boxes }, null, 1);
-  out.style.display = "block"; out.select();
+  _dsgOut.value = JSON.stringify({ role: "my_role", match: "all", thr: EDITOR.thr, frac: EDITOR.minProp, boxes }, null, 1);
+  _dsgOut.style.display = "block"; _dsgOut.select();
 };
-document.getElementById("dsgBg").onclick = () => {
+_dsgBgBtn.onclick = () => {
   EDITOR.bgOn = !EDITOR.bgOn;
-  document.getElementById("dsgBg").textContent = "bg: " + (EDITOR.bgOn ? "on" : "off");
+  _dsgBgBtn.textContent = "bg: " + (EDITOR.bgOn ? "on" : "off");
   dsgDraw();
 };
-document.getElementById("dsgToggle").onclick = () => {
-  const body = document.getElementById("dsgBody"), t = document.getElementById("dsgToggle"), open = body.style.display === "none";
-  body.style.display = open ? "block" : "none"; t.textContent = open ? "▾" : "▸"; if (open) dsgDraw();
+_dsgToggle.onclick = () => {
+  const open = _dsgBody.style.display === "none";
+  _dsgBody.style.display = open ? "block" : "none"; _dsgToggle.textContent = open ? "▾" : "▸"; if (open) dsgDraw();
 };
 dsgDraw();
 
@@ -924,17 +938,8 @@ dsgDraw();
     loadCube().then(() => dsgDraw());   // poolv2: preload the ds ERSP cube + redraw band guides
     try { if (window.roInit) await window.roInit(nv, {}); } catch (e) { console.warn("[POOL] roInit:", e); }
 
-    // brain transparency toggle — checkbox is now static in the sidebar
     document.getElementById("brainAlphaChk").addEventListener("change", (e) => {
-      const op = e.target.checked ? BRAIN_OP : 1.0;
-      for (const m of (nv ? nv.meshes || [] : []))
-        if (typeof m.name === "string" && /fsaverage/i.test(m.name)) {
-          if ("opacity" in m) m.opacity = op;
-          if ("layerOpacity" in m) m.layerOpacity = op;
-          if ("meshOpacity" in m) m.meshOpacity = op;
-          if (m.rgba255 && m.rgba255.length >= 4) m.rgba255[3] = Math.round(op * 255);
-        }
-      if (nv) nv.drawScene();
+      applyBrainOpacity(e.target.checked ? BRAIN_OP : 1.0, false);
     });
   } catch (e) {
     setStatus("⚠️ " + e.message + "  (check REPO_RAW / branch / data paths)");

@@ -784,7 +784,7 @@ function dsgDrawBg() {
   if (!EDITOR.bgOn || !highlightedKey || !CUBE || !CUBE_MAN) return;
   const ci = CUBE_IDX.get(highlightedKey);
   if (ci === undefined) return;
-  const { W, H, bw } = dsgGeom(), nT = CUBE_MAN.n_time;
+  const { W, H, bw } = dsgGeom(), nF = CUBE_MAN.n_freq, nT = CUBE_MAN.n_time;
   const bpb = CUBE_MAN.bins_per_block, sc = CUBE_MAN.scale, fm = dsgFmax();
   const fiRow = _getFreqRows(H, fm);
   const img = dsgCtx.createImageData(W, H);

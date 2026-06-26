@@ -605,7 +605,18 @@ function onBrainMouseMove(ev) {
 function loadRoleDesign(roleName) {
   const ri = ROLE_INFO[roleName];
   if (!ri || !ri.boxes || !ri.boxes.length) return;
-  EDITOR.boxes = ri.boxes.map(b => ({ ...b }));
+  // Python format: block (str "audio"/"picture"/"reading"), t_bins ([t0,t1] 1-indexed in 300-bin full grid),
+  // f_hz ([lo,hi] Hz).  JS EDITOR format: block (int 0/1/2), t0/t1 (0-100%), fLo/fHi (Hz).
+  const BLOCK_IDX = { audio: 0, picture: 1, reading: 2 };
+  const NT_FULL = 300;
+  EDITOR.boxes = ri.boxes.map(b => ({
+    block: BLOCK_IDX[b.block] ?? 0,
+    t0: (b.t_bins[0] - 1) / NT_FULL * 100,
+    t1:  b.t_bins[1]      / NT_FULL * 100,
+    fLo: b.f_hz[0],
+    fHi: b.f_hz[1],
+    sign: b.sign
+  }));
   EDITOR.sel = -1;
   EDITOR.thr = ri.thr ?? 2.0;
   EDITOR.minProp = ri.frac ?? 0.30;

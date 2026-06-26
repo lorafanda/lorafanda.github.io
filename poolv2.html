@@ -132,6 +132,9 @@
     <h2>Roles <button id="rolesAll" class="mini">all</button><button id="rolesNone" class="mini">none</button></h2>
     <div id="roles"></div>
 
+    <h2>Designed roles <button id="dRolesAll" class="mini">all</button><button id="dRolesNone" class="mini">none</button></h2>
+    <div id="dRoles"></div>
+
     <h2>Patients <button id="patAll" class="mini">all</button><button id="patNone" class="mini">none</button></h2>
     <div id="patients" class="chips"></div>
 
@@ -599,24 +602,45 @@ function onBrainMouseMove(ev) {
 }
 
 // ---------- legends ----------
+function loadRoleDesign(roleName) {
+  const ri = ROLE_INFO[roleName];
+  if (!ri || !ri.boxes || !ri.boxes.length) return;
+  EDITOR.boxes = ri.boxes.map(b => ({ ...b }));
+  EDITOR.sel = -1;
+  EDITOR.thr = ri.thr ?? 2.0;
+  EDITOR.minProp = ri.frac ?? 0.30;
+  const thrSlider = document.getElementById("dsgThr");
+  const fracSlider = document.getElementById("dsgFrac");
+  if (thrSlider) { thrSlider.value = EDITOR.thr; document.getElementById("dsgThrV").textContent = EDITOR.thr.toFixed(1); }
+  if (fracSlider) { fracSlider.value = EDITOR.minProp; document.getElementById("dsgFracV").textContent = EDITOR.minProp.toFixed(2); }
+  const body = document.getElementById("dsgBody"), t = document.getElementById("dsgToggle");
+  if (body && body.style.display === "none") { body.style.display = "block"; if (t) t.textContent = "▾"; }
+  dsgSignBtn(); dsgDraw();
+}
+
+function _makeRoleRow(r) {
+  const row = document.createElement("label"); row.className = "role";
+  const cb = document.createElement("input"); cb.type = "checkbox"; cb.checked = false; cb.dataset.role = r.role;
+  cb.onchange = () => { if (cb.checked) { enabledRoles.add(r.role); bumpOrder(r.role); }
+                        else enabledRoles.delete(r.role); rerender(); };
+  const sw = document.createElement("span"); sw.className = "swatch"; sw.style.background = vivid(r.color);
+  const tx = document.createElement("span"); tx.textContent = r.role;
+  const ct = document.createElement("span"); ct.className = "count"; ct.textContent = r.n ?? "";
+  const info = document.createElement("span"); info.className = "info-btn"; info.textContent = "ⓘ";
+  info.title = "load design into designer"; info.dataset.role = r.role;
+  if (openInfo.has("role:" + r.role)) info.classList.add("on");
+  info.onclick = (e) => { e.preventDefault(); e.stopPropagation(); loadRoleDesign(r.role); toggleRoleInfo(r.role, info); };
+  row.append(cb, sw, tx, ct, info); return row;
+}
+
 function buildRoleLegend() {
-  const el = document.getElementById("roles"); el.innerHTML = "";
-  roleOrder = ROLES.map(r => r.role);      // initial paint order (file order)
+  const el1 = document.getElementById("roles"); el1.innerHTML = "";
+  const el2 = document.getElementById("dRoles"); el2.innerHTML = "";
+  roleOrder = ROLES.map(r => r.role);
   for (const r of ROLES) {
-    if (r.role === "none") continue;       // 'none' = unmatched; not a selectable filter
-    const row = document.createElement("label"); row.className = "role";
-    // default: nothing checked -> all matched contacts shown; checking roles AND-narrows
-    const cb = document.createElement("input"); cb.type="checkbox"; cb.checked=false;
-    cb.onchange = () => { if (cb.checked) { enabledRoles.add(r.role); bumpOrder(r.role); }
-                          else enabledRoles.delete(r.role); rerender(); };
-    const sw = document.createElement("span"); sw.className="swatch"; sw.style.background=vivid(r.color);
-    const tx = document.createElement("span"); tx.textContent=r.role;
-    const ct = document.createElement("span"); ct.className="count"; ct.textContent=r.n ?? "";
-    const info = document.createElement("span"); info.className="info-btn"; info.textContent="ⓘ";
-    info.title="explanation + box/gaussian template"; info.dataset.role=r.role;
-    if (openInfo.has("role:" + r.role)) info.classList.add("on");
-    info.onclick = (e) => { e.preventDefault(); e.stopPropagation(); toggleRoleInfo(r.role, info); };
-    row.append(cb, sw, tx, ct, info); el.append(row);
+    if (r.role === "none") continue;
+    const layer = ROLE_INFO[r.role]?.layer ?? 1;
+    (layer === 1 ? el1 : el2).append(_makeRoleRow(r));
   }
 }
 function buildPatientChips() {
@@ -629,8 +653,15 @@ function buildPatientChips() {
     el.append(chip);
   }
 }
-const setAllRoles = (on) => { ROLES.forEach(r => on?(enabledRoles.add(r.role),bumpOrder(r.role)):enabledRoles.delete(r.role));
-  document.querySelectorAll("#roles input").forEach(c=>c.checked=on); rerender(); };
+const _setRolesInEl = (elId, on) => {
+  document.querySelectorAll(`#${elId} input[type=checkbox]`).forEach(c => {
+    c.checked = on;
+    if (on) { enabledRoles.add(c.dataset.role); bumpOrder(c.dataset.role); }
+    else enabledRoles.delete(c.dataset.role);
+  });
+  rerender();
+};
+const setAllRoles = (on) => { _setRolesInEl("roles", on); _setRolesInEl("dRoles", on); };
 const setAllPatients = (on) => { PATIENTS.forEach(p => on?enabledPatients.add(p):enabledPatients.delete(p));
   document.querySelectorAll("#patients .chip").forEach(c=>c.classList.toggle("off", !on)); rerender(); };
 const BRAIN_OP = 0.18;   // glass-brain opacity when the pial surface is ON
@@ -649,8 +680,10 @@ function setBrainSurface(on) {
   if (nv) nv.drawScene();
 }
 document.getElementById("pialToggle").onchange = (e) => setBrainSurface(e.target.checked);
-document.getElementById("rolesAll").onclick  = () => setAllRoles(true);
-document.getElementById("rolesNone").onclick = () => setAllRoles(false);
+document.getElementById("rolesAll").onclick  = () => _setRolesInEl("roles", true);
+document.getElementById("rolesNone").onclick = () => _setRolesInEl("roles", false);
+document.getElementById("dRolesAll").onclick  = () => _setRolesInEl("dRoles", true);
+document.getElementById("dRolesNone").onclick = () => _setRolesInEl("dRoles", false);
 document.getElementById("patAll").onclick    = () => setAllPatients(true);
 document.getElementById("patNone").onclick   = () => setAllPatients(false);
 

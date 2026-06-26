@@ -297,6 +297,7 @@ function parseCSV(text) {
 let CONTACTS = [], ROLES = [], PATIENTS = [], SAMPLES = {}, roleOrder = [];
 const enabledRoles = new Set(), enabledPatients = new Set();
 let nv = null, _timer = null, highlightedKey = null, _pulseRaf = null;
+let _loadedRoleName = null;   // name of the last role loaded into the designer (for export)
 const MULTI_SEL = new Set();
 
 const roleColor = (role) => (ROLES.find(r=>r.role===role)?.color) || "#888888";
@@ -621,14 +622,15 @@ function onBrainMouseMove(ev) {
 function loadRoleDesign(roleName) {
   const ri = ROLE_INFO[roleName];
   if (!ri || !ri.boxes || !ri.boxes.length) return;
-  // Python format: block (str "audio"/"picture"/"reading"), t_bins ([t0,t1] 1-indexed in 300-bin full grid),
-  // f_hz ([lo,hi] Hz).  JS EDITOR format: block (int 0/1/2), t0/t1 (0-100%), fLo/fHi (Hz).
+  _loadedRoleName = roleName;
+  // Boxes may be in t_pct format (0-100%, from designer export) or t_bins (1-indexed, legacy).
+  // JS EDITOR format: block (int 0/1/2), t0/t1 (0-100%), fLo/fHi (Hz).
   const BLOCK_IDX = { audio: 0, picture: 1, reading: 2 };
   const NT_FULL = 300;
   EDITOR.boxes = ri.boxes.map(b => ({
     block: BLOCK_IDX[b.block] ?? 0,
-    t0: (b.t_bins[0] - 1) / NT_FULL * 100,
-    t1:  b.t_bins[1]      / NT_FULL * 100,
+    t0: b.t_pct ? b.t_pct[0] : (b.t_bins[0] - 1) / NT_FULL * 100,
+    t1: b.t_pct ? b.t_pct[1] :  b.t_bins[1]      / NT_FULL * 100,
     fLo: b.f_hz[0],
     fHi: b.f_hz[1],
     sign: b.sign
@@ -890,7 +892,7 @@ document.getElementById("dsgApply").onclick = async () => {
 document.getElementById("dsgExport").onclick = () => {
   const blocks = ["audio", "picture", "reading"];
   const boxes = EDITOR.boxes.map(bx => ({ block: blocks[bx.block], t_pct: [Math.round(Math.min(bx.t0, bx.t1)), Math.round(Math.max(bx.t0, bx.t1))], f_hz: [Math.round(Math.min(bx.fLo, bx.fHi)), Math.round(Math.max(bx.fLo, bx.fHi))], sign: bx.sign }));
-  _dsgOut.value = JSON.stringify({ role: "my_role", match: "all", thr: EDITOR.thr, frac: EDITOR.minProp, boxes }, null, 1);
+  _dsgOut.value = JSON.stringify({ role: _loadedRoleName || "my_role", match: "all", thr: EDITOR.thr, frac: EDITOR.minProp, boxes }, null, 1);
   _dsgOut.style.display = "block"; _dsgOut.select();
 };
 _dsgBgBtn.onclick = () => {

@@ -275,6 +275,7 @@ function parseCSV(text) {
 let CONTACTS = [], ROLES = [], PATIENTS = [], SAMPLES = {}, roleOrder = [];
 const enabledRoles = new Set(), enabledPatients = new Set();
 let nv = null, _timer = null, highlightedKey = null, _pulseRaf = null;
+const MULTI_SEL = new Set();
 
 const roleColor = (role) => (ROLES.find(r=>r.role===role)?.color) || "#888888";
 const roleColorV = (role) => vivid(roleColor(role));     // brightened
@@ -524,7 +525,7 @@ function renderSamples() {
     const roleTags = c.mset.size
       ? [...c.mset].map(r => `<span style="color:${roleColorV(r)}" title="${r}">${r.slice(0,3)}</span>`).join(" ")
       : `<span style="color:#999">none</span>`;
-    h += `<div class="scard${key===highlightedKey?' sel':''}" data-key="${key}">
+    h += `<div class="scard${MULTI_SEL.has(key)?' sel':''}" data-key="${key}">
             <div class="lab"><b>${c.contact}</b> · ${c.patient}
             <br>${roleTags}</div>
             <div class="imgs">${cells || '<span class="cond">no ERSP</span>'}</div></div>`;
@@ -541,16 +542,17 @@ async function updateHighlight() {
   if (!nv) return;
   for (const m of [...nv.meshes]) if (m.name === "highlight.obj") { try { nv.removeMesh(m); } catch(e){ try{ nv.removeMesh(m.id); }catch(e2){} } }
   if (_pulseRaf) { cancelAnimationFrame(_pulseRaf); _pulseRaf = null; }
-  if (!highlightedKey) { nv.drawScene(); return; }
-  const c = findByKey(highlightedKey); if (!c) return;
-  const file = new File([buildSpheresOBJ([{x:+c.x,y:+c.y,z:+c.z}], 4.5)], "highlight.obj", { type:"text/plain" });
+  if (!MULTI_SEL.size) { nv.drawScene(); return; }
+  const pts = [...MULTI_SEL].map(k => { const c = findByKey(k); return c ? {x:+c.x,y:+c.y,z:+c.z} : null; }).filter(Boolean);
+  if (!pts.length) { nv.drawScene(); return; }
+  const file = new File([buildSpheresOBJ(pts, 4.5)], "highlight.obj", { type:"text/plain" });
   let mesh; try { mesh = await niivue.NVMesh.loadFromFile({ file, gl:nv.gl, name:"highlight.obj", rgba255:[255,235,0,255], visible:true }); }
   catch(e){ return; }
   nv.addMesh(mesh);
   try { nv.setMeshShader(mesh.id, "Flat"); } catch(e){}
   const start = performance.now(), PERIOD = 1400;
   (function pulse(ts){
-    if (!highlightedKey) { _pulseRaf = null; return; }
+    if (!MULTI_SEL.size) { _pulseRaf = null; return; }
     const a = 0.5 - 0.5*Math.cos(2*Math.PI*(ts-start)/PERIOD);
     const m = (nv.meshes||[]).find(x => x.name === "highlight.obj");
     if (m){ if("opacity" in m) m.opacity=a; if("layerOpacity" in m) m.layerOpacity=a;
@@ -561,8 +563,19 @@ async function updateHighlight() {
 document.getElementById("samples").addEventListener("click", (e) => {
   const card = e.target.closest(".scard"); if (!card) return;
   const key = card.dataset.key;
-  highlightedKey = (highlightedKey === key) ? null : key;
-  document.querySelectorAll("#samples .scard").forEach(c => c.classList.toggle("sel", c.dataset.key === highlightedKey));
+  if (e.ctrlKey || e.metaKey) {
+    if (MULTI_SEL.has(key)) {
+      MULTI_SEL.delete(key);
+      if (highlightedKey === key) highlightedKey = MULTI_SEL.size ? [...MULTI_SEL].at(-1) : null;
+    } else {
+      MULTI_SEL.add(key); highlightedKey = key;
+    }
+  } else {
+    const wasOnly = MULTI_SEL.size === 1 && MULTI_SEL.has(key);
+    MULTI_SEL.clear();
+    if (!wasOnly) { MULTI_SEL.add(key); highlightedKey = key; } else highlightedKey = null;
+  }
+  document.querySelectorAll("#samples .scard").forEach(c => c.classList.toggle("sel", MULTI_SEL.has(c.dataset.key)));
   updateHighlight();
   if (EDITOR.bgOn) dsgDraw();
 });

@@ -141,6 +141,9 @@
 
     <h2>Brain</h2>
     <label class="role"><input type="checkbox" id="pialToggle" checked><span>fsaverage pial surface</span></label>
+    <label class="role"><input type="checkbox" id="brainAlphaChk" checked><span>Transparent brain</span></label>
+    <label class="role"><input type="checkbox" id="roChk"><span>Anatomical regions</span></label>
+    <div id="roLegend" style="font-size:11px;margin-left:4px;display:none"></div>
 
     <div id="status">loading…</div>
   </aside>
@@ -875,29 +878,20 @@ dsgDraw();
 
     await loadPoolData();   // box (pool_web) by default; the Matching toggle reloads gaussian
     loadCube().then(() => dsgDraw());   // poolv2: preload the ds ERSP cube + redraw band guides
-    try { if (window.roInit) await window.roInit(nv, { corner: "top-right", mount: "#main" }); } catch (e) { console.warn("[POOL] roInit:", e); }
+    try { if (window.roInit) await window.roInit(nv, {}); } catch (e) { console.warn("[POOL] roInit:", e); }
 
-    // bottom-right brain transparency toggle (glass <-> solid; outlines/electrodes unaffected)
-    try {
-      const wrap = document.createElement("div");
-      wrap.style.cssText = "position:fixed;right:14px;bottom:14px;z-index:9999;background:rgba(18,18,22,.86);" +
-        "color:#e8e8ec;border:1px solid rgba(255,255,255,.12);border-radius:10px;padding:7px 10px;" +
-        "font:12px -apple-system,Segoe UI,Roboto,Arial,sans-serif";
-      wrap.innerHTML = '<label style="display:flex;gap:7px;align-items:center;cursor:pointer;user-select:none">' +
-        '<input type="checkbox" id="brainAlphaChk" checked> Transparent brain</label>';
-      document.body.appendChild(wrap);
-      document.getElementById("brainAlphaChk").addEventListener("change", (e) => {
-        const op = e.target.checked ? BRAIN_OP : 1.0;
-        for (const m of (nv ? nv.meshes || [] : []))
-          if (typeof m.name === "string" && /fsaverage/i.test(m.name)) {
-            if ("opacity" in m) m.opacity = op;
-            if ("layerOpacity" in m) m.layerOpacity = op;
-            if ("meshOpacity" in m) m.meshOpacity = op;
-            if (m.rgba255 && m.rgba255.length >= 4) m.rgba255[3] = Math.round(op * 255);
-          }
-        if (nv) nv.drawScene();
-      });
-    } catch (e) { console.warn("[POOL] transparency toggle:", e); }
+    // brain transparency toggle — checkbox is now static in the sidebar
+    document.getElementById("brainAlphaChk").addEventListener("change", (e) => {
+      const op = e.target.checked ? BRAIN_OP : 1.0;
+      for (const m of (nv ? nv.meshes || [] : []))
+        if (typeof m.name === "string" && /fsaverage/i.test(m.name)) {
+          if ("opacity" in m) m.opacity = op;
+          if ("layerOpacity" in m) m.layerOpacity = op;
+          if ("meshOpacity" in m) m.meshOpacity = op;
+          if (m.rgba255 && m.rgba255.length >= 4) m.rgba255[3] = Math.round(op * 255);
+        }
+      if (nv) nv.drawScene();
+    });
   } catch (e) {
     setStatus("⚠️ " + e.message + "  (check REPO_RAW / branch / data paths)");
     console.error(e);

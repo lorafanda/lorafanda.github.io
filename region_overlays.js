@@ -1,29 +1,27 @@
 /*
- * region_overlays.js — anatomical landmark outlines + legend (MOBA / Pool).
+ * region_overlays.js — anatomical landmark fills + legend (MOBA / Pool).
  *
  * After the fsaverage brain meshes are loaded into a Niivue instance, call:
- *     roInit(nv, { corner: "top-left" | "bottom-right" | ... })
- * It adds an "Anatomical regions" toggle + grouped color legend (in `corner`),
- * and on toggle draws colored outlines of small Destrieux landmarks.
+ *     roInit(nv, opts)
+ * It adds an "Anatomical regions" toggle + grouped color legend.
  *
- * The outlines are rendered as SEPARATE opaque band meshes (one per region),
- * lifted slightly off the cortex — so they read at full (electrode-like) opacity
- * even when the brain itself is a translucent "glass" surface. The brain mesh is
- * never modified, so this can't disturb the page's own coloring/opacity.
+ * If the page already has <input id="roChk"> and <div id="roLegend"> in its
+ * own sidebar, buildUI() wires those instead of creating a floating panel.
+ *
+ * Regions are rendered as SEMI-TRANSPARENT filled meshes (using the
+ * region_fill_*_u8.bin atlas), lifted slightly off the cortex.
  *
  * Call roRefresh(nv) after the page swaps the brain meshes (e.g. pial<->inflated).
- *
- * Data lives in Analysis_LoraFanda; fetched via raw.githubusercontent (CORS-open).
- * Override the source by setting window.RO_BASE before this script's first init.
  */
 (function () {
   const DEFAULT_BASE =
     "https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/" +
     "activity-visualizer/02_FBM_Clustering/outputs/250_recon/fsaverage/activity_viz/";
-  const OUTLINE_ALPHA = 255;   // opaque (same as cortical electrodes)
-  const OFFSET_MM = 1.0;       // lift bands off the cortex so they sit above a glass brain
+  const FILL_ALPHA = 70;    // semi-transparent fill (~27% opacity)
+  const OFFSET_MM = 1.0;    // lift mesh off cortex so it reads above a glass brain
 
-  const RO = { nv: null, on: false, loaded: false, regions: [], regcol: {}, edge: { lh: null, rh: null } };
+  const RO = { nv: null, on: false, loaded: false, regions: [], regcol: {},
+               fill: { lh: null, rh: null } };
 
   const base = () => (window.RO_BASE || DEFAULT_BASE);
 
@@ -35,8 +33,8 @@
       RO.regcol = {};
       for (const r of RO.regions) RO.regcol[r.id] = r.color;
       const u8 = async (u) => new Uint8Array(await (await fetch(u)).arrayBuffer());
-      RO.edge.lh = await u8(B + "region_edge_lh_u8.bin");
-      RO.edge.rh = await u8(B + "region_edge_rh_u8.bin");
+      RO.fill.lh = await u8(B + "region_fill_lh_u8.bin");
+      RO.fill.rh = await u8(B + "region_fill_rh_u8.bin");
       RO.loaded = true;
       return true;
     } catch (e) { console.error("[regions] data load failed:", e); return false; }
@@ -46,19 +44,19 @@
     (m) => typeof m.name === "string" && /fsaverage/i.test(m.name) && m.pts && m.tris);
   const hemiOf = (m) => /rh/i.test(String(m.name).replace(/fsaverage/i, "")) ? "rh" : "lh";
 
-  // OBJ string of the boundary-band triangles for one region (both hemispheres),
-  // lifted outward from each hemisphere's centroid so they float just off the cortex.
+  // OBJ string of the filled region triangles (all 3 vertices in region),
+  // lifted outward from each hemisphere's centroid so they float above the glass brain.
   function buildRegionOBJ(id) {
     const nv = RO.nv, v = [], f = []; let vi = 0;
     for (const m of brainMeshes(nv)) {
-      const e = RO.edge[hemiOf(m)]; if (!e) continue;
+      const fill = RO.fill[hemiOf(m)]; if (!fill) continue;
       const pts = m.pts, tris = m.tris, n = pts.length / 3;
       let cx = 0, cy = 0, cz = 0;
       for (let k = 0; k < pts.length; k += 3) { cx += pts[k]; cy += pts[k + 1]; cz += pts[k + 2]; }
       cx /= n; cy /= n; cz /= n;
       for (let t = 0; t < tris.length; t += 3) {
         const a = tris[t], b = tris[t + 1], c = tris[t + 2];
-        if (e[a] === id && e[b] === id && e[c] === id) {
+        if (fill[a] === id && fill[b] === id && fill[c] === id) {
           for (const idx of [a, b, c]) {
             const o = idx * 3; let x = pts[o], y = pts[o + 1], z = pts[o + 2];
             const dx = x - cx, dy = y - cy, dz = z - cz, L = Math.hypot(dx, dy, dz) || 1, s = OFFSET_MM / L;
@@ -81,7 +79,7 @@
         const url = URL.createObjectURL(new Blob([obj], { type: "text/plain" }));
         try {
           await nv.addMeshFromUrl({ url, name: "region_" + r.id + ".obj",
-            rgba255: [r.color[0], r.color[1], r.color[2], OUTLINE_ALPHA] });
+            rgba255: [r.color[0], r.color[1], r.color[2], FILL_ALPHA] });
           const mm = nv.meshes[nv.meshes.length - 1];
           if (mm) try { nv.setMeshShader(mm.id, "Flat"); } catch (e) {}
         } catch (e) { console.error("[regions] add", r.id, e); }
@@ -89,6 +87,21 @@
       }
     }
     try { nv.drawScene(); } catch (e) {}
+  }
+
+  function legendHTML() {
+    let html = "", last = null;
+    for (const r of RO.regions) {
+      if (r.system !== last) {
+        html += '<div style="margin:5px 0 1px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:#aab0ba">' + r.system + "</div>";
+        last = r.system;
+      }
+      const c = r.color;
+      html += '<div style="display:flex;align-items:center;gap:5px;padding:1px 2px">' +
+        '<span style="width:10px;height:10px;border-radius:2px;flex:none;background:rgba(' + c[0] + ',' + c[1] + ',' + c[2] + ',0.7)"></span>' +
+        r.name + "</div>";
+    }
+    return html;
   }
 
   function cornerCSS(corner) {
@@ -99,8 +112,22 @@
   }
 
   function buildUI(corner, mount) {
+    // If the page already injected #roChk into its own sidebar, wire it inline.
+    const existing = document.getElementById("roChk");
+    if (existing) {
+      const leg = document.getElementById("roLegend");
+      if (leg) leg.innerHTML = legendHTML();
+      existing.addEventListener("change", (e) => {
+        RO.on = e.target.checked;
+        const l = document.getElementById("roLegend");
+        if (l) l.style.display = RO.on ? "" : "none";
+        apply();
+      });
+      return;
+    }
+
+    // Fallback: create a floating panel (standalone use / pool.html).
     if (document.getElementById("roPanel")) return;
-    // mount inside a container (absolute, e.g. the brain window) or float over the viewport (fixed)
     const host = mount ? (typeof mount === "string" ? document.querySelector(mount) : mount) : null;
     const posMode = host ? "absolute" : "fixed";
     const css =

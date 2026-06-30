@@ -17,6 +17,11 @@
   .blabel { position:absolute; top:8px; left:0; right:0; text-align:center; z-index:2;
     font-size:12px; font-weight:600; letter-spacing:.5px; color:var(--muted); pointer-events:none; }
   #brains.single .blabel { display:none; }   /* hide label when only one brain is shown */
+  .dlBtn { position:absolute; top:8px; left:8px; z-index:3; width:30px; height:30px; padding:0;
+    display:grid; place-items:center; cursor:pointer; color:#e8e8ec; border-radius:8px;
+    background:rgba(18,18,22,.7); border:1px solid rgba(255,255,255,.14); }
+  .dlBtn:hover { background:var(--accent); color:#001; }
+  .dlBtn[disabled] { opacity:.5; cursor:progress; }
 
   /* floating panels — the brain is the page; these overlay it and can be hidden with "h" */
   .panel { position:fixed; background:var(--panel-bg); backdrop-filter:blur(8px);
@@ -545,6 +550,102 @@ function updateTrackPlayhead(bin) {
     if (el){ const x=TK.gut + i*bw + pct/100*bw; el.setAttribute("x1",x); el.setAttribute("x2",x); } }
 }
 
+// ---- per-condition video export (brain sweep + expected-activity track, high-gamma) ----
+const DL_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16"/></svg>';
+function hgBand() { // band index closest to high-gamma (~70–130 Hz)
+  let best = 0, bd = 1e9;
+  (M.bands_hz || []).forEach((b, i) => { const d = Math.abs((b[0]+b[1])/2 - 100); if (b[0] >= 40 && d < bd) { bd = d; best = i; } });
+  return best;
+}
+
+// rasterize the current annotation track (one block) to an Image, playhead removed
+async function snapshotTrack() {
+  const svg = document.getElementById("annoTrack").cloneNode(true);
+  svg.querySelectorAll('[id^="ph"]').forEach(e => e.remove());
+  svg.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  const data = new XMLSerializer().serializeToString(svg);
+  const img = new Image();
+  img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(data)));
+  await img.decode();
+  return img;
+}
+
+function pickMime() {
+  for (const m of ["video/webm;codecs=vp9", "video/webm;codecs=vp8", "video/webm"])
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported(m)) return { mimeType: m };
+  return {};
+}
+
+let _recording = false;
+async function recordCondition(cond) {
+  if (_recording) return;
+  if (!window.MediaRecorder) { alert("Video recording isn't supported in this browser (try Chrome)."); return; }
+  const B = BR[cond]; if (!B || !B.hemis.lh) return;
+  const canvas = B.cell.querySelector("canvas");
+  const btn = B.cell.querySelector(".dlBtn"); if (btn) btn.disabled = true;
+  _recording = true;
+
+  // save state, switch to high-gamma + this condition's track block
+  const save = { conds: new Set(state.conds), bands: new Set(state.bands), center: state.center, diff: state.diff, playing: state.playing };
+  setPlaying(false);
+  const hg = hgBand();
+  state.bands = new Set([hg]); state.diff = false;
+  const savedConds = new Set(state.conds);
+  state.conds = new Set([cond]); renderTrack();
+  const trackImg = await snapshotTrack();
+  state.conds = savedConds; renderTrack();   // restore the live track
+
+  // composite canvas: caption + brain + track
+  const W = 640, capH = 24, brainH = 460, trackH = Math.round(W * 132 / 1000);
+  const comp = document.createElement("canvas"); comp.width = W; comp.height = capH + brainH + trackH;
+  const cx = comp.getContext("2d");
+  const rec = new MediaRecorder(comp.captureStream(30), pickMime());
+  const chunks = []; rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
+  const stopped = new Promise((res) => (rec.onstop = res));
+  rec.start();
+
+  const DUR = 8000, t0 = performance.now();
+  const band = M.bands_hz[hg];
+  await new Promise((resolve) => {
+    const timer = setInterval(() => {
+      const p = Math.min(1, (performance.now() - t0) / DUR);
+      state.center = p * (M.n_time - 1);
+      colorBrain(cond);                                   // renders B.nv this tick
+      cx.fillStyle = "#000"; cx.fillRect(0, 0, W, comp.height);
+      cx.fillStyle = "#cdd3dc"; cx.font = "13px -apple-system,Segoe UI,Roboto,Arial,sans-serif"; cx.textBaseline = "middle";
+      cx.fillText(`${cond[0].toUpperCase()+cond.slice(1)} · High γ (${band[0]}–${band[1]} Hz)`, 10, capH / 2);
+      try { cx.drawImage(canvas, 0, capH, W, brainH); } catch (e) {}
+      cx.drawImage(trackImg, 0, capH + brainH, W, trackH);
+      const pct = Math.round(state.center) / (M.n_time - 1) * 100;
+      const xph = (TK.gut + pct / 100 * (1000 - TK.gut)) / 1000 * W;
+      cx.strokeStyle = "#fff"; cx.lineWidth = 2;
+      cx.beginPath(); cx.moveTo(xph, capH + brainH); cx.lineTo(xph, capH + brainH + trackH); cx.stroke();
+      if (p >= 1) { clearInterval(timer); resolve(); }
+    }, 33);
+  });
+
+  rec.stop(); await stopped;
+  const blob = new Blob(chunks, { type: "video/webm" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob);
+  a.download = `${cond}_HighGamma.webm`; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+
+  // restore
+  state.conds = save.conds; state.bands = save.bands; state.center = save.center; state.diff = save.diff;
+  renderTrack(); render();
+  _recording = false; if (btn) btn.disabled = false;
+}
+
+function addDownloadButtons() {
+  for (const cond of BRAIN_CONDS) {
+    const B = BR[cond]; if (!B || B.cell.querySelector(".dlBtn")) continue;
+    const btn = document.createElement("button");
+    btn.className = "dlBtn"; btn.title = `Download high-gamma video (${cond})`;
+    btn.innerHTML = DL_ICON; btn.onclick = () => recordCondition(cond);
+    B.cell.appendChild(btn);
+  }
+}
+
 // ---- animation loop ------------------------------------------------------
 let lastT = null;
 function tick(now) {
@@ -788,10 +889,11 @@ async function main() {
   try {
     buildUI();
     setLayout();
+    addDownloadButtons();
     render();
     window.addEventListener("resize", fitBrains);
     statusEl.style.display = "none";
-    window.__viz = { BR, state, M, render, setLayout, fitBrains, renderTrack, updateElectrodes, updateRegions, applyOpacity, switchSurface, tick, setPlaying };  // debug hook
+    window.__viz = { BR, state, M, render, setLayout, fitBrains, renderTrack, updateElectrodes, updateRegions, applyOpacity, switchSurface, recordCondition, tick, setPlaying };  // debug hook
   } catch (e) { fail("Init error: " + e.message); throw e; }
 }
 main();

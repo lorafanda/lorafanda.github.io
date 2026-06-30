@@ -599,12 +599,10 @@ async function recordCondition(cond) {
   const trackImg = await snapshotTrack();
   state.conds = saveConds; renderTrack();   // restore the live track
 
-  // composite sized to the brain canvas's own aspect ratio (so the video isn't stretched)
-  const cw = canvas.width || canvas.clientWidth || 640, ch = canvas.height || canvas.clientHeight || 480;
-  const W = Math.min(cw, 900), capH = 24;
-  const brainH = Math.max(120, Math.round(W * ch / cw));   // preserve aspect
+  // fixed video frame; the brain is CONTAIN-fit + centered (never stretched), track full-width below
+  const W = 720, capH = 24, brainAreaH = 470;
   const trackH = Math.round(W * 132 / 1000);
-  const comp = document.createElement("canvas"); comp.width = W; comp.height = capH + brainH + trackH;
+  const comp = document.createElement("canvas"); comp.width = W; comp.height = capH + brainAreaH + trackH;
   const cx = comp.getContext("2d");
   const rec = new MediaRecorder(comp.captureStream(30), pickMime());
   const chunks = []; rec.ondataavailable = (e) => { if (e.data.size) chunks.push(e.data); };
@@ -624,12 +622,16 @@ async function recordCondition(cond) {
       cx.fillStyle = "#000"; cx.fillRect(0, 0, W, comp.height);
       cx.fillStyle = "#cdd3dc"; cx.font = "13px -apple-system,Segoe UI,Roboto,Arial,sans-serif"; cx.textBaseline = "middle";
       cx.fillText(caption, 10, capH / 2);
-      try { cx.drawImage(canvas, 0, capH, W, brainH); } catch (e) {}   // W/brainH == cw/ch → no stretch
-      cx.drawImage(trackImg, 0, capH + brainH, W, trackH);
+      // contain-fit the brain canvas, centered (preserves aspect → no horizontal stretch)
+      const cw = canvas.width || 1, ch = canvas.height || 1;
+      const sc = Math.min(W / cw, brainAreaH / ch);
+      const dw = cw * sc, dh = ch * sc, dx = (W - dw) / 2, dy = capH + (brainAreaH - dh) / 2;
+      try { cx.drawImage(canvas, dx, dy, dw, dh); } catch (e) {}
+      cx.drawImage(trackImg, 0, capH + brainAreaH, W, trackH);
       const pct = Math.round(state.center) / (M.n_time - 1) * 100;
       const xph = (TK.gut + pct / 100 * (1000 - TK.gut)) / 1000 * W;
       cx.strokeStyle = "#fff"; cx.lineWidth = 2;
-      cx.beginPath(); cx.moveTo(xph, capH + brainH); cx.lineTo(xph, capH + brainH + trackH); cx.stroke();
+      cx.beginPath(); cx.moveTo(xph, capH + brainAreaH); cx.lineTo(xph, capH + brainAreaH + trackH); cx.stroke();
       if (p >= 1) { clearInterval(timer); resolve(); }
     }, 33);
   });

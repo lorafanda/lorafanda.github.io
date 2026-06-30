@@ -662,8 +662,10 @@ function _makeRoleRow(r) {
 function buildRoleLegend() {
   const el1 = document.getElementById("roles"); el1.innerHTML = "";
   const el2 = document.getElementById("dRoles"); el2.innerHTML = "";
-  roleOrder = ROLES.map(r => r.role);
-  for (const r of ROLES) {
+  const sorted = [...ROLES].sort((a, b) =>
+    (ROLE_INFO[a.role]?.onset_t_pct ?? 999) - (ROLE_INFO[b.role]?.onset_t_pct ?? 999));
+  roleOrder = sorted.map(r => r.role);
+  for (const r of sorted) {
     if (r.role === "none") continue;
     const layer = ROLE_INFO[r.role]?.layer ?? 1;
     (layer === 1 ? el1 : el2).append(_makeRoleRow(r));

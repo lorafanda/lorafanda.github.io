@@ -119,6 +119,25 @@
     @media (max-width: 750px){ .two-col { grid-template-columns: 1fr; } }
     .expl-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px,1fr)); gap: 1rem; }
 
+    /* ── Compare-features panel ── */
+    .topbar button.cmp { padding: 5px 11px; font-size: 0.75rem; font-family:'JetBrains Mono',monospace; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; cursor: pointer; }
+    .topbar button.cmp:hover { background: var(--surface2); }
+    .topbar button.cmp.on { background: var(--accent); color: #fff; border-color: var(--accent); }
+    #compare { display:none; max-width:1400px; margin:0 auto; padding: 1rem 1.5rem 0; }
+    #compare .cmp-panel { background: var(--surface); border:1px solid var(--border); border-radius:12px; padding:1rem 1.25rem; margin-bottom:1rem; overflow-x:auto; }
+    #compare h3 { font-family:'Playfair Display',serif; font-size:0.9rem; margin:0 0 0.55rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--muted); }
+    .cmp-grid { border-collapse:collapse; font-family:'JetBrains Mono',monospace; font-size:0.72rem; }
+    .cmp-grid th, .cmp-grid td { border:1px solid var(--border); padding:3px 8px; text-align:center; white-space:nowrap; }
+    .cmp-grid th { background:var(--surface2); color:var(--muted); font-weight:500; }
+    .cmp-grid td.cls { text-align:left; background:var(--bg); color:var(--text); }
+    .cmp-grid td.sig { font-weight:700; }
+    .cmp-strip { display:flex; gap:12px; }
+    .cmp-cm { flex:0 0 auto; width:210px; }
+    .cmp-cm .cap { font-size:0.7rem; color:var(--muted); font-family:'JetBrains Mono',monospace; padding:2px 2px 4px; }
+    .cmp-cm.cur .cap { color:var(--accent); font-weight:600; }
+    .cmp-cm img { width:100%; border:1px solid var(--border); border-radius:6px; background:#fff; cursor:pointer; display:block; }
+    .cmp-cm.cur img { border-color:var(--accent); box-shadow:0 0 0 2px var(--accent); }
+
     pre.notes { background: var(--bg); border: 1px solid var(--border); border-radius: 6px; padding: 0.85rem 1rem; font-family: 'JetBrains Mono', monospace; font-size: 0.76rem; color: var(--text); overflow-x: auto; margin: 0; }
     .caveat { font-size: 0.78rem; color: var(--muted); font-style: italic; background: var(--bg); border-left: 3px solid var(--warn); padding: 0.55rem 0.85rem; border-radius: 0 6px 6px 0; margin-bottom: 1rem; }
     .empty-state { max-width: 1400px; margin: 2rem auto; padding: 2rem; background: var(--surface); border: 1px solid var(--border-strong); border-radius: 12px; }
@@ -133,11 +152,13 @@
     <span class="brand">Classification <span class="sub">— Lora Fanda</span></span>
     <span class="draft-badge">DRAFT</span>
     <span class="spacer"></span>
+    <button id="cmpBtn" class="cmp" title="Compare all features for this Task + Model">⇄ Compare</button>
     <a class="guide" id="guideLink" href="#" target="_blank" rel="noopener">Reading guide ↗</a>
     <a class="back" href="moba.html">← MOBA</a>
   </div>
 
   <div id="selbars"></div>
+  <div id="compare"></div>
   <div id="app"></div>
 
   <footer>
@@ -407,7 +428,7 @@
   const CLF_ORDER  = ['logreg','rf'];
   const LEGACY_VARS = new Set(['rawds','hg','hg_ds']);   // pre-refactor variants
 
-  let SEL = {}, INDEX = [];
+  let SEL = {}, INDEX = [], COMPARE_OPEN = false;
   const ordered = (vals, pref) => [...pref.filter(v=>vals.has(v)), ...[...vals].filter(v=>!pref.includes(v)).sort()];
   const exact = sel => INDEX.find(r => r.task===sel.task && r.variant===sel.variant && r.classifier===sel.classifier);
 
@@ -445,6 +466,59 @@
     }
     buildBars();
     if (r){ const a = getAnchor(); await loadRun(r, INDEX); restoreAnchor(a); }
+    if (COMPARE_OPEN) renderCompare();
+  }
+
+  // ── Compare all features for the current Task + Model ──
+  async function renderCompare(){
+    const box = document.getElementById('compare');
+    if (!COMPARE_OPEN || !INDEX.length){ box.style.display='none'; box.innerHTML=''; return; }
+    box.style.display='block';
+    const feats = ordered(new Set(INDEX.filter(r=>r.task===SEL.task && r.classifier===SEL.classifier)
+                                       .map(r=>r.variant)), VAR_ORDER);
+    const runs = feats.map(v => INDEX.find(r=>r.task===SEL.task && r.classifier===SEL.classifier && r.variant===v))
+                      .filter(Boolean);
+    const head = `Compare features — ${TASK_LABEL[SEL.task]||SEL.task} · ${CLF_LABEL[SEL.classifier]||SEL.classifier}`;
+    box.innerHTML = `<div class="cmp-panel"><h3>${head}</h3><div class="how-to">loading ${runs.length} features…</div></div>`;
+    const data = await Promise.all(runs.map(async r => {
+      try { return { r, m: await getJSON(`${CLF_BASE}/${r.path}/metrics.json`) }; } catch { return { r, m:null }; }
+    }));
+    const ok = data.filter(d => d.m && d.m.per_class && d.m.per_class.length);
+    if (!ok.length){ box.innerHTML = `<div class="cmp-panel"><h3>${head}</h3><div class="empty-state">no metrics found</div></div>`; return; }
+    const chance = ok[0].m.overall.chance_level;
+    const classes = ok[0].m.per_class.map(p=>p.class);
+    const bg = rec => { const f = Math.max(0, Math.min(1, (rec - chance)/(1 - chance)));
+                        return `background:rgba(94,125,94,${(0.10 + 0.62*f).toFixed(2)})`; };
+    // ── recall grid ──
+    let grid = `<h3>Per-class recall &nbsp;<span style="text-transform:none;font-weight:400">(vs chance ${pct(chance)})</span></h3>`;
+    grid += `<table class="cmp-grid"><thead><tr><th>class \\ feature</th>`;
+    for (const d of ok) grid += `<th title="bal acc ${pct(d.m.overall.balanced_accuracy)}">${d.r.variant}</th>`;
+    grid += `</tr><tr><th>balanced acc</th>`;
+    for (const d of ok) grid += `<td><b>${pct(d.m.overall.balanced_accuracy)}</b></td>`;
+    grid += `</tr><tr><th>z vs null</th>`;
+    for (const d of ok) grid += `<td>${d.m.overall.perm_z!=null ? d.m.overall.perm_z.toFixed(1)+'σ' : '—'}</td>`;
+    grid += `</tr></thead><tbody>`;
+    for (const c of classes){
+      const p = prettyClass(c, SEL.task);
+      grid += `<tr><td class="cls">${p.chip ? p.chip+' ' : ''}${p.name || c}</td>`;
+      for (const d of ok){
+        const pc = d.m.per_class.find(x => x.class === c) || {};
+        const rec = pc.recall || 0, sig = (pc.perm_p_fdr!=null && pc.perm_p_fdr < 0.05);
+        grid += `<td class="${sig?'sig':''}" style="${bg(rec)}" title="recall ${rec.toFixed(2)}${sig?' · sig':''}">${rec.toFixed(2)}${sig?'*':''}</td>`;
+      }
+      grid += `</tr>`;
+    }
+    grid += `</tbody></table><div class="how-to">Colour = recall above chance · <b>*</b> = FDR-significant. Read <b>across a row</b> to see which feature recovers that class.</div>`;
+    // ── confusion strip ──
+    let strip = `<h3>Confusion matrices</h3><div class="cmp-strip">`;
+    for (const d of ok){
+      const cur = (d.r.variant === SEL.variant);
+      strip += `<div class="cmp-cm ${cur?'cur':''}"><div class="cap">${d.r.variant}${cur?' ◄':''}</div>`
+             + `<img loading="lazy" data-v="${d.r.variant}" src="${CLF_BASE}/${d.r.path}/confusion_matrix.png" onerror="this.style.display='none'"></div>`;
+    }
+    strip += `</div>`;
+    box.innerHTML = `<div class="cmp-panel"><h3>${head}</h3>${grid}</div><div class="cmp-panel">${strip}</div>`;
+    box.querySelectorAll('.cmp-cm img').forEach(img => img.onclick = () => onPick('variant', img.dataset.v));
   }
 
   // ── Scroll lock: stay on the same section when switching runs (compare across features) ──
@@ -481,6 +555,11 @@
                          : (r => ({ task:r.task, variant:r.variant, classifier:r.classifier }))(INDEX[0]);
     buildBars();
     loadRun(exact(SEL), INDEX);
+    document.getElementById('cmpBtn').onclick = () => {
+      COMPARE_OPEN = !COMPARE_OPEN;
+      document.getElementById('cmpBtn').classList.toggle('on', COMPARE_OPEN);
+      renderCompare();
+    };
   })();
   </script>
 </body>

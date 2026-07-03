@@ -215,6 +215,9 @@
     #statsPane .stats-curves figure { margin: 0; }
     #statsPane .stats-curves img { width: 100%; max-height: 220px; object-fit: contain; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; }
     #statsPane .stats-curves figcaption { font-size: 0.65rem; color: var(--muted); text-align: center; padding-top: 2px; }
+    #statsPane .stats-silhouette { margin: 0 0 0.6rem; }
+    #statsPane .stats-silhouette img { width: 100%; max-height: 360px; object-fit: contain; background: var(--bg); border: 1px solid var(--border); border-radius: 4px; }
+    #statsPane .stats-silhouette figcaption { font-size: 0.65rem; color: var(--muted); text-align: center; padding-top: 2px; }
     #statsPane .missing { color: var(--muted); font-style: italic; font-size: 0.72rem; padding: 0.3rem; }
     #statsPane table { width: 100%; border-collapse: collapse; font-family: 'JetBrains Mono', monospace; font-size: 0.7rem; }
     #statsPane th, #statsPane td { padding: 4px 6px; border-bottom: 1px solid var(--border); text-align: right; white-space: nowrap; }
@@ -483,6 +486,12 @@
         <figcaption>Gap statistic by K (Tibshirani et al. 2001) — best K = smallest K with Gap(K) ≥ Gap(K+1) − s<sub>K+1</sub></figcaption>
       </figure>
     </div>
+
+    <h4>Silhouette analysis (best K)</h4>
+    <figure class="stats-silhouette">
+      <img id="silAnalysisImg" alt="Silhouette knife plot + PCA projection" />
+      <figcaption>Left: per-sample silhouette (knife plot), grouped &amp; sorted by cluster, dashed line = overall mean. Right: PCA(2) of the feature matrix coloured by cluster, with projected centroids. Computed at the run's best K.</figcaption>
+    </figure>
 
     <h4>Per-cluster diagnostics</h4>
     <div id="statsClusterTable">

@@ -2173,6 +2173,8 @@ async function renderStatsPane() {
       '<div class="missing">Pick a run first.</div>';
     document.getElementById('silCurveImg').style.display = 'none';
     document.getElementById('gapCurveImg').style.display = 'none';
+    const _sa = document.getElementById('silAnalysisImg');
+    if (_sa) _sa.style.display = 'none';
     return;
   }
 
@@ -2185,6 +2187,15 @@ async function renderStatsPane() {
   gapImg.src = `${runDir}/gap_by_k.png`;
   gapImg.onload  = () => { gapImg.style.display = 'block'; };
   gapImg.onerror = () => { gapImg.style.display = 'none'; };
+
+  // Silhouette analysis (knife plot + PCA projection) — the run's best-K
+  // silhouette_per_cluster.png written by lf_cluster_run._save_figures.
+  const silAnalysisImg = document.getElementById('silAnalysisImg');
+  if (silAnalysisImg) {
+    silAnalysisImg.src = `${runDir}/silhouette_per_cluster.png`;
+    silAnalysisImg.onload  = () => { silAnalysisImg.style.display = 'block'; };
+    silAnalysisImg.onerror = () => { silAnalysisImg.style.display = 'none'; };
+  }
 
   // ── 2. Per-cluster table ────────────────────────────────────────────────
   const tableHost = document.getElementById('statsClusterTable');

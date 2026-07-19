@@ -1,0 +1,488 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FBM · Analysis status</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#1c2530; --muted:#67727e;
+    --line:#e4e8ec; --accent:#1f77b4; --accent2:#0f5e97; --chip:#eef2f6;
+    --ok:#1f9e6e; --warn:#d98324; --stale:#c0392b;
+    --s1:#2c7fb8; --s2:#41ab5d; --s3:#e6773a; --s4:#8064c0;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);
+       font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+       -webkit-font-smoothing:antialiased}
+  a{color:var(--accent2);text-decoration:none} a:hover{text-decoration:underline}
+  code{font:12.5px/1.4 "SF Mono",ui-monospace,Menlo,Consolas,monospace;background:var(--chip);
+       padding:1px 5px;border-radius:4px}
+  .wrap{display:flex;min-height:100vh}
+  /* sidebar */
+  nav{width:246px;flex:0 0 246px;background:var(--panel);border-right:1px solid var(--line);
+      position:sticky;top:0;height:100vh;overflow-y:auto;padding:20px 14px}
+  nav h1{font-size:15px;margin:2px 6px 2px;letter-spacing:.2px}
+  nav .sub{font-size:11.5px;color:var(--muted);margin:0 6px 16px;line-height:1.4}
+  nav button{display:flex;align-items:center;gap:9px;width:100%;text-align:left;background:none;
+    border:0;padding:8px 10px;margin:1px 0;border-radius:8px;color:var(--ink);font-size:13.5px;
+    cursor:pointer;font-weight:500}
+  nav button:hover{background:var(--chip)}
+  nav button.on{background:var(--accent);color:#fff}
+  nav button.on .dot{background:#fff}
+  nav .dot{width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:var(--muted)}
+  nav .n0 .dot{background:#8a97a3}.n1 .dot{background:var(--s1)}.n2 .dot{background:var(--s2)}
+  .n3 .dot{background:var(--s3)}.n4 .dot{background:var(--s4)}.n5 .dot{background:var(--warn)}
+  nav .foot{font-size:11px;color:var(--muted);margin:16px 8px 0;border-top:1px solid var(--line);padding-top:12px}
+  /* main */
+  main{flex:1;min-width:0;padding:34px 40px 90px;max-width:1080px}
+  section{display:none;animation:fade .18s ease}
+  section.on{display:block}
+  @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+  .eyebrow{font-size:12px;font-weight:700;letter-spacing:.9px;text-transform:uppercase;color:var(--muted)}
+  h2.title{font-size:27px;margin:4px 0 6px;letter-spacing:-.3px}
+  .lead{font-size:15.5px;color:#39434e;margin:0 0 22px;max-width:70ch}
+  h3{font-size:13px;font-weight:700;letter-spacing:.7px;text-transform:uppercase;color:var(--muted);
+     margin:30px 0 12px;padding-bottom:7px;border-bottom:1px solid var(--line)}
+  .method{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px 20px;margin:0 0 8px}
+  .method ul{margin:6px 0 0;padding-left:18px} .method li{margin:4px 0}
+  .method b{color:var(--ink)}
+  /* figure card */
+  figure{margin:22px 0;background:var(--panel);border:1px solid var(--line);border-radius:14px;
+    overflow:hidden;box-shadow:0 1px 2px rgba(20,30,45,.04)}
+  figure .cap{padding:14px 20px 4px}
+  figure .fignum{font-size:11.5px;font-weight:700;color:var(--accent2);letter-spacing:.4px}
+  figure h4{margin:2px 0 6px;font-size:16px}
+  figure ul{margin:6px 0 16px;padding-left:18px;color:#39434e}
+  figure li{margin:3px 0;font-size:14px}
+  figure .imgwrap{background:#fbfcfd;border-top:1px solid var(--line);padding:14px;text-align:center;
+    overflow-x:auto}
+  figure img{max-width:100%;height:auto;border-radius:6px;display:inline-block}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px;padding:14px;
+    background:#fbfcfd;border-top:1px solid var(--line)}
+  .grid figure{margin:0;box-shadow:none} .grid .imgwrap{padding:8px;border:0}
+  .grid .cap{padding:8px 10px 2px} .grid h4{font-size:13px;margin:0}
+  /* status table */
+  table{border-collapse:collapse;width:100%;margin:8px 0 4px;font-size:13.5px;background:var(--panel);
+    border:1px solid var(--line);border-radius:10px;overflow:hidden}
+  th,td{text-align:left;padding:9px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+  th{background:var(--chip);font-size:12px;text-transform:uppercase;letter-spacing:.5px;color:var(--muted)}
+  tr:last-child td{border-bottom:0}
+  .pill{display:inline-block;font-size:11px;font-weight:700;padding:2px 8px;border-radius:999px;white-space:nowrap}
+  .pill.ok{background:#e5f5ee;color:var(--ok)} .pill.warn{background:#fbeede;color:var(--warn)}
+  .pill.stale{background:#fbe6e3;color:var(--stale)}
+  .callout{border-left:3px solid var(--warn);background:#fdf7ee;padding:11px 16px;border-radius:0 8px 8px 0;
+    margin:14px 0;font-size:13.5px}
+  .callout.q{border-color:var(--accent);background:#eef5fb}
+  .btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;font-weight:600;
+    font-size:14px;padding:10px 16px;border-radius:10px;margin:8px 8px 8px 0}
+  .btn:hover{background:var(--accent2);text-decoration:none}
+  .btn.ghost{background:var(--panel);color:var(--accent2);border:1px solid var(--line)}
+  .kpis{display:flex;flex-wrap:wrap;gap:10px;margin:14px 0}
+  .kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;min-width:130px}
+  .kpi .v{font-size:22px;font-weight:700;letter-spacing:-.3px}
+  .kpi .l{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px}
+  .missing{padding:30px;text-align:center;color:var(--muted);font-size:13px;background:#fbfcfd;border-top:1px solid var(--line)}
+  @media(max-width:820px){
+    .wrap{flex-direction:column} nav{width:auto;height:auto;position:static;border-right:0;border-bottom:1px solid var(--line);
+      display:flex;flex-wrap:wrap;gap:4px} nav h1,nav .sub,nav .foot{width:100%}
+    nav button{width:auto} main{padding:22px 16px 70px}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <nav>
+    <h1>FBM · Language pipeline</h1>
+    <div class="sub">iEEG/sEEG functional mapping — status of the analysis. Updated 2026‑07‑19.</div>
+    <button class="n0 on" data-t="overview"><span class="dot"></span>Overview</button>
+    <button class="n1" data-t="s1"><span class="dot"></span>01 · Signal → ERSP</button>
+    <button class="n2" data-t="s2"><span class="dot"></span>02 · Clustering</button>
+    <button class="n3" data-t="s3"><span class="dot"></span>03 · Decoding</button>
+    <button class="n4" data-t="s4"><span class="dot"></span>04 · Pooling</button>
+    <button class="n5" data-t="caveats"><span class="dot"></span>Caveats & next steps</button>
+    <div class="foot">Figures load from the committed repo. Interactive 3‑D role map: <a href="poolv2.html">poolv2</a>.</div>
+  </nav>
+
+  <main>
+  <!-- ============ OVERVIEW ============ -->
+  <section id="overview" class="on">
+    <div class="eyebrow">Overview</div>
+    <h2 class="title">Where the analysis stands</h2>
+    <p class="lead">Intracranial (sEEG/depth + micro) recordings during a three‑condition language task —
+      <b>picture naming</b>, <b>auditory naming</b>, and <b>reading completion</b> — processed into
+      time‑warped time–frequency responses, then clustered, decoded, and pooled into functional roles on
+      a common brain. This page is the current status of each stage: what it does, how, and the headline result.</p>
+
+    <div class="kpis">
+      <div class="kpi"><div class="v">~29</div><div class="l">patients (EL · PAT · Micro)</div></div>
+      <div class="kpi"><div class="v">3</div><div class="l">conditions (audio/pic/read)</div></div>
+      <div class="kpi"><div class="v">2095</div><div class="l">clustered samples</div></div>
+      <div class="kpi"><div class="v">0.60</div><div class="l">best condition decode (BA)</div></div>
+    </div>
+
+    <h3>The pipeline</h3>
+    <div class="method">
+      <ul>
+        <li><b>01 · Signal → ERSP.</b> Raw clinical recordings → cleaned, re‑referenced signals → trial‑locked,
+          baseline‑normalised <b>ERSP</b> cubes (129 freq × 300 warped time) per electrode × condition. Feeds everything below.</li>
+        <li><b>02 · Clustering.</b> Group the trial‑averaged ERSPs into data‑driven <b>functional response types</b>.</li>
+        <li><b>03 · Decoding.</b> Supervised test — can we read <b>condition</b> and <b>Yeo network</b> off a single electrode's response?</li>
+        <li><b>04 · Pooling.</b> Confirmatory <b>a‑priori functional‑role</b> mapping on the warped timeline, rendered on fsaverage + an interactive tool.</li>
+      </ul>
+    </div>
+
+    <h3>Status at a glance</h3>
+    <table>
+      <tr><th>Stage</th><th>Status</th><th>Headline / canonical result</th><th>Watch‑outs</th></tr>
+      <tr><td><b>01 ERSP</b></td><td><span class="pill ok">current</span></td>
+        <td>ERSP + HG cube for the full cohort (nb 140).</td>
+        <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only.</td></tr>
+      <tr><td><b>02 Clustering</b></td><td><span class="pill ok">current</span></td>
+        <td><b>HG, K‑Means K=7</b>, n=2095, silhouette 0.146 — validated + ranked + recon.</td>
+        <td><code>NOTEBOOKS.md</code> still names the downsampled (212) track — <b>pick your headline</b>.</td></tr>
+      <tr><td><b>03 Decoding</b></td><td><span class="pill warn">refresh</span></td>
+        <td>Condition <b>BA 0.60</b> (HG line); Yeo‑7 0.35; Yeo‑17 0.20 — all beat the permutation null.</td>
+        <td>On‑disk notebooks are an older build — regenerate via <code>_build_notebooks.py</code>; decide the variant set.</td></tr>
+      <tr><td><b>04 Pooling</b></td><td><span class="pill ok">current</span></td>
+        <td>Functional roles matched, HGA timeseries + correlations, Neurosynth, fsaverage + poolv2 tool.</td>
+        <td>poolv2 web tool now bit‑identical to the notebook (convergence fixed).</td></tr>
+    </table>
+    <p style="margin-top:16px"><a class="btn" href="poolv2.html">Open the interactive 3‑D role map →</a>
+       <a class="btn ghost" href="04_FBM_Pooling/METHODOLOGY.md">Pooling methodology (full)</a></p>
+  </section>
+
+  <!-- ============ STAGE 01 ============ -->
+  <section id="s1">
+    <div class="eyebrow" style="color:var(--s1)">Stage 01</div>
+    <h2 class="title">Signal → ERSP</h2>
+    <p class="lead">Turn raw clinical recordings (three cohorts, three conditions) into cleaned, trial‑locked
+      <b>event‑related spectral perturbation (ERSP)</b> cubes — the shared substrate every later stage consumes —
+      plus micro‑electrode spike detection.</p>
+
+    <h3>Method — notebook 140 (the ERSP producer)</h3>
+    <div class="method"><ul>
+      <li><b>Load & clean.</b> Format‑agnostic (TRC/EDF/H5); drop aux; <b>white‑matter re‑reference</b> (subtract mean of ≥3 good WM contacts, macros only).</li>
+      <li><b>Adaptive mains notch.</b> 50 Hz + harmonics, but a harmonic is notched <b>only if its spectral peak z ≥ 3</b> over local background; zero‑phase.</li>
+      <li><b>Trial QC.</b> Hard filters (min stim 0.5 s, max post 10 s) then IQR outlier trim (k=1.5).</li>
+      <li><b>ERSP.</b> Resample 1 kHz → STFT (Hann, <code>nperseg=128</code>, <code>nfft=256</code>, ~85% overlap) → dB. <b>Time‑warped "TN"</b>: baseline/stim/post onto a 300‑bin axis, stimulus and response each 50% (bin 150 = GO‑cue). Baseline window (−0.6, −0.1) s; display ±6 dB, 0–500 Hz.</li>
+      <li><b>High‑gamma.</b> 70–150 Hz Butterworth → Hilbert envelope → 25 ms smoothing → baseline z.</li>
+      <li><b>Output.</b> Per‑channel ERSP <code>.npy</code> (in <code>04_ersp_LM_RAWONLY/…/ERSP_matrix/</code>) — the cube 02/03/04 read.</li>
+    </ul></div>
+
+    <h3>Results</h3>
+    <figure>
+      <div class="cap"><div class="fignum">FIG 1.1</div><h4>Example time‑warped ERSP (one contact, audio)</h4>
+        <ul>
+          <li>x = normalised trial time (0–100 %); the black line at 50 % is the <b>GO‑cue</b> (stimulus | response).</li>
+          <li>y = 0–500 Hz; colour = dB vs the pre‑stimulus baseline (±6).</li>
+          <li>Reads as designed: suppressed baseline (blue) flipping to a <b>broadband post‑response increase</b> (red), strongest in high‑gamma and above.</li>
+          <li>This warping is what lets every electrode and condition be compared on one axis downstream.</li>
+        </ul>
+      </div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/_status_png/example_ersp.png" alt="example ERSP"></div>
+    </figure>
+
+    <figure>
+      <div class="cap"><div class="fignum">FIG 1.2</div><h4>Single‑trial high‑gamma (70–150 Hz), same contact</h4>
+        <ul>
+          <li>Rows = individual trials (sorted by stimulus duration), colour = baseline‑normalised HG.</li>
+          <li>Shows the response is consistent across trials, not driven by a few outliers.</li>
+          <li>HG is the canonical iEEG task‑response marker used throughout stages 02–04.</li>
+        </ul>
+      </div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/_status_png/example_hg.png" alt="HG trials"></div>
+    </figure>
+
+    <figure>
+      <div class="cap"><div class="fignum">FIG 1.3</div><h4>PSD before vs after cleaning (WM‑ref + adaptive notch)</h4>
+        <ul>
+          <li>Power spectral density across channels, <b>before</b> (top) and <b>after</b> (bottom) preprocessing.</li>
+          <li>The sharp 50 Hz line‑noise harmonics (dashed) are removed while the broadband signal is preserved.</li>
+          <li>Confirms the notch is surgical — only true mains peaks are attenuated.</li>
+        </ul>
+      </div>
+      <div class="imgwrap">
+        <img data-fig="01_FBM_Analysis/outputs/_status_png/psd_before.png" alt="PSD before" style="margin-bottom:8px">
+        <img data-fig="01_FBM_Analysis/outputs/_status_png/psd_after.png" alt="PSD after">
+      </div>
+    </figure>
+
+    <div class="callout"><b>In progress (no saved figures yet):</b>
+      micro‑vs‑macro ERSP comparison (nb 11) is written but <b>not yet run to a saved result</b>;
+      micro‑electrode <b>spike detection</b> (nb 13 / 13b) works and exports spike caches (<code>.h5</code>) +
+      wideband <code>.bin</code> for external sorters (Combinato/Kilosort), but its diagnostics live inline in the
+      notebooks rather than as committed figures.</div>
+  </section>
+
+  <!-- ============ STAGE 02 ============ -->
+  <section id="s2">
+    <div class="eyebrow" style="color:var(--s2)">Stage 02</div>
+    <h2 class="title">Clustering — functional response types</h2>
+    <p class="lead">Group the trial‑averaged ERSPs into data‑driven response <b>types</b>. Every representation
+      clusters the <b>same</b> 2095 high‑activity samples; only the feature space changes. The high‑gamma track
+      is the de‑facto canonical result.</p>
+
+    <div class="kpis">
+      <div class="kpi"><div class="v">HG</div><div class="l">canonical feature (232)</div></div>
+      <div class="kpi"><div class="v">K = 7</div><div class="l">K‑Means, silhouette 0.146</div></div>
+      <div class="kpi"><div class="v">2095</div><div class="l">samples clustered</div></div>
+    </div>
+
+    <h3>Method</h3>
+    <div class="method"><ul>
+      <li><b>Representations (one orchestrator).</b> raw 129×300 · downsampled 15‑band×30 · minus101 (−1/0/+1) · <b>HG line</b> (70–150 Hz mean, 1‑D×300). Each → <b>K‑Means</b> + <b>Ward</b>, K‑sweep, best K by silhouette.</li>
+      <li><b>Why HG.</b> Cleanest separation (silhouette HG 0.146 &gt; downsampled 0.083 &gt; raw 0.045); optimum sits at low K, so HG uses <code>K∈[6..20]</code>.</li>
+      <li><b>Validation.</b> Consensus stability (50 restarts → co‑clustering + per‑cluster Jaccard), gap statistic, anatomical purity (Desikan‑Killiany).</li>
+      <li><b>Ranking.</b> Dissolve clusters that fail to bridge both cohorts (EL↔PAT); composite = 4·cross‑patient + 3·stability + 2·condition + 1·spatial‑compactness.</li>
+      <li><b>Recon.</b> Each cluster's electrodes rendered on the fsaverage pial surface.</li>
+    </ul></div>
+
+    <h3>Results — HG, K‑Means K=7</h3>
+    <figure>
+      <div class="cap"><div class="fignum">FIG 2.1</div><h4>Cluster quality — silhouette knife + PCA projection</h4>
+        <ul>
+          <li>Left: per‑sample silhouette grouped by cluster; dashed line = overall mean (0.146).</li>
+          <li>Right: PCA(2) of the HG features coloured by cluster, with centroids.</li>
+          <li>Moderate but positive separation — expected for continuous neural responses, not discrete categories.</li>
+        </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/silhouette_per_cluster.png" alt="silhouette knife + PCA"></div>
+    </figure>
+
+    <figure>
+      <div class="cap"><div class="fignum">FIG 2.2</div><h4>Choosing K — silhouette across the sweep</h4>
+        <ul>
+          <li>Silhouette vs K; the peak marks the chosen <b>K = 7</b> (K=6 and K=10 nearly tied).</li>
+          <li>The low optimum is exactly why the other representations' <code>[10..20]</code> range would miss it.</li>
+        </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/silhouette_by_k.png" alt="silhouette by K"></div>
+    </figure>
+
+    <figure>
+      <div class="cap"><div class="fignum">FIG 2.3</div><h4>The 7 response types — HG centroids (mean ± SEM)</h4>
+        <ul>
+          <li>Each panel = one cluster's mean high‑gamma time course across the warped trial (± SEM band).</li>
+          <li>These are the "functional types": early stimulus‑locked, late response‑locked, sustained, suppressed, etc.</li>
+        </ul></div>
+      <div class="grid">
+        <figure><div class="cap"><h4>Cluster 0</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_00.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 1</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_01.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 2</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_02.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 3</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_03.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 4</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_04.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 5</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_05.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 6</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_06.png"></div></figure>
+      </div>
+    </figure>
+
+    <figure>
+      <div class="cap"><div class="fignum">FIG 2.4</div><h4>Centroid heatmap — all clusters at once</h4>
+        <ul>
+          <li>Cluster × warped‑time HG matrix (one row per cluster); a compact view of the 7 profiles together.</li>
+        </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/centroids.png" alt="centroid heatmap"></div>
+    </figure>
+
+    <figure>
+      <div class="cap"><div class="fignum">FIG 2.5</div><h4>Anatomy — electrode coverage on fsaverage</h4>
+        <ul>
+          <li>All patients' contacts projected onto the common fsaverage surface (white‑matter contacts hidden).</li>
+          <li>Establishes the spatial sampling that constrains every "where" claim in stages 02–04.</li>
+        </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/250_recon/fsaverage/png/ALL_PATIENTS_fsaverage_no_wm.png" alt="fsaverage coverage"></div>
+    </figure>
+
+    <div class="callout"><b>Decision for the paper:</b> <code>NOTEBOOKS.md</code> still names the downsampled full‑spectrum
+      track (212) as the headline, but only the <b>HG track</b> is carried through validation, ranking and recon.
+      Confirm HG is the headline (with 212/raw as full‑spectrum corroboration) before writing.</div>
+  </section>
+
+  <!-- ============ STAGE 03 ============ -->
+  <section id="s3">
+    <div class="eyebrow" style="color:var(--s3)">Stage 03</div>
+    <h2 class="title">Decoding — what an electrode's response tells us</h2>
+    <p class="lead">Two supervised questions on the same ERSPs: can we decode the <b>stimulus condition</b>
+      (audio / picture / reading) from a single electrode, and can we decode which <b>Yeo network</b> an
+      electrode sits in from its 3‑condition profile? Everything is generalisation to a <b>new patient</b>.</p>
+
+    <div class="kpis">
+      <div class="kpi"><div class="v">0.60</div><div class="l">condition BA (chance .33)</div></div>
+      <div class="kpi"><div class="v">0.35</div><div class="l">Yeo‑7 BA (chance .14)</div></div>
+      <div class="kpi"><div class="v">0.20</div><div class="l">Yeo‑17 BA (chance .06)</div></div>
+    </div>
+
+    <h3>Method</h3>
+    <div class="method"><ul>
+      <li><b>Classifiers.</b> Multinomial logistic regression + random forest, both <b>balanced</b>.</li>
+      <li><b>Validation.</b> Nested <b>GroupKFold by patient</b> (5 outer test patients, 3 inner for tuning) — no patient in train and test.</li>
+      <li><b>Metric.</b> Balanced accuracy vs chance, with a <b>bootstrap 95% CI resampled over patients</b>; significance from a <b>grouped label‑permutation null</b> (N=200).</li>
+      <li><b>Feature variants.</b> {full 15‑band, HG line} × {300, 30 time bins} × {continuous, row‑normalised} — matched pairs that isolate frequency content, time resolution, and amplitude vs pattern.</li>
+    </ul></div>
+
+    <h3>Results</h3>
+    <figure><div class="cap"><div class="fignum">FIG 1</div><h4>Master heatmap — every experiment at a glance</h4>
+      <ul><li>Rows = feature variant, columns = task × classifier; colour = fraction above chance, annotation = balanced accuracy (<code>*</code> = p&lt;.05).</li>
+      <li>Read across a row to see where a feature wins; down a column to see the best feature per task.</li></ul></div>
+      <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/heatmap.png" alt="master heatmap"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 2</div><h4>Decoding strength — all tasks on one axis</h4>
+      <ul><li>x = fraction above chance with bootstrap 95% CI; ● logreg / ■ rf; filled = p&lt;.05.</li>
+      <li><b>Condition decodes strongest</b> (esp. the HG line at fine time); <b>Yeo‑17 weakest</b>; overlapping CIs = variants you can't separate.</li></ul></div>
+      <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/forest.png" alt="forest"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 3</div><h4>Paired contrasts — power vs pattern, and time resolution</h4>
+      <ul><li>Left: amplitude triad (continuous → row‑norm → discretized). A drop left→right means the decode rode on <b>power, not pattern</b>.</li>
+      <li>Right: 300 vs 30 time bins for the full & HG families, paired per task.</li></ul></div>
+      <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/paired_contrasts.png" alt="paired contrasts"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 4</div><h4>Δ‑confusion — how a feature changes the error structure</h4>
+      <ul><li><code>confusion(feature) − confusion(full_300)</code>, row‑normalised: red = the feature sends more of a true class to that predicted class than the baseline.</li>
+      <li>Paired per‑patient Wilcoxon accompanies each (a screen, not proof). One panel per task.</li></ul></div>
+      <div class="imgwrap">
+        <img data-fig="03_FBM_Classifying/outputs/classification/_compare/delta_confusion_condition.png" alt="delta confusion condition" style="margin-bottom:8px">
+        <img data-fig="03_FBM_Classifying/outputs/classification/_compare/delta_confusion_parcellation_yeo7.png" alt="delta confusion yeo7" style="margin-bottom:8px">
+        <img data-fig="03_FBM_Classifying/outputs/classification/_compare/delta_confusion_parcellation_yeo17.png" alt="delta confusion yeo17">
+      </div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 5</div><h4>Classifier agreement (robustness)</h4>
+      <ul><li>Each point = one (task, variant): x = above‑chance(logreg), y = above‑chance(rf). On the diagonal = model‑robust; off = model‑dependent.</li></ul></div>
+      <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/clf_scatter.png" alt="clf scatter"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 6</div><h4>Consensus confusion — the stable error structure</h4>
+      <ul><li>Mean row‑normalised confusion across all 16 variant×classifier runs per task (diagonal = mean recall).</li>
+      <li>Yeo‑17 predictions pool into a few "attractor" networks — the signature of a hard, imbalanced decode.</li></ul></div>
+      <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/confusion_consensus.png" alt="confusion consensus"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 7</div><h4>Per‑class recall — which classes carry the signal</h4>
+      <ul><li>One stacked heatmap per task: rows = class, cols = variant·classifier, cell = recall (<code>*</code> = FDR p&lt;.05).</li>
+      <li>A few Yeo‑17 networks carry almost all the decodable signal; most sit near zero.</li></ul></div>
+      <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/class_recall_compare.png" alt="class recall"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">ANALYSIS</div><h4>Is high‑gamma alone as good as the full spectrum?</h4>
+      <ul><li>Slopegraph of every matched HG↔FULL pair (same time grid × row‑norm × classifier), per task; green rising = HG higher.</li>
+      <li>Paired sign‑test + Wilcoxon accompany it — the fair test since the pair shares a time grid.</li></ul></div>
+      <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/hg_vs_full.png" alt="hg vs full"></div></figure>
+
+    <div class="callout"><b>Refresh before presenting:</b> the on‑disk 03 notebooks are an older build (4 variants / 4 figures);
+      the current source (<code>_build_notebooks.py</code>) defines 8 variants and the 7‑figure set above — run it to regenerate.
+      Also decide whether the paper reports the <code>m101</code> (discretized) or <code>hg_*_rn</code> variant.</div>
+  </section>
+
+  <!-- ============ STAGE 04 ============ -->
+  <section id="s4">
+    <div class="eyebrow" style="color:var(--s4)">Stage 04</div>
+    <h2 class="title">Pooling — a‑priori functional roles</h2>
+    <p class="lead">The confirmatory counterpart to clustering: instead of letting the data find groups, we draw
+      <b>a‑priori role templates</b> from language theory (auditory input, visual, premotor planning, phonological
+      encoding, speech‑motor, …) and ask which electrodes express each, and where. Full detail in
+      <a href="04_FBM_Pooling/METHODOLOGY.md">METHODOLOGY.md</a>.</p>
+
+    <h3>Method</h3>
+    <div class="method"><ul>
+      <li><b>Concatenate</b> the 3 conditions per contact → one <code>[audio | picture | reading]</code> map.</li>
+      <li><b>Role templates</b> = conjunctions of boxes (time‑% × Hz × sign) with a per‑role dB threshold + fraction gate; three layers (functional roles / spectral tags / umbrellas); multi‑label with a most‑specific "primary".</li>
+      <li><b>Matching grid</b> = 15‑band × 30‑time, kept <b>bit‑identical</b> to the poolv2 web designer.</li>
+      <li><b>HGA timeseries</b> (70–150 Hz) computed at full resolution for smooth curves; onset per condition.</li>
+      <li><b>Anatomy</b> = Yeo networks + <b>Neurosynth</b> meta‑analytic regions (fsaverage → MNI152 z‑maps), rendered on fsaverage.</li>
+    </ul></div>
+
+    <h3>Results</h3>
+    <figure><div class="cap"><div class="fignum">FIG 4.1</div><h4>HGA time course per functional role</h4>
+      <ul><li>Group‑mean high‑gamma (± SEM) for each role across the warped trial, one panel per condition (dashed = GO‑cue).</li>
+      <li>The staggering of onsets is the "who fires when" story — input roles early, motor/feedback late.</li></ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/hga_timeseries.png" alt="role HGA timeseries"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 4.2</div><h4>HGA time course per Neurosynth region</h4>
+      <ul><li>Same, but grouped by literature‑defined region (auditory, broca, visual, motor, semantic, …).</li>
+      <li>An anatomy‑anchored cross‑check on the role timeseries.</li></ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/neurosynth/hga_timeseries.png" alt="region HGA timeseries"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 4.3</div><h4>Role × role timing similarity (Pearson r)</h4>
+      <ul><li>Correlation of each pair of roles' mean HGA curves, per condition (red = similar profile, blue = anti‑phase).</li>
+      <li><b>Descriptive</b> — the series are autocorrelated, so read profile‑shape overlap, not a significance test of latency.</li></ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_corr.png" alt="role correlation"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 4.4</div><h4>Region × region timing similarity (Pearson r)</h4>
+      <ul><li>The same correlation view across Neurosynth regions — the anatomical companion to Fig 4.3.</li></ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/neurosynth/region_corr.png" alt="region correlation"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 4.5</div><h4>Role templates on real ERSPs (representative contacts)</h4>
+      <ul><li>Each card = one matching contact's <code>[a|p|r]</code> ERSP with the role's boxes drawn on top.</li>
+      <li>Sanity‑checks that the templates sit where the real activity is.</li></ul></div>
+      <div class="grid">
+        <figure><div class="cap"><h4>Auditory</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/auditory.png"></div></figure>
+        <figure><div class="cap"><h4>Visual (picture)</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/visual_picture.png"></div></figure>
+        <figure><div class="cap"><h4>Premotor planning</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/premotor%20planning.png"></div></figure>
+        <figure><div class="cap"><h4>Phonological</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/phonological_encoding.png"></div></figure>
+        <figure><div class="cap"><h4>Motor</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/motor.png"></div></figure>
+        <figure><div class="cap"><h4>NN</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/NN.png"></div></figure>
+      </div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 4.6</div><h4>Functional roles on fsaverage</h4>
+      <ul><li>Every pooled contact placed on the common brain, coloured by role — the static "where".</li>
+      <li>The live, filterable, dB‑graded 3‑D version is the poolv2 tool below.</li></ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/roi/ds_map/runs/20260612_161539/roi_map_full.png" alt="ROI map"></div></figure>
+
+    <p><a class="btn" href="poolv2.html">Open poolv2 — interactive 3‑D role map + designer →</a></p>
+  </section>
+
+  <!-- ============ CAVEATS ============ -->
+  <section id="caveats">
+    <div class="eyebrow" style="color:var(--warn)">Caveats & next steps</div>
+    <h2 class="title">Open decisions and loose ends</h2>
+    <p class="lead">The things that are genuinely your call, and the small refreshes needed before this is
+      paper‑ready. Nothing here blocks the current results — they're pointers.</p>
+
+    <h3>Decisions only you can make</h3>
+    <div class="method"><ul>
+      <li><b>Clustering headline (02).</b> HG (K=7, fully validated) vs the downsampled 212 track that <code>NOTEBOOKS.md</code> still names. Recommendation: HG headline, 212/raw as corroboration.</li>
+      <li><b>Decoding variant set (03).</b> The code dropped the discretized <code>m101</code> variants for <code>hg_*_rn</code>; on‑disk results still mix both. Decide which family the paper reports.</li>
+      <li><b>Scope of the micro / spike‑sorting work (01).</b> Whether the micro‑vs‑macro and spike‑detection strands belong in the language story or are a separate methods paper.</li>
+    </ul></div>
+
+    <h3>Small refreshes</h3>
+    <div class="method"><ul>
+      <li><b>Regenerate the 03 notebooks</b> from <code>_build_notebooks.py</code> (on‑disk copies are an older 4‑figure build; the merged source now has Fig 1–7 + the HG‑vs‑full analysis).</li>
+      <li><b>Rerun 460</b> to bake the correlation figures (4.3 / 4.4) into the notebook — the <code>savefig</code> is now wired in.</li>
+      <li><b>Micro/macro (nb 11)</b> hasn't been run to a saved output yet.</li>
+    </ul></div>
+
+    <h3>Recently fixed</h3>
+    <div class="method"><ul>
+      <li><b>poolv2 ↔ notebook convergence</b> — the web tool and the published role table are now bit‑identical (0 role‑match disagreements).</li>
+      <li><b>Role rendering</b> — dB‑strength gradient, single‑hue selection, and a de‑cluttered palette (spectral tags muted).</li>
+      <li><b>Role definitions</b> — developed 6‑box premotor planning restored; UTF‑8 role metadata fixed.</li>
+    </ul></div>
+  </section>
+  </main>
+</div>
+
+<script>
+// host-aware figure base: local server / file -> repo-relative; else raw GitHub
+const H = location.hostname;
+const LOCAL = (location.protocol === "file:") || ["localhost","127.0.0.1","0.0.0.0",""].includes(H);
+const BASE = LOCAL ? "." : "https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/main";
+document.querySelectorAll("img[data-fig]").forEach(img=>{
+  img.loading = "lazy";
+  img.src = BASE + "/" + img.getAttribute("data-fig");
+  img.onerror = () => {
+    const w = img.closest(".imgwrap");
+    if (w) w.innerHTML = '<div class="missing">figure not found yet — regenerate this notebook to produce it</div>';
+  };
+});
+// tabs
+const btns = document.querySelectorAll("nav button[data-t]");
+const secs = document.querySelectorAll("main section");
+function show(id){
+  secs.forEach(s=>s.classList.toggle("on", s.id===id));
+  btns.forEach(b=>b.classList.toggle("on", b.dataset.t===id));
+  if (location.hash.slice(1)!==id) history.replaceState(null,"","#"+id);
+  window.scrollTo(0,0);
+}
+btns.forEach(b=>b.addEventListener("click",()=>show(b.dataset.t)));
+const start = location.hash.slice(1);
+if (start && document.getElementById(start)) show(start);
+</script>
+</body>
+</html>

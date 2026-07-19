@@ -118,7 +118,7 @@
     <div class="kpis">
       <div class="kpi"><div class="v">~29</div><div class="l">patients (EL · PAT · Micro)</div></div>
       <div class="kpi"><div class="v">3</div><div class="l">conditions (audio/pic/read)</div></div>
-      <div class="kpi"><div class="v">2095</div><div class="l">clustered samples</div></div>
+      <div class="kpi"><div class="v">2102</div><div class="l">clustered samples</div></div>
       <div class="kpi"><div class="v">0.60</div><div class="l">best condition decode (BA)</div></div>
     </div>
 
@@ -139,12 +139,12 @@
       <tr><td><b>01 ERSP</b></td><td><span class="pill ok">current</span></td>
         <td>ERSP + HG cube for the full cohort (nb 140).</td>
         <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only.</td></tr>
-      <tr><td><b>02 Clustering</b></td><td><span class="pill ok">current</span></td>
-        <td><b>HG, K‑Means K=7</b>, n=2095, silhouette 0.146 — validated + ranked + recon.</td>
-        <td><code>NOTEBOOKS.md</code> still names the downsampled (212) track — <b>pick your headline</b>.</td></tr>
-      <tr><td><b>03 Decoding</b></td><td><span class="pill warn">refresh</span></td>
+      <tr><td><b>02 Clustering</b></td><td><span class="pill ok">reran 07‑19</span></td>
+        <td><b>HG, K‑Means K=9</b>, n=2102, silhouette 0.152 — with consensus‑stability validation.</td>
+        <td>K shifted <b>7→9</b> on this rerun; ranking + recon (213/252) not yet re‑run. <code>NOTEBOOKS.md</code> still names the 212 track — <b>pick your headline</b>.</td></tr>
+      <tr><td><b>03 Decoding</b></td><td><span class="pill ok">reran 07‑19</span></td>
         <td>Condition <b>BA 0.60</b> (HG line); Yeo‑7 0.35; Yeo‑17 0.20 — all beat the permutation null.</td>
-        <td>On‑disk notebooks are an older build — regenerate via <code>_build_notebooks.py</code>; decide the variant set.</td></tr>
+        <td>Notebooks regenerated + comparison figures refreshed today. 2 <code>full_300/logreg</code> combos crashed → fall back to Jun‑24; variant set still to decide.</td></tr>
       <tr><td><b>04 Pooling</b></td><td><span class="pill ok">current</span></td>
         <td>Functional roles matched, HGA timeseries + correlations, Neurosynth, fsaverage + poolv2 tool.</td>
         <td>poolv2 web tool now bit‑identical to the notebook (convergence fixed).</td></tr>
@@ -221,71 +221,82 @@
     <div class="eyebrow" style="color:var(--s2)">Stage 02</div>
     <h2 class="title">Clustering — functional response types</h2>
     <p class="lead">Group the trial‑averaged ERSPs into data‑driven response <b>types</b>. Every representation
-      clusters the <b>same</b> 2095 high‑activity samples; only the feature space changes. The high‑gamma track
+      clusters the <b>same</b> 2102 high‑activity samples; only the feature space changes. The high‑gamma track
       is the de‑facto canonical result.</p>
 
     <div class="kpis">
       <div class="kpi"><div class="v">HG</div><div class="l">canonical feature (232)</div></div>
-      <div class="kpi"><div class="v">K = 7</div><div class="l">K‑Means, silhouette 0.146</div></div>
-      <div class="kpi"><div class="v">2095</div><div class="l">samples clustered</div></div>
+      <div class="kpi"><div class="v">K = 9</div><div class="l">K‑Means, silhouette 0.152</div></div>
+      <div class="kpi"><div class="v">2102</div><div class="l">samples clustered</div></div>
     </div>
 
     <h3>Method</h3>
     <div class="method"><ul>
       <li><b>Representations (one orchestrator).</b> raw 129×300 · downsampled 15‑band×30 · minus101 (−1/0/+1) · <b>HG line</b> (70–150 Hz mean, 1‑D×300). Each → <b>K‑Means</b> + <b>Ward</b>, K‑sweep, best K by silhouette.</li>
-      <li><b>Why HG.</b> Cleanest separation (silhouette HG 0.146 &gt; downsampled 0.083 &gt; raw 0.045); optimum sits at low K, so HG uses <code>K∈[6..20]</code>.</li>
+      <li><b>Why HG.</b> Cleanest separation (silhouette HG 0.152 &gt; downsampled 0.083 &gt; raw 0.045); optimum sits at low K, so HG uses <code>K∈[6..20]</code>.</li>
       <li><b>Validation.</b> Consensus stability (50 restarts → co‑clustering + per‑cluster Jaccard), gap statistic, anatomical purity (Desikan‑Killiany).</li>
       <li><b>Ranking.</b> Dissolve clusters that fail to bridge both cohorts (EL↔PAT); composite = 4·cross‑patient + 3·stability + 2·condition + 1·spatial‑compactness.</li>
       <li><b>Recon.</b> Each cluster's electrodes rendered on the fsaverage pial surface.</li>
     </ul></div>
 
-    <h3>Results — HG, K‑Means K=7</h3>
+    <h3>Results — HG, K‑Means K=9</h3>
     <figure>
       <div class="cap"><div class="fignum">FIG 2.1</div><h4>Cluster quality — silhouette knife + PCA projection</h4>
         <ul>
-          <li>Left: per‑sample silhouette grouped by cluster; dashed line = overall mean (0.146).</li>
+          <li>Left: per‑sample silhouette grouped by cluster; dashed line = overall mean (0.152).</li>
           <li>Right: PCA(2) of the HG features coloured by cluster, with centroids.</li>
           <li>Moderate but positive separation — expected for continuous neural responses, not discrete categories.</li>
         </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/silhouette_per_cluster.png" alt="silhouette knife + PCA"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/silhouette_per_cluster.png" alt="silhouette knife + PCA"></div>
     </figure>
 
     <figure>
       <div class="cap"><div class="fignum">FIG 2.2</div><h4>Choosing K — silhouette across the sweep</h4>
         <ul>
-          <li>Silhouette vs K; the peak marks the chosen <b>K = 7</b> (K=6 and K=10 nearly tied).</li>
+          <li>Silhouette vs K; the peak marks the chosen <b>K = 9</b> (K=6 and K=10 nearly tied).</li>
           <li>The low optimum is exactly why the other representations' <code>[10..20]</code> range would miss it.</li>
         </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/silhouette_by_k.png" alt="silhouette by K"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/silhouette_by_k.png" alt="silhouette by K"></div>
     </figure>
 
     <figure>
-      <div class="cap"><div class="fignum">FIG 2.3</div><h4>The 7 response types — HG centroids (mean ± SEM)</h4>
+      <div class="cap"><div class="fignum">FIG 2.3</div><h4>The 9 response types — HG centroids (mean ± SEM)</h4>
         <ul>
           <li>Each panel = one cluster's mean high‑gamma time course across the warped trial (± SEM band).</li>
           <li>These are the "functional types": early stimulus‑locked, late response‑locked, sustained, suppressed, etc.</li>
         </ul></div>
       <div class="grid">
-        <figure><div class="cap"><h4>Cluster 0</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_00.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 1</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_01.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 2</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_02.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 3</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_03.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 4</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_04.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 5</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_05.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 6</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/cluster_centroids/cluster_06.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 0</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_00.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 1</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_01.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 2</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_02.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 3</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_03.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 4</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_04.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 5</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_05.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 6</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_06.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 7</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_07.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 8</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_08.png"></div></figure>
       </div>
     </figure>
 
     <figure>
       <div class="cap"><div class="fignum">FIG 2.4</div><h4>Centroid heatmap — all clusters at once</h4>
         <ul>
-          <li>Cluster × warped‑time HG matrix (one row per cluster); a compact view of the 7 profiles together.</li>
+          <li>Cluster × warped‑time HG matrix (one row per cluster); a compact view of the 9 profiles together.</li>
         </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260605_183250/centroids.png" alt="centroid heatmap"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/centroids.png" alt="centroid heatmap"></div>
     </figure>
 
     <figure>
-      <div class="cap"><div class="fignum">FIG 2.5</div><h4>Anatomy — electrode coverage on fsaverage</h4>
+      <div class="cap"><div class="fignum">FIG 2.5</div><h4>Consensus stability — are the clusters reproducible?</h4>
+        <ul>
+          <li>Co‑clustering frequency over 50 K‑Means restarts (sample × sample); a sharp block‑diagonal = a cluster that reforms every time.</li>
+          <li>The key "is this real" check — strong within‑block agreement means the K=9 solution is stable, not a one‑off partition. (Regenerated in today's rerun.)</li>
+        </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/consensus_heatmap.png" alt="consensus stability"></div>
+    </figure>
+
+    <figure>
+      <div class="cap"><div class="fignum">FIG 2.6</div><h4>Anatomy — electrode coverage on fsaverage</h4>
         <ul>
           <li>All patients' contacts projected onto the common fsaverage surface (white‑matter contacts hidden).</li>
           <li>Establishes the spatial sampling that constrains every "where" claim in stages 02–04.</li>
@@ -364,9 +375,10 @@
       <li>Paired sign‑test + Wilcoxon accompany it — the fair test since the pair shares a time grid.</li></ul></div>
       <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/hg_vs_full.png" alt="hg vs full"></div></figure>
 
-    <div class="callout"><b>Refresh before presenting:</b> the on‑disk 03 notebooks are an older build (4 variants / 4 figures);
-      the current source (<code>_build_notebooks.py</code>) defines 8 variants and the 7‑figure set above — run it to regenerate.
-      Also decide whether the paper reports the <code>m101</code> (discretized) or <code>hg_*_rn</code> variant.</div>
+    <div class="callout"><b>Reran 2026‑07‑19:</b> notebooks regenerated from <code>_build_notebooks.py</code> (8 variants / the 7‑figure set above)
+      and the comparison figures rebuilt. Two <code>full_300/logreg</code> runs (condition + Yeo‑7) crashed mid‑experiment, so those
+      combos fall back to their Jun‑24 runs — re‑run just those in 320/330 to make everything today. Still to decide: whether the
+      paper reports the <code>m101</code> (discretized) or <code>hg_*_rn</code> variant.</div>
   </section>
 
   <!-- ============ STAGE 04 ============ -->
@@ -436,16 +448,24 @@
 
     <h3>Decisions only you can make</h3>
     <div class="method"><ul>
-      <li><b>Clustering headline (02).</b> HG (K=7, fully validated) vs the downsampled 212 track that <code>NOTEBOOKS.md</code> still names. Recommendation: HG headline, 212/raw as corroboration.</li>
+      <li><b>Clustering headline (02).</b> HG (K=9, fully validated) vs the downsampled 212 track that <code>NOTEBOOKS.md</code> still names. Recommendation: HG headline, 212/raw as corroboration.</li>
       <li><b>Decoding variant set (03).</b> The code dropped the discretized <code>m101</code> variants for <code>hg_*_rn</code>; on‑disk results still mix both. Decide which family the paper reports.</li>
       <li><b>Scope of the micro / spike‑sorting work (01).</b> Whether the micro‑vs‑macro and spike‑detection strands belong in the language story or are a separate methods paper.</li>
     </ul></div>
 
-    <h3>Small refreshes</h3>
+    <h3>Still to run</h3>
     <div class="method"><ul>
-      <li><b>Regenerate the 03 notebooks</b> from <code>_build_notebooks.py</code> (on‑disk copies are an older 4‑figure build; the merged source now has Fig 1–7 + the HG‑vs‑full analysis).</li>
-      <li><b>Rerun 460</b> to bake the correlation figures (4.3 / 4.4) into the notebook — the <code>savefig</code> is now wired in.</li>
+      <li><b>Clustering ranking + recon (213 / 252)</b> — today's K=9 rerun has clustering + consensus stability, but the cluster ranking and per‑cluster fsaverage recon haven't been re‑run on it yet.</li>
+      <li><b>Two decoding runs</b> — re‑run <code>full_300/logreg</code> for condition + Yeo‑7 in 320/330; they crashed mid‑experiment today.</li>
       <li><b>Micro/macro (nb 11)</b> hasn't been run to a saved output yet.</li>
+    </ul></div>
+
+    <h3>Done 2026‑07‑19</h3>
+    <div class="method"><ul>
+      <li><b>Clustering reran</b> — HG K‑Means reclustered (<b>K=9</b>, silhouette 0.152, n=2102) with current SEM‑shaded centroids + consensus stability.</li>
+      <li><b>Decoding reran</b> — notebooks regenerated from <code>_build_notebooks.py</code>; the comparison figures (Fig 1–7 + Δ‑confusion) rebuilt.</li>
+      <li><b>Loader hardened</b> — the run reader now skips crashed/incomplete run folders (was raising <code>FileNotFoundError</code>).</li>
+      <li><b>Pooling correlation figures</b> — <code>savefig</code> wired into notebook 460 (cells 13/15).</li>
     </ul></div>
 
     <h3>Recently fixed</h3>

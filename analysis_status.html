@@ -393,21 +393,50 @@
       </table></div></div>
     </figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 2.8</div><h4>The 5 concatenated response types (<code>concat_hg</code>, mean ± SEM)</h4>
+    <figure><div class="cap"><div class="fignum">FIG 2.8</div><h4>The 5 concatenated response types — waveform + anatomy side by side</h4>
       <ul>
-        <li>Each chip is one cluster's mean high-gamma across the <b>whole task</b>; the two vertical seams mark the
-          <code>[audio | picture | reading]</code> boundaries.</li>
+        <li><b>Left of each pair:</b> the cluster's mean high-gamma across the <b>whole task</b> (± SEM); the two vertical
+          seams mark the <code>[audio | picture | reading]</code> boundaries.</li>
+        <li><b>Right of each pair:</b> where that cluster's electrodes sit on fsaverage (left-lateral view, cluster
+          highlighted against all other contacts in grey) — so the <b>temporal profile and its anatomical spread</b> are
+          read together rather than in separate figures.</li>
         <li>Because a contact contributes <b>one</b> sample, a chip shows how that electrode type behaves across
           <i>all three</i> conditions at once — the cross-condition profile the per-condition track can't show.</li>
+        <li><b>Cluster 4 holds 622 of 1082 contacts</b> — a large, anatomically diffuse "weakly-responsive" group. The smaller
+          clusters (74–156) are the anatomically tighter, more interpretable ones.</li>
       </ul></div>
-      <div class="grid">
-        <figure><div class="cap"><h4>Cluster 0</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_00.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 1</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_01.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 2</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_02.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 3</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_03.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 4</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_04.png"></div></figure>
+      <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(310px,1fr))">
+        <figure><div class="cap"><h4>Cluster 0 <span style="color:var(--muted);font-weight:400">· n=74</span></h4></div>
+          <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_00.png" style="max-width:56%">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/cluster_00_anat.png" style="max-width:40%"></div></figure>
+        <figure><div class="cap"><h4>Cluster 1 <span style="color:var(--muted);font-weight:400">· n=130</span></h4></div>
+          <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_01.png" style="max-width:56%">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/cluster_01_anat.png" style="max-width:40%"></div></figure>
+        <figure><div class="cap"><h4>Cluster 2 <span style="color:var(--muted);font-weight:400">· n=156</span></h4></div>
+          <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_02.png" style="max-width:56%">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/cluster_02_anat.png" style="max-width:40%"></div></figure>
+        <figure><div class="cap"><h4>Cluster 3 <span style="color:var(--muted);font-weight:400">· n=100</span></h4></div>
+          <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_03.png" style="max-width:56%">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/cluster_03_anat.png" style="max-width:40%"></div></figure>
+        <figure><div class="cap"><h4>Cluster 4 <span style="color:var(--muted);font-weight:400">· n=622</span></h4></div>
+          <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_04.png" style="max-width:56%">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/cluster_04_anat.png" style="max-width:40%"></div></figure>
       </div>
     </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 2.9</div><h4>All 5 concatenated clusters on one brain</h4>
+      <ul>
+        <li>Every clustered electrode coloured by cluster, three views; each lateral shows only its own hemisphere.</li>
+        <li>The honest read: the clusters are <b>anatomically intermixed</b> rather than occupying distinct territories —
+          the spatial counterpart of the modest silhouette, and another face of the Q1 answer.</li>
+        <li>1082 of the 1163 clustered electrodes have fsaverage coordinates.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/all_clusters.png" alt="all concat clusters on fsaverage"></div></figure>
 
     <div class="callout"><b>Still to run for the concat track:</b> <code>211</code> (consensus stability / gap / anatomy),
       <code>213</code> (ranking — but <b>drop the condition-selectivity axis</b>, it's degenerate when every sample spans all
@@ -686,6 +715,16 @@
       </table></div></div>
     </figure>
 
+    <figure><div class="cap"><div class="fignum">RESULT 1b</div><h4>Where those electrodes actually are — fsaverage recon of the split</h4>
+      <ul>
+        <li>The same <code>p_0.05</code> @ ≥0.1 split, rendered on the fsaverage surface: <b>teal = in-network</b>,
+          grey = out. Each lateral view shows only <b>that hemisphere's</b> contacts.</li>
+        <li>In-network contacts land where a language network should — <b>perisylvian: superior/middle temporal and
+          inferior frontal</b> — rather than scattered, which is an independent check that the sampling worked.</li>
+        <li>The dorsal view makes the <b>left-hemisphere bias</b> visible directly (621 of 1042 are LH).</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/recon_split_p_0.05_p0.1.png" alt="fsaverage recon in vs out of network"></div></figure>
+
     <figure><div class="cap"><div class="fignum">RESULT 2</div><h4>The correlation map — a real dissociation</h4>
       <ul>
         <li><b>Positive during the spoken prompt</b> (audio stimulus, ~50–150 Hz) — closer to the language network means more
@@ -701,6 +740,17 @@
           individual-threshold axis barely matters for the continuous analysis.</li>
       </ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/corr_p_0.05.png" alt="ERSP x P(language) correlation map"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">RESULT 2b</div><h4>The continuous atlas value at each electrode — what the correlation actually used</h4>
+      <ul>
+        <li>Every contact coloured by its <b>raw atlas overlap</b> (0 → ~0.65), no threshold anywhere — this is
+          literally the variable the correlation map above regresses each time-frequency bin against.</li>
+        <li>The gradient traces a dense <b>perisylvian band</b> along superior temporal into inferior frontal cortex,
+          and it is <b>visibly stronger on the left</b> — the atlas's left-lateralisation reproduced in our coverage.</li>
+        <li>Seeing the gradient explains why the continuous analysis is the stronger one: thresholding would collapse
+          this whole range into a single yes/no and discard the ordering that carries the signal.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/recon_continuous_p_0.05.png" alt="continuous atlas value on fsaverage"></div></figure>
 
     <figure><div class="cap"><div class="fignum">RESULT 3</div><h4>In- vs out-of-network mean ERSP</h4>
       <ul>

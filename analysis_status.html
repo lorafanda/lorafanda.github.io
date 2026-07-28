@@ -34,7 +34,12 @@
   nav .dot{width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:var(--muted)}
   nav .n0 .dot{background:#8a97a3}.n1 .dot{background:var(--s1)}.n2 .dot{background:var(--s2)}
   .n3 .dot{background:var(--s3)}.n4 .dot{background:var(--s4)}.n5 .dot{background:var(--warn)}
-  .n6 .dot{background:#c0392b}
+  .n6 .dot{background:#c0392b}.n7 .dot{background:#0b7a75}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:10px 0}
+  .step .num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;
+    background:#0b7a75;color:#fff;font-size:12px;font-weight:700;margin-right:8px}
+  .step h4{display:inline;font-size:15.5px}
+  .step ul{margin:9px 0 0;padding-left:30px} .step li{margin:4px 0;font-size:14px;color:#39434e}
   /* meeting log */
   .mtg{border-left:2px solid var(--line);margin:0 0 6px;padding:0 0 6px 20px;position:relative}
   .mtg::before{content:"";position:absolute;left:-6px;top:6px;width:10px;height:10px;border-radius:50%;
@@ -120,6 +125,7 @@
     <button class="n2" data-t="s2"><span class="dot"></span>02 · Clustering</button>
     <button class="n3" data-t="s3"><span class="dot"></span>03 · Decoding</button>
     <button class="n4" data-t="s4"><span class="dot"></span>04 · Pooling</button>
+    <button class="n7" data-t="lana"><span class="dot"></span>3a · Language atlas</button>
     <button class="n6" data-t="meetings"><span class="dot"></span>Meetings</button>
     <button class="n5" data-t="caveats"><span class="dot"></span>Caveats & next steps</button>
     <div class="foot">Figures load from the committed repo. Interactive 3‑D role map: <a href="poolv2.html">poolv2</a>.</div>
@@ -344,9 +350,74 @@
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/250_recon/fsaverage/png/ALL_PATIENTS_fsaverage_no_wm.png" alt="fsaverage coverage"></div>
     </figure>
 
+    <h3>Concatenated clustering — a second sample unit</h3>
+    <p class="lead" style="margin-bottom:14px">Everything above treats <b>one sample = one electrode × condition</b>, so the
+      strongest structure available to find is the condition/modality axis (that's why Q2 works). The complementary view asks a
+      different question: <b>one sample = one ELECTRODE</b>, with <code>[audio | picture | reading]</code> stitched in time —
+      <i>"what functional <b>type</b> is this contact across the whole task?"</i> rather than <i>"which condition is this?"</i>.</p>
+
+    <div class="method"><ul>
+      <li><b>Same sample unit as stage 03 parcellation and stage 04 pooling</b>, so clusters from this track are directly
+        comparable to those results — <code>concat_rawds</code> even uses the identical 15×90 grid pooling matches roles on.</li>
+      <li><b>Filter</b> mirrors the parcellation task: an electrode enters iff it has <b>all three conditions</b> and is
+        <b>high-activity in ≥1</b> of them (gated at the electrode level, so a contact responding in only one condition still
+        contributes its full profile) → <b>1163 electrodes, 24 patients</b>.
+        Sanity check: 1163 kept + 1693 gated out = <b>2856 = exactly pooling's contact count</b>.</li>
+      <li><b>Three representations:</b> <code>concat_hg</code> (900 dims) · <code>concat_rawds</code> (1350) ·
+        <code>concat_raw</code> (116 100).</li>
+      <li>Notebook <code>233_concat_clustering.ipynb</code>, module <code>lf_concat.py</code>. Runs land in the normal
+        <code>outputs/clustering/{method}/concat_*/</code> tree, so <b>MOBA picks them up automatically</b>.</li>
+    </ul></div>
+
+    <figure><div class="cap"><div class="fignum">FIG 2.7</div><h4>Concatenating gives a cleaner grouping</h4>
+      <ul>
+        <li><b><code>concat_hg</code> reaches silhouette 0.201 vs 0.152 for the per-condition HG track</b> — collapsing the three
+          conditions into one sample removes the condition-driven fragmentation that splits each electrode across clusters.</li>
+        <li>It also settles at a <b>much lower K (5–6 vs 9–13)</b>: fewer, broader functional types once modality is no longer
+          the thing being separated.</li>
+        <li><b><code>concat_raw</code> is worst</b> (0.096) despite having the most information — 116k features on 1163 samples is
+          the curse of dimensionality, mirroring what the per-condition <code>raw</code> track showed.</li>
+        <li>Read the silhouettes as <i>relative</i>: all are modest, which is the Q1 answer restated — language responses don't
+          fall into cleanly separable types under any of these representations.</li>
+      </ul>
+      <div style="padding:0 20px 16px"><table style="margin:0">
+        <tr><th>representation</th><th>sample unit</th><th>method</th><th>K</th><th>silhouette</th><th>dims</th></tr>
+        <tr><td><b>concat_hg</b></td><td>electrode</td><td>K-Means</td><td><b>5</b></td><td><b>0.201</b></td><td>900</td></tr>
+        <tr><td>concat_hg</td><td>electrode</td><td>Ward</td><td>6</td><td>0.173</td><td>900</td></tr>
+        <tr><td>hg <span style="color:var(--muted)">(per-condition)</span></td><td>electrode × condition</td><td>K-Means</td><td>9</td><td>0.152</td><td>300</td></tr>
+        <tr><td>hg <span style="color:var(--muted)">(per-condition)</span></td><td>electrode × condition</td><td>Ward</td><td>13</td><td>0.110</td><td>300</td></tr>
+        <tr><td>concat_rawds</td><td>electrode</td><td>K-Means</td><td>16</td><td>0.108</td><td>1350</td></tr>
+        <tr><td>concat_rawds</td><td>electrode</td><td>Ward</td><td>20</td><td>0.099</td><td>1350</td></tr>
+        <tr><td>concat_raw</td><td>electrode</td><td>K-Means</td><td>4</td><td>0.096</td><td>116 100</td></tr>
+        <tr><td>concat_raw</td><td>electrode</td><td>Ward</td><td>4</td><td>0.090</td><td>116 100</td></tr>
+      </table></div></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 2.8</div><h4>The 5 concatenated response types (<code>concat_hg</code>, mean ± SEM)</h4>
+      <ul>
+        <li>Each chip is one cluster's mean high-gamma across the <b>whole task</b>; the two vertical seams mark the
+          <code>[audio | picture | reading]</code> boundaries.</li>
+        <li>Because a contact contributes <b>one</b> sample, a chip shows how that electrode type behaves across
+          <i>all three</i> conditions at once — the cross-condition profile the per-condition track can't show.</li>
+      </ul></div>
+      <div class="grid">
+        <figure><div class="cap"><h4>Cluster 0</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_00.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 1</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_01.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 2</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_02.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 3</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_03.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 4</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/cluster_centroids/cluster_04.png"></div></figure>
+      </div>
+    </figure>
+
+    <div class="callout"><b>Still to run for the concat track:</b> <code>211</code> (consensus stability / gap / anatomy),
+      <code>213</code> (ranking — but <b>drop the condition-selectivity axis</b>, it's degenerate when every sample spans all
+      three conditions), and <code>252</code> (per-cluster fsaverage recon). MOBA's live 3-D brain already works, since it
+      renders from <code>labels.csv</code> + coords.</div>
+
     <div class="callout"><b>Decision for the paper:</b> <code>NOTEBOOKS.md</code> still names the downsampled full‑spectrum
       track (212) as the headline, but only the <b>HG track</b> is carried through validation, ranking and recon.
-      Confirm HG is the headline (with 212/raw as full‑spectrum corroboration) before writing.</div>
+      Confirm HG is the headline (with 212/raw as full‑spectrum corroboration) before writing — and now also whether the
+      headline is the <b>per-condition</b> or the <b>concatenated</b> sample unit, since they answer different questions.</div>
   </section>
 
   <!-- ============ STAGE 03 ============ -->
@@ -511,24 +582,101 @@
       <li>The live, filterable, dB‑graded 3‑D version is the poolv2 tool below.</li></ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/roi/ds_map/runs/20260612_161539/roi_map_full.png" alt="ROI map"></div></figure>
 
-    <h3>3a — anatomical ROI (Fedorenko / LanA language atlas)</h3>
-    <p class="lead" style="margin-bottom:14px">The lab-notes thread: instead of our own role templates, use an
-      <b>independent atlas of the language network</b> and ask where in the time–frequency plane the response
-      tracks it. Atlas = <b>LanA</b> (~806 subjects); each voxel's value is the <b>proportion of subjects</b> with
-      language activation there.</p>
+    <h3>3a — anatomical ROI (Fedorenko / LanA)</h3>
+    <div class="callout q"><b>Moved to its own tab.</b> The language-atlas analysis — what LanA is, how electrodes are
+      sampled into it, the threshold sweep, the ERSP × P(language) correlation map and the in/out-of-network split —
+      now has a dedicated write-up with the full method and caveats.
+      <a href="#lana" onclick="document.querySelector('nav button[data-t=&quot;lana&quot;]').click();return false;"><b>Open 3a · Language atlas →</b></a></div>
 
-    <div class="callout"><b>Read the filename carefully.</b> The <code>p</code> in
+    <p><a class="btn" href="poolv2.html">Open poolv2 — interactive 3‑D role map + designer →</a></p>
+  </section>
+
+  <!-- ============ 3a · LANGUAGE ATLAS ============ -->
+  <section id="lana">
+    <div class="eyebrow" style="color:#0b7a75">3a · anatomical ROI</div>
+    <h2 class="title">The Fedorenko / LanA language-atlas analysis</h2>
+    <p class="lead">Everything the pipeline does elsewhere defines regions from <b>our own data</b> — clusters, roles,
+      decoded networks. This thread does the opposite: it takes an <b>independent, externally-defined map of the language
+      network</b> and asks where in the time–frequency plane our recordings track it. It is the direct answer to the
+      question the whole project is built around — <i>can we identify sites that represent language rather than generic
+      stimulus/response processing?</i></p>
+
+    <div class="kpis">
+      <div class="kpi"><div class="v">806</div><div class="l">subjects behind the atlas</div></div>
+      <div class="kpi"><div class="v">2644</div><div class="l">electrodes sampled</div></div>
+      <div class="kpi"><div class="v">1042</div><div class="l">in-network at the chosen split</div></div>
+      <div class="kpi"><div class="v">116k</div><div class="l">TF bins correlated</div></div>
+    </div>
+
+    <h3>What the atlas is</h3>
+    <div class="method"><ul>
+      <li><b>LanA</b> (Language Atlas; Lipkin et al. 2022) — a <b>probabilistic</b> atlas built from an extensively validated
+        language localiser in <b>~806 individuals</b>. In each person the top 10% most localiser-responsive voxels were taken;
+        the atlas value at a voxel is the <b>proportion of subjects</b> whose language response included it.</li>
+      <li>So a voxel value of 0.30 means "≈30% of 806 people had language activation here". It is <b>not</b> a p-value and
+        <b>not</b> a binary mask — it is continuous overlap, which is exactly what makes the correlation analysis possible.</li>
+      <li>Files live in <code>04_FBM_Pooling/federenko_atlas/</code>: three volumes, 2 mm isotropic, MNI152.</li>
+    </ul></div>
+
+    <div class="callout"><b>The naming trap — worth stating explicitly.</b> The <code>p</code> in
       <code>langloc_n806_p_0.001 / 0.01 / 0.05</code> is the <b>individual-subject significance threshold</b> used when
-      defining each person's activation — <b>not</b> an overlap probability. The <b>voxel values</b> are the
-      across-subject overlap (max 0.65 / 0.73 / 0.80 at our electrodes). So the p=0.2/0.4 in the meeting sketch applies
-      to the <i>voxel values</i>; the file choice is a second, independent axis.</div>
+      defining each person's activation before overlap was computed. It is <b>not</b> the overlap probability. The overlap
+      lives in the <b>voxel values</b> (max 0.66 / 0.74 / 0.82 in the volumes; 0.65 / 0.73 / 0.80 at our electrodes).
+      So there are <b>two independent axes</b>: which <i>file</i> (how strictly each individual's language map was defined)
+      and which <i>voxel-value cutoff</i> (how much cross-subject agreement you demand). The p=0.2 / 0.4 in the meeting
+      sketch refers to the second one.</div>
 
-    <figure><div class="cap"><div class="fignum">FIG 4.8</div><h4>Threshold sweep — how many electrodes survive</h4>
+    <h3>What was done — step by step</h3>
+
+    <div class="step"><span class="num">1</span><h4>Get each electrode into the atlas's space</h4>
       <ul>
-        <li>Run before choosing a threshold, because with sparse sEEG coverage <b>n has to drive the choice</b>, not convention.</li>
-        <li><b>At overlap ≥0.5 the strict file leaves only 32 electrodes</b> — unusable. The liberal file gives 137.</li>
-        <li><b>Best-balanced split: <code>p_0.05</code> at overlap ≥0.1 → 1042 in / 1602 out</b> (of 2644 contacts with coords).</li>
-        <li>Left-lateralised as expected: 621 of those 1042 are LH.</li>
+        <li>Electrode coordinates live in <b>fsaverage (MNI305)</b> from the recon pipeline; the atlas is in <b>MNI152</b>.</li>
+        <li>Applied the standard <b>MNI305 → MNI152</b> affine, then inverted the volume's own affine to get voxel indices,
+          and read the value there. Contacts outside the volume return NaN and are dropped.</li>
+        <li><b>2644 of 2856</b> all-three-condition contacts have coordinates and were sampled.</li>
+        <li>Implemented as <code>sample_atlas_at_contacts()</code> — deliberately <b>atlas-agnostic</b>, it accepts any
+          MNI152 NIfTI. That is why the same code already ran on the 8 Neurosynth term maps.</li>
+      </ul></div>
+
+    <div class="step"><span class="num">2</span><h4>Sweep the threshold instead of guessing it</h4>
+      <ul>
+        <li>With sparse sEEG coverage, a principled-sounding threshold is useless if no electrodes survive it — so
+          <b>electrode counts decide</b>, not convention.</li>
+        <li>Counted survivors for all <b>3 files × 5 cutoffs</b>, and separately for cortical-only and left-hemisphere
+          contacts (<code>threshold_sweep.csv</code>).</li>
+      </ul></div>
+
+    <div class="step"><span class="num">3</span><h4>Correlate every TF bin against the continuous atlas value</h4>
+      <ul>
+        <li>The ERSP cube is <b>(2644 contacts × 129 freq × 900 time)</b>, the three conditions stitched. For each of the
+          <b>116 100</b> bins: take that bin's value across all contacts, correlate against their atlas values, keep the
+          coefficient — then replot all coefficients back onto the TF plane.</li>
+        <li><b>Spearman</b> (rank-based) by default: the atlas distribution is heavily zero-inflated and skewed, and ERSP
+          values have outliers. Pearson is available as an option.</li>
+        <li>Computed in <b>chunks</b> over bins so the 2644 × 116 100 matrix is never rank-transformed all at once.</li>
+        <li>p from the standard t transform, then <b>Benjamini–Hochberg FDR across all 116 100 bins</b> — the
+          multiple-comparison correction the notes flagged as open. Drawn as the black contour.</li>
+        <li><b>No threshold is applied here</b> — which also means this analysis is immune to the multi-attribution problem
+          that affects any hard region assignment.</li>
+      </ul></div>
+
+    <div class="step"><span class="num">4</span><h4>Split in- vs out-of-network and compare mean ERSPs</h4>
+      <ul>
+        <li>The binary version (the meeting's Fig 6): cortical contacts above/below the cutoff, each branch averaged into a
+          <code>[audio | picture | reading]</code> triptych. Produced at both p≥0.1 and p≥0.5, for all three files.</li>
+      </ul></div>
+
+    <h3>Results</h3>
+
+    <figure><div class="cap"><div class="fignum">RESULT 1</div><h4>Threshold sweep — and why it mattered</h4>
+      <ul>
+        <li><b>The worry was justified:</b> at overlap ≥0.5 the strict file leaves just <b>32 electrodes</b> — statistically
+          useless no matter how principled the cutoff.</li>
+        <li><b>Chosen split: <code>p_0.05</code> at ≥0.1 → 1042 in / 1602 out.</b> The only combination giving a balanced,
+          well-powered contrast.</li>
+        <li><b>Independent sanity check:</b> <b>621 of those 1042 are left-hemisphere</b> (~60%) — the atlas is
+          left-lateralised, and our electrodes reproduce that without being told to.</li>
+        <li>Note no voxel anywhere exceeds ~0.82 overlap, so "p≥0.5" is already deep in the tail of the distribution.</li>
       </ul>
       <div style="padding:0 20px 16px"><table style="margin:0">
         <tr><th>atlas file</th><th>p&gt;0</th><th>≥0.1</th><th>≥0.2</th><th>≥0.3</th><th>≥0.4</th><th>≥0.5</th></tr>
@@ -538,30 +686,59 @@
       </table></div></div>
     </figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 4.9</div><h4>ERSP × P(language) correlation map — the notes' Fig 9, realised</h4>
+    <figure><div class="cap"><div class="fignum">RESULT 2</div><h4>The correlation map — a real dissociation</h4>
       <ul>
-        <li>Every TF bin's power correlated across 2644 contacts against the <b>continuous</b> atlas value —
-          <b>no threshold needed</b>, which also sidesteps the 30% multi-attribution problem. Spearman; black contour = BH-FDR q&lt;0.05.</li>
-        <li><b>Positive during the spoken prompt</b> (audio stimulus, ~50–150 Hz): closer to the language network → more high-gamma.</li>
-        <li><b>Positive in all three response windows</b> (~50–250 Hz): language sites are engaged during production regardless of input modality.</li>
-        <li><b>Negative during visual stimulus encoding</b> (picture/reading, ~200–400 Hz): language-network proximity predicts
-          <i>less</i> high-frequency power while the visual stimulus is on screen — a genuine dissociation from sensory processing.</li>
-        <li><b>Robust to the file choice:</b> 26.0% / 24.7% / 27.2% of bins FDR-significant across the three atlas versions.
-          But effect sizes are small (|r| ≤ 0.16) — significance is driven by n=2644.</li>
+        <li><b>Positive during the spoken prompt</b> (audio stimulus, ~50–150 Hz) — closer to the language network means more
+          high-gamma while hearing speech.</li>
+        <li><b>Positive in all three response windows</b> (~50–250 Hz) — language sites engage during production
+          <i>regardless of how the trial was cued</i>.</li>
+        <li><b>Negative during visual stimulus encoding</b> (picture &amp; reading, ~200–400 Hz) — language-network proximity
+          predicts <i>less</i> high-frequency power while a picture or sentence is on screen.</li>
+        <li><b>This is the shape you would want:</b> the language network tracks <i>linguistic</i> processing — hearing speech
+          and producing it — and actively does not track visual sensory encoding. That is a dissociation from
+          stimulus processing, which is precisely the project's question.</li>
+        <li><b>Robust to the atlas file:</b> 26.0% / 24.7% / 27.2% of bins survive FDR across the three versions, so the
+          individual-threshold axis barely matters for the continuous analysis.</li>
       </ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/corr_p_0.05.png" alt="ERSP x P(language) correlation map"></div></figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 4.10</div><h4>In-network vs out-of-network mean ERSP — the notes' Fig 6</h4>
+    <figure><div class="cap"><div class="fignum">RESULT 3</div><h4>In- vs out-of-network mean ERSP</h4>
       <ul>
-        <li>Cortical contacts split by atlas membership at the best-balanced threshold; each row is the mean
-          <code>[audio|picture|reading]</code> ERSP for that branch.</li>
-        <li>In-network contacts show a <b>stronger, more sustained response-window high-gamma</b> than out-of-network ones.</li>
-        <li>The contrast is modest at p≥0.1 — the liberal threshold dilutes the "in" group. Stricter thresholds sharpen it
-          but shrink n fast (see 4.8), which is the tradeoff to settle before this becomes a headline figure.</li>
+        <li>In-network contacts show <b>stronger, more sustained response-window high-gamma</b> than out-of-network ones.</li>
+        <li>But the contrast is <b>modest</b>, and honestly so: the cutoff that keeps n usable (≥0.1) also dilutes the
+          "in" group with contacts where only 1 in 10 subjects showed language response.</li>
+        <li><b>The continuous correlation map (Result 2) is the stronger analysis</b> — it uses the full gradient instead of
+          discarding it at a cut, and needs no arbitrary threshold at all.</li>
       </ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/split_p_0.05_p0.1.png" alt="in vs out of network ERSP"></div></figure>
 
-    <p><a class="btn" href="poolv2.html">Open poolv2 — interactive 3‑D role map + designer →</a></p>
+    <h3>Honest caveats</h3>
+    <div class="method"><ul>
+      <li><b>Effect sizes are small — |r| ≤ 0.16.</b> These clear FDR because n=2644, not because the effects are large.
+        Report the map's <i>structure</i>, not the coefficient magnitudes.</li>
+      <li><b>Coverage is not random.</b> Electrodes are placed for clinical reasons; the atlas-value distribution at our
+        contacts is whatever that sampling produced, not a controlled design.</li>
+      <li><b>fMRI-derived, applied to iEEG.</b> LanA marks where the BOLD language response overlaps across subjects; it does
+        not guarantee the same tissue shows the electrophysiological effect.</li>
+      <li><b>Adjacent bins are not independent</b> — the STFT couples time and frequency resolution, so FDR across bins is
+        conservative in intent but the bins it corrects over are correlated.</li>
+      <li><b>The binary split is the weaker framing</b>, for the dilution reason above.</li>
+    </ul></div>
+
+    <h3>Next: go deeper</h3>
+    <div class="callout q">The whole-network map is done. The natural next step is to split LanA into its
+      <b>individual parcels</b> (IFG, IFGorb, MFG, AntTemp, PostTemp, AngG) and run the same correlation per parcel — asking
+      <b>which part</b> of the language network each time–frequency effect lives in. The code needs no changes: each parcel is
+      just another MNI152 volume handed to the same function.</div>
+
+    <h3>Where it lives</h3>
+    <div class="method"><ul>
+      <li><b>Module:</b> <code>04_FBM_Pooling/functions/lf_atlas_corr.py</code> — sampling, chunked correlation, BH-FDR, plotting.</li>
+      <li><b>Atlas:</b> <code>04_FBM_Pooling/federenko_atlas/</code> (3 volumes).</li>
+      <li><b>Outputs:</b> <code>outputs/pooling/atlas_corr/fedorenko/</code> — 3 correlation maps, 6 split figures,
+        <code>threshold_sweep.csv</code>, <code>corr_summary.csv</code>.</li>
+      <li>The same module also produced the 8 Neurosynth-term correlation maps in <code>outputs/pooling/atlas_corr/</code>.</li>
+    </ul></div>
   </section>
 
   <!-- ============ MEETINGS ============ -->

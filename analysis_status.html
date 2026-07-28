@@ -404,6 +404,15 @@
           <i>all three</i> conditions at once — the cross-condition profile the per-condition track can't show.</li>
         <li><b>Cluster 4 holds 622 of 1082 contacts</b> — a large, anatomically diffuse "weakly-responsive" group. The smaller
           clusters (74–156) are the anatomically tighter, more interpretable ones.</li>
+        <li><b>Reading the waveform chip:</b> the black line is the cluster's <b>mean high-gamma</b> (70–150 Hz) and the grey
+          band is <b>± SEM across its member electrodes</b> — a narrow band means the members genuinely share that shape,
+          a wide one means the mean is averaging over dissimilar contacts. The horizontal line is baseline (0 dB); above it
+          is a power increase. y is fixed at ±6.5 dB across all chips, <b>so the chips are directly comparable to each
+          other</b>.</li>
+        <li><b>Reading the anatomy chip:</b> the <b>coloured dots are that cluster's electrodes</b> (colour is just the
+          cluster's identity — it carries no magnitude), <b>light grey dots are all other clustered electrodes</b>, and the
+          faint haze is the cortical surface. It is a left-lateral view. So the question it answers is <b>"is this cluster
+          spatially localised or spread everywhere?"</b> — not "how strong is it".</li>
       </ul></div>
       <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(310px,1fr))">
         <figure><div class="cap"><h4>Cluster 0 <span style="color:var(--muted);font-weight:400">· n=74</span></h4></div>
@@ -435,6 +444,10 @@
         <li>The honest read: the clusters are <b>anatomically intermixed</b> rather than occupying distinct territories —
           the spatial counterpart of the modest silhouette, and another face of the Q1 answer.</li>
         <li>1082 of the 1163 clustered electrodes have fsaverage coordinates.</li>
+        <li><b>Colours are categorical</b> — one hue per cluster, matching FIG 2.8's anatomy chips. There is no ordering or
+          magnitude in the colour; adjacent hues do not mean similar clusters.</li>
+        <li><b>What to look for:</b> whether any single colour forms its own territory. Largely it does not — the hues
+          interleave across the same cortex, which is the point.</li>
       </ul></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/all_clusters.png" alt="all concat clusters on fsaverage"></div></figure>
 
@@ -695,6 +708,33 @@
           <code>[audio | picture | reading]</code> triptych. Produced at both p≥0.1 and p≥0.5, for all three files.</li>
       </ul></div>
 
+    <h3>How to read these figures</h3>
+    <div class="method">
+      <p style="margin:0 0 10px">Three different colour scales appear below and they mean different things — worth
+        fixing before reading the results.</p>
+      <ul>
+        <li><b><span style="color:#b2182b">Red</span> / <span style="color:#2166ac">blue</span> on a time–frequency panel
+          = a CORRELATION</b> (Figs Result 2). Red = electrodes closer to the language network have <b>more</b> power in that
+          time–frequency bin; blue = they have <b>less</b>. White = no relationship. <b>Zero is the meaningful midpoint</b>,
+          and the scale is symmetric, so the eye can compare the two directions fairly.
+          <b>The black contour</b> outlines bins surviving <b>BH-FDR q&lt;0.05</b> — inside it the relationship is
+          statistically reliable; speckle outside it is noise and should not be interpreted.</li>
+        <li><b><span style="color:#b2182b">Red</span> / <span style="color:#2166ac">blue</span> on an ERSP panel = POWER in dB</b>
+          (Fig Result 3), not a correlation. Red = a power increase relative to that electrode's own pre-stimulus baseline,
+          blue = a decrease. Same colours, completely different quantity — check the colourbar label.</li>
+        <li><b>Viridis (dark purple → green → <span style="color:#b8a300">yellow</span>) = the atlas value</b>
+          (Fig Result 2b): the proportion of the 806 subjects with language activation at that electrode's location.
+          Purple ≈ 0, yellow ≈ 0.65 (the maximum reached at any of our contacts). Grey dots are contacts with a value of
+          exactly 0.</li>
+        <li><b>Teal vs grey = a hard membership split</b> (Fig Result 1b): teal is above the chosen cutoff, grey below.</li>
+      </ul>
+      <p style="margin:10px 0 0"><b>Reading any time–frequency panel:</b> x is the warped trial (0–100% within each of the
+        three condition blocks, dashed line = the GO-cue at 50%, so <b>left of it is perception and right of it is
+        production</b>); y is frequency 0–500 Hz, with the <b>70–150 Hz high-gamma band the one that indexes local neural
+        firing</b>. The three blocks are the same electrodes doing the task three ways, so <b>a feature present in one block
+        but not the others is modality-specific, and one present in all three is modality-general</b>.</p>
+    </div>
+
     <h3>Results</h3>
 
     <figure><div class="cap"><div class="fignum">RESULT 1</div><h4>Threshold sweep — and why it mattered</h4>
@@ -722,6 +762,12 @@
         <li>In-network contacts land where a language network should — <b>perisylvian: superior/middle temporal and
           inferior frontal</b> — rather than scattered, which is an independent check that the sampling worked.</li>
         <li>The dorsal view makes the <b>left-hemisphere bias</b> visible directly (621 of 1042 are LH).</li>
+        <li><b>Colours:</b> <span style="color:#0b7a75"><b>teal</b></span> = atlas overlap ≥ 0.1 (in-network),
+          <b>light grey</b> = below it. The faint grey haze behind the dots is the fsaverage cortical surface,
+          drawn only to give the brain's shape — it carries no data.</li>
+        <li><b>Caution:</b> dot density reflects <b>where electrodes were implanted</b> (clinical decisions), not where
+          language is. Read this figure as "the in-network contacts are anatomically plausible", not as a coverage map
+          of the language network.</li>
       </ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/recon_split_p_0.05_p0.1.png" alt="fsaverage recon in vs out of network"></div></figure>
 
@@ -738,6 +784,15 @@
           stimulus processing, which is precisely the project's question.</li>
         <li><b>Robust to the atlas file:</b> 26.0% / 24.7% / 27.2% of bins survive FDR across the three versions, so the
           individual-threshold axis barely matters for the continuous analysis.</li>
+        <li><b>Colours:</b> <span style="color:#b2182b"><b>red</b></span> = language-network proximity predicts
+          <b>more</b> power in that bin; <span style="color:#2166ac"><b>blue</b></span> = predicts <b>less</b>; white =
+          no relationship. The scale is symmetric about zero and capped near ±0.09, so <b>colour saturation is not effect
+          size in any absolute sense</b> — a fully saturated red is still only r ≈ 0.16.</li>
+        <li><b>The black contour is the part to trust.</b> It encloses bins passing BH-FDR q&lt;0.05 across all 116 100
+          bins. Ignore isolated speckle outside it — with this many bins, some will always look coloured by chance.</li>
+        <li><b>How to read it in one sentence:</b> follow the red inside the contour — it appears in the
+          <i>audio</i> stimulus half and in the <i>response</i> half of all three blocks, and is replaced by blue in the
+          <i>picture</i> and <i>reading</i> stimulus halves.</li>
       </ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/corr_p_0.05.png" alt="ERSP x P(language) correlation map"></div></figure>
 
@@ -749,6 +804,11 @@
           and it is <b>visibly stronger on the left</b> — the atlas's left-lateralisation reproduced in our coverage.</li>
         <li>Seeing the gradient explains why the continuous analysis is the stronger one: thresholding would collapse
           this whole range into a single yes/no and discard the ordering that carries the signal.</li>
+        <li><b>Colours (viridis):</b> dark purple ≈ 0 → teal/green ≈ 0.3 → <b>yellow ≈ 0.65</b>, the highest atlas value
+          reached at any of our contacts. A yellow dot means <b>roughly two thirds of the 806 subjects</b> had language
+          activation at that location. Separate grey dots are contacts whose value is exactly 0.</li>
+        <li><b>Note the scale never reaches 1.0</b> — no location in the atlas is language-responsive in <i>everyone</i>,
+          which is the inter-individual variability the atlas was built to quantify.</li>
       </ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/recon_continuous_p_0.05.png" alt="continuous atlas value on fsaverage"></div></figure>
 
@@ -759,8 +819,47 @@
           "in" group with contacts where only 1 in 10 subjects showed language response.</li>
         <li><b>The continuous correlation map (Result 2) is the stronger analysis</b> — it uses the full gradient instead of
           discarding it at a cut, and needs no arbitrary threshold at all.</li>
+        <li><b>Colours — different meaning from Result 2.</b> Here red/blue is <b>power in dB</b> relative to each
+          electrode's own pre-stimulus baseline (red = increase, blue = decrease, ±3 dB), <b>not</b> a correlation. The two
+          rows share one colour scale so they can be compared directly.</li>
+        <li><b>How to compare the rows:</b> look at the same location in both panels. The response-window
+          (right of each dashed GO-cue) high-gamma blob is <b>warmer and more sustained in the top row</b>. Everything else
+          is broadly similar, which is the honest finding — the split separates degree, not kind.</li>
       </ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/split_p_0.05_p0.1.png" alt="in vs out of network ERSP"></div></figure>
+
+    <h3>How this relates to the LanA / Fedorenko work</h3>
+    <div class="method">
+      <p style="margin:0 0 10px">Worth being explicit about what is being compared, because the two studies measure
+        different things and one of their central findings directly predicts the size of our effects.</p>
+      <ul>
+        <li><b>What the atlas is a map of.</b> LanA was built from a validated language localiser
+          (sentences &gt; nonwords) in 806 people; in each person the <b>top 10% most localiser-responsive voxels</b> were
+          taken, and the atlas value is how often a location fell in that set. So it maps <b>where language-responsive
+          BOLD overlaps across people</b> — not where language "is" in any one brain.</li>
+        <li><b>Their headline motivation predicts our ceiling.</b> The whole reason LanA exists is that language regions
+          <b>vary substantially in location between individuals</b> — group averaging blurs them, which is why the field
+          moved to subject-specific localisers. We are correlating <b>individual electrodes</b> against a <b>group</b>
+          probabilistic map, so that same inter-individual variability is a <b>built-in ceiling on our correlations</b>.
+          <b>|r| ≤ 0.16 is what that framework would lead you to expect</b>, not a sign the analysis failed. The honest
+          conclusion is about the <i>structure</i> of the map, not the magnitude.</li>
+        <li><b>Where we agree.</b> Our in-network contacts land <b>perisylvian — superior/middle temporal and inferior
+          frontal</b> — and are <b>left-dominant</b> (621 of 1042), reproducing the canonical frontotemporal,
+          left-lateralised layout without being told to. That is a genuine convergence, from a different modality.</li>
+        <li><b>What we add that fMRI cannot.</b> LanA has no temporal resolution. Our map puts the language-network
+          gradient on a <b>millisecond-scale time–frequency plane</b> and shows it is <b>positive during the spoken prompt
+          and during production, but negative during visual stimulus encoding</b> — a within-trial dissociation that a
+          BOLD atlas is not able to express.</li>
+        <li><b>The important caveat in comparing them.</b> BOLD language-responsiveness and high-gamma
+          language-responsiveness are <b>not guaranteed to mark the same tissue</b>. Agreement is evidence; disagreement
+          would not automatically mean either is wrong.</li>
+        <li><b>An available refinement.</b> LanA can be filtered by demographic variables including <b>network
+          lateralisation and handedness</b>. Restricting to the typically-lateralised subset would sharpen the group map
+          and may raise the correlation ceiling — a concrete next step if the effect sizes matter for the write-up.</li>
+      </ul>
+      <p style="margin:10px 0 0;font-size:13px;color:var(--muted)">Lipkin et al. (2022), <i>Scientific Data</i> —
+        "Probabilistic atlas for the language network based on precision fMRI data from &gt;800 individuals".</p>
+    </div>
 
     <h3>Honest caveats</h3>
     <div class="method"><ul>

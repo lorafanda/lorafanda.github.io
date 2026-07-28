@@ -133,6 +133,18 @@
       </ul>
     </div>
 
+    <h3>The scientific arc</h3>
+    <div class="method">
+      <p style="margin:0 0 10px">The stages answer a chain of questions — each set up by the one before:</p>
+      <ul>
+        <li><b>Q1 · Can we <i>cluster</i> language?</b> → <b>Not cleanly.</b> Data‑driven clustering of the per‑condition ERSPs gives only modest separation (silhouette ~0.15) — partly the task design, partly that language isn't one separable process but a distributed, overlapping set. "Find the language cluster" fails by design.</li>
+        <li><b>Q2 · So are the clusters <i>random</i>?</b> → <b>No.</b> They track the <b>condition</b> (audio / picture / reading) — a real modality/sensory axis, not noise. (Clustering is per‑condition, so the condition contrast is the strongest structure available to find.)</li>
+        <li><b>Q3 · Does <i>supervised</i> decoding do better — and which target?</b> → <b>Condition ≫ network.</b> Decoding the <b>condition</b> from one electrode works (BA 0.60, chance .33); decoding its <b>Yeo network</b> is much weaker (0.35 / 0.20). The modality signal is strong and decodable; the anatomical‑network signal is faint.</li>
+        <li><b>Q4 · <i>Why</i> does condition decode — which features separate the classes?</b> → <b>The early, modality‑specific response.</b> The logistic‑regression coefficient maps put the discriminative weight in the <b>early stimulus window</b> (before the GO‑cue), where the conditions differ by input (auditory vs visual); the shared speech response afterwards carries little condition information. <span style="color:var(--muted)">(stage 03, Fig 8)</span></li>
+      </ul>
+      <p style="margin:10px 0 0"><b>Stage 04</b> then steps back from data‑driven grouping to <b>a‑priori roles</b> and the <b>response‑timing</b> sequence — the "what fires when, and where" that clustering couldn't isolate.</p>
+    </div>
+
     <h3>Status at a glance</h3>
     <table>
       <tr><th>Stage</th><th>Status</th><th>Headline / canonical result</th><th>Watch‑outs</th></tr>
@@ -370,6 +382,15 @@
       <li>A few Yeo‑17 networks carry almost all the decodable signal; most sit near zero.</li></ul></div>
       <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/class_recall_compare.png" alt="class recall"></div></figure>
 
+    <figure><div class="cap"><div class="fignum">FIG 8</div><h4>Which features separate the classes — LR coefficient maps (condition)</h4>
+      <ul>
+        <li>The multinomial logistic‑regression weights laid out as <b>frequency band × time</b>, one map per class (audio / picture / reading); <b>red = pushes toward that class</b>, dashed line = GO‑cue.</li>
+        <li><b>Discriminative weight sits in the early stimulus window</b> (left of the GO‑cue), where the three conditions differ by input modality — <i>reading</i> especially shows heavy early low‑frequency weight.</li>
+        <li><b>The post‑GO response window carries little weight:</b> the spoken response is shared across conditions, so it doesn't separate them. So condition is read from the <b>early, modality‑specific sensory response</b>, not the speech output — the answer to Q4.</li>
+        <li><span style="color:var(--muted)">From the current complete <code>condition · full_300 · logreg</code> run (Jun 24); the parcellation runs have their own coefficient maps.</span></li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/condition/full_300/logreg/runs/20260624_184315/coef_ersp_maps.png" alt="LR coefficient maps condition"></div></figure>
+
     <figure><div class="cap"><div class="fignum">ANALYSIS</div><h4>Is high‑gamma alone as good as the full spectrum?</h4>
       <ul><li>Slopegraph of every matched HG↔FULL pair (same time grid × row‑norm × classifier), per task; green rising = HG higher.</li>
       <li>Paired sign‑test + Wilcoxon accompany it — the fair test since the pair shares a time grid.</li></ul></div>
@@ -425,16 +446,25 @@
       <i>Science</i> 326:445–449)</b>, intracranial Broca's showing lexical ~200 ms → grammatical ~320 ms → phonological ~450 ms.
       Add these two when writing up the timing story.</div>
 
-    <figure><div class="cap"><div class="fignum">FIG 4.3</div><h4>Role × role timing similarity (Pearson r)</h4>
+    <figure><div class="cap"><div class="fignum">FIG 4.3</div><h4>Onset ordering — the quantified timing sequence</h4>
+      <ul>
+        <li>Each Neurosynth region's <b>activation onset</b> (first time HGA stays &gt; 0.4 dB for ≥3 bins), per condition, ranked earliest → latest; dashed line = GO‑cue (50 %). This is the <b>result the timeseries only hinted at</b> — the sequence, as numbers.</li>
+        <li><b>Modality‑appropriate input fires first:</b> auditory ~2 % in <i>audio</i>, visual ~2–7 % in <i>picture / reading</i> — the sensory site for the actual input leads.</li>
+        <li><b>Production / semantic regions cluster post‑GO</b> (~60–71 %): lexical, broca, phonological, semantic all activate during the response — broadly the perception → lexical → phonological → articulation order of Indefrey &amp; Levelt / Sahin.</li>
+        <li><b>Read the order, not the exact %:</b> onset is the first sustained crossing of a fixed dB threshold, and the time‑warp compresses the response half, so post‑GO regions bunch together. (A role‑level companion, <code>role_onset_ordering.png</code>, tells the same story across the functional roles.)</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/neurosynth/region_onset_ordering.png" alt="region onset ordering"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 4.4</div><h4>Role × role timing similarity (Pearson r)</h4>
       <ul><li>Correlation of each pair of roles' mean HGA curves, per condition (red = similar profile, blue = anti‑phase).</li>
       <li><b>Descriptive</b> — the series are autocorrelated, so read profile‑shape overlap, not a significance test of latency.</li></ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_corr.png" alt="role correlation"></div></figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 4.4</div><h4>Region × region timing similarity (Pearson r)</h4>
+    <figure><div class="cap"><div class="fignum">FIG 4.5</div><h4>Region × region timing similarity (Pearson r)</h4>
       <ul><li>The same correlation view across Neurosynth regions — the anatomical companion to Fig 4.3.</li></ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/neurosynth/region_corr.png" alt="region correlation"></div></figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 4.5</div><h4>Role templates on real ERSPs (representative contacts)</h4>
+    <figure><div class="cap"><div class="fignum">FIG 4.6</div><h4>Role templates on real ERSPs (representative contacts)</h4>
       <ul><li>Each card = one matching contact's <code>[a|p|r]</code> ERSP with the role's boxes drawn on top.</li>
       <li>Sanity‑checks that the templates sit where the real activity is.</li></ul></div>
       <div class="grid">
@@ -446,7 +476,7 @@
         <figure><div class="cap"><h4>NN</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/NN.png"></div></figure>
       </div></figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 4.6</div><h4>Functional roles on fsaverage</h4>
+    <figure><div class="cap"><div class="fignum">FIG 4.7</div><h4>Functional roles on fsaverage</h4>
       <ul><li>Every pooled contact placed on the common brain, coloured by role — the static "where".</li>
       <li>The live, filterable, dB‑graded 3‑D version is the poolv2 tool below.</li></ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/roi/ds_map/runs/20260612_161539/roi_map_full.png" alt="ROI map"></div></figure>

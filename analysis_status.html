@@ -111,15 +111,16 @@
     <div class="eyebrow">Overview</div>
     <h2 class="title">Where the analysis stands</h2>
     <p class="lead">Intracranial (sEEG/depth + micro) recordings during a three‑condition language task —
-      <b>picture naming</b>, <b>auditory naming</b>, and <b>reading completion</b> — processed into
-      time‑warped time–frequency responses, then clustered, decoded, and pooled into functional roles on
-      a common brain. This page is the current status of each stage: what it does, how, and the headline result.</p>
+      <b>picture naming</b>, <b>auditory naming</b>, and <b>reading completion</b> — are turned into one
+      time‑warped time–frequency substrate, then examined through <b>three complementary lenses</b>: unsupervised
+      <b>clustering</b>, supervised <b>decoding</b>, and confirmatory <b>a‑priori pooling</b>. This page tells how the
+      stages connect and compare; the specific numbers live in each stage's own tab.</p>
 
     <div class="kpis">
       <div class="kpi"><div class="v">~29</div><div class="l">patients (EL · PAT · Micro)</div></div>
-      <div class="kpi"><div class="v">3</div><div class="l">conditions (audio/pic/read)</div></div>
-      <div class="kpi"><div class="v">2102</div><div class="l">clustered samples</div></div>
-      <div class="kpi"><div class="v">0.60</div><div class="l">best condition decode (BA)</div></div>
+      <div class="kpi"><div class="v">3</div><div class="l">conditions · one task (LM)</div></div>
+      <div class="kpi"><div class="v">129×300</div><div class="l">warped ERSP substrate</div></div>
+      <div class="kpi"><div class="v">3</div><div class="l">analysis lenses on it</div></div>
     </div>
 
     <h3>The pipeline</h3>
@@ -127,38 +128,45 @@
       <ul>
         <li><b>01 · Signal → ERSP.</b> Raw clinical recordings → cleaned, re‑referenced signals → trial‑locked,
           baseline‑normalised <b>ERSP</b> cubes (129 freq × 300 warped time) per electrode × condition. Feeds everything below.</li>
-        <li><b>02 · Clustering.</b> Group the trial‑averaged ERSPs into data‑driven <b>functional response types</b>.</li>
-        <li><b>03 · Decoding.</b> Supervised test — can we read <b>condition</b> and <b>Yeo network</b> off a single electrode's response?</li>
-        <li><b>04 · Pooling.</b> Confirmatory <b>a‑priori functional‑role</b> mapping on the warped timeline, rendered on fsaverage + an interactive tool.</li>
+        <li><b>02 · Clustering</b> <span style="color:var(--muted)">— unsupervised: "what structure emerges?"</span> Let the data group the ERSPs into response types, no labels given.</li>
+        <li><b>03 · Decoding</b> <span style="color:var(--muted)">— supervised: "what can we read out?"</span> Test whether condition, and separately Yeo network, can be predicted from one electrode's response.</li>
+        <li><b>04 · Pooling</b> <span style="color:var(--muted)">— confirmatory: "where are the a‑priori roles, and when?"</span> Match hypothesis‑driven functional roles and read their response‑timing on the warped timeline.</li>
       </ul>
     </div>
+
+    <h3>How the stages relate &amp; compare</h3>
+    <div class="method"><ul>
+      <li><b>Same data, three questions.</b> All three read the identical ERSP substrate; they differ only in <i>who supplies the structure</i> — the data (clustering), the labels (decoding), or prior theory (pooling).</li>
+      <li><b>They cross‑check each other.</b> What the unsupervised clustering surfaces on its own should be the same axis the supervised decoder can exploit, and the a‑priori roles should land where both put their signal. Agreement across lenses is the evidence; disagreement flags where the story is fragile.</li>
+      <li><b>Different sample units, on purpose.</b> Clustering keeps each electrode × condition as a separate sample (so the condition axis can emerge); decoding‑parcellation and pooling <i>concatenate</i> the three conditions into one per‑electrode profile (so the electrode's functional <i>type</i> is the unit). That choice sets what question each lens can even ask.</li>
+    </ul></div>
 
     <h3>The scientific arc</h3>
     <div class="method">
       <p style="margin:0 0 10px">The stages answer a chain of questions — each set up by the one before:</p>
       <ul>
-        <li><b>Q1 · Can we <i>cluster</i> language?</b> → <b>Not cleanly.</b> Data‑driven clustering of the per‑condition ERSPs gives only modest separation (silhouette ~0.15) — partly the task design, partly that language isn't one separable process but a distributed, overlapping set. "Find the language cluster" fails by design.</li>
-        <li><b>Q2 · So are the clusters <i>random</i>?</b> → <b>No.</b> They track the <b>condition</b> (audio / picture / reading) — a real modality/sensory axis, not noise. (Clustering is per‑condition, so the condition contrast is the strongest structure available to find.)</li>
-        <li><b>Q3 · Does <i>supervised</i> decoding do better — and which target?</b> → <b>Condition ≫ network.</b> Decoding the <b>condition</b> from one electrode works (BA 0.60, chance .33); decoding its <b>Yeo network</b> is much weaker (0.35 / 0.20). The modality signal is strong and decodable; the anatomical‑network signal is faint.</li>
-        <li><b>Q4 · <i>Why</i> does condition decode — which features separate the classes?</b> → <b>The early, modality‑specific response.</b> The logistic‑regression coefficient maps put the discriminative weight in the <b>early stimulus window</b> (before the GO‑cue), where the conditions differ by input (auditory vs visual); the shared speech response afterwards carries little condition information. <span style="color:var(--muted)">(stage 03, Fig 8)</span></li>
+        <li><b>Q1 · Can we <i>cluster</i> language?</b> → <b>Not cleanly.</b> Data‑driven clustering gives only weak separation — partly the task design, partly that language isn't one separable process but a distributed, overlapping set. "Find the language cluster" fails by design.</li>
+        <li><b>Q2 · So are the clusters <i>random</i>?</b> → <b>No.</b> They track the <b>condition</b> (audio / picture / reading) — a real modality/sensory axis, not noise. (Because clustering keeps conditions as separate samples, the condition contrast is the strongest structure available to find.)</li>
+        <li><b>Q3 · Does <i>supervised</i> decoding do better — and which target?</b> → <b>Condition beats network.</b> The <b>condition</b> is readable from a single electrode well above chance; its <b>Yeo network</b> is much harder. The modality signal is strong and decodable; the anatomical‑network signal is faint.</li>
+        <li><b>Q4 · <i>Why</i> does condition decode — which features separate the classes?</b> → <b>The early, modality‑specific response.</b> The logistic‑regression weights concentrate in the <b>early stimulus window</b> (before the GO‑cue), where the conditions differ by input (auditory vs visual); the shared speech response afterwards carries little condition information. <span style="color:var(--muted)">(see stage 03)</span></li>
       </ul>
       <p style="margin:10px 0 0"><b>Stage 04</b> then steps back from data‑driven grouping to <b>a‑priori roles</b> and the <b>response‑timing</b> sequence — the "what fires when, and where" that clustering couldn't isolate.</p>
     </div>
 
     <h3>Status at a glance</h3>
     <table>
-      <tr><th>Stage</th><th>Status</th><th>Headline / canonical result</th><th>Watch‑outs</th></tr>
+      <tr><th>Stage</th><th>Status</th><th>What it establishes</th><th>Watch‑outs</th></tr>
       <tr><td><b>01 ERSP</b></td><td><span class="pill ok">current</span></td>
-        <td>ERSP + HG cube for the full cohort (nb 140).</td>
+        <td>The shared, cleaned, time‑warped ERSP substrate for the cohort.</td>
         <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only.</td></tr>
       <tr><td><b>02 Clustering</b></td><td><span class="pill ok">reran 07‑19</span></td>
-        <td><b>HG, K‑Means K=9</b>, n=2102, silhouette 0.152 — with consensus‑stability validation.</td>
-        <td>K shifted <b>7→9</b> on this rerun; ranking + recon (213/252) not yet re‑run. <code>NOTEBOOKS.md</code> still names the 212 track — <b>pick your headline</b>.</td></tr>
+        <td>Structure does emerge — and it is the condition/modality axis; not noise, but not a clean "language" type either.</td>
+        <td>Recon (252) not yet re‑run; <code>NOTEBOOKS.md</code> still names the 212 track — <b>pick your headline</b>.</td></tr>
       <tr><td><b>03 Decoding</b></td><td><span class="pill ok">reran 07‑19</span></td>
-        <td>Condition <b>BA 0.60</b> (HG line); Yeo‑7 0.35; Yeo‑17 0.20 — all beat the permutation null.</td>
-        <td>Notebooks regenerated + comparison figures refreshed today. 2 <code>full_300/logreg</code> combos crashed → fall back to Jun‑24; variant set still to decide.</td></tr>
+        <td>Condition is decodable and driven by the early sensory response; network membership much less so.</td>
+        <td>Notebooks + comparison figures refreshed today; 2 <code>full_300/logreg</code> combos still to re‑run; variant set to decide.</td></tr>
       <tr><td><b>04 Pooling</b></td><td><span class="pill ok">current</span></td>
-        <td>Functional roles matched, HGA timeseries + correlations, Neurosynth, fsaverage + poolv2 tool.</td>
+        <td>Hypothesis‑driven roles map on the brain, with a response‑timing sequence across regions.</td>
         <td>poolv2 web tool now bit‑identical to the notebook (convergence fixed).</td></tr>
     </table>
     <p style="margin-top:16px"><a class="btn" href="poolv2.html">Open the interactive 3‑D role map →</a>
@@ -451,9 +459,11 @@
         <li>Each Neurosynth region's <b>activation onset</b> (first time HGA stays &gt; 0.4 dB for ≥3 bins), per condition, ranked earliest → latest; dashed line = GO‑cue (50 %). This is the <b>result the timeseries only hinted at</b> — the sequence, as numbers.</li>
         <li><b>Modality‑appropriate input fires first:</b> auditory ~2 % in <i>audio</i>, visual ~2–7 % in <i>picture / reading</i> — the sensory site for the actual input leads.</li>
         <li><b>Production / semantic regions cluster post‑GO</b> (~60–71 %): lexical, broca, phonological, semantic all activate during the response — broadly the perception → lexical → phonological → articulation order of Indefrey &amp; Levelt / Sahin.</li>
-        <li><b>Read the order, not the exact %:</b> onset is the first sustained crossing of a fixed dB threshold, and the time‑warp compresses the response half, so post‑GO regions bunch together. (A role‑level companion, <code>role_onset_ordering.png</code>, tells the same story across the functional roles.)</li>
+        <li><b>Read the order, not the exact %:</b> onset is the first sustained crossing of a fixed dB threshold, and the time‑warp compresses the response half, so post‑GO regions bunch together.</li>
+        <li><b>Top ladder = Neurosynth regions; bottom ladder = functional roles</b> (same onset measure, our own role templates instead of literature regions) — the two agree on the input‑first / production‑late shape.</li>
       </ul></div>
-      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/neurosynth/region_onset_ordering.png" alt="region onset ordering"></div></figure>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/neurosynth/region_onset_ordering.png" alt="region onset ordering" style="margin-bottom:10px">
+        <img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_onset_ordering.png" alt="role onset ordering"></div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 4.4</div><h4>Role × role timing similarity (Pearson r)</h4>
       <ul><li>Correlation of each pair of roles' mean HGA curves, per condition (red = similar profile, blue = anti‑phase).</li>

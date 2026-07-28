@@ -400,15 +400,30 @@
     </ul></div>
 
     <h3>Results</h3>
-    <figure><div class="cap"><div class="fignum">FIG 4.1</div><h4>HGA time course per functional role</h4>
-      <ul><li>Group‑mean high‑gamma (± SEM) for each role across the warped trial, one panel per condition (dashed = GO‑cue).</li>
-      <li>The staggering of onsets is the "who fires when" story — input roles early, motor/feedback late.</li></ul></div>
+    <figure><div class="cap"><div class="fignum">FIG 4.1</div><h4>Response timing across functional roles (HGA time course)</h4>
+      <ul>
+        <li><b>The question:</b> do the roles activate in the <b>order a word‑production model predicts</b> — sensory input first, then lexical/semantic, phonological encoding, and speech‑motor output last?</li>
+        <li>Group‑mean high‑gamma (70–150 Hz, ± SEM) per role across the warped trial, one panel per condition (dashed = GO‑cue at 50 %); <b>onset = first crossing of ~0.5 dB.</b></li>
+        <li>The staggering of onsets is the "who fires when" story — input roles early, motor/feedback late — read against the timing literature below.</li>
+      </ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/hga_timeseries.png" alt="role HGA timeseries"></div></figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 4.2</div><h4>HGA time course per Neurosynth region</h4>
-      <ul><li>Same, but grouped by literature‑defined region (auditory, broca, visual, motor, semantic, …).</li>
-      <li>An anatomy‑anchored cross‑check on the role timeseries.</li></ul></div>
+    <figure><div class="cap"><div class="fignum">FIG 4.2</div><h4>Response timing across Neurosynth functional regions (HGA time course)</h4>
+      <ul>
+        <li><b>The point of this figure:</b> compare <b>response onset across independent, literature‑defined functional sites</b> — testing the timing hypothesis on regions defined by prior studies, not by our own role templates.</li>
+        <li><b>What Neurosynth is:</b> a meta‑analysis of ~14,000 fMRI papers — for a term (e.g. "auditory", "broca") it returns a whole‑brain <b>z‑map</b> of where that term reliably co‑activates. We used 8 terms: <i>auditory, broca, visual, motor&nbsp;control, phonological, semantic, lexical, recall</i>.</li>
+        <li><b>How a contact joins a region:</b> its fsaverage coordinate → MNI152 → sample every term's z‑map → tag the contact to a region where <code>z &gt; thr</code> (primary = highest z). Each curve is the mean HGA of the contacts inside that meta‑analytic site.</li>
+        <li>Because the regions are defined <b>independently of our data</b>, a matching onset order here is stronger evidence for the timing sequence than the role figure alone.</li>
+      </ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/neurosynth/hga_timeseries.png" alt="region HGA timeseries"></div></figure>
+
+    <div class="callout q"><b>Response‑timing literature (did we cite it?).</b> The onset ordering in 4.1–4.2 is the intracranial test of the
+      classic <b>word‑production time course</b>. Already referenced in the analysis: <b>Hamilton et al. (2018)</b> — an iEEG map of
+      <i>onset vs sustained</i> auditory responses — and <b>Forseth et al. (2018)</b> — the naming hub. <b>Not yet cited, but the
+      natural anchors for the timing result:</b> <b>Indefrey &amp; Levelt (2004, <i>Cognition</i> 92:101–144)</b>, the meta‑analytic
+      spatiotemporal model (lexical → phonological → syllabification → articulation, ~0–600 ms), and <b>Sahin et al. (2009,
+      <i>Science</i> 326:445–449)</b>, intracranial Broca's showing lexical ~200 ms → grammatical ~320 ms → phonological ~450 ms.
+      Add these two when writing up the timing story.</div>
 
     <figure><div class="cap"><div class="fignum">FIG 4.3</div><h4>Role × role timing similarity (Pearson r)</h4>
       <ul><li>Correlation of each pair of roles' mean HGA curves, per condition (red = similar profile, blue = anti‑phase).</li>

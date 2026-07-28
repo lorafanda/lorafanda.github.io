@@ -34,6 +34,25 @@
   nav .dot{width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:var(--muted)}
   nav .n0 .dot{background:#8a97a3}.n1 .dot{background:var(--s1)}.n2 .dot{background:var(--s2)}
   .n3 .dot{background:var(--s3)}.n4 .dot{background:var(--s4)}.n5 .dot{background:var(--warn)}
+  .n6 .dot{background:#c0392b}
+  /* meeting log */
+  .mtg{border-left:2px solid var(--line);margin:0 0 6px;padding:0 0 6px 20px;position:relative}
+  .mtg::before{content:"";position:absolute;left:-6px;top:6px;width:10px;height:10px;border-radius:50%;
+    background:var(--accent);border:2px solid var(--panel)}
+  .mtg-date{font-size:12.5px;font-weight:700;letter-spacing:.6px;color:var(--accent2);
+    font-family:"SF Mono",ui-monospace,Menlo,Consolas,monospace}
+  .mtg h4{margin:3px 0 10px;font-size:18px;letter-spacing:-.2px}
+  .mtg .who{font-size:12px;color:var(--muted);font-weight:400}
+  .item{display:flex;gap:9px;align-items:flex-start;margin:6px 0;font-size:14px;color:#39434e}
+  .item .st{flex:0 0 auto;margin-top:1px}
+  .then{background:#fbfcfd;border:1px solid var(--line);border-left:3px solid var(--ok);
+    border-radius:0 8px 8px 0;padding:8px 13px;margin:7px 0 12px 27px;font-size:13px;color:#39434e}
+  .then b{color:var(--ink)}
+  .sketch{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin:12px 0}
+  .sketch figure{margin:0}
+  .sketch .cap{padding:9px 12px 2px} .sketch h5{margin:0 0 4px;font-size:13px}
+  .sketch p{margin:0 0 9px;font-size:12px;color:var(--muted);line-height:1.45}
+  .sketch .imgwrap{padding:8px}
   nav .foot{font-size:11px;color:var(--muted);margin:16px 8px 0;border-top:1px solid var(--line);padding-top:12px}
   /* main */
   main{flex:1;min-width:0;padding:34px 40px 90px;max-width:1080px}
@@ -101,6 +120,7 @@
     <button class="n2" data-t="s2"><span class="dot"></span>02 · Clustering</button>
     <button class="n3" data-t="s3"><span class="dot"></span>03 · Decoding</button>
     <button class="n4" data-t="s4"><span class="dot"></span>04 · Pooling</button>
+    <button class="n6" data-t="meetings"><span class="dot"></span>Meetings</button>
     <button class="n5" data-t="caveats"><span class="dot"></span>Caveats & next steps</button>
     <div class="foot">Figures load from the committed repo. Interactive 3‑D role map: <a href="poolv2.html">poolv2</a>.</div>
   </nav>
@@ -492,6 +512,152 @@
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/roi/ds_map/runs/20260612_161539/roi_map_full.png" alt="ROI map"></div></figure>
 
     <p><a class="btn" href="poolv2.html">Open poolv2 — interactive 3‑D role map + designer →</a></p>
+  </section>
+
+  <!-- ============ MEETINGS ============ -->
+  <section id="meetings">
+    <div class="eyebrow" style="color:#c0392b">Meeting log</div>
+    <h2 class="title">Lab notes — language representation in iEEG</h2>
+    <p class="lead">What was decided in each meeting, and what has happened to it since.
+      Every item carries its current status, so the notes stay a live record rather than a
+      snapshot. Hand-drawn figures are the originals from the sessions.</p>
+
+    <div class="callout q"><b>The through-line.</b> Can we identify cortical sites that represent
+      <b>language</b> — semantic / lexical / phonological — rather than generic stimulus or response
+      processing? Unsupervised clustering said no; network classification works but sidesteps the
+      question (there is no "language" network in the parcellation). That pushed the work toward an
+      <b>ROI-based</b> approach: <b>3a</b> anatomical (atlas-defined) and <b>3b</b> electrophysiological.</p>
+
+    <!-- ---------- 2026/06/24 ---------- -->
+    <div class="mtg">
+      <div class="mtg-date">2026 / 06 / 24</div>
+      <h4>Classification results &amp; the story so far <span class="who">— lab meeting</span></h4>
+
+      <div class="item"><span class="st pill ok">done</span><div><b>Classifying task from the TF representation works well above chance</b>
+        — 57% vs 33% chance at the time. <i>Now 0.596 balanced accuracy</i> (nested GroupKFold by patient, permutation-tested).</div></div>
+      <div class="item"><span class="st pill ok">confirmed</span><div><b>Works better with HFA alone than with low frequencies included.</b>
+        Verified: <code>hg_300</code> 0.596 vs <code>full_300</code> 0.535; also formalised as a paired HG-vs-full test (sign + Wilcoxon).</div></div>
+      <div class="item"><span class="st pill ok">confirmed</span><div><b>Hypothesis: "maybe because reading and picture naming get confused."</b>
+        Tested directly on the confusion matrix — <b>picture→reading 25.4%</b> and <b>reading→picture 24.6%</b> are the two largest
+        off-diagonals; every audio-involving confusion is 15–19%.</div></div>
+      <div class="item"><span class="st pill ok">done</span><div><b>Classifying the Yeo-7 network also works above chance</b>
+        — 0.348 vs 0.143 chance (Yeo-17: 0.201 vs 0.059).</div></div>
+      <div class="then"><b>Since:</b> the confusion result now has a mechanism. The logistic-regression
+        coefficient maps put the discriminative weight in the <b>early stimulus window</b>, so the decode rides on
+        <b>modality-specific sensory input</b> — which is exactly why the two <i>visual</i> conditions (picture, reading)
+        confuse each other most. <span style="color:var(--muted)">(stage 03, Fig 8)</span></div>
+
+      <div class="sketch">
+        <figure><div class="cap"><h5>Fig. 1 — trial profile</h5><p>Three curves on one time axis: small bump at stim, large sharp peak mid-trial, second bump at resp. How activity splits into stimulus- and response-locked components, overlapping in between.</p></div>
+          <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig01.png" alt="trial profile sketch"></div></figure>
+        <figure><div class="cap"><h5>Fig. 2 — TF map over the trial</h5><p>One time-frequency panel spanning the trial; dashed outline = significant cluster, sitting between stim and resp.</p></div>
+          <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig02.png" alt="TF map sketch"></div></figure>
+        <figure><div class="cap"><h5>Fig. 3 — TF map per task</h5><p>Same panel for pict / aud / read. The cluster is wide for picture naming and narrows toward reading — the difference the classifier picks up.</p></div>
+          <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig03.png" alt="TF map per task sketch"></div></figure>
+      </div>
+
+      <h3 style="margin-top:18px">The story so far</h3>
+      <div class="method"><ul>
+        <li><b>Unsupervised clustering — no.</b> Hierarchical over HFA gave 8 clusters, interpretable but not the answer.
+          <span class="pill warn">number now stale</span> After the 2026-07-19 rerun the hierarchical HG solution is <b>K=13</b> (K-Means K=9).</li>
+        <li><b>Classification of functional networks — yes,</b> but not directly relevant, because there is
+          <b>no "language" network in the parcellation</b>. <span class="pill ok">stands</span></li>
+        <li><b>ROI-based approach</b> — <b>3a</b> anatomical ROI · <b>3b</b> ephys ROI. <span class="pill warn">the live thread</span></li>
+      </ul></div>
+    </div>
+
+    <!-- ---------- 2026/06/30 ---------- -->
+    <div class="mtg">
+      <div class="mtg-date">2026 / 06 / 30</div>
+      <h4>Attribution &amp; the anatomical-ROI plan <span class="who">— 1-on-1</span></h4>
+
+      <div class="item"><span class="st pill ok">answered</span><div><b>"How do we attribute electrodes to one anatomical network and not multiple ones?"</b>
+        Now quantified: of 799 contacts loading on ≥1 Neurosynth region, <b>70% are cleanly attributable and 30% load on more than one</b>.
+        Crucially the ambiguity is concentrated in the <b>language-core terms</b> (broca→phonological 87%, broca→semantic 78%,
+        auditory→phonological 71%) while <b>visual / motor control / recall separate cleanly</b>. The atlas labels themselves overlap —
+        a real constraint on any "find the language site" approach.</div></div>
+
+      <div class="sketch">
+        <figure><div class="cap"><h5>Fig. 4 — confusion matrix</h5><p>Rows/cols: aud, lex, phon, mot, vis. Diagonal = clean assignment; off-diagonal mass = electrodes loading on more than one category.</p></div>
+          <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig04.png" alt="confusion matrix sketch"></div></figure>
+        <figure><div class="cap"><h5>Fig. 5 — evoked HFA</h5><p>Averaged HFA in dB for V (166 trials) and A (20 trials): visual peaks early and high, auditory later.</p></div>
+          <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig05.png" alt="evoked HFA sketch"></div></figure>
+      </div>
+      <div class="then"><b>Built since:</b> the <b>attribution matrix</b> (stage 04) is Fig. 4 realised — row-normalised
+        co-occurrence plus a labels-per-electrode histogram, for both the Neurosynth regions and our functional roles.
+        Fig. 5's timing question became the <b>HGA time courses and the onset-ordering ladders</b>.</div>
+
+      <h3 style="margin-top:18px">3a — anatomical ROI</h3>
+      <div class="item"><span class="st pill warn">in progress</span><div><b>3.a.1 — site location.</b> Split each iEEG site by
+        membership in the <b>Fedorenko language network</b>, at two atlas thresholds; each branch gets a TF panel and a P/A/S strip.</div></div>
+      <div class="item"><span class="st pill ok">built</span><div><b>3.a.2 — ERSP vs network probability.</b> Correlate every
+        time-frequency bin against the atlas probability across sites, then replot the correlations onto the TF plane.</div></div>
+
+      <div class="sketch">
+        <figure><div class="cap"><h5>Fig. 6 — split by network membership</h5><p>Decision tree: within Fedorenko language network? yes / no, at threshold 1 p=0.2 and threshold 2 p=0.4. Each branch gets a TF panel plus a P / A / S strip.</p></div>
+          <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig06.png" alt="network membership split sketch"></div></figure>
+        <figure><div class="cap"><h5>Fig. 7 — ERSP cube</h5><p>Three stacked slabs (P, A, S); time × frequency × samples in depth. ~2000 samples per time-frequency bin.</p></div>
+          <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig07.png" alt="ERSP cube sketch"></div></figure>
+        <figure><div class="cap"><h5>Fig. 8 — one bin vs P(Fedorenko)</h5><p>Take bin t=1, f=1 → one value per sample; scatter against P(Fedorenko) and compute the correlation.</p></div>
+          <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig08.png" alt="single bin correlation sketch"></div></figure>
+        <figure><div class="cap"><h5>Fig. 9 — correlation map</h5><p>Repeat for every bin and replot the correlations onto the same time-frequency layout. Look for TF regions of higher correlation.</p></div>
+          <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig09.png" alt="correlation map sketch"></div></figure>
+      </div>
+      <div class="then"><b>Built since:</b> <code>lf_atlas_corr.py</code> implements Figs 7–9 end to end and is
+        <b>atlas-agnostic</b> — it takes any MNI152 NIfTI, so it ran on all 8 Neurosynth terms already and the Fedorenko/LanA
+        atlas drops in unchanged. <b>P(auditory) validates the method:</b> a positive 50–300 Hz cluster in the <i>audio</i>
+        stimulus window only, nothing in the picture/reading stimulus windows, and a 70–150 Hz cluster in <b>all three</b>
+        response windows (own-voice feedback). Effect sizes are small (|r| ≤ 0.19) — significant largely because n = 2644.</div>
+
+      <h3 style="margin-top:18px">Open questions from that session</h3>
+      <div class="method"><ul>
+        <li><span class="pill ok">answered</span> <b>"2000 samples: sites or trials?"</b> — <b>sites.</b>
+          8 841 electrode×condition samples → 2 856 contacts with all three conditions → 2 102 after the high-activity gate.</li>
+        <li><span class="pill ok">decided</span> <b>Which correlation — Pearson or rank-based?</b> — <b>Spearman</b> by default:
+          the atlas-probability distribution is heavily zero-inflated and skewed. Pearson is available as an option.</li>
+        <li><span class="pill ok">decided</span> <b>Threshold + multiple comparisons across TF bins</b> —
+          <b>Benjamini-Hochberg FDR</b> across all 116 100 bins, drawn as a contour on the correlation map.</li>
+        <li><span class="pill warn">open</span> <b>3b — ephys ROI: not yet defined.</b> Worth deciding whether the
+          stage-04 <b>pooling roles</b> already <i>are</i> 3b (they define ROIs by response signature rather than anatomy),
+          or whether 3b means something else.</li>
+      </ul></div>
+    </div>
+
+    <!-- ---------- 2026/07/19 ---------- -->
+    <div class="mtg">
+      <div class="mtg-date">2026 / 07 / 19</div>
+      <h4>Pipeline rerun &amp; status site <span class="who">— working session</span></h4>
+      <div class="item"><span class="st pill ok">done</span><div><b>Clustering reran.</b> HG K-Means now <b>K=9</b> (was 7),
+        n=2102, silhouette 0.152, with consensus-stability validation and current SEM-shaded centroids.</div></div>
+      <div class="item"><span class="st pill ok">done</span><div><b>Decoding refreshed.</b> Notebooks regenerated from
+        <code>_build_notebooks.py</code> (8 variants, Fig 1–7 + HG-vs-full) and the comparison figures rebuilt.</div></div>
+      <div class="item"><span class="st pill ok">done</span><div><b>This status site</b> built — one tab per stage, plus the
+        onset-ordering result and the LR coefficient maps.</div></div>
+      <div class="item"><span class="st pill warn">follow-up</span><div>Two <code>full_300/logreg</code> runs crashed mid-experiment
+        and still fall back to their June runs.</div></div>
+    </div>
+
+    <!-- ---------- 2026/07/28 ---------- -->
+    <div class="mtg">
+      <div class="mtg-date">2026 / 07 / 28</div>
+      <h4>Notes follow-up: attribution, atlas correlation, concatenated clustering</h4>
+      <div class="item"><span class="st pill ok">done</span><div><b>Attribution matrices</b> (Fig. 4 realised) for both the
+        Neurosynth regions and the functional roles — see the 06/30 entry for the numbers.</div></div>
+      <div class="item"><span class="st pill ok">done</span><div><b>ERSP × atlas correlation maps</b> (Figs 7–9) built and run
+        on all 8 Neurosynth terms, with Spearman + BH-FDR.</div></div>
+      <div class="item"><span class="st pill ok">done</span><div><b>Concatenated clustering</b> — a new representation where
+        <b>one sample = one electrode</b> with <code>[audio|picture|reading]</code> stitched, the same unit stage-03 parcellation
+        and stage-04 pooling use. <code>concat_hg</code> K-Means <b>K=5, silhouette 0.201</b> — cleaner than the per-condition
+        HG track (0.152), because collapsing conditions removes the condition-driven fragmentation.</div></div>
+      <div class="item"><span class="st pill ok">received</span><div><b>LanA / Fedorenko atlas in hand</b> — three volumes
+        (<code>langloc_n806_p_0.001 / 0.01 / 0.05</code>). Important: the <i>p</i> in the filename is the
+        <b>individual-subject significance threshold</b>, not an overlap probability; the <b>voxel values</b> are the
+        across-subject overlap proportions (max 0.66 / 0.74 / 0.82). So the p=0.2 / 0.4 in Fig. 6 applies to the
+        <i>voxel values</i>, and the file choice is a separate axis.</div></div>
+      <div class="item"><span class="st pill warn">next</span><div><b>3a.1 threshold sweep</b> — electrode counts for
+        3 files × thresholds {0.1 … 0.5} will decide the split, since at overlap ≥0.5 the <code>p_0.001</code> volume is only
+        510 voxels and sparse sEEG coverage may leave almost no electrodes inside.</div></div>
+    </div>
   </section>
 
   <!-- ============ CAVEATS ============ -->

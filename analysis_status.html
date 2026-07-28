@@ -713,12 +713,10 @@
       <p style="margin:0 0 10px">Three different colour scales appear below and they mean different things — worth
         fixing before reading the results.</p>
       <ul>
-        <li><b><span style="color:#b2182b">Red</span> / <span style="color:#2166ac">blue</span> on a time–frequency panel
-          = a CORRELATION</b> (Figs Result 2). Red = electrodes closer to the language network have <b>more</b> power in that
-          time–frequency bin; blue = they have <b>less</b>. White = no relationship. <b>Zero is the meaningful midpoint</b>,
-          and the scale is symmetric, so the eye can compare the two directions fairly.
-          <b>The black contour</b> outlines bins surviving <b>BH-FDR q&lt;0.05</b> — inside it the relationship is
-          statistically reliable; speckle outside it is noise and should not be interpreted.</li>
+        <li><b>Green → yellow on a time–frequency panel = a CORRELATION</b> (Fig 9). Yellow = closer to the language
+          network means <b>more</b> power in that bin; dark green = <b>less</b>; mid-green ≈ none. Sequential scale, so
+          the <b>thin grey r = 0 line</b> is what separates the two directions. <b>The black contour</b> outlines bins
+          surviving <b>BH-FDR q&lt;0.05</b> — inside it the relationship is reliable; speckle outside it is noise.</li>
         <li><b><span style="color:#b2182b">Red</span> / <span style="color:#2166ac">blue</span> on an ERSP panel = POWER in dB</b>
           (Fig Result 3), not a correlation. Red = a power increase relative to that electrode's own pre-stimulus baseline,
           blue = a decrease. Same colours, completely different quantity — check the colourbar label.</li>
@@ -771,7 +769,40 @@
       </ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/recon_split_p_0.05_p0.1.png" alt="fsaverage recon in vs out of network"></div></figure>
 
-    <figure><div class="cap"><div class="fignum">RESULT 2</div><h4>The correlation map — a real dissociation</h4>
+    <h3>3.a.2 — how this one actually works</h3>
+    <div class="method">
+      <p style="margin:0 0 10px">Written out step by step, because the figure is easy to misread as a normal ERSP.</p>
+      <ul>
+        <li>Take <b>all 2644 contacts</b>. Whether a contact is in the language network is <b>irrelevant here</b> — no
+          threshold, no in/out split. Everything enters.</li>
+        <li>Pick <b>one</b> time–frequency bin. Every contact has a dB value in that bin, and a P(Fedorenko) value from
+          where it sits. Scatter one against the other: <b>one dot = one contact</b>. That's Fig 8.</li>
+        <li>Correlate that scatter → <b>one number</b>.</li>
+        <li>Repeat for <b>every</b> bin of the concatenated ERSP. 129 freq × 900 time = <b>116 100</b> correlations.</li>
+        <li>Plot those correlations back on the <b>same axes as the ERSP</b>. That's Fig 9. Each pixel of Fig 9 is one
+          scatter from Fig 8, collapsed to its coefficient.</li>
+      </ul>
+      <p style="margin:10px 0 0">So Fig 9 is <b>not</b> power. It is "does being nearer the language network predict more
+        or less power, here?", asked separately at every point in the trial.</p>
+    </div>
+
+    <figure><div class="cap"><div class="fignum">FIG 8</div><h4>One bin at a time — what a single correlation is made of</h4>
+      <ul>
+        <li>Three single bins, picked automatically from the 116 100: the <b>most positive</b>, the <b>most negative</b>,
+          and one with <b>no relationship</b>.</li>
+        <li>x = <b>P(Fedorenko)</b> at that contact. y = <b>ERSP dB</b> in that one bin. <b>One dot = one contact</b>,
+          2644 of them. Yellow line = linear fit, for orientation only; the quoted number is Spearman.</li>
+        <li>Strongest positive: <b>picture, 75% of trial, ~100 Hz → r = +0.162</b>. That is in the response window, in
+          high-gamma. Strongest negative: <b>reading, 83%, ~25 Hz → r = −0.158</b>, i.e. low-frequency power goes
+          <i>down</i> as you approach the network.</li>
+        <li>Look at the x-axis spread: <b>most contacts sit below 0.2</b>, with a thin tail out to 0.8. Heavily skewed
+          and zero-inflated — that is why <b>Spearman and not Pearson</b>.</li>
+        <li>Also worth seeing plainly: the clouds are <b>wide</b>. r = 0.16 is a real trend but a weak one; the scatter is
+          the honest picture of what that number means.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/fig8_bin_scatters.png" alt="single-bin scatters ERSP vs P(Fedorenko)"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 9</div><h4>Every bin at once — the correlation map</h4>
       <ul>
         <li><b>Positive during the spoken prompt</b> (audio stimulus, ~50–150 Hz) — closer to the language network means more
           high-gamma while hearing speech.</li>
@@ -784,17 +815,22 @@
           stimulus processing, which is precisely the project's question.</li>
         <li><b>Robust to the atlas file:</b> 26.0% / 24.7% / 27.2% of bins survive FDR across the three versions, so the
           individual-threshold axis barely matters for the continuous analysis.</li>
-        <li><b>Colours:</b> <span style="color:#b2182b"><b>red</b></span> = language-network proximity predicts
-          <b>more</b> power in that bin; <span style="color:#2166ac"><b>blue</b></span> = predicts <b>less</b>; white =
-          no relationship. The scale is symmetric about zero and capped near ±0.09, so <b>colour saturation is not effect
-          size in any absolute sense</b> — a fully saturated red is still only r ≈ 0.16.</li>
-        <li><b>The black contour is the part to trust.</b> It encloses bins passing BH-FDR q&lt;0.05 across all 116 100
-          bins. Ignore isolated speckle outside it — with this many bins, some will always look coloured by chance.</li>
-        <li><b>How to read it in one sentence:</b> follow the red inside the contour — it appears in the
-          <i>audio</i> stimulus half and in the <i>response</i> half of all three blocks, and is replaced by blue in the
-          <i>picture</i> and <i>reading</i> stimulus halves.</li>
+        <li><b>Colour: green → yellow.</b> <span style="background:#ffe81a;padding:0 5px;border-radius:3px"><b>Yellow</b></span>
+          = most <b>positive</b> r (≈ +0.16): nearer the network → <b>more</b> power.
+          <span style="background:#0b3d24;color:#fff;padding:0 5px;border-radius:3px"><b>Dark green</b></span> = most
+          <b>negative</b> (≈ −0.16): nearer the network → <b>less</b> power. Mid-green ≈ 0.</li>
+        <li><b>It is a sequential scale, so sign is not obvious from colour alone</b> — that is the one cost of
+          green→yellow over a red/blue scale. The <b>thin grey line marks r = 0</b>, so anything darker than it is
+          negative. Worth pointing at when presenting.</li>
+        <li><b>Saturation is not effect size.</b> The scale is capped at the data range, so full yellow is still only
+          r ≈ 0.16.</li>
+        <li><b>The black contour is the part to trust</b> — bins passing BH-FDR q&lt;0.05 across all 116 100. Ignore
+          speckle outside it; with this many bins some will always look coloured by chance.</li>
+        <li><b>In one sentence:</b> yellow inside the contour sits in the <i>audio</i> stimulus half and in the
+          <i>response</i> half of all three blocks; it turns dark green in the <i>picture</i> and <i>reading</i>
+          stimulus halves.</li>
       </ul></div>
-      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/corr_p_0.05.png" alt="ERSP x P(language) correlation map"></div></figure>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/fig9_corr_map_greenyellow.png" alt="Fig 9 correlation map, green to yellow"></div></figure>
 
     <figure><div class="cap"><div class="fignum">RESULT 2b</div><h4>The continuous atlas value at each electrode — what the correlation actually used</h4>
       <ul>
@@ -1110,5 +1146,6 @@ btns.forEach(b=>b.addEventListener("click",()=>show(b.dataset.t)));
 const start = location.hash.slice(1);
 if (start && document.getElementById(start)) show(start);
 </script>
+</div><!-- /.wrap -->
 </body>
 </html>

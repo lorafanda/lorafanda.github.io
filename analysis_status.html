@@ -511,6 +511,56 @@
       <li>The live, filterable, dB‑graded 3‑D version is the poolv2 tool below.</li></ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/roi/ds_map/runs/20260612_161539/roi_map_full.png" alt="ROI map"></div></figure>
 
+    <h3>3a — anatomical ROI (Fedorenko / LanA language atlas)</h3>
+    <p class="lead" style="margin-bottom:14px">The lab-notes thread: instead of our own role templates, use an
+      <b>independent atlas of the language network</b> and ask where in the time–frequency plane the response
+      tracks it. Atlas = <b>LanA</b> (~806 subjects); each voxel's value is the <b>proportion of subjects</b> with
+      language activation there.</p>
+
+    <div class="callout"><b>Read the filename carefully.</b> The <code>p</code> in
+      <code>langloc_n806_p_0.001 / 0.01 / 0.05</code> is the <b>individual-subject significance threshold</b> used when
+      defining each person's activation — <b>not</b> an overlap probability. The <b>voxel values</b> are the
+      across-subject overlap (max 0.65 / 0.73 / 0.80 at our electrodes). So the p=0.2/0.4 in the meeting sketch applies
+      to the <i>voxel values</i>; the file choice is a second, independent axis.</div>
+
+    <figure><div class="cap"><div class="fignum">FIG 4.8</div><h4>Threshold sweep — how many electrodes survive</h4>
+      <ul>
+        <li>Run before choosing a threshold, because with sparse sEEG coverage <b>n has to drive the choice</b>, not convention.</li>
+        <li><b>At overlap ≥0.5 the strict file leaves only 32 electrodes</b> — unusable. The liberal file gives 137.</li>
+        <li><b>Best-balanced split: <code>p_0.05</code> at overlap ≥0.1 → 1042 in / 1602 out</b> (of 2644 contacts with coords).</li>
+        <li>Left-lateralised as expected: 621 of those 1042 are LH.</li>
+      </ul>
+      <div style="padding:0 20px 16px"><table style="margin:0">
+        <tr><th>atlas file</th><th>p&gt;0</th><th>≥0.1</th><th>≥0.2</th><th>≥0.3</th><th>≥0.4</th><th>≥0.5</th></tr>
+        <tr><td><code>p_0.001</code></td><td>2601</td><td>308</td><td>212</td><td>136</td><td>66</td><td><b>32</b></td></tr>
+        <tr><td><code>p_0.01</code></td><td>2644</td><td>499</td><td>260</td><td>200</td><td>138</td><td>62</td></tr>
+        <tr><td><code>p_0.05</code></td><td>2644</td><td><b>1042</b></td><td>403</td><td>257</td><td>195</td><td>137</td></tr>
+      </table></div></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 4.9</div><h4>ERSP × P(language) correlation map — the notes' Fig 9, realised</h4>
+      <ul>
+        <li>Every TF bin's power correlated across 2644 contacts against the <b>continuous</b> atlas value —
+          <b>no threshold needed</b>, which also sidesteps the 30% multi-attribution problem. Spearman; black contour = BH-FDR q&lt;0.05.</li>
+        <li><b>Positive during the spoken prompt</b> (audio stimulus, ~50–150 Hz): closer to the language network → more high-gamma.</li>
+        <li><b>Positive in all three response windows</b> (~50–250 Hz): language sites are engaged during production regardless of input modality.</li>
+        <li><b>Negative during visual stimulus encoding</b> (picture/reading, ~200–400 Hz): language-network proximity predicts
+          <i>less</i> high-frequency power while the visual stimulus is on screen — a genuine dissociation from sensory processing.</li>
+        <li><b>Robust to the file choice:</b> 26.0% / 24.7% / 27.2% of bins FDR-significant across the three atlas versions.
+          But effect sizes are small (|r| ≤ 0.16) — significance is driven by n=2644.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/corr_p_0.05.png" alt="ERSP x P(language) correlation map"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 4.10</div><h4>In-network vs out-of-network mean ERSP — the notes' Fig 6</h4>
+      <ul>
+        <li>Cortical contacts split by atlas membership at the best-balanced threshold; each row is the mean
+          <code>[audio|picture|reading]</code> ERSP for that branch.</li>
+        <li>In-network contacts show a <b>stronger, more sustained response-window high-gamma</b> than out-of-network ones.</li>
+        <li>The contrast is modest at p≥0.1 — the liberal threshold dilutes the "in" group. Stricter thresholds sharpen it
+          but shrink n fast (see 4.8), which is the tradeoff to settle before this becomes a headline figure.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/split_p_0.05_p0.1.png" alt="in vs out of network ERSP"></div></figure>
+
     <p><a class="btn" href="poolv2.html">Open poolv2 — interactive 3‑D role map + designer →</a></p>
   </section>
 
@@ -654,9 +704,18 @@
         <b>individual-subject significance threshold</b>, not an overlap probability; the <b>voxel values</b> are the
         across-subject overlap proportions (max 0.66 / 0.74 / 0.82). So the p=0.2 / 0.4 in Fig. 6 applies to the
         <i>voxel values</i>, and the file choice is a separate axis.</div></div>
-      <div class="item"><span class="st pill warn">next</span><div><b>3a.1 threshold sweep</b> — electrode counts for
-        3 files × thresholds {0.1 … 0.5} will decide the split, since at overlap ≥0.5 the <code>p_0.001</code> volume is only
-        510 voxels and sparse sEEG coverage may leave almost no electrodes inside.</div></div>
+      <div class="item"><span class="st pill ok">done</span><div><b>3a.1 threshold sweep — run.</b> The concern was right:
+        at overlap ≥0.5 the strict file leaves only <b>32 electrodes</b>. Best-balanced split is
+        <code>p_0.05</code> at ≥0.1 → <b>1042 in / 1602 out</b> (621 of the 1042 are LH, as expected for a
+        left-lateralised network). <span style="color:var(--muted)">(stage 04, Fig 4.8)</span></div></div>
+      <div class="item"><span class="st pill ok">done</span><div><b>3a.2 correlation map — run on the real atlas.</b>
+        Language-network proximity predicts <b>more</b> high-gamma during the spoken prompt and during the response in
+        <i>all three</i> conditions, but <b>less</b> high-frequency power while a visual stimulus is on screen — a
+        dissociation from sensory processing. Robust across all three atlas files (25–27% of bins FDR-significant),
+        though |r| ≤ 0.16. <span style="color:var(--muted)">(stage 04, Figs 4.9–4.10)</span></div></div>
+      <div class="item"><span class="st pill warn">next</span><div><b>Go deeper:</b> split LanA into its individual
+        parcels (IFG, IFGorb, MFG, AntTemp, PostTemp, AngG) and ask <i>which part</i> of the language network the
+        TF correlation lives in — the "whole network first, then deeper" plan.</div></div>
     </div>
   </section>
 

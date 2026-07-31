@@ -34,7 +34,7 @@
   nav .dot{width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:var(--muted)}
   nav .n0 .dot{background:#8a97a3}.n1 .dot{background:var(--s1)}.n2 .dot{background:var(--s2)}
   .n3 .dot{background:var(--s3)}.n4 .dot{background:var(--s4)}.n5 .dot{background:var(--warn)}
-  .n6 .dot{background:#c0392b}.n7 .dot{background:#0b7a75}
+  .n6 .dot{background:#c0392b}.n7 .dot{background:#0b7a75}.n8 .dot{background:#5b6ee1}
   .step{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:10px 0}
   .step .num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;
     background:#0b7a75;color:#fff;font-size:12px;font-weight:700;margin-right:8px}
@@ -119,7 +119,7 @@
 <div class="wrap">
   <nav>
     <h1>FBM · Language pipeline</h1>
-    <div class="sub">iEEG/sEEG functional mapping — status of the analysis. Updated 2026‑07‑19.</div>
+    <div class="sub">iEEG/sEEG functional mapping — status of the analysis. Updated 2026‑08‑01.</div>
     <button class="n0 on" data-t="overview"><span class="dot"></span>Overview</button>
     <button class="n1" data-t="s1"><span class="dot"></span>01 · Signal → ERSP</button>
     <button class="n2" data-t="s2"><span class="dot"></span>02 · Clustering</button>
@@ -127,6 +127,7 @@
     <button class="n4" data-t="s4"><span class="dot"></span>04 · Pooling</button>
     <button class="n7" data-t="lana"><span class="dot"></span>3a · Language atlas</button>
     <button class="n6" data-t="meetings"><span class="dot"></span>Meetings</button>
+    <button class="n8" data-t="integrity"><span class="dot"></span>Data integrity</button>
     <button class="n5" data-t="caveats"><span class="dot"></span>Caveats & next steps</button>
     <div class="foot">Figures load from the committed repo. Interactive 3‑D role map: <a href="poolv2.html">poolv2</a>.</div>
   </nav>
@@ -1082,6 +1083,102 @@
   </section>
 
   <!-- ============ CAVEATS ============ -->
+  <!-- ============ DATA INTEGRITY ============ -->
+  <section id="integrity">
+    <div class="eyebrow" style="color:#5b6ee1">Data integrity · 2026‑07‑28 → 08‑01</div>
+    <h2 class="title">Making the brain plots tell the truth</h2>
+    <p class="lead">Every recon figure on this site — cluster maps, role maps, the language‑atlas split — is
+      drawn by joining a functional result to an <b>fsaverage coordinate</b>. If a contact has no coordinate,
+      it does not appear as a gap: it <b>silently vanishes</b>, and the plot looks complete when it isn't.
+      This stretch of work was about proving that what you see is all there is.</p>
+
+    <div class="kpis">
+      <div class="kpi"><div class="v">126 → 8</div><div class="l">real contacts with no coordinate</div></div>
+      <div class="kpi"><div class="v">0</div><div class="l">needing re‑localisation</div></div>
+      <div class="kpi"><div class="v">5247</div><div class="l">contacts with coords · 35 patients</div></div>
+      <div class="kpi"><div class="v">5</div><div class="l">pipeline stages audited</div></div>
+    </div>
+
+    <h3>The recon gap was never a recon problem</h3>
+    <p>126 electrodes had a perfectly good ERSP but no coordinate, so they were dropping out of every brain
+      plot. The obvious reading — "those contacts were never localised, re‑run FreeSurfer" — turned out to be
+      wrong, and checking it first saved the whole rerun.</p>
+    <div class="method"><ul>
+      <li><b>The tell.</b> The <code>tkrRAS</code> and <code>fsaverage</code> coordinate tables had <i>identical row counts</i>.
+        Nothing had been lost in the transform chain, so re‑running FreeSurfer would have reproduced exactly the
+        same files. The coordinates existed all along — the <b>join</b> was failing.</li>
+      <li><b>The cause: a homoglyph.</b> Whoever did the localisation read the shaft label <code>aI</code>
+        (anterior Insula, capital I, <code>U+0049</code>) as a lowercase L. The recon says <code>alR1</code>;
+        the clinical/ERSP side says <code>aI_R1</code>. Same contact, same electrode, two different strings —
+        so the merge produced nothing, silently.</li>
+      <li><b>And four naming conventions.</b> A deeper audit of the "genuinely missing" remainder found the same
+        class of problem, not lost data: <code>EL034 MFG→MFGL</code>, <code>EL043 pl→PINS</code>,
+        <code>EL045 PlanTL→PLATL</code>, <code>PAT_6619 OFAD→OFA / OFPD→OFP</code>. Each was confirmed by matching
+        contact count <i>and</i> hemisphere before being applied.</li>
+    </ul></div>
+
+    <div class="then">
+      <b>Why the fix is safe.</b> <code>&lt;PID&gt;.electrodeNames</code> is a plain‑text sidecar whose <i>N</i>th line
+      labels the <i>N</i>th row of <code>.LEPTOVOX</code>. Only the label was wrong, so the correction is a pure
+      text edit: <b>no FreeSurfer rerun, no re‑localisation, and the xyz values never move</b>. Line counts were
+      verified unchanged on all five patients (175/175, 158/158, 168/168, 248/248, 135/135) so the
+      name↔coordinate row alignment still holds, and timestamped backups were written before anything was
+      touched. 123 names corrected.
+    </div>
+
+    <h3>What remains — and it is deliberate</h3>
+    <div class="method"><ul>
+      <li><b>8 contacts, all EL044</b> (shafts P and T). Parked by decision, not by failure.</li>
+      <li><b>107 aux / micro contacts</b> also lack coordinates — correct by design. Analog‑input channels and
+        microelectrodes have no localisable contact, so they <i>should</i> be absent from a recon.</li>
+    </ul></div>
+
+    <h3>The audit that keeps it honest</h3>
+    <p><code>audit_coverage.py</code> walks all five stages and reports <b>only failures</b>, so a clean run is a
+      short run. It is the gate to re‑run whenever new patients land. Current state:</p>
+    <div class="method"><ul>
+      <li><b>01 · ERSP.</b> <code>EL044</code> has audio only; <code>PAT_3301</code> has picture only;
+        <code>PAT_3415</code> is missing reading on 8 of 121 electrodes.</li>
+      <li><b>02 · Recon.</b> 5247 contacts across 35 patients carry coordinates; 8 real contacts do not (above).</li>
+      <li><b>03 · Clustering.</b> 25 registered runs, all present on disk.</li>
+      <li><b>04 · Pooling.</b> 90 role‑matched contacts do not reach the export (<code>ds</code> table 1183 → pool 1093);
+        103 for the gaussian variant. Being chased.</li>
+      <li><b>05 · Decoding.</b> 67 of 1941 condition samples have no coordinate; both parcellation tasks are clean.</li>
+    </ul></div>
+
+    <h3>Samples that should never have been there</h3>
+    <div class="method"><ul>
+      <li><b>Analog‑input channels.</b> <code>AINP*</code> aux traces were entering the dataset as if they were
+        neural ERSPs. Now filtered, with a defensive re‑filter so a dataset cache written before the rule was
+        widened cannot smuggle them back in.</li>
+      <li><b>Microelectrodes.</b> On the Geneva cohort a shaft ending in <code>M</code> is a micro — no recon
+        contact exists, so it can never be plotted. Excluded from the concatenated track.</li>
+      <li><b>The grid patient.</b> <code>EL044</code> is ECoG: the electrode geometry and coverage are not
+        comparable to the depth/sEEG cohort, so a per‑electrode functional <i>type</i> does not mean the same
+        thing. Excluded from the concatenated track only.</li>
+    </ul></div>
+
+    <h3>Registry repairs</h3>
+    <div class="method"><ul>
+      <li><b>The clustering registry crashed every run.</b> Registering the language‑atlas partition wrote bare
+        strings into <code>index.json</code> where <code>{id, label}</code> objects were expected, so every later fit
+        died in <code>_update_index</code>. Repaired, and the writer now coerces instead of trusting the file.</li>
+      <li><b>14 phantom entries pruned.</b> <code>index.json</code> advertised 39 runs but only 25 existed — the other
+        14 had their folders deleted deliberately months ago without updating the registry. That is not cosmetic:
+        the ranking notebook filters by feature set and <i>then</i> opens the folder, so it was hunting directories
+        that no longer exist. Now <b>25 registered / 25 on disk</b>.</li>
+    </ul></div>
+
+    <div class="callout">
+      <b>Open question — 132 contacts.</b> A May snapshot of the ERSP tree holds <b>396 <code>.npy</code> files</b>
+      (132 contacts × 3 conditions) that the live tree does not. Part is explained: <code>EL043</code> renamed every
+      shaft <code>X_L → X</code>, the same class of naming drift as the homoglyph above. But some look genuinely
+      absent — <code>EL038 ITG_R</code> (5 contacts), <code>EL035 A_L12 / Fopc_R6 / SMG_R5</code>. The per‑run
+      rejection log is overwritten each run, so it cannot say why they went. Until that is settled the snapshot is
+      being kept: it is currently the only copy.
+    </div>
+  </section>
+
   <section id="caveats">
     <div class="eyebrow" style="color:var(--warn)">Caveats & next steps</div>
     <h2 class="title">Open decisions and loose ends</h2>
@@ -1097,9 +1194,35 @@
 
     <h3>Still to run</h3>
     <div class="method"><ul>
-      <li><b>Clustering ranking + recon (213 / 252)</b> — today's K=9 rerun has clustering + consensus stability, but the cluster ranking and per‑cluster fsaverage recon haven't been re‑run on it yet.</li>
-      <li><b>Two decoding runs</b> — re‑run <code>full_300/logreg</code> for condition + Yeo‑7 in 320/330; they crashed mid‑experiment today.</li>
+      <li><b>252 recon on the 31 Jul runs</b> — the four new concatenated runs
+        (<code>concat_hg</code>, <code>concat_raw</code>, <code>concat_rawds</code>) have clustering, stability and
+        ranking, but no <code>recon/</code> folder yet, so they cannot be drawn on the brain until 252 is run.
+        <span style="color:var(--muted)">This is the one thing standing between the new sample set and the figures.</span></li>
+      <li><b>460 pooling re‑run</b> — so the role tables pick up the ~118 contacts the recon fix restored.
+        The gaussian variant (<code>pool_web_gaussian</code>) still carries stale counts.</li>
+      <li><b>A join disagreement to settle</b> — on several runs the audit's unplottable count and 252's own
+        <code>UNMATCHED</code> log disagree (e.g. 71 vs 135). One of the two joins is wrong; the recon figures are
+        only trustworthy to whichever is the larger number until it is resolved.</li>
+      <li><b>Two decoding runs</b> — re‑run <code>full_300/logreg</code> for condition + Yeo‑7 in 320/330; they crashed mid‑experiment.</li>
       <li><b>Micro/macro (nb 11)</b> hasn't been run to a saved output yet.</li>
+    </ul></div>
+
+    <h3>Done 2026‑07‑31 → 08‑01</h3>
+    <div class="method"><ul>
+      <li><b>The recon gap closed</b> — 126 unplottable contacts down to <b>8</b>, with no FreeSurfer rerun and no
+        re‑localisation. <span style="color:var(--muted)">Full account in the Data integrity tab.</span></li>
+      <li><b>Coverage audit built</b> — <code>audit_coverage.py</code> checks all five stages per patient and prints
+        only failures; re‑run it whenever patients land.</li>
+      <li><b>Concatenated clustering re‑run clean</b> — aux (<code>AINP</code>), microelectrode and grid‑patient
+        samples removed. Newest K‑Means run: <b>K=5</b>, silhouette <b>0.195</b>, <b>1116 electrodes</b>
+        (cluster sizes 83 / 167 / 633 / 118 / 115).</li>
+      <li><b>Ranking fixed and extended (213)</b> — it was dying on the first cell because the language‑atlas entry
+        has no silhouette; it now also ranks the <code>concat_hg</code> track. Note the condition‑selectivity axis
+        carries no information for concatenated samples (every sample spans all three conditions), so that axis
+        goes inert and ranking rests on cross‑patient / stability / anatomy.</li>
+      <li><b>Registry repaired</b> — clustering runs no longer crash on <code>index.json</code>; 14 phantom entries pruned.</li>
+      <li><b>Repo hygiene</b> — <code>cleanup_stale.py</code> deletes a run only when its own id appears in no index,
+        notebook or viewer, and always keeps the newest run of every track. ~563 MB identified.</li>
     </ul></div>
 
     <h3>Done 2026‑07‑19</h3>

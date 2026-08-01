@@ -1141,10 +1141,33 @@
         <code>PAT_3415</code> is missing reading on 8 of 121 electrodes.</li>
       <li><b>02 · Recon.</b> 5247 contacts across 35 patients carry coordinates; 8 real contacts do not (above).</li>
       <li><b>03 · Clustering.</b> 25 registered runs, all present on disk.</li>
-      <li><b>04 · Pooling.</b> 90 role‑matched contacts do not reach the export (<code>ds</code> table 1183 → pool 1093);
-        103 for the gaussian variant. Being chased.</li>
+      <li><b>04 · Pooling.</b> <span class="pill ok">closed</span> All 1143 role‑matched contacts now reach the
+        export, and the export itself grew <b>2644 → 2724</b> contacts. The 90 that used to vanish were the
+        recon gap, not a pooling bug. The gaussian variant still shows 103 — it needs its own re‑run.</li>
       <li><b>05 · Decoding.</b> 67 of 1941 condition samples have no coordinate; both parcellation tasks are clean.</li>
     </ul></div>
+
+    <h3>The "one of the joins is wrong" alarm — resolved, and it never was</h3>
+    <p>For weeks the audit and 252 disagreed about how many contacts were unplottable (audit 71, 252's own log 135).
+      That looked like a bug in one of the two joins. It was neither. There were <b>two different causes</b>, and
+      separating them is what made the numbers finally line up:</p>
+    <div class="method"><ul>
+      <li><b>They were answering different questions.</b> The audit asked "does this contact have a coordinate at
+        all?"; 252 renders with <code>KEEP_WM=False</code> and additionally drops every contact whose coordinate
+        lands in <b>white matter</b> — 706 of the 5247 across the cohort. A WM contact has a perfectly good
+        coordinate and still, correctly, never appears on a cortical surface plot. The audit now models that filter.</li>
+      <li><b>The old logs were stale.</b> Any <code>UNMATCHED_contacts.csv</code> written before the recon name fix
+        describes a world that no longer exists. The audit now compares file times and says
+        <i>"recon is STALE — re‑run 252"</i> instead of crying bug.</li>
+    </ul></div>
+    <div class="then">
+      <b>What the new runs actually report.</b> <code>rows: 1116 · matched: 1110 · unmatched: 6 (0.5%)</code>.
+      All six unmatched are white matter (<code>EL038 aI_R10</code>, <code>EL042 aI_R10 / aI_R9</code>,
+      <code>EL043 pIns1 / pIns7</code>, <code>EL045 PlaT_L4</code>) — every one carries a valid coordinate and
+      <code>is_wm=1</code>. They sit in the very shafts the name fix repaired, which is why they looked suspicious:
+      they are simply the deepest contacts on those shafts. <b>Zero naming failures remain</b> in the
+      concatenated track — every remaining exclusion is deliberate.
+    </div>
 
     <h3>Samples that should never have been there</h3>
     <div class="method"><ul>
@@ -1194,17 +1217,29 @@
 
     <h3>Still to run</h3>
     <div class="method"><ul>
-      <li><b>252 recon on the 31 Jul runs</b> — the four new concatenated runs
-        (<code>concat_hg</code>, <code>concat_raw</code>, <code>concat_rawds</code>) have clustering, stability and
-        ranking, but no <code>recon/</code> folder yet, so they cannot be drawn on the brain until 252 is run.
-        <span style="color:var(--muted)">This is the one thing standing between the new sample set and the figures.</span></li>
-      <li><b>460 pooling re‑run</b> — so the role tables pick up the ~118 contacts the recon fix restored.
-        The gaussian variant (<code>pool_web_gaussian</code>) still carries stale counts.</li>
-      <li><b>A join disagreement to settle</b> — on several runs the audit's unplottable count and 252's own
-        <code>UNMATCHED</code> log disagree (e.g. 71 vs 135). One of the two joins is wrong; the recon figures are
-        only trustworthy to whichever is the larger number until it is resolved.</li>
+      <li><b>465 gaussian pooling</b> — the only pooling variant still on stale counts (103 role‑matched contacts
+        not reaching its export). The <code>ds</code> variant is now clean.</li>
+      <li><b>Re‑run 252 on the older runs</b> — every pre‑fix run still carries a recon rendered against the old
+        coordinates. They are not wrong so much as <i>out of date</i>; the audit now names them explicitly
+        (<i>"recon is STALE"</i>). Only matters for runs you still intend to show.</li>
+      <li><b>Two runs 252 skipped.</b> <code>atlas/lana_inout</code> has an <b>empty</b> <code>recon/</code> folder,
+        and 252 skips anything with an existing folder (<code>SKIP_IF_RECON_EXISTS=True</code>) — so it will never
+        render until that empty folder is removed. <code>kmeans/rawds/20260525_171725</code> is a dead run
+        (contains only <code>Thumbs.db</code>) that is still registered in <code>index.json</code>.</li>
       <li><b>Two decoding runs</b> — re‑run <code>full_300/logreg</code> for condition + Yeo‑7 in 320/330; they crashed mid‑experiment.</li>
       <li><b>Micro/macro (nb 11)</b> hasn't been run to a saved output yet.</li>
+    </ul></div>
+
+    <h3>Done 2026‑08‑01 (evening)</h3>
+    <div class="method"><ul>
+      <li><b>252 re‑run</b> — <b>23 of 25</b> registered runs now carry a populated <code>recon/</code>. The
+        concatenated runs report <code>1116 rows · 1110 matched · 6 unmatched (0.5%)</code>, and all six are
+        white‑matter contacts excluded by design.</li>
+      <li><b>460 re‑run — the pooling gap closed.</b> All 1143 role‑matched contacts reach the export, which itself
+        grew <b>2644 → 2724</b> contacts. The 90 that used to disappear were the recon gap all along.</li>
+      <li><b>The join alarm resolved</b> — it was the white‑matter filter plus stale logs, not a broken join.
+        <code>audit_coverage.py</code> now models <code>KEEP_WM=False</code> and flags a stale recon by file time
+        instead of reporting a phantom bug.</li>
     </ul></div>
 
     <h3>Done 2026‑07‑31 → 08‑01</h3>

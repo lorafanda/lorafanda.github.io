@@ -417,9 +417,8 @@
       <ul>
         <li><b>Left of each pair:</b> the cluster's mean high-gamma across the <b>whole task</b> (± SEM); the two vertical
           seams mark the <code>[audio | picture | reading]</code> boundaries.</li>
-        <li><b>Right of each pair:</b> where that cluster's electrodes sit on fsaverage (left-lateral view, cluster
-          highlighted against all other contacts in grey) — so the <b>temporal profile and its anatomical spread</b> are
-          read together rather than in separate figures.</li>
+        <li><b>Anatomy moved to FIG 2.17.</b> These chips used to carry a tiny brain thumbnail beside each waveform, but a 1200×1000 render with 19% ink is unreadable at thumbnail size. The cluster cards below show the same electrodes cropped and at three views, with region labels. <span style="display:none">(left-lateral view, cluster
+          highlighted against all other contacts in grey)</span></li>
         <li>Because a contact contributes <b>one</b> sample, a chip shows how that electrode type behaves across
           <i>all three</i> conditions at once — the cross-condition profile the per-condition track can't show.</li>
         <li><b>Cluster 1 holds 570 of 1060 contacts</b> — a large, anatomically diffuse "weakly-responsive" group that is <b>silent in both audio and picture</b>. The smaller
@@ -437,20 +436,16 @@
       <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(310px,1fr))">
         <figure><div class="cap"><h4>Cluster 0 <span style="color:var(--muted);font-weight:400">· n=137</span></h4></div>
           <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_centroids/cluster_00.png" style="max-width:56%">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_00/by_condition/lateral_L.png" style="max-width:40%"></div></figure>
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_centroids/cluster_00.png" style="max-width:100%"></div></figure>
         <figure><div class="cap"><h4>Cluster 1 <span style="color:var(--muted);font-weight:400">· n=570</span></h4></div>
           <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_centroids/cluster_01.png" style="max-width:56%">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_01/by_condition/lateral_L.png" style="max-width:40%"></div></figure>
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_centroids/cluster_01.png" style="max-width:100%"></div></figure>
         <figure><div class="cap"><h4>Cluster 2 <span style="color:var(--muted);font-weight:400">· n=139</span></h4></div>
           <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_centroids/cluster_02.png" style="max-width:56%">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_02/by_condition/lateral_L.png" style="max-width:40%"></div></figure>
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_centroids/cluster_02.png" style="max-width:100%"></div></figure>
         <figure><div class="cap"><h4>Cluster 3 <span style="color:var(--muted);font-weight:400">· n=214</span></h4></div>
           <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_centroids/cluster_03.png" style="max-width:56%">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_03/by_condition/lateral_L.png" style="max-width:40%"></div></figure>
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_centroids/cluster_03.png" style="max-width:100%"></div></figure>
       </div>
     </figure>
 
@@ -614,27 +609,27 @@
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/centroid_distance_heatmap.png" alt="concat centroid distance"></div>
     </figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 2.17</div><h4>Where the concatenated clusters sit — fsaverage recon</h4>
+    <figure><div class="cap"><div class="fignum">FIG 2.17</div><h4>Cluster cards — waveform, location and anatomy together</h4>
       <ul>
-        <li>The fitted partition rendered on the project glassbrain, one row per cluster
-          (lateral L / lateral R / dorsal). Same renderer and left‑right convention as every other
-          brain figure on this site.</li>
-        <li>Drawn from the <b>clean 1060‑electrode cohort</b>, so PAT_3415's 64 grid contacts are absent
-          while its 51 depth contacts are present.</li>
-        <li><b>How to read it.</b> Coloured spheres are the electrodes belonging to <i>that</i> cluster;
-          the translucent shell is the fsaverage pial surface, drawn only for shape — it carries no data.
-          Each lateral view shows <b>only its own hemisphere's</b> contacts, and both are seen from
-          <b>outside</b> (anterior points left in the L view, right in the R view). Comparing the L and R
-          panels of one cluster is therefore a real left/right comparison, not the same cloud twice.</li>
-        <li><b>What to look for:</b> whether a cluster occupies a coherent territory or scatters. Mostly
-          it scatters — which is the anatomical counterpart of the modest silhouette, not a rendering
-          problem. <b>Dot density reflects where electrodes were implanted</b> (clinical decisions), so
-          an empty region means "not sampled", never "not involved".</li>
+        <li>One row per cluster: the <b>mean high‑gamma across the whole task</b>
+          (<code>[audio | picture | reading]</code>, the two vertical seams are the block
+          boundaries), then the same cluster on the glassbrain in three views, then its
+          <b>top Desikan‑Killiany regions</b> with the proportion of its contacts in each.</li>
+        <li><b>Why one figure instead of twelve.</b> The raw 252 renders are 1200×1000 with about
+          <b>19% ink</b> — the brain floats in a wide white margin, so shrinking them to fit a page
+          shrinks the brain, not the margin. Each view is cropped to its content and the pieces that
+          belong to one cluster are tiled together, which also makes the clusters comparable to each
+          other rather than scattered down the page.</li>
+        <li><b>How to read it.</b> Blue spheres are that cluster's electrodes; the translucent shell is
+          the fsaverage surface, drawn for shape only. Each lateral shows <b>only its own hemisphere</b>,
+          both seen from <b>outside</b>, so comparing L with R is a genuine left/right comparison.
+          <b>Purity</b> is the fraction of the cluster in its single commonest region — all four are
+          low (0.11–0.33), which is the anatomical form of the modest silhouette: these clusters are
+          functional types spread across cortex, not territories.</li>
+        <li><b>Dot density reflects where electrodes were implanted</b> (clinical decisions). An empty
+          region means "not sampled", never "not involved".</li>
       </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_00/by_condition/lateral_L.png" alt="cluster 0 lateral L"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_00/by_condition/lateral_R.png" alt="cluster 0 lateral R"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_01/by_condition/lateral_L.png" alt="cluster 1 lateral L"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_01/by_condition/lateral_R.png" alt="cluster 1 lateral R"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_cards.png" alt="cluster cards"></div>
     </figure>
 
     <h3>Cross-correlation — do the clusters lead and lag each other?</h3>
@@ -1066,35 +1061,26 @@
       argument for the continuous analysis below over any threshold at all.
     </div>
 
-    <figure><div class="cap"><div class="fignum">FIG 3a.R1</div><h4>In-network contacts — all electrodes (n=2981)</h4>
+    <figure><div class="cap"><div class="fignum">FIG 3a.R1</div><h4>LanA membership — all electrodes (n=2981)</h4>
       <ul>
-        <li>Glassbrain, in-network cluster only. Top row <b>P ≥ 0.05</b> (2553 contacts, 86%);
-          bottom row <b>P ≥ 0.10</b> (1171, 39%).</li>
-        <li>Left / right laterals are the project's standard outside views — same renderer and
-          same convention as every cluster map, so they are directly comparable.</li>
+        <li>Rows are the three cuts through the same atlas: <b>P ≥ 0.05</b>, <b>P ≥ 0.10</b>, and the
+          <b>top band</b> of the continuous overlap (P ≥ 0.35). Columns are the three views.</li>
+        <li><b>The rows are the argument.</b> At P ≥ 0.05 almost everything is "in network", so the cut
+          separates nothing. At P ≥ 0.10 it becomes selective. The top band collapses onto perisylvian
+          temporal cortex — the atlas core. Read down the column and the threshold's effect is visible
+          without needing the table.</li>
       </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_thr0p05/recon/cluster_01/by_condition/lateral_L.png" alt="lana_all 20260802_thr0p05 lateral_L"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_thr0p05/recon/cluster_01/by_condition/lateral_R.png" alt="lana_all 20260802_thr0p05 lateral_R"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_thr0p05/recon/cluster_01/by_condition/dorsal.png" alt="lana_all 20260802_thr0p05 dorsal"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_thr0p1/recon/cluster_01/by_condition/lateral_L.png" alt="lana_all 20260802_thr0p1 lateral_L"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_thr0p1/recon/cluster_01/by_condition/lateral_R.png" alt="lana_all 20260802_thr0p1 lateral_R"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_thr0p1/recon/cluster_01/by_condition/dorsal.png" alt="lana_all 20260802_thr0p1 dorsal"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/lana_cards.png" alt="LanA all electrodes"></div>
     </figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 3a.R2</div><h4>In-network contacts — concatenated cohort (n=2617)</h4>
+    <figure><div class="cap"><div class="fignum">FIG 3a.R2</div><h4>LanA membership — concatenated cohort (n=2617)</h4>
       <ul>
-        <li>Same two cuts, restricted to the electrodes the clustering and pooling actually analyse.
-          Top <b>P ≥ 0.05</b> (2233, 85%); bottom <b>P ≥ 0.10</b> (1007, 38%).</li>
+        <li>The same three cuts, restricted to the electrodes the clustering and pooling actually
+          analyse. Directly comparable to R1 above, row for row.</li>
+        <li>Same reading rules as FIG 2.17: laterals are outside views of their own hemisphere, and dot
+          density is implantation coverage, not physiology.</li>
       </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_thr0p05/recon/cluster_01/by_condition/lateral_L.png" alt="lana_concat 20260802_thr0p05 lateral_L"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_thr0p05/recon/cluster_01/by_condition/lateral_R.png" alt="lana_concat 20260802_thr0p05 lateral_R"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_thr0p05/recon/cluster_01/by_condition/dorsal.png" alt="lana_concat 20260802_thr0p05 dorsal"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_thr0p1/recon/cluster_01/by_condition/lateral_L.png" alt="lana_concat 20260802_thr0p1 lateral_L"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_thr0p1/recon/cluster_01/by_condition/lateral_R.png" alt="lana_concat 20260802_thr0p1 lateral_R"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_thr0p1/recon/cluster_01/by_condition/dorsal.png" alt="lana_concat 20260802_thr0p1 dorsal"></div>
-    </figure>
-
-    <figure><div class="cap"><div class="fignum">FIG 3a.R3</div><h4>Atlas overlap probability — banded, no single cut</h4>
-      <ul>
-        <li>The continuous overlap cut into 5 bands (0–0.05, 0.05–0.10, 0.10–0.20, 0.20–0.35, 0.35+)
-          rather than one yes/no. 252 renders categorical clusters, so a graded map has to be banded —
-          but the banding keeps the <b>ordering</b> that a binary threshold discards, which is the
-          variable the correlation maps actually regress against.</li>
-        <li>Shown: the <b>highest band</b> (P ≥ 0.35) for each cohort — the atlas core. All five bands
-          are browsable in MOBA under <code>lana_all</code> / <code>lana_concat</code>.</li>
-      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/lana_cards.png" alt="LanA concatenated cohort"></div>
     </figure>
 
     <h3>3.a.2 — how this one actually works</h3>

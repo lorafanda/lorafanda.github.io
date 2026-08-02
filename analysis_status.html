@@ -594,6 +594,56 @@
         <code>onset</code> field — 460 computes the role onsets and draws its ladder from them but never persists
         them. Three lines in 460 would enable it.</li>
     </ul></div>
+
+    <h3>Supporting checks — reproducibility, K choice, and method agreement</h3>
+    <p>Four checks that sit behind the results above. None is a headline; together they are what makes the
+      headline safe to state.</p>
+
+    <figure><div class="cap"><div class="fignum">FIG 2.13</div><h4>Consensus stability of the concatenated clusters</h4>
+      <ul>
+        <li>FIG 2.5 shows this for the per-condition HG track. The concatenated track now carries the timing
+          story (2.10&ndash;2.12), so its reproducibility belongs here too — <b>K-Means (left) and Ward (right)</b>,
+          resampled.</li>
+        <li>Bright blocks on the diagonal = pairs of electrodes that land together across resamples. Off-diagonal
+          bleed is the honest picture of how soft these boundaries are.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/consensus_heatmap.png" alt="concat consensus kmeans"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/hierarchical/concat_hg/runs/20260731_215434/consensus_heatmap.png" alt="concat consensus ward"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 2.14</div><h4>Gap statistic — an independent read on K</h4>
+      <ul>
+        <li>Tibshirani's gap compares within-cluster dispersion against uniform null data, so it is independent of
+          silhouette. A fifth criterion alongside the four in FIG 2.2 — worth more when the criteria
+          <b>disagree</b> than when they agree.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/gap_by_k.png" alt="gap statistic"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 2.15</div><h4>Do the two methods find the same structure?</h4>
+      <ul>
+        <li>Cluster-by-cluster confusion between runs. Left: <b>rawds vs HG</b> (same method, different
+          representation). Right: <b>K-Means vs Ward</b> (same representation, different algorithm).</li>
+        <li>A near-diagonal block structure means the grouping is a property of the data. Scatter means it is a
+          property of the algorithm — the single most useful check against over-reading a weak clustering.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparisons/20260719_155034_vs_20260719_153420_confusion.png" alt="rawds vs hg"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparisons/20260719_155034_vs_20260719_155101_confusion.png" alt="kmeans vs ward"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 2.16</div><h4>How separated are the clusters, really?</h4>
+      <ul>
+        <li><b>Left:</b> sample &times; sample distance reordered by cluster. <b>Right:</b> k &times; k centroid
+          distances. Top row HG (K=9), bottom row concatenated (K=5).</li>
+        <li>This is the visual form of the low silhouette: real block structure, but with substantial off-block
+          similarity. It is the honest counterweight to the centroid figures, which always look cleaner than the
+          separation actually is.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/similarity_heatmap.png" alt="hg similarity"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/centroid_distance_heatmap.png" alt="hg centroid distance"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/similarity_heatmap.png" alt="concat similarity"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/centroid_distance_heatmap.png" alt="concat centroid distance"></div>
+    </figure>
   </section>
 
   <!-- ============ STAGE 03 ============ -->
@@ -675,6 +725,22 @@
       and the comparison figures rebuilt. Two <code>full_300/logreg</code> runs (condition + Yeo‑7) crashed mid‑experiment, so those
       combos fall back to their Jun‑24 runs — re‑run just those in 320/330 to make everything today. Still to decide: whether the
       paper reports the <code>m101</code> (discretized) or <code>hg_*_rn</code> variant.</div>
+
+    <figure><div class="cap"><div class="fignum">FIG 3.8</div><h4>Is any of this above chance? — permutation nulls</h4>
+      <ul>
+        <li>Every task refit <b>200 times on shuffled labels</b>; grey violin = that null, dotted line = its 95th
+          percentile, diamond = the real result. <b>All six combinations reach p = 0.005</b> — the floor for 200
+          permutations, i.e. no shuffle ever beat the real fit.</li>
+        <li><b>This changes how the network results should be read.</b> Yeo-17 balanced accuracy is only
+          <b>0.162</b>, which looks like failure — until you see chance is <b>0.059</b>. It is
+          <b>2.7&times; chance</b> (full spectrum 3.3&times;), the <i>largest</i> margin over null anywhere in the
+          decoding stage. Condition, despite its much higher 0.596, sits only 1.8&times; above its own chance.</li>
+        <li>So "network is harder than condition" is true in <b>absolute accuracy</b> and false in <b>reliability</b>.
+          The anatomical signal is faint but solidly non-random, and low accuracy here is mostly the cost of
+          17 classes.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/permutation_null_summary.png" alt="permutation nulls"></div>
+    </figure>
   </section>
 
   <!-- ============ STAGE 04 ============ -->
@@ -765,6 +831,39 @@
       <a href="#lana" onclick="document.querySelector('nav button[data-t=&quot;lana&quot;]').click();return false;"><b>Open 3a · Language atlas →</b></a></div>
 
     <p><a class="btn" href="poolv2.html">Open poolv2 — interactive 3‑D role map + designer →</a></p>
+
+    <figure><div class="cap"><div class="fignum">FIG 4.8</div><h4>ERSP &times; Neurosynth term correlation — all eight terms</h4>
+      <ul>
+        <li>Same method as the language-atlas map in <a href="#lana">3a</a>, but against each <b>Neurosynth</b>
+          term z-map: every time&ndash;frequency bin's dB correlated across contacts with that term's meta-analytic
+          value, FDR-corrected over 116,100 bins.</li>
+        <li><b>Why this belongs here:</b> these are the same regions FIG 4.2/4.3 rank by onset. Showing that they
+          also carry their own TF correlation structure closes the loop &mdash; the timing ordering is not being
+          read off regions that are otherwise silent.</li>
+        <li><b>The spread is the result.</b> Percentage of bins surviving FDR:
+          <b>semantic 30.6%</b>, phonological 19.9%, visual 16.8%, auditory 13.0%, broca 8.1%,
+          motor control 3.5%, recall 0.2%, <b>lexical 0.0%</b>. Correlations are modest throughout
+          (|r| &le; 0.19), so read the <b>extent</b> of significant structure, not the strength of any bin.</li>
+        <li><b>Lexical at exactly zero is informative</b>, not a bug: no TF bin's activity tracks that term's
+          spatial map above chance in our coverage.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_semantic.png" alt="corr semantic"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_phonological.png" alt="corr phonological"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_visual.png" alt="corr visual"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_auditory.png" alt="corr auditory"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_broca.png" alt="corr broca"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_motor_control.png" alt="corr motor_control"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_recall.png" alt="corr recall"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_lexical.png" alt="corr lexical"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 4.9</div><h4>Can an electrode be assigned to ONE network?</h4>
+      <ul>
+        <li>The assumption underneath the whole pooling stage is that a contact belongs to a role. This tests it:
+          rows = contacts, columns = the term / role they load on.</li>
+        <li><b>70% are cleanly attributable to a single label; 30% load on several</b> &mdash; and the multi-load
+          cases concentrate in the <b>language-core</b> terms, exactly where the interpretation matters most
+          (broca contacts are also phonological 87% of the time).</li>
+        <li>So the role assignment is a <b>useful simplification, not a partition</b>. The layer-priority rule
+          (functional &gt; tag &gt; umbrella) is what resolves the 30% &mdash; and this figure is the record of how
+          much work that rule is doing.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/neurosynth/attribution_matrix.png" alt="neurosynth attribution"></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/attribution_matrix.png" alt="role attribution"></div>
+    </figure>
   </section>
 
   <!-- ============ 3a · LANGUAGE ATLAS ============ -->
@@ -887,21 +986,7 @@
       </table></div></div>
     </figure>
 
-    <figure><div class="cap"><div class="fignum">RESULT 1b</div><h4>Where those electrodes actually are — fsaverage recon of the split</h4>
-      <ul>
-        <li>The same <code>p_0.05</code> @ ≥0.1 split, rendered on the fsaverage surface: <b>teal = in-network</b>,
-          grey = out. Each lateral view shows only <b>that hemisphere's</b> contacts.</li>
-        <li>In-network contacts land where a language network should — <b>perisylvian: superior/middle temporal and
-          inferior frontal</b> — rather than scattered, which is an independent check that the sampling worked.</li>
-        <li>The dorsal view makes the <b>left-hemisphere bias</b> visible directly (621 of 1042 are LH).</li>
-        <li><b>Colours:</b> <span style="color:#0b7a75"><b>teal</b></span> = atlas overlap ≥ 0.1 (in-network),
-          <b>light grey</b> = below it. The faint grey haze behind the dots is the fsaverage cortical surface,
-          drawn only to give the brain's shape — it carries no data.</li>
-        <li><b>Caution:</b> dot density reflects <b>where electrodes were implanted</b> (clinical decisions), not where
-          language is. Read this figure as "the in-network contacts are anatomically plausible", not as a coverage map
-          of the language network.</li>
-      </ul></div>
-      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/recon_split_p_0.05_p0.1.png" alt="fsaverage recon in vs out of network"></div></figure>
+    
 
     <h3>Rebuilt on the corrected coordinates — two cohorts, two thresholds</h3>
     <p>Everything above predates the recon name fix. These are regenerated on the corrected coordinates, and split
@@ -1035,37 +1120,9 @@
       </ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/fig9_corr_map_greenyellow.png" alt="Fig 9 correlation map, green to yellow"></div></figure>
 
-    <figure><div class="cap"><div class="fignum">RESULT 2b</div><h4>The continuous atlas value at each electrode — what the correlation actually used</h4>
-      <ul>
-        <li>Every contact coloured by its <b>raw atlas overlap</b> (0 → ~0.65), no threshold anywhere — this is
-          literally the variable the correlation map above regresses each time-frequency bin against.</li>
-        <li>The gradient traces a dense <b>perisylvian band</b> along superior temporal into inferior frontal cortex,
-          and it is <b>visibly stronger on the left</b> — the atlas's left-lateralisation reproduced in our coverage.</li>
-        <li>Seeing the gradient explains why the continuous analysis is the stronger one: thresholding would collapse
-          this whole range into a single yes/no and discard the ordering that carries the signal.</li>
-        <li><b>Colours (viridis):</b> dark purple ≈ 0 → teal/green ≈ 0.3 → <b>yellow ≈ 0.65</b>, the highest atlas value
-          reached at any of our contacts. A yellow dot means <b>roughly two thirds of the 806 subjects</b> had language
-          activation at that location. Separate grey dots are contacts whose value is exactly 0.</li>
-        <li><b>Note the scale never reaches 1.0</b> — no location in the atlas is language-responsive in <i>everyone</i>,
-          which is the inter-individual variability the atlas was built to quantify.</li>
-      </ul></div>
-      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/recon_continuous_p_0.05.png" alt="continuous atlas value on fsaverage"></div></figure>
+    
 
-    <figure><div class="cap"><div class="fignum">RESULT 3</div><h4>In- vs out-of-network mean ERSP</h4>
-      <ul>
-        <li>In-network contacts show <b>stronger, more sustained response-window high-gamma</b> than out-of-network ones.</li>
-        <li>But the contrast is <b>modest</b>, and honestly so: the cutoff that keeps n usable (≥0.1) also dilutes the
-          "in" group with contacts where only 1 in 10 subjects showed language response.</li>
-        <li><b>The continuous correlation map (Result 2) is the stronger analysis</b> — it uses the full gradient instead of
-          discarding it at a cut, and needs no arbitrary threshold at all.</li>
-        <li><b>Colours — different meaning from Result 2.</b> Here red/blue is <b>power in dB</b> relative to each
-          electrode's own pre-stimulus baseline (red = increase, blue = decrease, ±3 dB), <b>not</b> a correlation. The two
-          rows share one colour scale so they can be compared directly.</li>
-        <li><b>How to compare the rows:</b> look at the same location in both panels. The response-window
-          (right of each dashed GO-cue) high-gamma blob is <b>warmer and more sustained in the top row</b>. Everything else
-          is broadly similar, which is the honest finding — the split separates degree, not kind.</li>
-      </ul></div>
-      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/split_p_0.05_p0.1.png" alt="in vs out of network ERSP"></div></figure>
+    
 
     <h3>How this relates to the LanA / Fedorenko work</h3>
     <div class="method">

@@ -812,27 +812,37 @@
       argument for the continuous analysis below over any threshold at all.
     </div>
 
-    <figure><div class="cap"><div class="fignum">FIG 3a.R1</div><h4>Membership — all electrodes (n=5247)</h4>
-      <ul><li>Left: P ≥ 0.05. Right: P ≥ 0.10. Red = in network, grey = outside.</li></ul></div>
-      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/lana_all_membership_p0.05.png" alt="all electrodes, membership at P>=0.05"></div>
-      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/lana_all_membership_p0.10.png" alt="all electrodes, membership at P>=0.10"></div>
-    </figure>
-
-    <figure><div class="cap"><div class="fignum">FIG 3a.R2</div><h4>Membership — concatenated cohort (n=2617)</h4>
-      <ul><li>Same two thresholds, restricted to the electrodes the clustering and pooling actually analyse.</li></ul></div>
-      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/lana_concat_membership_p0.05.png" alt="concat electrodes, membership at P>=0.05"></div>
-      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/lana_concat_membership_p0.10.png" alt="concat electrodes, membership at P>=0.10"></div>
-    </figure>
-
-    <figure><div class="cap"><div class="fignum">FIG 3a.R3</div><h4>Atlas overlap probability at each electrode — no threshold</h4>
+    <figure><div class="cap"><div class="fignum">FIG 3a.R1</div><h4>In-network contacts — all electrodes (n=2981)</h4>
       <ul>
-        <li>Continuous P(language) per contact, <b>inferno</b>: black ≈ 0 → red → <b>bright yellow = highest overlap</b>.
-          Grey dots are contacts at exactly 0.</li>
-        <li>Top: all electrodes. Bottom: concatenated cohort. This is the variable the correlation maps regress
-          each time–frequency bin against, so it is the honest version of the figure — no cut, full ordering kept.</li>
+        <li>Glassbrain, in-network cluster only. Top row <b>P ≥ 0.05</b> (2553 contacts, 86%);
+          bottom row <b>P ≥ 0.10</b> (1171, 39%).</li>
+        <li>Left / right laterals are the project's standard outside views — same renderer and
+          same convention as every cluster map, so they are directly comparable.</li>
       </ul></div>
-      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/lana_all_overlap_p.png" alt="continuous atlas overlap, all electrodes"></div>
-      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/lana_concat_overlap_p.png" alt="continuous atlas overlap, concat electrodes"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_thr0p05/recon/cluster_01/lateral_L.png" alt="lana_all 20260802_thr0p05 lateral_L"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_thr0p05/recon/cluster_01/lateral_R.png" alt="lana_all 20260802_thr0p05 lateral_R"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_thr0p05/recon/cluster_01/dorsal.png" alt="lana_all 20260802_thr0p05 dorsal"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_thr0p1/recon/cluster_01/lateral_L.png" alt="lana_all 20260802_thr0p1 lateral_L"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_thr0p1/recon/cluster_01/lateral_R.png" alt="lana_all 20260802_thr0p1 lateral_R"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_thr0p1/recon/cluster_01/dorsal.png" alt="lana_all 20260802_thr0p1 dorsal"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 3a.R2</div><h4>In-network contacts — concatenated cohort (n=2617)</h4>
+      <ul>
+        <li>Same two cuts, restricted to the electrodes the clustering and pooling actually analyse.
+          Top <b>P ≥ 0.05</b> (2233, 85%); bottom <b>P ≥ 0.10</b> (1007, 38%).</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_thr0p05/recon/cluster_01/lateral_L.png" alt="lana_concat 20260802_thr0p05 lateral_L"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_thr0p05/recon/cluster_01/lateral_R.png" alt="lana_concat 20260802_thr0p05 lateral_R"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_thr0p05/recon/cluster_01/dorsal.png" alt="lana_concat 20260802_thr0p05 dorsal"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_thr0p1/recon/cluster_01/lateral_L.png" alt="lana_concat 20260802_thr0p1 lateral_L"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_thr0p1/recon/cluster_01/lateral_R.png" alt="lana_concat 20260802_thr0p1 lateral_R"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_thr0p1/recon/cluster_01/dorsal.png" alt="lana_concat 20260802_thr0p1 dorsal"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 3a.R3</div><h4>Atlas overlap probability — banded, no single cut</h4>
+      <ul>
+        <li>The continuous overlap cut into 5 bands (0–0.05, 0.05–0.10, 0.10–0.20, 0.20–0.35, 0.35+)
+          rather than one yes/no. 252 renders categorical clusters, so a graded map has to be banded —
+          but the banding keeps the <b>ordering</b> that a binary threshold discards, which is the
+          variable the correlation maps actually regress against.</li>
+        <li>Shown: the <b>highest band</b> (P ≥ 0.35) for each cohort — the atlas core. All five bands
+          are browsable in MOBA under <code>lana_all</code> / <code>lana_concat</code>.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_pbins/recon/cluster_04/lateral_L.png" alt="lana_all 20260802_pbins lateral_L"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_pbins/recon/cluster_04/lateral_R.png" alt="lana_all 20260802_pbins lateral_R"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_pbins/recon/cluster_04/dorsal.png" alt="lana_all 20260802_pbins dorsal"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_pbins/recon/cluster_04/lateral_L.png" alt="lana_concat 20260802_pbins lateral_L"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_pbins/recon/cluster_04/lateral_R.png" alt="lana_concat 20260802_pbins lateral_R"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_pbins/recon/cluster_04/dorsal.png" alt="lana_concat 20260802_pbins dorsal"></div>
     </figure>
 
     <h3>3.a.2 — how this one actually works</h3>

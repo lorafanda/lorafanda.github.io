@@ -322,7 +322,7 @@
             produces one.</li>
           <li>Full table per run: <code>sweep_metrics.csv</code>.</li>
         </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/sweep_metrics.png" alt="sweep statistics for every K"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/sweep_metrics.png" alt="sweep statistics for every K"></div>
     </figure>
 
     <figure>
@@ -336,7 +336,7 @@
         <figure><div class="cap"><h4>Cluster 1</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_01.png"></div></figure>
         <figure><div class="cap"><h4>Cluster 2</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_02.png"></div></figure>
         <figure><div class="cap"><h4>Cluster 3</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_03.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 4</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_04.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 4</h4></div></figure>
         <figure><div class="cap"><h4>Cluster 5</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_05.png"></div></figure>
         <figure><div class="cap"><h4>Cluster 6</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_06.png"></div></figure>
         <figure><div class="cap"><h4>Cluster 7</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_07.png"></div></figure>
@@ -413,7 +413,7 @@
       </table></div></div>
     </figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 2.8</div><h4>The 5 concatenated response types — waveform + anatomy side by side</h4>
+    <figure><div class="cap"><div class="fignum">FIG 2.8</div><h4>The 4 concatenated response types — waveform + anatomy side by side</h4>
       <ul>
         <li><b>Left of each pair:</b> the cluster's mean high-gamma across the <b>whole task</b> (± SEM); the two vertical
           seams mark the <code>[audio | picture | reading]</code> boundaries.</li>
@@ -422,8 +422,8 @@
           read together rather than in separate figures.</li>
         <li>Because a contact contributes <b>one</b> sample, a chip shows how that electrode type behaves across
           <i>all three</i> conditions at once — the cross-condition profile the per-condition track can't show.</li>
-        <li><b>Cluster 4 holds 622 of 1082 contacts</b> — a large, anatomically diffuse "weakly-responsive" group. The smaller
-          clusters (74–156) are the anatomically tighter, more interpretable ones.</li>
+        <li><b>Cluster 1 holds 570 of 1060 contacts</b> — a large, anatomically diffuse "weakly-responsive" group that is <b>silent in both audio and picture</b>. The smaller
+          clusters (137–214) are the anatomically tighter, more interpretable ones.</li>
         <li><b>Reading the waveform chip:</b> the black line is the cluster's <b>mean high-gamma</b> (70–150 Hz) and the grey
           band is <b>± SEM across its member electrodes</b> — a narrow band means the members genuinely share that shape,
           a wide one means the mean is averaging over dissimilar contacts. The horizontal line is baseline (0 dB); above it
@@ -435,45 +435,30 @@
           spatially localised or spread everywhere?"</b> — not "how strong is it".</li>
       </ul></div>
       <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(310px,1fr))">
-        <figure><div class="cap"><h4>Cluster 0 <span style="color:var(--muted);font-weight:400">· n=74</span></h4></div>
+        <figure><div class="cap"><h4>Cluster 0 <span style="color:var(--muted);font-weight:400">· n=137</span></h4></div>
           <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/cluster_centroids/cluster_00.png" style="max-width:56%">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/cluster_00_anat.png" style="max-width:40%"></div></figure>
-        <figure><div class="cap"><h4>Cluster 1 <span style="color:var(--muted);font-weight:400">· n=130</span></h4></div>
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_centroids/cluster_00.png" style="max-width:56%">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_00/by_condition/lateral_L.png" style="max-width:40%"></div></figure>
+        <figure><div class="cap"><h4>Cluster 1 <span style="color:var(--muted);font-weight:400">· n=570</span></h4></div>
           <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/cluster_centroids/cluster_01.png" style="max-width:56%">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/cluster_01_anat.png" style="max-width:40%"></div></figure>
-        <figure><div class="cap"><h4>Cluster 2 <span style="color:var(--muted);font-weight:400">· n=156</span></h4></div>
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_centroids/cluster_01.png" style="max-width:56%">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_01/by_condition/lateral_L.png" style="max-width:40%"></div></figure>
+        <figure><div class="cap"><h4>Cluster 2 <span style="color:var(--muted);font-weight:400">· n=139</span></h4></div>
           <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/cluster_centroids/cluster_02.png" style="max-width:56%">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/cluster_02_anat.png" style="max-width:40%"></div></figure>
-        <figure><div class="cap"><h4>Cluster 3 <span style="color:var(--muted);font-weight:400">· n=100</span></h4></div>
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_centroids/cluster_02.png" style="max-width:56%">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_02/by_condition/lateral_L.png" style="max-width:40%"></div></figure>
+        <figure><div class="cap"><h4>Cluster 3 <span style="color:var(--muted);font-weight:400">· n=214</span></h4></div>
           <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/cluster_centroids/cluster_03.png" style="max-width:56%">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/cluster_03_anat.png" style="max-width:40%"></div></figure>
-        <figure><div class="cap"><h4>Cluster 4 <span style="color:var(--muted);font-weight:400">· n=622</span></h4></div>
-          <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/cluster_centroids/cluster_04.png" style="max-width:56%">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/cluster_04_anat.png" style="max-width:40%"></div></figure>
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/cluster_centroids/cluster_03.png" style="max-width:56%">
+            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_03/by_condition/lateral_L.png" style="max-width:40%"></div></figure>
       </div>
     </figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 2.9</div><h4>All 5 concatenated clusters on one brain</h4>
-      <ul>
-        <li>Every clustered electrode coloured by cluster, three views; each lateral shows only its own hemisphere.</li>
-        <li>The honest read: the clusters are <b>anatomically intermixed</b> rather than occupying distinct territories —
-          the spatial counterpart of the modest silhouette, and another face of the Q1 answer.</li>
-        <li>1082 of the 1163 clustered electrodes have fsaverage coordinates.</li>
-        <li><b>Colours are categorical</b> — one hue per cluster, matching FIG 2.8's anatomy chips. There is no ordering or
-          magnitude in the colour; adjacent hues do not mean similar clusters.</li>
-        <li><b>What to look for:</b> whether any single colour forms its own territory. Largely it does not — the hues
-          interleave across the same cortex, which is the point.</li>
-      </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260728_110801/recon/all_clusters.png" alt="all concat clusters on fsaverage"></div></figure>
+    <div class="callout"><b>All clusters on one brain.</b> The combined view was previously a standalone matplotlib render with the inside-out lateral bug, so it has been removed rather than reproduced. The per-cluster glassbrains are in <b>FIG 2.17</b> below, and the live, rotatable all-cluster view is in <a href="moba.html">MOBA</a>, which reads the same run directly. The finding it illustrated is unchanged: the clusters are <b>anatomically intermixed</b> rather than occupying distinct territories — the spatial counterpart of the modest silhouette.</div>
 
-    <div class="callout"><b>Still to run for the concat track:</b> <code>211</code> (consensus stability / gap / anatomy),
+    <div class="callout"><b>Now done for the concat track:</b> <code>211</code> (consensus stability / gap / anatomy),
       <code>213</code> (ranking — but <b>drop the condition-selectivity axis</b>, it's degenerate when every sample spans all
-      three conditions), and <code>252</code> (per-cluster fsaverage recon). MOBA's live 3-D brain already works, since it
+      three conditions), and <code>252</code> (per-cluster fsaverage recon). All three have been run on the clean cohort. MOBA's live 3-D brain already works, since it
       renders from <code>labels.csv</code> + coords.</div>
 
     <div class="callout"><b>Decision for the paper:</b> <code>NOTEBOOKS.md</code> still names the downsampled full‑spectrum
@@ -515,27 +500,11 @@
       is the same colour in the curves and in the ladder below them, and the two rows share an x axis — an onset
       marker sits directly under the curve it came from.</p>
 
-    <figure><div class="cap"><div class="fignum">FIG 2.11a</div>
-      <h4>K=5 — time courses and onset ladder (silhouette 0.195)</h4>
-      <ul>
-        <li>Cluster sizes 83 / 167 / 633 / 118 / 115. The chosen K. Cluster <b>c0</b> (n=83) is the clean modality-specific responder: stimulus onset <b>1.8%</b> in audio, <b>17.5%</b> in picture, and <b>no stimulus onset at all</b> in reading — it only appears there after GO, at 64%. Cluster <b>c2</b> (n=633) is the diffuse remainder: <b>silent in audio in both windows</b>, and elsewhere it only crosses late.</li>
-      </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/timing/timing_k05_panel.png" alt="cluster timing panel K=5"></div>
-    </figure>
-    <figure><div class="cap"><div class="fignum">FIG 2.11b</div>
-      <h4>K=4 — time courses and onset ladder (silhouette 0.177)</h4>
-      <ul>
-        <li>Cluster sizes 155 / 176 / 605 / 180. Coarser, and the same large silent-in-audio cluster survives (c2, n=605, onset 100 / 67.8 / 2.5) — which is the first hint that it is a real division and not an artefact of one K. The three smaller clusters separate mainly on <i>picture</i>: 45.8 vs 58.2 vs 65.8.</li>
-      </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/timing/timing_k04_panel.png" alt="cluster timing panel K=4"></div>
-    </figure>
-    <figure><div class="cap"><div class="fignum">FIG 2.11c</div>
-      <h4>K=6 — time courses and onset ladder (silhouette 0.162)</h4>
-      <ul>
-        <li>Cluster sizes 125 / 128 / 156 / 70 / 91 / 546. Splitting further pulls out something the coarser cuts hide: <b>c3</b> (n=70) is early in <i>every</i> condition (3.2 / 4.8 / 1.5, mean 3.2%) — a genuinely stimulus-locked group rather than a modality-specific one. c0 (n=125) is the mirror image: early in audio (2.2%) but very late in picture and reading (62.5 / 68.2).</li>
-      </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/timing/timing_k06_panel.png" alt="cluster timing panel K=6"></div>
-    </figure>
+    <figure><div class="cap"><div class="fignum">FIG 2.11a</div><h4>K=4 — time courses and onset ladder (silhouette 0.164)</h4><ul><li>Cluster sizes 137 / 570 / 139 / 214. The coarsest cut, and it already contains the whole story. <b>c1</b> (n=570) is the diffuse remainder: <b>silent in both audio and picture</b> (no onset in either window) and late in reading. <b>c0</b> (n=137) is its opposite — audio onset 2.2% but 65.8% in reading.</li></ul></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/timing/timing_k04_panel.png" alt="cluster timing panel K=4"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 2.11b</div><h4>K=5 — time courses and onset ladder (silhouette 0.163)</h4><ul><li>Cluster sizes 125 / 144 / 115 / 98 / 578. Splitting the coarse partition separates two early groups that K=4 held together: <b>c2</b> (n=115, mean onset 12.7%) and <b>c0</b> (n=125, 14.2%). The silent-in-audio cluster survives intact as c4 (n=578).</li></ul></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/timing/timing_k05_panel.png" alt="cluster timing panel K=5"></div></figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 2.11c</div><h4>K=6 — time courses and onset ladder (silhouette 0.157)</h4><ul><li>Cluster sizes 122 / 70 / 92 / 562 / 82 / 132. Pulls out <b>c1</b> (n=70), early in <i>every</i> condition (3.2 / 4.8 / 1.5, mean 3.2%) — stimulus-locked rather than modality-specific, and invisible at K=4 and K=5.</li></ul></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/timing/timing_k06_panel.png" alt="cluster timing panel K=6"></div></figure>
 
     <h3>Across the K sweep — and why the obvious version of this figure is misleading</h3>
     <p>The natural next question is <i>"is this timing ordering stable, or an artefact of the K we picked?"</i>
@@ -572,7 +541,7 @@
         <li><b>Row 3 — coverage.</b> Percentage of clusters that have any onset in each window, per K. Where this is
           low, the row-1 traces are summarising a minority of clusters.</li>
       </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/timing/onset_across_k.png" alt="onset across the K sweep"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/timing/onset_across_k.png" alt="onset across the K sweep"></div>
     </figure>
 
     <div class="callout">
@@ -607,7 +576,7 @@
         <li>Bright blocks on the diagonal = pairs of electrodes that land together across resamples. Off-diagonal
           bleed is the honest picture of how soft these boundaries are.</li>
       </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/consensus_heatmap.png" alt="concat consensus kmeans"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/consensus_heatmap.png" alt="concat consensus kmeans"></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/hierarchical/concat_hg/runs/20260731_215434/consensus_heatmap.png" alt="concat consensus ward"></div>
     </figure>
 
@@ -641,8 +610,62 @@
       </ul></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/similarity_heatmap.png" alt="hg similarity"></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/centroid_distance_heatmap.png" alt="hg centroid distance"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/similarity_heatmap.png" alt="concat similarity"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260731_215405/centroid_distance_heatmap.png" alt="concat centroid distance"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/similarity_heatmap.png" alt="concat similarity"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/centroid_distance_heatmap.png" alt="concat centroid distance"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 2.17</div><h4>Where the concatenated clusters sit — fsaverage recon</h4>
+      <ul>
+        <li>The fitted partition rendered on the project glassbrain, one row per cluster
+          (lateral L / lateral R / dorsal). Same renderer and left‑right convention as every other
+          brain figure on this site.</li>
+        <li>Drawn from the <b>clean 1060‑electrode cohort</b>, so PAT_3415's 64 grid contacts are absent
+          while its 51 depth contacts are present.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_00/by_condition/lateral_L.png" alt="cluster 0 lateral L"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_00/by_condition/lateral_R.png" alt="cluster 0 lateral R"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_01/by_condition/lateral_L.png" alt="cluster 1 lateral L"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/recon/cluster_01/by_condition/lateral_R.png" alt="cluster 1 lateral R"></div>
+    </figure>
+
+    <h3>Cross-correlation — do the clusters lead and lag each other?</h3>
+    <p>Section 2.11 asks <i>when</i> each cluster comes on. This asks whether they are
+      <b>temporally distinguishable</b>: one cluster is fixed as the reference — the
+      <b>auditory</b> cluster — and every other cluster's mean HG trace is correlated against it
+      across time shifts, giving a full <b>r vs lag</b> curve.</p>
+    <div class="method"><ul>
+      <li><b>Sign.</b> <code>r(τ) = Pearson[ ref(t), other(t+τ) ]</code>; τ &gt; 0 means that cluster
+        <b>lags behind</b> the reference. Verified on synthetic data in both directions. Lags are in
+        <b>warped-time %</b>, so they are an ordering, not a latency in ms.</li>
+      <li><b>Response window only, and that is not a preference.</b> Cross-correlation is only
+        meaningful when two signals are the same <i>shape</i> shifted in time. Over the full trial these
+        cluster means are not — one has an early sensory transient, another only a late production
+        bump. Checked against the actual difference in peak times:
+        <b>full trial 0 of 8 lags agree; response window 8 of 8 agree.</b> The full-trial version is
+        computed and shown in the notebook purely to demonstrate the failure.</li>
+      <li><b>Every lag carries its own caveat.</b> <code>peak_r</code> says whether the shapes align at
+        all (below 0.3 the lag is not a delay), the <b>bootstrap CI</b> over electrodes says whether the
+        lag is resolvable, and <code>at_edge</code> flags a lag censored at the search boundary. Curves
+        failing any of these are drawn dashed. 25 of 27 pass; both failures are the n=11 cluster.</li>
+    </ul></div>
+    <div class="callout">
+      <b>The obvious null does not work, and it is worth saying why.</b> Shuffling cluster labels and
+      testing the peak correlation gives <b>p = 1.000</b> — shuffling makes both groups random samples
+      of the same population, so their means collapse toward the grand mean and correlate at ~0.97.
+      Shuffling and testing the <b>lag</b> does work (the null lag is ~0) but is weak, because a null of
+      essentially zero width is beaten by almost any real lag. <b>The bootstrap CI, not the p-value, is
+      the statistic to read.</b>
+    </div>
+    <figure><div class="cap"><div class="fignum">FIG 2.18</div><h4>Lag profiles against the auditory cluster (K=10, ref c1)</h4>
+      <ul>
+        <li>c1 is the auditory cluster on its own evidence: audio stimulus onset <b>2.17%</b> with a
+          <b>+3.09 dB</b> peak, and <b>no stimulus onset at all</b> in picture or reading.</li>
+        <li>In audio, <b>eight clusters lead c1</b> by 4–15% and only <b>c6 lags it, by +16.3%</b>.
+          The curves are cleanly single-peaked — itself evidence the shape assumption holds here.</li>
+        <li>Grey band = below the shape gate; solid = interpretable; dashed = shapes differ or the lag
+          is censored.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260802_220720/timing/xcorr_K10_ref-c1_response.png" alt="cross-correlation lag profiles"></div>
     </figure>
   </section>
 
@@ -1053,8 +1076,6 @@
         <li>Shown: the <b>highest band</b> (P ≥ 0.35) for each cohort — the atlas core. All five bands
           are browsable in MOBA under <code>lana_all</code> / <code>lana_concat</code>.</li>
       </ul></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_pbins/recon/cluster_04/by_condition/lateral_L.png" alt="lana_all 20260802_pbins lateral_L"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_pbins/recon/cluster_04/by_condition/lateral_R.png" alt="lana_all 20260802_pbins lateral_R"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/runs/20260802_pbins/recon/cluster_04/by_condition/dorsal.png" alt="lana_all 20260802_pbins dorsal"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_pbins/recon/cluster_04/by_condition/lateral_L.png" alt="lana_concat 20260802_pbins lateral_L"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_pbins/recon/cluster_04/by_condition/lateral_R.png" alt="lana_concat 20260802_pbins lateral_R"></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/runs/20260802_pbins/recon/cluster_04/by_condition/dorsal.png" alt="lana_concat 20260802_pbins dorsal"></div>
     </figure>
 
     <h3>3.a.2 — how this one actually works</h3>
@@ -1118,7 +1139,7 @@
           <i>response</i> half of all three blocks; it turns dark green in the <i>picture</i> and <i>reading</i>
           stimulus halves.</li>
       </ul></div>
-      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/fig9_corr_map_greenyellow.png" alt="Fig 9 correlation map, green to yellow"></div></figure>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/fig9_corr_map_berlin.png" alt="Fig 9 correlation map, green to yellow"></div></figure>
 
     
 
@@ -1350,7 +1371,7 @@
       <span class="nb-na">N/A</span> means that stage was untouched, not that the entry is missing.
       Newest first; links jump to the relevant tab.</p>
 <div class="nb-day"><div class="nb-date"><span>2026-08-02</span><span class="tag">cluster timing</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>New <code>214_concat_timingranking</code> + <code>lf_cluster_timing.py</code> &mdash; onset ordering for clusters, onset definition identical to pooling. <a href="#s2">FIG 2.11</a>.</li><li>Split onset into <b>stimulus</b> (0&ndash;50%) and <b>response</b> (50&ndash;100%) windows; flagged carry-over onsets (5 of 15 cells at K=5 were already active at GO).</li><li>Rewrote the across-K figure after finding it misleading: added lineage tracking, the cluster-size confound (rho +0.50 to +0.53) and coverage. <a href="#s2">FIG 2.12</a>.</li><li>Fixed colours disagreeing between the ladder and the time course; combined them into one shared-x panel.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Found that 460 never persists the role onsets it computes &mdash; blocks the cluster-vs-role comparison.</li></ul></div></div></div>
-        <div class="nb-day"><div class="nb-date"><span>2026-08-02</span><span class="tag">atlas + K selection</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>Excluded <b>PAT_3415</b>'s 64-contact grid (<code>GA&hellip;GH</code>) from the concatenated track &mdash; at <b>contact</b> level, so its 51 depth electrodes are kept. Sample count 1116 &rarr; <b>1060</b> on re-run.</li><li>Scored <b>every K</b> in the sweep, not just the winner &rarr; <code>sweep_metrics.csv</code> (silhouette, Calinski-Harabasz, Davies-Bouldin, singletons, size CV).</li><li>Rebuilt <a href="#s2">FIG 2.2</a> horizontal and sortable by any criterion; flags singleton-producing K in red. Surfaced that every K &ge; 13 except 15 emits a singleton.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Fixed the LanA run &mdash; <code>labels.csv</code> had no <code>file_path</code>, which blocked 252 and broke MOBA.</li><li>Built 6 LanA partitions as clustering runs so the project glassbrain renders them: 2 cohorts &times; (P&ge;0.05, P&ge;0.10, 5-band continuous). <a href="#lana">FIG 3a.R1&ndash;R3</a>.</li><li>Fixed inside-out lateral views in <code>lf_brainview</code> &mdash; both hemispheres were drawn medially.</li></ul></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-08-01</span><span class="tag">recon payoff</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>Ran 252 on the post-fix runs &mdash; <b>23/25</b> registered runs now have a recon. Concat reports <code>1116 rows &middot; 1110 matched &middot; 6 unmatched</code>, all six white matter.</li><li>Pruned 14 phantom <code>index.json</code> entries (39 registered vs 25 on disk).</li><li>Fixed the 213 crash (atlas run carries no silhouette) and added <code>concat_hg</code> to the ranked sets.</li><li>Freed 562.8 MB of unreferenced runs via <code>cleanup_stale.py</code>.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Re-ran 460 &mdash; <b>the export gap closed</b>. All 1143 role-matched contacts reach <code>pool_web</code>, which grew <b>2644 &rarr; 2724</b>.</li></ul></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-31</span><span class="tag">the recon fix</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><ul><li>Excluded GVA microelectrodes and the discarded <code>X1M/X2M</code> channels from the macro pipelines.</li></ul></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>Diagnosed the recon gap: <b>not</b> missing localisation &mdash; an <code>aI</code>/<code>al</code> homoglyph plus four shaft-naming conventions. <b>126 unplottable &rarr; 8</b>, no FreeSurfer re-run.</li><li>Wrote <code>audit_coverage.py</code> &mdash; per-patient, 5-stage drop-out audit reporting only failures. <a href="#integrity">Data integrity</a>.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-29</span><span class="tag">atlas as a run</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Registered the LanA in/out split as a normal clustering run so 252 renders it; added the Desikan-Killiany gyrus breakdown.</li></ul></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-28</span><span class="tag">language atlas</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>Concatenated clustering &mdash; all 6 runs + per-cluster centroid chips. <code>concat_hg</code> beats per-condition (0.201 vs 0.152).</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Fedorenko/LanA analysis: threshold sweep, ERSP &times; P(language) correlation maps, in/out split. <a href="#lana">3a</a>.</li><li>Fig 8 per-bin scatters and Fig 9 recoloured green&rarr;yellow to the supervisor's spec.</li><li>Multi-label attribution matrices &mdash; 70% of Neurosynth-loaded contacts cleanly attributable, 30% multi-load.</li></ul></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-19</span><span class="tag">full refresh</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>HG re-clustered, <b>K=9</b>, silhouette 0.152, n=2102, with consensus stability.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><ul><li>Notebooks regenerated from <code>_build_notebooks.py</code>; comparison figures + &Delta;-confusion rebuilt. <a href="#s3">stage 03</a>.</li></ul></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Re-ran 460/465/470/480/490 &mdash; refreshed figures and the gaussian variant.</li></ul></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-06</span><span class="tag"></span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><ul><li>391 paired feature comparison &mdash; per-patient Wilcoxon + &Delta;-confusion. Confirmed HFA beats the full band (0.596 vs 0.535).</li></ul></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-03</span><span class="tag"></span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>Single centroid writer (per-K, no leakage) + SEM shading on the HG centroids.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-01</span><span class="tag"></span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li><code>silhouette_per_cluster.png</code> &rarr; knife plot + PCA projection.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>poolv2: wired the HGA dB gradient onto electrodes, fixed the single-role multi-colour bug and palette clashes.</li></ul></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-06-30</span><span class="tag">convergence</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Fixed poolv2 &harr; notebook convergence &mdash; <b>194+ role-match flips &rarr; 0</b> (block-mean vs anti-aliased resize, plus cube quantisation).</li><li>Restored the developed premotor-planning role; fixed <code>role_info</code> UTF-8 corruption.</li></ul></div></div></div>
+        <div class="nb-day"><div class="nb-date"><span>2026-08-02</span><span class="tag">atlas + K selection</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>Excluded <b>PAT_3415</b>'s 64-contact grid (<code>GA&hellip;GH</code>) from the concatenated track &mdash; at <b>contact</b> level, so its 51 depth electrodes are kept. Sample count 1116 &rarr; <b>1060</b> on re-run.</li><li>Scored <b>every K</b> in the sweep, not just the winner &rarr; <code>sweep_metrics.csv</code> (silhouette, Calinski-Harabasz, Davies-Bouldin, singletons, size CV).</li><li>Rebuilt <a href="#s2">FIG 2.2</a> horizontal and sortable by any criterion; flags singleton-producing K in red. Surfaced that every K &ge; 13 except 15 emits a singleton.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Fixed the LanA run &mdash; <code>labels.csv</code> had no <code>file_path</code>, which blocked 252 and broke MOBA.</li><li>Built 6 LanA partitions as clustering runs so the project glassbrain renders them: 2 cohorts &times; (P&ge;0.05, P&ge;0.10, 5-band continuous). <a href="#lana">FIG 3a.R1&ndash;R3</a>.</li><li>Fixed inside-out lateral views in <code>lf_brainview</code> &mdash; both hemispheres were drawn medially.</li></ul></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-08-01</span><span class="tag">recon payoff</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>Ran 252 on the post-fix runs &mdash; <b>23/25</b> registered runs now have a recon. Concat reports <code>1060 electrodes (clean cohort)</code>, all six white matter.</li><li>Pruned 14 phantom <code>index.json</code> entries (39 registered vs 25 on disk).</li><li>Fixed the 213 crash (atlas run carries no silhouette) and added <code>concat_hg</code> to the ranked sets.</li><li>Freed 562.8 MB of unreferenced runs via <code>cleanup_stale.py</code>.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Re-ran 460 &mdash; <b>the export gap closed</b>. All 1143 role-matched contacts reach <code>pool_web</code>, which grew <b>2644 &rarr; 2724</b>.</li></ul></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-31</span><span class="tag">the recon fix</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><ul><li>Excluded GVA microelectrodes and the discarded <code>X1M/X2M</code> channels from the macro pipelines.</li></ul></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>Diagnosed the recon gap: <b>not</b> missing localisation &mdash; an <code>aI</code>/<code>al</code> homoglyph plus four shaft-naming conventions. <b>126 unplottable &rarr; 8</b>, no FreeSurfer re-run.</li><li>Wrote <code>audit_coverage.py</code> &mdash; per-patient, 5-stage drop-out audit reporting only failures. <a href="#integrity">Data integrity</a>.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-29</span><span class="tag">atlas as a run</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Registered the LanA in/out split as a normal clustering run so 252 renders it; added the Desikan-Killiany gyrus breakdown.</li></ul></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-28</span><span class="tag">language atlas</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>Concatenated clustering &mdash; all 6 runs + per-cluster centroid chips. <code>concat_hg</code> beats per-condition (0.201 vs 0.152).</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Fedorenko/LanA analysis: threshold sweep, ERSP &times; P(language) correlation maps, in/out split. <a href="#lana">3a</a>.</li><li>Fig 8 per-bin scatters and Fig 9 recoloured green&rarr;yellow to the supervisor's spec.</li><li>Multi-label attribution matrices &mdash; 70% of Neurosynth-loaded contacts cleanly attributable, 30% multi-load.</li></ul></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-19</span><span class="tag">full refresh</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>HG re-clustered, <b>K=9</b>, silhouette 0.152, n=2102, with consensus stability.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><ul><li>Notebooks regenerated from <code>_build_notebooks.py</code>; comparison figures + &Delta;-confusion rebuilt. <a href="#s3">stage 03</a>.</li></ul></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Re-ran 460/465/470/480/490 &mdash; refreshed figures and the gaussian variant.</li></ul></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-06</span><span class="tag"></span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><ul><li>391 paired feature comparison &mdash; per-patient Wilcoxon + &Delta;-confusion. Confirmed HFA beats the full band (0.596 vs 0.535).</li></ul></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-03</span><span class="tag"></span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>Single centroid writer (per-K, no leakage) + SEM shading on the HG centroids.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-07-01</span><span class="tag"></span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li><code>silhouette_per_cluster.png</code> &rarr; knife plot + PCA projection.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>poolv2: wired the HGA dB gradient onto electrodes, fixed the single-role multi-colour bug and palette clashes.</li></ul></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-06-30</span><span class="tag">convergence</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Fixed poolv2 &harr; notebook convergence &mdash; <b>194+ role-match flips &rarr; 0</b> (block-mean vs anti-aliased resize, plus cube quantisation).</li><li>Restored the developed premotor-planning role; fixed <code>role_info</code> UTF-8 corruption.</li></ul></div></div></div>
   </section>
 
   <!-- ============ DATA INTEGRITY ============ -->
@@ -1541,7 +1562,7 @@
       <li><b>Coverage audit built</b> — <code>audit_coverage.py</code> checks all five stages per patient and prints
         only failures; re‑run it whenever patients land.</li>
       <li><b>Concatenated clustering re‑run clean</b> — aux (<code>AINP</code>), microelectrode and grid‑patient
-        samples removed. Newest K‑Means run: <b>K=5</b>, silhouette <b>0.195</b>, <b>1116 electrodes</b>
+        samples removed. Newest K‑Means run: <b>K=4</b>, silhouette <b>0.164</b>, <b>1060 electrodes</b>
         (cluster sizes 83 / 167 / 633 / 118 / 115).</li>
       <li><b>Ranking fixed and extended (213)</b> — it was dying on the first cell because the language‑atlas entry
         has no silhouette; it now also ranks the <code>concat_hg</code> track. Note the condition‑selectivity axis

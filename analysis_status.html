@@ -776,6 +776,65 @@
       </ul></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/recon_split_p_0.05_p0.1.png" alt="fsaverage recon in vs out of network"></div></figure>
 
+    <h3>Rebuilt on the corrected coordinates — two cohorts, two thresholds</h3>
+    <p>Everything above predates the recon name fix. These are regenerated on the corrected coordinates, and split
+      into the two cohorts that answer different questions. <b>All six use the same LanA atlas</b>
+      (<code>langloc_n806_p_0.05</code>); only the membership cut and the electrode set change.</p>
+    <div class="method"><ul>
+      <li><b>all electrodes</b> — every contact with an fsaverage coordinate (<b>5247</b>, 35 patients). "Where did
+        we record?"</li>
+      <li><b>concatenated cohort</b> — only electrodes carrying all three conditions, with the grid patients
+        (<code>EL044</code>, <code>PAT_3415</code>) and aux/micro channels removed (<b>2617</b>). This is the sample
+        set the concatenated clustering and pooling actually use, so it is the one the other results refer to.</li>
+      <li><b>Left/right is now correct.</b> Each lateral view draws only <i>that</i> hemisphere's electrodes on
+        <i>that</i> hemisphere's silhouette, with the right view mirrored so both are seen from outside. Previously
+        both laterals showed every electrode, so the two panels were the same cloud twice.</li>
+      <li>White-matter contacts are <b>kept</b> here — these are scatter plots in fsaverage space, not cortical
+        surface renders, so dropping them would hide real recording sites.</li>
+    </ul></div>
+
+    <table>
+      <thead><tr><th>cohort</th><th>n</th><th>threshold</th><th>in network</th><th>%</th><th>left</th><th>right</th></tr></thead>
+      <tbody>
+        <tr><td>all</td><td>5247</td><td>P ≥ 0.05</td><td>4290</td><td>82%</td><td>2357</td><td>1933</td></tr>
+        <tr><td>all</td><td>5247</td><td><b>P ≥ 0.10</b></td><td>1984</td><td>38%</td><td><b>1263</b></td><td>721</td></tr>
+        <tr><td>concat</td><td>2617</td><td>P ≥ 0.05</td><td>2233</td><td>85%</td><td>1063</td><td>1170</td></tr>
+        <tr><td>concat</td><td>2617</td><td><b>P ≥ 0.10</b></td><td>1007</td><td>38%</td><td><b>568</b></td><td>439</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <b>Read the two thresholds against each other.</b> At <b>P ≥ 0.05</b> more than four fifths of all electrodes
+      count as "in network" — the cut is too lenient to separate anything, and in the concatenated cohort it even
+      comes out slightly <i>right</i>-dominant (1063 L vs 1170 R). At <b>P ≥ 0.10</b> the split becomes selective
+      (38% in) and the expected <b>left bias appears in both cohorts</b> (64% LH for all electrodes, 56% for the
+      concatenated set). The lateralisation is a property of the threshold, not of the data alone — which is the
+      argument for the continuous analysis below over any threshold at all.
+    </div>
+
+    <figure><div class="cap"><div class="fignum">FIG 3a.R1</div><h4>Membership — all electrodes (n=5247)</h4>
+      <ul><li>Left: P ≥ 0.05. Right: P ≥ 0.10. Red = in network, grey = outside.</li></ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/lana_all_membership_p0.05.png" alt="all electrodes, membership at P>=0.05"></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/lana_all_membership_p0.10.png" alt="all electrodes, membership at P>=0.10"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 3a.R2</div><h4>Membership — concatenated cohort (n=2617)</h4>
+      <ul><li>Same two thresholds, restricted to the electrodes the clustering and pooling actually analyse.</li></ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/lana_concat_membership_p0.05.png" alt="concat electrodes, membership at P>=0.05"></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/lana_concat_membership_p0.10.png" alt="concat electrodes, membership at P>=0.10"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG 3a.R3</div><h4>Atlas overlap probability at each electrode — no threshold</h4>
+      <ul>
+        <li>Continuous P(language) per contact, <b>inferno</b>: black ≈ 0 → red → <b>bright yellow = highest overlap</b>.
+          Grey dots are contacts at exactly 0.</li>
+        <li>Top: all electrodes. Bottom: concatenated cohort. This is the variable the correlation maps regress
+          each time–frequency bin against, so it is the honest version of the figure — no cut, full ordering kept.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/lana_all_overlap_p.png" alt="continuous atlas overlap, all electrodes"></div>
+      <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/lana_concat_overlap_p.png" alt="continuous atlas overlap, concat electrodes"></div>
+    </figure>
+
     <h3>3.a.2 — how this one actually works</h3>
     <div class="method">
       <p style="margin:0 0 10px">Written out step by step, because the figure is easy to misread as a normal ERSP.</p>

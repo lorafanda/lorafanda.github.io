@@ -125,6 +125,11 @@
   .nb-na{color:#aab2ba;font-style:italic;font-size:12.5px}
   .nb-body a{color:var(--s2);text-decoration:none;border-bottom:1px dotted var(--s2)}
   @media(max-width:700px){.nb-row{grid-template-columns:1fr}.nb-stage{border-right:0;border-bottom:1px solid #eef1f4}}
+  .runid{display:inline-block;margin:6px 0 0;padding:2px 8px;border-radius:5px;
+    background:#eef1f5;border:1px solid var(--line);font-size:11px;color:#4a5560;
+    font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.2px}
+  .runid b{color:#22262b;font-weight:700}
+  .runid.multi{background:#fdf7ee;border-color:#e8d5b5}
 </style>
 </head>
 <body>
@@ -205,7 +210,7 @@
           over three electrodes is not one. In <i>reading</i> almost everything crosses at 2%, so that
           panel is compressed and carries the least information. And the criterion uses <b>|mean|</b>, so
           a strongly suppressed group registers an onset exactly like an activated one.</li>
-      </ul></div>
+      </ul><div class="runid">source: kmeans/concat_hg 20260803_175417  +  pool_web role_onsets</div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/story/S1_three_lenses.png" alt="three lenses"></div>
     </figure>
 
@@ -226,7 +231,7 @@
           structure is real, reproducible and weak" — which is a finding about language cortex, not a
           defect of the method. A single silhouette number cannot make that distinction; four criteria
           that agree can.</li>
-      </ul></div>
+      </ul><div class="runid">source: kmeans/concat_hg 20260803_175417</div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/story/S2_partition_quality.png" alt="partition quality"></div>
     </figure>
 
@@ -248,7 +253,7 @@
         <li>Read a→d as one sentence: <i>it is above chance, high‑frequency activity carries it, the
           mistakes it makes are the ones a modality account predicts, and the weights sit exactly where
           that account says they should.</i></li>
-      </ul></div>
+      </ul><div class="runid">source: stage-03 _compare  +  condition/full_300/logreg 20260624_184315</div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/story/S3_decoding.png" alt="decoding"></div>
     </figure>
 
@@ -265,7 +270,7 @@
           to its peak, left of zero is earlier. Only the response window is used, because over the full
           trial these clusters are not the same shape shifted in time and the lag would be meaningless.</li>
         <li>Same colour means the same cluster in all three panels.</li>
-      </ul></div>
+      </ul><div class="runid">source: kmeans/concat_hg 20260803_175417</div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/story/S4_timing.png" alt="timing"></div>
     </figure>
 
@@ -286,7 +291,7 @@
         <li><b>Magnitudes are small by construction</b> (|r| ≤ 0.17): one TF bin against one atlas value
           across contacts, with all inter‑subject variability intact. Read the <b>extent and sign</b> of
           the structure, not the strength of any bin. 26.3% of the 116,100 bins survive FDR at q=0.05.</li>
-      </ul></div>
+      </ul><div class="runid">source: atlas/lana_concat 20260802_*  +  make_fedorenko_corr.py</div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/story/S5_atlas.png" alt="atlas convergence"></div>
     </figure>
 
@@ -359,7 +364,7 @@
 
     <h3>Results</h3>
     <figure>
-      <div class="cap"><div class="fignum">FIG 1.1</div><h4>Example time‑warped ERSP (one contact, audio)</h4>
+      <div class="cap"><div class="fignum">FIG 1.1<div class="runid">source: stage-01 examples</div></div><h4>Example time‑warped ERSP (one contact, audio)</h4>
         <ul>
           <li>x = normalised trial time (0–100 %); the black line at 50 % is the <b>GO‑cue</b> (stimulus | response).</li>
           <li>y = 0–500 Hz; colour = dB vs the pre‑stimulus baseline (±6).</li>
@@ -371,7 +376,7 @@
     </figure>
 
     <figure>
-      <div class="cap"><div class="fignum">FIG 1.2</div><h4>Single‑trial high‑gamma (70–150 Hz), same contact</h4>
+      <div class="cap"><div class="fignum">FIG 1.2<div class="runid">source: stage-01 examples</div></div><h4>Single‑trial high‑gamma (70–150 Hz), same contact</h4>
         <ul>
           <li>Rows = individual trials (sorted by stimulus duration), colour = baseline‑normalised HG.</li>
           <li>Shows the response is consistent across trials, not driven by a few outliers.</li>
@@ -423,7 +428,7 @@
       <li><b>Validation.</b> Consensus stability (50 restarts → co‑clustering + per‑cluster Jaccard), gap statistic, anatomical purity (Desikan‑Killiany).</li>
       <li><b>Ranking.</b> Dissolve clusters that fail to bridge both cohorts (EL↔PAT); composite = 4·cross‑patient + 3·stability + 2·condition + 1·spatial‑compactness.</li>
       <li><b>Recon.</b> Each cluster's electrodes rendered on the fsaverage pial surface.</li>
-    </ul></div>
+    </ul><div class="runid">source: stage-01 examples</div></div>
 
     <h3>Results — HG, K‑Means K=9</h3>
     <figure>
@@ -432,7 +437,7 @@
           <li>Left: per‑sample silhouette grouped by cluster; dashed line = overall mean (0.152).</li>
           <li>Right: PCA(2) of the HG features coloured by cluster, with centroids.</li>
           <li>Moderate but positive separation — expected for continuous neural responses, not discrete categories.</li>
-        </ul></div>
+        </ul><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/silhouette_per_cluster.png" alt="silhouette knife + PCA"></div>
     </figure>
 
@@ -447,7 +452,7 @@
             silhouette alone will not tell you it happened — on the concatenated run, every K ≥ 13 except 15
             produces one.</li>
           <li>Full table per run: <code>sweep_metrics.csv</code>.</li>
-        </ul></div>
+        </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/sweep_metrics.png" alt="sweep statistics for every K"></div>
     </figure>
 
@@ -458,15 +463,15 @@
           <li>These are the "functional types": early stimulus‑locked, late response‑locked, sustained, suppressed, etc.</li>
         </ul></div>
       <div class="grid">
-        <figure><div class="cap"><h4>Cluster 0</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_00.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 1</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_01.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 2</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_02.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 3</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_03.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 0</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_00.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 1</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_01.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 2</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_02.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 3</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_03.png"></div></figure>
         <figure><div class="cap"><h4>Cluster 4</h4></div></figure>
-        <figure><div class="cap"><h4>Cluster 5</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_05.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 6</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_06.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 7</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_07.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 8</h4></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_08.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 5</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_05.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 6</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_06.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 7</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_07.png"></div></figure>
+        <figure><div class="cap"><h4>Cluster 8</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_08.png"></div></figure>
       </div>
     </figure>
 
@@ -474,7 +479,7 @@
       <div class="cap"><div class="fignum">FIG 2.4</div><h4>Centroid heatmap — all clusters at once</h4>
         <ul>
           <li>Cluster × warped‑time HG matrix (one row per cluster); a compact view of the 9 profiles together.</li>
-        </ul></div>
+        </ul><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/centroids.png" alt="centroid heatmap"></div>
     </figure>
 
@@ -483,7 +488,7 @@
         <ul>
           <li>Co‑clustering frequency over 50 K‑Means restarts (sample × sample); a sharp block‑diagonal = a cluster that reforms every time.</li>
           <li>The key "is this real" check — strong within‑block agreement means the K=9 solution is stable, not a one‑off partition. (Regenerated in today's rerun.)</li>
-        </ul></div>
+        </ul><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/consensus_heatmap.png" alt="consensus stability"></div>
     </figure>
 
@@ -492,7 +497,7 @@
         <ul>
           <li>All patients' contacts projected onto the common fsaverage surface (white‑matter contacts hidden).</li>
           <li>Establishes the spatial sampling that constrains every "where" claim in stages 02–04.</li>
-        </ul></div>
+        </ul><div class="runid">source: 250_recon fsaverage</div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/250_recon/fsaverage/png/ALL_PATIENTS_fsaverage_no_wm.png" alt="fsaverage coverage"></div>
     </figure>
 
@@ -560,16 +565,16 @@
           spatially localised or spread everywhere?"</b> — not "how strong is it".</li>
       </ul></div>
       <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(310px,1fr))">
-        <figure><div class="cap"><h4>Cluster 0 <span style="color:var(--muted);font-weight:400">· n=73</span></h4></div>
+        <figure><div class="cap"><h4>Cluster 0 <span style="color:var(--muted);font-weight:400">· n=73</span></h4><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
           <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
             <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/cluster_centroids/cluster_00.png" style="max-width:100%"></div></figure>
-        <figure><div class="cap"><h4>Cluster 1 <span style="color:var(--muted);font-weight:400">· n=575</span></h4></div>
+        <figure><div class="cap"><h4>Cluster 1 <span style="color:var(--muted);font-weight:400">· n=575</span></h4><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
           <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
             <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/cluster_centroids/cluster_01.png" style="max-width:100%"></div></figure>
-        <figure><div class="cap"><h4>Cluster 2 <span style="color:var(--muted);font-weight:400">· n=130</span></h4></div>
+        <figure><div class="cap"><h4>Cluster 2 <span style="color:var(--muted);font-weight:400">· n=130</span></h4><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
           <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
             <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/cluster_centroids/cluster_02.png" style="max-width:100%"></div></figure>
-        <figure><div class="cap"><h4>Cluster 3 <span style="color:var(--muted);font-weight:400">· n=175</span></h4></div>
+        <figure><div class="cap"><h4>Cluster 3 <span style="color:var(--muted);font-weight:400">· n=175</span></h4><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
           <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
             <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/cluster_centroids/cluster_03.png" style="max-width:100%"></div></figure>
         <figure><div class="cap"><h4>Cluster 4 <span style="color:var(--muted);font-weight:400">· n=74</span></h4></div>
@@ -618,17 +623,17 @@
         cluster registers an onset exactly like an activated one — c3 and c4 at K=5 cross on <i>negative</i> peaks.
         And onset is a threshold crossing on a <b>warped</b> axis, so the <b>ordering</b> is the result; the exact
         percentages are not.</li>
-    </ul></div>
+    </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
 
     <p>Colours are a <b>timing gradient</b>: clusters are coloured by their rank in onset order, so the same cluster
       is the same colour in the curves and in the ladder below them, and the two rows share an x axis — an onset
       marker sits directly under the curve it came from.</p>
 
-    <figure><div class="cap"><div class="fignum">FIG 2.11a</div><h4>K=5 — time courses and onset ladder (silhouette 0.176)</h4><ul><li>Cluster sizes 73 / 575 / 130 / 175 / 74. The chosen K. <b>c0</b> (n=73) is early in <i>every</i> condition (2.8 / 4.8 / 1.5, mean 3.1%) — stimulus-locked rather than modality-specific. <b>c4</b> (n=74) is the opposite: audio onset 2.2% but 59% and 65% in picture and reading. <b>c1</b> (n=575) is the diffuse remainder, <b>silent in audio</b> and late elsewhere.</li></ul></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/timing_k05_panel.png" alt="cluster timing panel K=5"></div></figure>
+    <figure><div class="cap"><div class="fignum">FIG 2.11a</div><h4>K=5 — time courses and onset ladder (silhouette 0.176)</h4><ul><li>Cluster sizes 73 / 575 / 130 / 175 / 74. The chosen K. <b>c0</b> (n=73) is early in <i>every</i> condition (2.8 / 4.8 / 1.5, mean 3.1%) — stimulus-locked rather than modality-specific. <b>c4</b> (n=74) is the opposite: audio onset 2.2% but 59% and 65% in picture and reading. <b>c1</b> (n=575) is the diffuse remainder, <b>silent in audio</b> and late elsewhere.</li></ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/timing_k05_panel.png" alt="cluster timing panel K=5"></div></figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 2.11b</div><h4>K=6 — time courses and onset ladder (silhouette 0.171)</h4><ul><li>Cluster sizes 11 / 567 / 155 / 50 / 129 / 115. Splitting further isolates <b>c1</b> at n=11 — too small for its mean to be meaningful, which is exactly the trade-off FIG 2.2 makes visible. The rest of the structure is K=5's, redistributed.</li></ul></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/timing_k06_panel.png" alt="cluster timing panel K=6"></div></figure>
+    <figure><div class="cap"><div class="fignum">FIG 2.11b</div><h4>K=6 — time courses and onset ladder (silhouette 0.171)</h4><ul><li>Cluster sizes 11 / 567 / 155 / 50 / 129 / 115. Splitting further isolates <b>c1</b> at n=11 — too small for its mean to be meaningful, which is exactly the trade-off FIG 2.2 makes visible. The rest of the structure is K=5's, redistributed.</li></ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/timing_k06_panel.png" alt="cluster timing panel K=6"></div></figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 2.11c</div><h4>K=4 — time courses and onset ladder (silhouette 0.166)</h4><ul><li>Cluster sizes 136 / 172 / 576 / 143. Coarser. The silent-in-audio cluster survives intact (c2, n=576, onset 100 / 71.2 / 2.5) and the early stimulus-locked group is absorbed — it only separates from K=5 upward.</li></ul></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/timing_k04_panel.png" alt="cluster timing panel K=4"></div></figure>
+    <figure><div class="cap"><div class="fignum">FIG 2.11c</div><h4>K=4 — time courses and onset ladder (silhouette 0.166)</h4><ul><li>Cluster sizes 136 / 172 / 576 / 143. Coarser. The silent-in-audio cluster survives intact (c2, n=576, onset 100 / 71.2 / 2.5) and the early stimulus-locked group is absorbed — it only separates from K=5 upward.</li></ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/timing_k04_panel.png" alt="cluster timing panel K=4"></div></figure>
 
     <h3>Across the K sweep — and why the obvious version of this figure is misleading</h3>
     <p>The natural next question is <i>"is this timing ordering stable, or an artefact of the K we picked?"</i>
@@ -664,7 +669,7 @@
           described above. Read row 1 with this in mind.</li>
         <li><b>Row 3 — coverage.</b> Percentage of clusters that have any onset in each window, per K. Where this is
           low, the row-1 traces are summarising a minority of clusters.</li>
-      </ul></div>
+      </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/onset_across_k.png" alt="onset across the K sweep"></div>
     </figure>
 
@@ -699,9 +704,9 @@
           resampled.</li>
         <li>Bright blocks on the diagonal = pairs of electrodes that land together across resamples. Off-diagonal
           bleed is the honest picture of how soft these boundaries are.</li>
-      </ul></div>
+      </ul><div class="runid multi">source: kmeans/concat_hg · <b>20260803_175417</b>   ·   hierarchical/concat_hg · <b>20260803_175444</b></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/consensus_heatmap.png" alt="concat consensus kmeans"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/hierarchical/concat_hg/runs/20260731_215434/consensus_heatmap.png" alt="concat consensus ward"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/hierarchical/concat_hg/runs/20260803_175444/consensus_heatmap.png" alt="concat consensus ward"></div>
     </figure>
 
     <figure><div class="cap"><div class="fignum">FIG 2.14</div><h4>Gap statistic — an independent read on K</h4>
@@ -709,7 +714,7 @@
         <li>Tibshirani's gap compares within-cluster dispersion against uniform null data, so it is independent of
           silhouette. A fifth criterion alongside the four in FIG 2.2 — worth more when the criteria
           <b>disagree</b> than when they agree.</li>
-      </ul></div>
+      </ul><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/gap_by_k.png" alt="gap statistic"></div>
     </figure>
 
@@ -719,7 +724,7 @@
           representation). Right: <b>K-Means vs Ward</b> (same representation, different algorithm).</li>
         <li>A near-diagonal block structure means the grouping is a property of the data. Scatter means it is a
           property of the algorithm — the single most useful check against over-reading a weak clustering.</li>
-      </ul></div>
+      </ul><div class="runid">source: cross-run comparison (19 Jul HG runs)</div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparisons/20260719_155034_vs_20260719_153420_confusion.png" alt="rawds vs hg"></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparisons/20260719_155034_vs_20260719_155101_confusion.png" alt="kmeans vs ward"></div>
     </figure>
@@ -731,7 +736,7 @@
         <li>This is the visual form of the low silhouette: real block structure, but with substantial off-block
           similarity. It is the honest counterweight to the centroid figures, which always look cleaner than the
           separation actually is.</li>
-      </ul></div>
+      </ul><div class="runid multi">source: kmeans/hg · <b>20260719_153420</b>   ·   kmeans/concat_hg · <b>20260803_175417</b></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/similarity_heatmap.png" alt="hg similarity"></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/centroid_distance_heatmap.png" alt="hg centroid distance"></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/similarity_heatmap.png" alt="concat similarity"></div>
@@ -768,7 +773,7 @@
           left-lateralised.</li>
         <li><b>Dot density reflects where electrodes were implanted</b> (clinical decisions). An empty
           region means "not sampled", never "not involved".</li>
-      </ul></div>
+      </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/cluster_cards.png" alt="cluster cards"></div>
     </figure>
 
@@ -817,7 +822,7 @@
           not align" is itself an answer.</li>
         <li><b>Lags are warped-time %, not milliseconds.</b> Read the <b>order</b> — who leads whom —
           and treat the exact percentage as approximate.</li>
-      </ul></div>
+      </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/xcorr_K10_ref-c4_response.png" alt="cross-correlation lag profiles"></div>
     </figure>
 
@@ -832,7 +837,7 @@
           out there would be reading noise.</li>
         <li>Curves are dashed wherever the interpretability gate fails at that lag range, so the solid
           ones are those whose peak survives the wider search.</li>
-      </ul></div>
+      </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/xcorr_K10_ref-c4_response_fullrange.png" alt="full lag range"></div>
     </figure>
   </section>
@@ -862,22 +867,22 @@
     <h3>Results</h3>
     <figure><div class="cap"><div class="fignum">FIG 1</div><h4>Master heatmap — every experiment at a glance</h4>
       <ul><li>Rows = feature variant, columns = task × classifier; colour = fraction above chance, annotation = balanced accuracy (<code>*</code> = p&lt;.05).</li>
-      <li>Read across a row to see where a feature wins; down a column to see the best feature per task.</li></ul></div>
+      <li>Read across a row to see where a feature wins; down a column to see the best feature per task.</li></ul><div class="runid">source: stage-03 _compare (19 Jul refresh)</div></div>
       <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/heatmap.png" alt="master heatmap"></div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 2</div><h4>Decoding strength — all tasks on one axis</h4>
       <ul><li>x = fraction above chance with bootstrap 95% CI; ● logreg / ■ rf; filled = p&lt;.05.</li>
-      <li><b>Condition decodes strongest</b> (esp. the HG line at fine time); <b>Yeo‑17 weakest</b>; overlapping CIs = variants you can't separate.</li></ul></div>
+      <li><b>Condition decodes strongest</b> (esp. the HG line at fine time); <b>Yeo‑17 weakest</b>; overlapping CIs = variants you can't separate.</li></ul><div class="runid">source: stage-03 _compare (19 Jul refresh)</div></div>
       <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/forest.png" alt="forest"></div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 3</div><h4>Paired contrasts — power vs pattern, and time resolution</h4>
       <ul><li>Left: amplitude triad (continuous → row‑norm → discretized). A drop left→right means the decode rode on <b>power, not pattern</b>.</li>
-      <li>Right: 300 vs 30 time bins for the full & HG families, paired per task.</li></ul></div>
+      <li>Right: 300 vs 30 time bins for the full & HG families, paired per task.</li></ul><div class="runid">source: stage-03 _compare (19 Jul refresh)</div></div>
       <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/paired_contrasts.png" alt="paired contrasts"></div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 4</div><h4>Δ‑confusion — how a feature changes the error structure</h4>
       <ul><li><code>confusion(feature) − confusion(full_300)</code>, row‑normalised: red = the feature sends more of a true class to that predicted class than the baseline.</li>
-      <li>Paired per‑patient Wilcoxon accompanies each (a screen, not proof). One panel per task.</li></ul></div>
+      <li>Paired per‑patient Wilcoxon accompanies each (a screen, not proof). One panel per task.</li></ul><div class="runid">source: stage-03 _compare (19 Jul refresh)</div></div>
       <div class="imgwrap">
         <img data-fig="03_FBM_Classifying/outputs/classification/_compare/delta_confusion_condition.png" alt="delta confusion condition" style="margin-bottom:8px">
         <img data-fig="03_FBM_Classifying/outputs/classification/_compare/delta_confusion_parcellation_yeo7.png" alt="delta confusion yeo7" style="margin-bottom:8px">
@@ -885,17 +890,17 @@
       </div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 5</div><h4>Classifier agreement (robustness)</h4>
-      <ul><li>Each point = one (task, variant): x = above‑chance(logreg), y = above‑chance(rf). On the diagonal = model‑robust; off = model‑dependent.</li></ul></div>
+      <ul><li>Each point = one (task, variant): x = above‑chance(logreg), y = above‑chance(rf). On the diagonal = model‑robust; off = model‑dependent.</li></ul><div class="runid">source: stage-03 _compare (19 Jul refresh)</div></div>
       <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/clf_scatter.png" alt="clf scatter"></div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 6</div><h4>Consensus confusion — the stable error structure</h4>
       <ul><li>Mean row‑normalised confusion across all 16 variant×classifier runs per task (diagonal = mean recall).</li>
-      <li>Yeo‑17 predictions pool into a few "attractor" networks — the signature of a hard, imbalanced decode.</li></ul></div>
+      <li>Yeo‑17 predictions pool into a few "attractor" networks — the signature of a hard, imbalanced decode.</li></ul><div class="runid">source: stage-03 _compare (19 Jul refresh)</div></div>
       <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/confusion_consensus.png" alt="confusion consensus"></div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 7</div><h4>Per‑class recall — which classes carry the signal</h4>
       <ul><li>One stacked heatmap per task: rows = class, cols = variant·classifier, cell = recall (<code>*</code> = FDR p&lt;.05).</li>
-      <li>A few Yeo‑17 networks carry almost all the decodable signal; most sit near zero.</li></ul></div>
+      <li>A few Yeo‑17 networks carry almost all the decodable signal; most sit near zero.</li></ul><div class="runid">source: stage-03 _compare (19 Jul refresh)</div></div>
       <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/class_recall_compare.png" alt="class recall"></div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 8</div><h4>Which features separate the classes — LR coefficient maps (condition)</h4>
@@ -904,12 +909,12 @@
         <li><b>Discriminative weight sits in the early stimulus window</b> (left of the GO‑cue), where the three conditions differ by input modality — <i>reading</i> especially shows heavy early low‑frequency weight.</li>
         <li><b>The post‑GO response window carries little weight:</b> the spoken response is shared across conditions, so it doesn't separate them. So condition is read from the <b>early, modality‑specific sensory response</b>, not the speech output — the answer to Q4.</li>
         <li><span style="color:var(--muted)">From the current complete <code>condition · full_300 · logreg</code> run (Jun 24); the parcellation runs have their own coefficient maps.</span></li>
-      </ul></div>
+      </ul><div class="runid">source: condition/full_300/logreg · <b>20260624_184315</b></div></div>
       <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/condition/full_300/logreg/runs/20260624_184315/coef_ersp_maps.png" alt="LR coefficient maps condition"></div></figure>
 
     <figure><div class="cap"><div class="fignum">ANALYSIS</div><h4>Is high‑gamma alone as good as the full spectrum?</h4>
       <ul><li>Slopegraph of every matched HG↔FULL pair (same time grid × row‑norm × classifier), per task; green rising = HG higher.</li>
-      <li>Paired sign‑test + Wilcoxon accompany it — the fair test since the pair shares a time grid.</li></ul></div>
+      <li>Paired sign‑test + Wilcoxon accompany it — the fair test since the pair shares a time grid.</li></ul><div class="runid">source: stage-03 _compare (19 Jul refresh)</div></div>
       <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/hg_vs_full.png" alt="hg vs full"></div></figure>
 
     <div class="callout"><b>Reran 2026‑07‑19:</b> notebooks regenerated from <code>_build_notebooks.py</code> (8 variants / the 7‑figure set above)
@@ -929,7 +934,7 @@
         <li>So "network is harder than condition" is true in <b>absolute accuracy</b> and false in <b>reliability</b>.
           The anatomical signal is faint but solidly non-random, and low accuracy here is mostly the cost of
           17 classes.</li>
-      </ul></div>
+      </ul><div class="runid">source: stage-03 _compare (19 Jul refresh)</div></div>
       <div class="imgwrap"><img data-fig="03_FBM_Classifying/outputs/classification/_compare/permutation_null_summary.png" alt="permutation nulls"></div>
     </figure>
   </section>
@@ -958,7 +963,7 @@
         <li><b>The question:</b> do the roles activate in the <b>order a word‑production model predicts</b> — sensory input first, then lexical/semantic, phonological encoding, and speech‑motor output last?</li>
         <li>Group‑mean high‑gamma (70–150 Hz, ± SEM) per role across the warped trial, one panel per condition (dashed = GO‑cue at 50 %); <b>onset = first crossing of ~0.5 dB.</b></li>
         <li>The staggering of onsets is the "who fires when" story — input roles early, motor/feedback late — read against the timing literature below.</li>
-      </ul></div>
+      </ul><div class="runid">source: 460 pooling, pool_web</div></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/hga_timeseries.png" alt="role HGA timeseries"></div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 4.2</div><h4>Response timing across Neurosynth functional regions (HGA time course)</h4>
@@ -967,7 +972,7 @@
         <li><b>What Neurosynth is:</b> a meta‑analysis of ~14,000 fMRI papers — for a term (e.g. "auditory", "broca") it returns a whole‑brain <b>z‑map</b> of where that term reliably co‑activates. We used 8 terms: <i>auditory, broca, visual, motor&nbsp;control, phonological, semantic, lexical, recall</i>.</li>
         <li><b>How a contact joins a region:</b> its fsaverage coordinate → MNI152 → sample every term's z‑map → tag the contact to a region where <code>z &gt; thr</code> (primary = highest z). Each curve is the mean HGA of the contacts inside that meta‑analytic site.</li>
         <li>Because the regions are defined <b>independently of our data</b>, a matching onset order here is stronger evidence for the timing sequence than the role figure alone.</li>
-      </ul></div>
+      </ul><div class="runid">source: 480 neurosynth</div></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/neurosynth/hga_timeseries.png" alt="region HGA timeseries"></div></figure>
 
     <div class="callout q"><b>Response‑timing literature (did we cite it?).</b> The onset ordering in 4.1–4.2 is the intracranial test of the
@@ -985,34 +990,34 @@
         <li><b>Production / semantic regions cluster post‑GO</b> (~60–71 %): lexical, broca, phonological, semantic all activate during the response — broadly the perception → lexical → phonological → articulation order of Indefrey &amp; Levelt / Sahin.</li>
         <li><b>Read the order, not the exact %:</b> onset is the first sustained crossing of a fixed dB threshold, and the time‑warp compresses the response half, so post‑GO regions bunch together.</li>
         <li><b>Top ladder = Neurosynth regions; bottom ladder = functional roles</b> (same onset measure, our own role templates instead of literature regions) — the two agree on the input‑first / production‑late shape.</li>
-      </ul></div>
+      </ul><div class="runid multi">source: 480 neurosynth   ·   460 pooling, pool_web</div></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/neurosynth/region_onset_ordering.png" alt="region onset ordering" style="margin-bottom:10px">
         <img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_onset_ordering.png" alt="role onset ordering"></div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 4.4</div><h4>Role × role timing similarity (Pearson r)</h4>
       <ul><li>Correlation of each pair of roles' mean HGA curves, per condition (red = similar profile, blue = anti‑phase).</li>
-      <li><b>Descriptive</b> — the series are autocorrelated, so read profile‑shape overlap, not a significance test of latency.</li></ul></div>
+      <li><b>Descriptive</b> — the series are autocorrelated, so read profile‑shape overlap, not a significance test of latency.</li></ul><div class="runid">source: 460 pooling, pool_web</div></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_corr.png" alt="role correlation"></div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 4.5</div><h4>Region × region timing similarity (Pearson r)</h4>
-      <ul><li>The same correlation view across Neurosynth regions — the anatomical companion to Fig 4.3.</li></ul></div>
+      <ul><li>The same correlation view across Neurosynth regions — the anatomical companion to Fig 4.3.</li></ul><div class="runid">source: 480 neurosynth</div></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/neurosynth/region_corr.png" alt="region correlation"></div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 4.6</div><h4>Role templates on real ERSPs (representative contacts)</h4>
       <ul><li>Each card = one matching contact's <code>[a|p|r]</code> ERSP with the role's boxes drawn on top.</li>
       <li>Sanity‑checks that the templates sit where the real activity is.</li></ul></div>
       <div class="grid">
-        <figure><div class="cap"><h4>Auditory</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/auditory.png"></div></figure>
-        <figure><div class="cap"><h4>Visual (picture)</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/visual_picture.png"></div></figure>
-        <figure><div class="cap"><h4>Premotor planning</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/premotor%20planning.png"></div></figure>
-        <figure><div class="cap"><h4>Phonological</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/phonological_encoding.png"></div></figure>
-        <figure><div class="cap"><h4>Motor</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/motor.png"></div></figure>
-        <figure><div class="cap"><h4>NN</h4></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/NN.png"></div></figure>
+        <figure><div class="cap"><h4>Auditory</h4><div class="runid">source: 460 pooling, pool_web</div></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/auditory.png"></div></figure>
+        <figure><div class="cap"><h4>Visual (picture)</h4><div class="runid">source: 460 pooling, pool_web</div></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/visual_picture.png"></div></figure>
+        <figure><div class="cap"><h4>Premotor planning</h4><div class="runid">source: 460 pooling, pool_web</div></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/premotor%20planning.png"></div></figure>
+        <figure><div class="cap"><h4>Phonological</h4><div class="runid">source: 460 pooling, pool_web</div></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/phonological_encoding.png"></div></figure>
+        <figure><div class="cap"><h4>Motor</h4><div class="runid">source: 460 pooling, pool_web</div></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/motor.png"></div></figure>
+        <figure><div class="cap"><h4>NN</h4><div class="runid">source: 460 pooling, pool_web</div></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/role_cards/NN.png"></div></figure>
       </div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 4.7</div><h4>Functional roles on fsaverage</h4>
       <ul><li>Every pooled contact placed on the common brain, coloured by role — the static "where".</li>
-      <li>The live, filterable, dB‑graded 3‑D version is the poolv2 tool below.</li></ul></div>
+      <li>The live, filterable, dB‑graded 3‑D version is the poolv2 tool below.</li></ul><div class="runid">source: roi/ds_map · <b>20260612_161539</b></div></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/roi/ds_map/runs/20260612_161539/roi_map_full.png" alt="ROI map"></div></figure>
 
     <h3>3a — anatomical ROI (Fedorenko / LanA)</h3>
@@ -1037,7 +1042,7 @@
           (|r| &le; 0.19), so read the <b>extent</b> of significant structure, not the strength of any bin.</li>
         <li><b>Lexical at exactly zero is informative</b>, not a bug: no TF bin's activity tracks that term's
           spatial map above chance in our coverage.</li>
-      </ul></div>
+      </ul><div class="runid">source: make_fedorenko_corr.py</div></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_semantic.png" alt="corr semantic"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_phonological.png" alt="corr phonological"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_visual.png" alt="corr visual"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_auditory.png" alt="corr auditory"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_broca.png" alt="corr broca"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_motor_control.png" alt="corr motor_control"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_recall.png" alt="corr recall"></div><div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/corr_lexical.png" alt="corr lexical"></div>
     </figure>
 
@@ -1051,7 +1056,7 @@
         <li>So the role assignment is a <b>useful simplification, not a partition</b>. The layer-priority rule
           (functional &gt; tag &gt; umbrella) is what resolves the 30% &mdash; and this figure is the record of how
           much work that rule is doing.</li>
-      </ul></div>
+      </ul><div class="runid multi">source: 480 neurosynth   ·   460 pooling, pool_web</div></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/neurosynth/attribution_matrix.png" alt="neurosynth attribution"></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/pool_web/attribution_matrix.png" alt="role attribution"></div>
     </figure>
@@ -1223,7 +1228,7 @@
           separates nothing. At P ≥ 0.10 it becomes selective. The top band collapses onto perisylvian
           temporal cortex — the atlas core. Read down the column and the threshold's effect is visible
           without needing the table.</li>
-      </ul></div>
+      </ul><div class="runid">source: atlas/lana_* runs 20260802_*</div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_all/lana_cards.png" alt="LanA all electrodes"></div>
     </figure>
 
@@ -1233,7 +1238,7 @@
           analyse. Directly comparable to R1 above, row for row.</li>
         <li>Same reading rules as FIG 2.17: laterals are outside views of their own hemisphere, and dot
           density is implantation coverage, not physiology.</li>
-      </ul></div>
+      </ul><div class="runid">source: atlas/lana_* runs 20260802_*</div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/atlas/lana_concat/lana_cards.png" alt="LanA concatenated cohort"></div>
     </figure>
 
@@ -1267,7 +1272,7 @@
           and zero-inflated — that is why <b>Spearman and not Pearson</b>.</li>
         <li>Also worth seeing plainly: the clouds are <b>wide</b>. r = 0.16 is a real trend but a weak one; the scatter is
           the honest picture of what that number means.</li>
-      </ul></div>
+      </ul><div class="runid">source: make_fedorenko_corr.py</div></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/fig8_bin_scatters.png" alt="single-bin scatters ERSP vs P(Fedorenko)"></div></figure>
 
     <figure><div class="cap"><div class="fignum">FIG 9</div><h4>Every bin at once — the correlation map</h4>
@@ -1310,7 +1315,7 @@
           atlas value across contacts, with every source of inter-subject variability intact. Read the
           <b>extent and sign</b> of the structure, not the magnitude of any single bin. 26.3% of the
           116,100 bins survive FDR at q=0.05.</li>
-      </ul></div>
+      </ul><div class="runid">source: make_fedorenko_corr.py</div></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/fig9_corr_map_berlin.png" alt="Fig 9 correlation map, green to yellow"></div></figure>
 
     
@@ -1413,9 +1418,9 @@
         confuse each other most. <span style="color:var(--muted)">(stage 03, Fig 8)</span></div>
 
       <div class="sketch">
-        <figure><div class="cap"><h5>Fig. 1 — trial profile</h5><p>Three curves on one time axis: small bump at stim, large sharp peak mid-trial, second bump at resp. How activity splits into stimulus- and response-locked components, overlapping in between.</p></div>
+        <figure><div class="cap"><h5>Fig. 1 — trial profile</h5><p>Three curves on one time axis: small bump at stim, large sharp peak mid-trial, second bump at resp. How activity splits into stimulus- and response-locked components, overlapping in between.</p><div class="runid">source: hand-drawn lab-meeting figures</div></div>
           <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig01.png" alt="trial profile sketch"></div></figure>
-        <figure><div class="cap"><h5>Fig. 2 — TF map over the trial</h5><p>One time-frequency panel spanning the trial; dashed outline = significant cluster, sitting between stim and resp.</p></div>
+        <figure><div class="cap"><h5>Fig. 2 — TF map over the trial</h5><p>One time-frequency panel spanning the trial; dashed outline = significant cluster, sitting between stim and resp.</p><div class="runid">source: hand-drawn lab-meeting figures</div></div>
           <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig02.png" alt="TF map sketch"></div></figure>
         <figure><div class="cap"><h5>Fig. 3 — TF map per task</h5><p>Same panel for pict / aud / read. The cluster is wide for picture naming and narrows toward reading — the difference the classifier picks up.</p></div>
           <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig03.png" alt="TF map per task sketch"></div></figure>
@@ -1428,7 +1433,7 @@
         <li><b>Classification of functional networks — yes,</b> but not directly relevant, because there is
           <b>no "language" network in the parcellation</b>. <span class="pill ok">stands</span></li>
         <li><b>ROI-based approach</b> — <b>3a</b> anatomical ROI · <b>3b</b> ephys ROI. <span class="pill warn">the live thread</span></li>
-      </ul></div>
+      </ul><div class="runid">source: hand-drawn lab-meeting figures</div></div>
     </div>
 
     <!-- ---------- 2026/06/30 ---------- -->
@@ -1443,9 +1448,9 @@
         a real constraint on any "find the language site" approach.</div></div>
 
       <div class="sketch">
-        <figure><div class="cap"><h5>Fig. 4 — confusion matrix</h5><p>Rows/cols: aud, lex, phon, mot, vis. Diagonal = clean assignment; off-diagonal mass = electrodes loading on more than one category.</p></div>
+        <figure><div class="cap"><h5>Fig. 4 — confusion matrix</h5><p>Rows/cols: aud, lex, phon, mot, vis. Diagonal = clean assignment; off-diagonal mass = electrodes loading on more than one category.</p><div class="runid">source: hand-drawn lab-meeting figures</div></div>
           <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig04.png" alt="confusion matrix sketch"></div></figure>
-        <figure><div class="cap"><h5>Fig. 5 — evoked HFA</h5><p>Averaged HFA in dB for V (166 trials) and A (20 trials): visual peaks early and high, auditory later.</p></div>
+        <figure><div class="cap"><h5>Fig. 5 — evoked HFA</h5><p>Averaged HFA in dB for V (166 trials) and A (20 trials): visual peaks early and high, auditory later.</p><div class="runid">source: hand-drawn lab-meeting figures</div></div>
           <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig05.png" alt="evoked HFA sketch"></div></figure>
       </div>
       <div class="then"><b>Built since:</b> the <b>attribution matrix</b> (stage 04) is Fig. 4 realised — row-normalised
@@ -1459,11 +1464,11 @@
         time-frequency bin against the atlas probability across sites, then replot the correlations onto the TF plane.</div></div>
 
       <div class="sketch">
-        <figure><div class="cap"><h5>Fig. 6 — split by network membership</h5><p>Decision tree: within Fedorenko language network? yes / no, at threshold 1 p=0.2 and threshold 2 p=0.4. Each branch gets a TF panel plus a P / A / S strip.</p></div>
+        <figure><div class="cap"><h5>Fig. 6 — split by network membership</h5><p>Decision tree: within Fedorenko language network? yes / no, at threshold 1 p=0.2 and threshold 2 p=0.4. Each branch gets a TF panel plus a P / A / S strip.</p><div class="runid">source: hand-drawn lab-meeting figures</div></div>
           <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig06.png" alt="network membership split sketch"></div></figure>
-        <figure><div class="cap"><h5>Fig. 7 — ERSP cube</h5><p>Three stacked slabs (P, A, S); time × frequency × samples in depth. ~2000 samples per time-frequency bin.</p></div>
+        <figure><div class="cap"><h5>Fig. 7 — ERSP cube</h5><p>Three stacked slabs (P, A, S); time × frequency × samples in depth. ~2000 samples per time-frequency bin.</p><div class="runid">source: hand-drawn lab-meeting figures</div></div>
           <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig07.png" alt="ERSP cube sketch"></div></figure>
-        <figure><div class="cap"><h5>Fig. 8 — one bin vs P(Fedorenko)</h5><p>Take bin t=1, f=1 → one value per sample; scatter against P(Fedorenko) and compute the correlation.</p></div>
+        <figure><div class="cap"><h5>Fig. 8 — one bin vs P(Fedorenko)</h5><p>Take bin t=1, f=1 → one value per sample; scatter against P(Fedorenko) and compute the correlation.</p><div class="runid">source: hand-drawn lab-meeting figures</div></div>
           <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig08.png" alt="single bin correlation sketch"></div></figure>
         <figure><div class="cap"><h5>Fig. 9 — correlation map</h5><p>Repeat for every bin and replot the correlations onto the same time-frequency layout. Look for TF regions of higher correlation.</p></div>
           <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/meeting_notes/fig09.png" alt="correlation map sketch"></div></figure>
@@ -1485,7 +1490,7 @@
         <li><span class="pill warn">open</span> <b>3b — ephys ROI: not yet defined.</b> Worth deciding whether the
           stage-04 <b>pooling roles</b> already <i>are</i> 3b (they define ROIs by response signature rather than anatomy),
           or whether 3b means something else.</li>
-      </ul></div>
+      </ul><div class="runid">source: hand-drawn lab-meeting figures</div></div>
     </div>
 
     <!-- ---------- 2026/07/19 ---------- -->
@@ -1597,6 +1602,26 @@
       <li><b>8 contacts, all EL044</b> (shafts P and T). Parked by decision, not by failure.</li>
       <li><b>107 aux / micro contacts</b> also lack coordinates — correct by design. Analog‑input channels and
         microelectrodes have no localisable contact, so they <i>should</i> be absent from a recon.</li>
+    </ul></div>
+
+    <h3>Which run is each figure from?</h3>
+    <p>Every figure now carries a <span class="runid">source: track &middot; <b>run id</b></span> badge under
+      its caption, so nothing has to be taken on trust. Amber badges mean the figure combines more than one
+      source. Current state, verified against what is on disk:</p>
+    <div class="method"><ul>
+      <li><b>Concatenated clustering</b> &mdash; <code>kmeans/concat_hg 20260803_175417</code> (n=1027, K=5)
+        and its Ward counterpart <code>20260803_175444</code>. 16 figures.</li>
+      <li><b>Per-condition HG</b> &mdash; <code>kmeans/hg 20260719_153420</code> (K=9). 14 figures. This track
+        was not re-run, so it is deliberately older, not stale.</li>
+      <li><b>Language atlas</b> &mdash; <code>atlas/lana_all</code> and <code>lana_concat</code>,
+        <code>20260802_*</code>.</li>
+      <li><b>Decoding</b> &mdash; the <code>_compare</code> layer plus
+        <code>condition/full_300/logreg 20260624_184315</code> for the coefficient maps. <b>That run is
+        deliberate:</b> it is the only one that ever produced <code>coef_ersp_maps.png</code>, so a newer
+        run id would point at a file that does not exist.</li>
+      <li><b>Pooling</b> &mdash; <code>pool_web</code> from the 3 Aug 460 re-run (2691 contacts); role onsets
+        recomputed on top of it, because 460 rewrites <code>role_info.json</code> and drops the onset field
+        every time it runs.</li>
     </ul></div>
 
     <h3>The audit that keeps it honest</h3>

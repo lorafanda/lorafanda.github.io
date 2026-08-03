@@ -163,24 +163,6 @@
       <div class="kpi"><div class="v">3</div><div class="l">analysis lenses on it</div></div>
     </div>
 
-    <h3>The pipeline</h3>
-    <div class="method">
-      <ul>
-        <li><b>01 · Signal → ERSP.</b> Raw clinical recordings → cleaned, re‑referenced signals → trial‑locked,
-          baseline‑normalised <b>ERSP</b> cubes (129 freq × 300 warped time) per electrode × condition. Feeds everything below.</li>
-        <li><b>02 · Clustering</b> <span style="color:var(--muted)">— unsupervised: "what structure emerges?"</span> Let the data group the ERSPs into response types, no labels given.</li>
-        <li><b>03 · Decoding</b> <span style="color:var(--muted)">— supervised: "what can we read out?"</span> Test whether condition, and separately Yeo network, can be predicted from one electrode's response.</li>
-        <li><b>04 · Pooling</b> <span style="color:var(--muted)">— confirmatory: "where are the a‑priori roles, and when?"</span> Match hypothesis‑driven functional roles and read their response‑timing on the warped timeline.</li>
-      </ul>
-    </div>
-
-    <h3>How the stages relate &amp; compare</h3>
-    <div class="method"><ul>
-      <li><b>Same data, three questions.</b> All three read the identical ERSP substrate; they differ only in <i>who supplies the structure</i> — the data (clustering), the labels (decoding), or prior theory (pooling).</li>
-      <li><b>They cross‑check each other.</b> What the unsupervised clustering surfaces on its own should be the same axis the supervised decoder can exploit, and the a‑priori roles should land where both put their signal. Agreement across lenses is the evidence; disagreement flags where the story is fragile.</li>
-      <li><b>Different sample units, on purpose.</b> Clustering keeps each electrode × condition as a separate sample (so the condition axis can emerge); decoding‑parcellation and pooling <i>concatenate</i> the three conditions into one per‑electrode profile (so the electrode's functional <i>type</i> is the unit). That choice sets what question each lens can even ask.</li>
-    </ul></div>
-
     <h3>The scientific arc</h3>
     <div class="method">
       <p style="margin:0 0 10px">The stages answer a chain of questions — each set up by the one before:</p>
@@ -193,26 +175,9 @@
       <p style="margin:10px 0 0"><b>Stage 04</b> then steps back from data‑driven grouping to <b>a‑priori roles</b> and the <b>response‑timing</b> sequence — the "what fires when, and where" that clustering couldn't isolate.</p>
     </div>
 
-    <h3>Status at a glance</h3>
-    <table>
-      <tr><th>Stage</th><th>Status</th><th>What it establishes</th><th>Watch‑outs</th></tr>
-      <tr><td><b>01 ERSP</b></td><td><span class="pill ok">current</span></td>
-        <td>The shared, cleaned, time‑warped ERSP substrate for the cohort.</td>
-        <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only.</td></tr>
-      <tr><td><b>02 Clustering</b></td><td><span class="pill ok">reran 07‑19</span></td>
-        <td>Structure does emerge — and it is the condition/modality axis; not noise, but not a clean "language" type either.</td>
-        <td>Recon (252) not yet re‑run; <code>NOTEBOOKS.md</code> still names the 212 track — <b>pick your headline</b>.</td></tr>
-      <tr><td><b>03 Decoding</b></td><td><span class="pill ok">reran 07‑19</span></td>
-        <td>Condition is decodable and driven by the early sensory response; network membership much less so.</td>
-        <td>Notebooks + comparison figures refreshed today; 2 <code>full_300/logreg</code> combos still to re‑run; variant set to decide.</td></tr>
-      <tr><td><b>04 Pooling</b></td><td><span class="pill ok">current</span></td>
-        <td>Hypothesis‑driven roles map on the brain, with a response‑timing sequence across regions.</td>
-        <td>poolv2 web tool now bit‑identical to the notebook (convergence fixed).</td></tr>
-    </table>
-    <p style="margin-top:16px"><a class="btn" href="poolv2.html">Open the interactive 3‑D role map →</a>
-       <a class="btn ghost" href="04_FBM_Pooling/METHODOLOGY.md">Pooling methodology (full)</a></p>
+    <div class="then"><b>The five figures below answer those four questions in order</b>, one figure per argument. Each gathers the panels belonging to a single claim so it can be judged in one place; the stage tabs hold the same panels with the diagnostics behind them.</div>
 
-    <h3>Headline figures — one per argument</h3>
+<h3>Headline figures — one per argument</h3>
     <p>The stage tabs below hold 46 numbered figures, ordered by when they were produced. These five
       are ordered by <b>what they argue</b>: each one gathers the panels that belong to a single claim so
       the claim can be judged in one place. Everything in them also appears in its stage tab, with the
@@ -334,7 +299,45 @@
       was impossible until <code>make_role_onsets.py</code> persisted them.
     </div>
 
-  </section>
+<h3>How it was built</h3>
+    <p class="lead" style="font-size:14px">Everything above rests on these four stages. This is the method, not the argument.</p>
+    <div class="method">
+      <ul>
+        <li><b>01 · Signal → ERSP.</b> Raw clinical recordings → cleaned, re‑referenced signals → trial‑locked,
+          baseline‑normalised <b>ERSP</b> cubes (129 freq × 300 warped time) per electrode × condition. Feeds everything below.</li>
+        <li><b>02 · Clustering</b> <span style="color:var(--muted)">— unsupervised: "what structure emerges?"</span> Let the data group the ERSPs into response types, no labels given.</li>
+        <li><b>03 · Decoding</b> <span style="color:var(--muted)">— supervised: "what can we read out?"</span> Test whether condition, and separately Yeo network, can be predicted from one electrode's response.</li>
+        <li><b>04 · Pooling</b> <span style="color:var(--muted)">— confirmatory: "where are the a‑priori roles, and when?"</span> Match hypothesis‑driven functional roles and read their response‑timing on the warped timeline.</li>
+      </ul>
+    </div>
+
+    <h3>How the stages relate &amp; compare</h3>
+    <div class="method"><ul>
+      <li><b>Same data, three questions.</b> All three read the identical ERSP substrate; they differ only in <i>who supplies the structure</i> — the data (clustering), the labels (decoding), or prior theory (pooling).</li>
+      <li><b>They cross‑check each other.</b> What the unsupervised clustering surfaces on its own should be the same axis the supervised decoder can exploit, and the a‑priori roles should land where both put their signal. Agreement across lenses is the evidence; disagreement flags where the story is fragile.</li>
+      <li><b>Different sample units, on purpose.</b> Clustering keeps each electrode × condition as a separate sample (so the condition axis can emerge); decoding‑parcellation and pooling <i>concatenate</i> the three conditions into one per‑electrode profile (so the electrode's functional <i>type</i> is the unit). That choice sets what question each lens can even ask.</li>
+    </ul></div>
+
+    <h3>Status at a glance</h3>
+    <table>
+      <tr><th>Stage</th><th>Status</th><th>What it establishes</th><th>Watch‑outs</th></tr>
+      <tr><td><b>01 ERSP</b></td><td><span class="pill ok">current</span></td>
+        <td>The shared, cleaned, time‑warped ERSP substrate for the cohort.</td>
+        <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only.</td></tr>
+      <tr><td><b>02 Clustering</b></td><td><span class="pill ok">reran 07‑19</span></td>
+        <td>Structure does emerge — and it is the condition/modality axis; not noise, but not a clean "language" type either.</td>
+        <td>Recon (252) not yet re‑run; <code>NOTEBOOKS.md</code> still names the 212 track — <b>pick your headline</b>.</td></tr>
+      <tr><td><b>03 Decoding</b></td><td><span class="pill ok">reran 07‑19</span></td>
+        <td>Condition is decodable and driven by the early sensory response; network membership much less so.</td>
+        <td>Notebooks + comparison figures refreshed today; 2 <code>full_300/logreg</code> combos still to re‑run; variant set to decide.</td></tr>
+      <tr><td><b>04 Pooling</b></td><td><span class="pill ok">current</span></td>
+        <td>Hypothesis‑driven roles map on the brain, with a response‑timing sequence across regions.</td>
+        <td>poolv2 web tool now bit‑identical to the notebook (convergence fixed).</td></tr>
+    </table>
+    <p style="margin-top:16px"><a class="btn" href="poolv2.html">Open the interactive 3‑D role map →</a>
+       <a class="btn ghost" href="04_FBM_Pooling/METHODOLOGY.md">Pooling methodology (full)</a></p>
+
+      </section>
 
   <!-- ============ STAGE 01 ============ -->
   <section id="s1">

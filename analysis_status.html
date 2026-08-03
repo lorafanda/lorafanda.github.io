@@ -211,6 +211,129 @@
     </table>
     <p style="margin-top:16px"><a class="btn" href="poolv2.html">Open the interactive 3‑D role map →</a>
        <a class="btn ghost" href="04_FBM_Pooling/METHODOLOGY.md">Pooling methodology (full)</a></p>
+
+    <h3>Headline figures — one per argument</h3>
+    <p>The stage tabs below hold 46 numbered figures, ordered by when they were produced. These five
+      are ordered by <b>what they argue</b>: each one gathers the panels that belong to a single claim so
+      the claim can be judged in one place. Everything in them also appears in its stage tab, with the
+      diagnostics that back it.</p>
+
+    <figure><div class="cap"><div class="fignum">S1</div><h4>Do the two lenses order time the same way?</h4>
+      <ul>
+        <li><b>The claim being tested.</b> The a‑priori <b>roles</b> were written from prior anatomy and
+          physiology. The <b>clusters</b> were discovered from the data with no labels. Nothing is shared
+          between them. If they nonetheless order the trial the same way, that ordering is a property of
+          the data rather than of either method.</li>
+        <li><b>How to read it.</b> One panel per condition. Every bar is one group's <b>onset</b> — the
+          first time its mean high‑gamma crosses 0.5 dB, as % of the warped trial, with <b>50% = the GO
+          cue</b> (dashed line, grey area is before it). <b>Teal = role</b> (theory), <b>red bold =
+          cluster</b> (data). Bars are sorted by onset, so the y‑order <i>is</i> the timing sequence.
+          The number in brackets is how many electrodes contribute.</li>
+        <li><b>What convergence looks like here:</b> teal and red <b>interleaved</b> rather than
+          segregated. In <i>audio</i> the top of the ladder mixes <code>auditory</code> (role, n=144) at
+          <b>2%</b> with <code>c1</code> (cluster, n=63) at <b>2%</b>, alongside
+          <code>stimulus_active</code> and <code>c0</code>. In <i>picture</i>, <code>visual_picture</code>
+          and <code>pic_stim</code> sit with the early clusters, and the production groups form a distinct
+          late band after GO. The two lenses are not taking turns — they are agreeing.</li>
+        <li><b>Caveats.</b> Onset is a threshold crossing on a <b>warped</b> axis, so the <b>ordering</b>
+          is the result and the exact percentages are not. Groups with n &lt; 10 are excluded — a "mean"
+          over three electrodes is not one. In <i>reading</i> almost everything crosses at 2%, so that
+          panel is compressed and carries the least information. And the criterion uses <b>|mean|</b>, so
+          a strongly suppressed group registers an onset exactly like an activated one.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/story/S1_three_lenses.png" alt="three lenses"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">S2</div><h4>How good is this partition? Four criteria, one verdict</h4>
+      <ul>
+        <li><b>a — every K scored.</b> Silhouette, Calinski‑Harabasz, Davies‑Bouldin and size
+          imbalance at every K in the sweep, sharing one row order. Shows the chosen K was not picked by
+          the criterion that happened to flatter it, and flags K values that emit singleton clusters.</li>
+        <li><b>b — per‑sample silhouette</b> (knife plot) plus a PCA projection. Each horizontal sliver
+          is one electrode; the width is how well it fits its cluster. Slivers below zero are electrodes
+          that would sit better elsewhere.</li>
+        <li><b>c — consensus.</b> Bright blocks on the diagonal are pairs of electrodes that keep landing
+          together across resamples. Off‑diagonal bleed is the honest picture of how soft the boundaries
+          are.</li>
+        <li><b>d — sample × sample distance</b> reordered by cluster: real block structure, with
+          substantial off‑block similarity.</li>
+        <li><b>The verdict these four support together</b> is not "the clustering failed" but "the
+          structure is real, reproducible and weak" — which is a finding about language cortex, not a
+          defect of the method. A single silhouette number cannot make that distinction; four criteria
+          that agree can.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/story/S2_partition_quality.png" alt="partition quality"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">S3</div><h4>Decoding: is it real, and why?</h4>
+      <ul>
+        <li><b>a — above chance?</b> Every task refit 200 times on shuffled labels. Grey violin is that
+          null, diamond the real result. <b>All six reach p = 0.005</b>, the floor for 200 permutations.
+          Read the <b>fold above null</b>, not the raw accuracy: Yeo‑17 looks like failure at 0.162
+          until you see chance is 0.059 — it is <b>2.7× chance</b>, the largest margin anywhere in the
+          stage, while condition at 0.596 is only 1.8× its own.</li>
+        <li><b>b — which features carry it.</b> HFA against the full spectrum, per patient. Points above
+          the diagonal are patients where high‑frequency activity alone beat the whole spectrum.</li>
+        <li><b>c — the errors are structured.</b> Which classes get confused with which. Picture and
+          reading trade places far more than either does with audio, which is the visual‑input
+          similarity showing up as a confusion.</li>
+        <li><b>d — where the information lives.</b> Logistic‑regression weights back on the
+          time–frequency plane. They concentrate in the <b>early stimulus window</b>, before the GO cue,
+          where the conditions differ by input modality — not in the shared speech response afterwards.</li>
+        <li>Read a→d as one sentence: <i>it is above chance, high‑frequency activity carries it, the
+          mistakes it makes are the ones a modality account predicts, and the weights sit exactly where
+          that account says they should.</i></li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/story/S3_decoding.png" alt="decoding"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">S4</div><h4>Timing: what, where, when, and in what order</h4>
+      <ul>
+        <li><b>a — what each cluster is and where it sits.</b> Mean high‑gamma across the whole task
+          next to the same electrodes on the glassbrain, with top regions, <b>purity against chance</b>
+          and hemisphere counts.</li>
+        <li><b>b — when it comes on.</b> Time courses above, onset ladder below, sharing an x axis so a
+          marker sits under the curve it came from. <b>● stimulus onset</b> (0–50%),
+          <b>▲ response onset</b> (50–100%); a hollow triangle means the signal was already above
+          threshold at GO and merely continued.</li>
+        <li><b>c — in what order.</b> Cross‑correlation against the auditory cluster: follow each curve
+          to its peak, left of zero is earlier. Only the response window is used, because over the full
+          trial these clusters are not the same shape shifted in time and the lag would be meaningless.</li>
+        <li>Same colour means the same cluster in all three panels.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/story/S4_timing.png" alt="timing"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">S5</div><h4>Language-atlas convergence</h4>
+      <ul>
+        <li><b>a — where the network is.</b> Our electrodes classified against the LanA probabilistic
+          atlas at three cuts. The rows are the argument: at P ≥ 0.05 nearly everything counts as
+          in‑network, at P ≥ 0.10 the split becomes selective, and the top band collapses onto
+          perisylvian temporal cortex.</li>
+        <li><b>b — which parts of the response track it.</b> Every time–frequency bin correlated
+          against the contact's atlas probability. <code>berlin</code> is centred on zero: <b>black ≈ no
+          correlation</b>, <b>pink = power rises with P(language)</b>, <b>blue = falls</b>. Positive
+          through the response half in high gamma, negative during visual encoding — language‑network
+          contacts are not simply "more active", they are more active <i>when producing</i> and less
+          active <i>while reading in</i>.</li>
+        <li><b>c — one bin, unpacked.</b> The scatter behind a single pixel of b: that bin's dB against
+          P(language) across all contacts. This is what every pixel in b summarises.</li>
+        <li><b>Magnitudes are small by construction</b> (|r| ≤ 0.17): one TF bin against one atlas value
+          across contacts, with all inter‑subject variability intact. Read the <b>extent and sign</b> of
+          the structure, not the strength of any bin. 26.3% of the 116,100 bins survive FDR at q=0.05.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/story/S5_atlas.png" alt="atlas convergence"></div>
+    </figure>
+
+    <div class="callout">
+      <b>What is deliberately not in these five.</b> The coverage audit, gap statistic, cross‑method
+      confusion and stale‑recon checks stay in their own tabs. They exist to be <b>checkable</b>, not
+      persuasive, and folding them into the story figures is how a paper ends up unable to answer
+      "how do you know?". <b>S1 also depends on a value that used to be discarded</b> — 460 computed the
+      role onsets to draw its own ladder and never wrote them down, so the role‑vs‑cluster comparison
+      was impossible until <code>make_role_onsets.py</code> persisted them.
+    </div>
+
   </section>
 
   <!-- ============ STAGE 01 ============ -->

@@ -4,6 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Clustering Visualizer — sampling &amp; cluster probability</title>
+<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
   :root { --panel-bg: rgba(18,18,22,.82); --fg:#e8e8ec; --muted:#9aa0aa; --accent:#5ab0ff; }
   * { box-sizing: border-box; }
@@ -17,11 +18,11 @@
     box-shadow:0 6px 24px rgba(0,0,0,.4); transition:opacity .18s ease; z-index:5; }
   .panel.hidden { opacity:0; pointer-events:none; }
 
-  #controls { top:14px; left:14px; width:264px; }
+  #controls { top:14px; left:14px; width:286px; }
   #controls h2 { cursor:pointer; user-select:none; display:flex; align-items:center; gap:6px;
     margin:0 0 8px; font-size:13px; font-weight:600; letter-spacing:.3px; }
   #ctlChevron { margin-left:auto; font-size:11px; opacity:.7; }
-  #ctlBody { overflow:hidden; max-height:86vh; opacity:1; transition:max-height .22s ease, opacity .18s ease; }
+  #ctlBody { overflow:hidden; max-height:88vh; opacity:1; transition:max-height .22s ease, opacity .18s ease; }
   #controls.collapsed #ctlBody { max-height:0; opacity:0; }
   #controls.collapsed h2 { margin-bottom:0; }
   #controls .grp { margin:12px 0 0; }
@@ -42,9 +43,14 @@
   .segs button { flex:1; background:#15161b; color:var(--muted); cursor:pointer; font:inherit;
     border:1px solid rgba(255,255,255,.14); border-radius:7px; padding:5px 0; }
   .segs button.on { background:var(--accent); color:#001; border-color:var(--accent); font-weight:600; }
+  #pdfBtn { width:100%; margin-top:10px; padding:8px 0; border-radius:8px; cursor:pointer;
+    background:var(--accent); color:#001; border:none; font:inherit; font-weight:600; }
+  #pdfBtn:hover { filter:brightness(1.08); }
+  #pdfBtn[disabled] { opacity:.6; cursor:progress; }
+  .cohort { font-size:10.5px; color:var(--muted); margin-top:4px; }
 
   /* what the current map actually means — always visible, never a footnote */
-  #readout { bottom:16px; left:14px; width:340px; font-size:11.5px; line-height:1.45; }
+  #readout { bottom:16px; left:14px; width:352px; font-size:11.5px; line-height:1.45; }
   #readout h3 { margin:0 0 6px; font-size:12px; font-weight:600; color:var(--fg); }
   #readout .def { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px;
     background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
@@ -59,7 +65,7 @@
   #cbar .lab { font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; }
   #cbar .ttl { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
 
-  #prov { position:fixed; top:14px; right:14px; max-width:260px; font-size:10.5px; color:var(--muted);
+  #prov { position:fixed; top:14px; right:14px; max-width:280px; font-size:10.5px; color:var(--muted);
     font-family:ui-monospace,Menlo,Consolas,monospace; line-height:1.5; z-index:5; text-align:right; }
   #prov b { color:#cdd3dc; font-weight:600; }
   #hint { position:fixed; bottom:4px; right:14px; color:#5a5f68; font-size:11px; z-index:5; }
@@ -74,6 +80,12 @@
   <div class="panel" id="controls">
     <h2 id="ctlHead">Clustering Visualizer<span id="ctlChevron">▾</span></h2>
     <div id="ctlBody">
+
+      <div class="grp">
+        <label class="title" for="runSel">Run</label>
+        <select id="runSel"></select>
+        <div class="cohort" id="cohortNote">—</div>
+      </div>
 
       <div class="grp">
         <label class="title" for="mapSel">Visualization</label>
@@ -112,6 +124,7 @@
           <span class="val" id="gammaVal">0.80</span></div>
       </div>
 
+      <button id="pdfBtn">Save PDF for this run</button>
     </div>
   </div>
 
@@ -138,17 +151,21 @@ import { Niivue, NVMesh } from "https://unpkg.com/@niivue/niivue@0.45.1/dist/ind
 // Data: per-vertex COUNTS within radius_mm of each fsaverage vertex, from
 // 02_FBM_Clustering/make_coverage_bundle.py. Counts, not ratios, are shipped —
 // the ratio depends on the question and a stored ratio hides its denominator.
+//
+// Sampling (n_contacts, n_patients) is identical for every run and is fetched once.
+// Only the per-cluster breakdown is per-run, and it is fetched lazily on selection.
 // ─────────────────────────────────────────────────────────────────────────────
 const REPO   = "https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/main/";
 const FSAVG  = REPO + "02_FBM_Clustering/outputs/250_recon/fsaverage/";
 const BUNDLE = FSAVG + "coverage_viz/";
+const CLUST  = REPO + "02_FBM_Clustering/outputs/clustering/";
 
 const $ = id => document.getElementById(id);
 const INFLATED_SHIFT = 65;      // mm; inflated hemispheres are each centred at the origin
 const GREY = [140, 140, 140];   // unsampled / gated-out cortex
 
-let M = null, CONTACTS = [], COUNTS = { lh:null, rh:null }, NF = 0;
-let nv = null, hemis = {}, elecMesh = null;
+let M = null, CONTACTS = null, COV = { lh:null, rh:null }, CLU = { lh:null, rh:null };
+let RUN = null, nv = null, hemis = {}, elecMesh = null, canvasEl = null;
 const state = { map:"coverage", surf:"pial", showElec:false, gate:true,
                 minN:5, transp:0, climMax:1.0, gamma:0.80, autoScaled:0 };
 
@@ -168,84 +185,124 @@ async function fetchBin(url, Type) {
   if (!r.ok) throw new Error(`${r.status} ${url}`);
   return new Type(await r.arrayBuffer());
 }
+const TYPE = { uint8: Uint8Array, uint16: Uint16Array };
 
-// ── the map definitions: each returns {num, den} per vertex, so the page can
-//    always say what the denominator was.
+// ── map definitions. Each returns {num, den} per vertex so the page can always
+//    state the denominator it divided by.
+let DEFS = [], MAXC = 1;
 function mapDefs() {
   const defs = [{
     id: "coverage", group: "Sampling", label: "Coverage — P(patient sampled here)",
     title: "Coverage: how many patients have an electrode here",
-    def: "P = n_patients within 10 mm / 35 patients total",
+    def: `P = n_patients within ${M.radius_mm} mm / ${M.n_patients_total} patients total`,
     note: "The honest denominator for every brain figure in this project. Yellow = many " +
           "independent patients sampled this cortex; purple = one or two. Dark cortex is not " +
-          "\"no language\" — it is <b>no electrodes</b>.",
+          "\"no language\" — it is <b>no electrodes</b>. Identical for every run.",
     cbar: "P(sampled)",
     val: (c) => ({ num: c[1], den: M.n_patients_total, gate: c[1] }),
   }, {
     id: "density", group: "Sampling", label: "Coverage — contact density",
-    title: "Contact density: how many contacts sit within 10 mm",
-    def: "n_contacts within 10 mm  (scaled to the busiest vertex)",
+    title: `Contact density: how many contacts sit within ${M.radius_mm} mm`,
+    def: `n_contacts within ${M.radius_mm} mm  (scaled to the busiest vertex)`,
     note: "Raw contact count, <b>not</b> patient count — a single dense grid or shaft can light " +
-          "up a region on its own. Compare against the patient map above to see where coverage " +
-          "is deep but not broad.",
+          "up a region on its own. Compare against the patient map to see where coverage " +
+          "is deep but not broad. Identical for every run.",
     cbar: "contacts",
     val: (c) => ({ num: c[0], den: MAXC, gate: c[0], raw: true }),
   }];
-  for (const k of M.clusters) {
+  if (!RUN) return defs;
+  const unitTxt = RUN.unit === "electrode" ? "electrodes"
+                : "electrode×condition samples";
+  for (let i = 0; i < RUN.clusters.length; i++) {
+    const k = RUN.clusters[i], size = RUN.cluster_sizes[String(k)];
+    const share = 100 * size / RUN.n_samples_with_cluster;
     defs.push({
-      id: "c" + k, group: "Cluster membership", cluster: k,
-      label: `Cluster ${k} — P(cluster ${k} | electrode here)  ·  n=${M.cluster_sizes[String(k)]}`,
-      title: `Cluster ${k}: fraction of the labelled electrodes here that belong to it`,
-      def: `P = n_cluster_${k} / (all labelled contacts within 10 mm)`,
-      note: `Cluster ${k} holds <b>${M.cluster_sizes[String(k)]}</b> of ` +
-            `${M.n_contacts_with_cluster} labelled electrodes ` +
-            `(${(100*M.cluster_sizes[String(k)]/M.n_contacts_with_cluster).toFixed(0)}% overall). ` +
-            "Yellow means this cortex is <b>enriched</b> for the cluster relative to that baseline; " +
-            "it does not mean the cluster lives only here.",
+      id: "c" + k, group: "Cluster membership", cluster: k, ci: i,
+      label: `Cluster ${k} — P(cluster ${k} | electrode here)  ·  n=${size}`,
+      title: `Cluster ${k}: fraction of the labelled ${unitTxt} here that belong to it`,
+      def: `P = n_cluster_${k} / (all labelled ${unitTxt} within ${M.radius_mm} mm)`,
+      note: `Cluster ${k} holds <b>${size}</b> of ${RUN.n_samples_with_cluster} labelled ` +
+            `${unitTxt} (${share.toFixed(0)}% overall). Yellow means this cortex is ` +
+            `<b>enriched</b> for the cluster relative to that baseline; it does not mean the ` +
+            `cluster lives only here.` +
+            (RUN.unit === "electrode" ? "" :
+             ` This run labels each electrode once <i>per condition</i>, and ` +
+             `<b>${RUN.n_electrodes_multilabel}</b> electrodes fall in different clusters in ` +
+             `different conditions, so they contribute to more than one map.`),
       cbar: `P(c${k})`,
-      val: (c) => { let d = 0; for (let j = 0; j < M.clusters.length; j++) d += c[2 + j];
-                    return { num: c[2 + M.clusters.indexOf(k)], den: d, gate: d }; },
+      val: (c, cl) => { let d = 0; for (let j = 0; j < RUN.clusters.length; j++) d += cl[j];
+                        return { num: cl[i], den: d, gate: d }; },
     });
   }
   return defs;
 }
-let DEFS = [], MAXC = 1;
 const curDef = () => DEFS.find(d => d.id === state.map) || DEFS[0];
 
 // ─────────────────────────────────────────────────────────────────────────────
 async function boot() {
   M = await (await fetch(BUNDLE + "manifest.json")).json();
   CONTACTS = await (await fetch(BUNDLE + M.contacts_file)).json();
-  NF = M.fields.length;
-  const [lh, rh] = await Promise.all([
-    fetchBin(BUNDLE + M.hemis.lh.file, Uint16Array),
-    fetchBin(BUNDLE + M.hemis.rh.file, Uint16Array)]);
-  COUNTS = { lh, rh };
-  for (const a of [lh, rh]) for (let v = 0; v < a.length; v += NF) if (a[v] > MAXC) MAXC = a[v];
+  const [lh, rh] = await Promise.all(
+    ["lh","rh"].map(h => fetchBin(BUNDLE + M.hemis[h].file, TYPE[M.hemis[h].dtype])));
+  COV = { lh, rh };
+  for (const a of [lh, rh]) for (let v = 0; v < a.length; v += 2) if (a[v] > MAXC) MAXC = a[v];
+
+  const rs = $("runSel");
+  let g = null, og = null;
+  for (const r of M.runs) {
+    if (r.cohort !== g) { g = r.cohort; og = document.createElement("optgroup"); og.label = g; rs.appendChild(og); }
+    const o = document.createElement("option");
+    o.value = r.id;
+    o.textContent = `${r.track_label} · ${r.run} · K=${r.k}`;
+    (og || rs).appendChild(o);
+  }
+  const want = decodeURIComponent(location.hash.replace(/^#/, ""));
+  const pick = M.runs.find(r => r.id === want || r.run === want) || M.runs[0];
+  rs.value = pick.id;
+
+  canvasEl = $("brain").querySelector("canvas");
+  nv = new Niivue({ backColor:[0,0,0,1], show3Dcrosshair:false, isColorbar:false,
+                    dragAndDropEnabled:false, isOrientCube:false });
+  nv.attachToCanvas(canvasEl);
+  nv.setSliceType(nv.sliceTypeRender);
+  await loadSurface(state.surf);
+
+  wireUI();
+  await selectRun(pick.id);
+  $("status").style.display = "none";
+}
+
+async function selectRun(id) {
+  const r = M.runs.find(x => x.id === id);
+  if (!r) return;
+  $("status").style.display = "grid";
+  $("status").textContent = `Loading ${r.track_label} · ${r.run}…`;
+  const [lh, rh] = await Promise.all(["lh","rh"].map(h =>
+    fetchBin(`${BUNDLE}${r.dir}/${r.hemis[h].file}`, TYPE[r.hemis[h].dtype])));
+  CLU = { lh, rh };
+  RUN = r;
+  location.hash = r.id;
+
   DEFS = mapDefs();
-
-  $("prov").innerHTML =
-    `run <b>${M.generated_from.run}</b><br>${M.n_contacts_total} contacts · ` +
-    `${M.n_patients_total} patients<br>${M.n_contacts_with_cluster} clustered · ` +
-    `K=${M.clusters.length}<br>radius <b>${M.radius_mm} mm</b> · fsaverage`;
-
-  // dropdown, grouped like MOBA's
-  const sel = $("mapSel"); let g = null, og = null;
+  const sel = $("mapSel");
+  sel.innerHTML = "";
+  let g = null, og = null;
   for (const d of DEFS) {
     if (d.group !== g) { g = d.group; og = document.createElement("optgroup"); og.label = g; sel.appendChild(og); }
     const o = document.createElement("option"); o.value = d.id; o.textContent = d.label; og.appendChild(o);
   }
+  if (!DEFS.some(d => d.id === state.map)) state.map = "coverage";
   sel.value = state.map;
 
-  nv = new Niivue({ backColor:[0,0,0,1], show3Dcrosshair:false, isColorbar:false,
-                    dragAndDropEnabled:false, isOrientCube:false });
-  nv.attachToCanvas($("brain").querySelector("canvas"));
-  nv.setSliceType(nv.sliceTypeRender);
-  await loadSurface(state.surf);
+  $("cohortNote").textContent =
+    `${r.cohort} · ${r.n_electrodes} rows (${r.unit}) · ${r.n_contacts_with_cluster} contacts localised`;
+  $("prov").innerHTML =
+    `run <b>${r.run}</b><br>${r.track}<br>K=${r.k} · ${r.n_samples_with_cluster} labelled<br>` +
+    `${M.n_contacts_total} contacts · ${M.n_patients_total} patients<br>` +
+    `radius <b>${M.radius_mm} mm</b> · fsaverage`;
 
+  autoScale(); render(); updateElectrodes();
   $("status").style.display = "none";
-  wireUI();
-  render();
 }
 
 async function loadSurface(kind) {
@@ -266,25 +323,30 @@ async function loadSurface(kind) {
   }
 }
 
-// ── colour every vertex from the counts, then report what got shown
+// value at one vertex, for whichever map is selected
+function valAt(d, h, v) {
+  const c = COV[h].subarray(v * 2, v * 2 + 2);
+  if (d.cluster === undefined) return d.val(c);
+  const K = RUN.clusters.length;
+  return d.val(c, CLU[h].subarray(v * K, v * K + K));
+}
+
 // Pick a readable default colour ceiling: the 98th percentile of the values that pass
-// the gate. Without it a single 3-of-3 vertex saturates the bar at 1.00 and a cluster
+// the gate. Without it a single 5-of-5 vertex saturates the bar at 1.00 and a cluster
 // whose overall rate is 7% renders as flat purple with a few yellow specks. The slider
 // visibly moves to the chosen value, so the scale is stated rather than hidden.
 function autoScale() {
   const d = curDef();
   const reset = () => { state.climMax = 1.0; state.autoScaled = 0;
                         $("clim").value = 100; $("climVal").textContent = "1.00"; };
-  // coverage tops out at 0.80 of 35 patients — a real value, not an outlier speck, so
-  // it keeps the full 0–1 range. Only the cluster fractions need rescaling.
+  // coverage tops out at a real value, not an outlier speck, so it keeps the full 0-1 range
   if (d.raw || d.cluster === undefined) { reset(); return; }
   const vals = [];
   for (const h of ["lh","rh"]) {
     const H = hemis[h]; if (!H) continue;
-    const C = COUNTS[h], need = d.cluster !== undefined ? state.minN : 1;
     for (let v = 0; v < H.nvert; v++) {
-      const c = C.subarray(v * NF, v * NF + NF), r = d.val(c);
-      if (r.den > 0 && r.gate >= need) vals.push(r.num / r.den);
+      const r = valAt(d, h, v);
+      if (r.den > 0 && r.gate >= state.minN) vals.push(r.num / r.den);
     }
   }
   if (!vals.length) { reset(); return; }
@@ -296,17 +358,17 @@ function autoScale() {
   $("climVal").textContent = state.climMax.toFixed(2);
 }
 
+// ── colour every vertex from the counts, then report what got shown
 function render() {
-  const d = curDef(), lo = 0, hi = d.raw ? MAXC * state.climMax : state.climMax;
+  if (!DEFS.length) return;
+  const d = curDef(), hi = d.raw ? MAXC * state.climMax : state.climMax;
   let shown = 0, total = 0, peak = 0, peakDen = 0;
 
   for (const h of ["lh","rh"]) {
     const H = hemis[h]; if (!H) continue;
-    const C = COUNTS[h], rgba = H.rgba;
+    const rgba = H.rgba;
     for (let v = 0; v < H.nvert; v++) {
-      const c = C.subarray(v * NF, v * NF + NF);
-      const r = d.val(c);
-      const o = v * 4;
+      const r = valAt(d, h, v), o = v * 4;
       total++;
       // a coverage map needs only 1 patient to be a valid estimate; a cluster FRACTION
       // computed from 1 or 2 contacts is exactly 0 or 1 and means nothing, hence minN
@@ -318,7 +380,7 @@ function render() {
       shown++;
       const p = d.raw ? r.num : r.num / r.den;
       if (p > peak) { peak = p; peakDen = r.den; }
-      const t = Math.min(1, Math.max(0, (d.raw ? p / hi : p / hi)));
+      const t = Math.min(1, Math.max(0, p / hi));
       const a = 0.15 + 0.85 * Math.pow(t, state.gamma);      // low values stay near anatomy grey
       const col = cmap(t);
       rgba[o]   = GREY[0] + (col[0] - GREY[0]) * a;
@@ -337,13 +399,10 @@ function render() {
   $("cbHi").textContent = d.raw ? Math.round(hi) : hi.toFixed(2);
   $("cbTtl").textContent = d.cbar;
 
-  // min-n only means anything for a fraction — a coverage map is gated at 1 patient
   const mr = $("minNRow"), useN = d.cluster !== undefined && state.gate;
   mr.style.opacity = useN ? "1" : ".35";
   $("minN").disabled = !useN;
 
-  $("roTitle").textContent = d.title;
-  $("roDef").textContent = d.def;
   const gateTxt = state.gate
     ? `Grey = no ${d.cluster !== undefined ? state.minN + " labelled contacts" : "electrode"} within ` +
       `${M.radius_mm} mm — no estimate, <b>not</b> a zero.`
@@ -351,10 +410,13 @@ function render() {
   const scaleTxt = (!d.raw && Math.abs(state.climMax - state.autoScaled) < 1e-9 && state.climMax < 1)
     ? ` Colour scale auto-set to the 98th percentile (<b>${state.climMax.toFixed(2)}</b>) — raise "max" to 1.00 for the true range.`
     : "";
+  $("roTitle").textContent = d.title;
+  $("roDef").textContent = d.def;
   $("roNote").innerHTML = `${d.note}<br><br>` +
     `<b>${(100*shown/total).toFixed(0)}%</b> of cortex passes the gate · peak ` +
     `<b>${d.raw ? Math.round(peak) : peak.toFixed(2)}</b>` +
     `${d.raw ? " contacts" : ` (of ${peakDen} there)`}. ${gateTxt}${scaleTxt}`;
+  return { shown, total, peak, peakDen };
 }
 
 function applyOpacity() {
@@ -372,15 +434,21 @@ const _OCTF = [[0,2,4],[2,1,4],[1,3,4],[3,0,4],[2,0,5],[1,2,5],[3,1,5],[0,3,5]];
 function updateElectrodes() {
   if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} elecMesh = null; }
   // contacts are in anatomical space — they do not lie on the inflated surface
-  if (!state.showElec || state.surf === "inflated" || !CONTACTS.length) { nv.drawScene(); return; }
+  if (!state.showElec || state.surf === "inflated" || !CONTACTS) { nv.drawScene(); return; }
   const d = curDef(), r = 1.7, pts = [], tris = [], cols = [];
+  const lab = RUN ? CONTACTS.runs[RUN.id] : null;
   let vi = 0;
-  for (const ct of CONTACTS) {
-    // in a cluster map, show only that cluster's contacts; in a coverage map, show all
-    if (d.cluster !== undefined && ct.cluster !== d.cluster) continue;
-    for (const o of _OCT) pts.push(ct.x + o[0]*r, ct.y + o[1]*r, ct.z + o[2]*r);
+  for (let i = 0; i < CONTACTS.xyz.length; i++) {
+    // in a cluster map show only that cluster's contacts; in a coverage map show all.
+    // an electrode with several labels appears in each of its clusters' maps.
+    if (d.cluster !== undefined) {
+      const L = lab && lab[i];
+      if (!Array.isArray(L) || L.indexOf(d.cluster) < 0) continue;
+    }
+    const [x, y, z] = CONTACTS.xyz[i];
+    for (const o of _OCT) pts.push(x + o[0]*r, y + o[1]*r, z + o[2]*r);
     for (const f of _OCTF) tris.push(vi + f[0], vi + f[1], vi + f[2]);
-    for (let i = 0; i < 6; i++) cols.push(255, 232, 64, 255);   // amber
+    for (let j = 0; j < 6; j++) cols.push(255, 232, 64, 255);   // amber
     vi += 6;
   }
   if (!vi) { nv.drawScene(); return; }
@@ -392,7 +460,301 @@ function updateElectrodes() {
   nv.drawScene();
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF export
+// ─────────────────────────────────────────────────────────────────────────────
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// Niivue is not built with preserveDrawingBuffer, so toDataURL() after the frame is
+// presented returns a blank image. Redraw and read the pixels INSIDE the same animation
+// frame, before the buffer is cleared.
+function captureAt(az, el, aspect, maxW) {
+  return new Promise(resolve => {
+    try { nv.scene.renderAzimuth = az; nv.scene.renderElevation = el; } catch (e) {}
+    requestAnimationFrame(() => {
+      try { nv.drawScene(); } catch (e) {}
+      resolve(cropToAspect(canvasEl, aspect, maxW));
+    });
+  });
+}
+// Everything is embedded as JPEG at a capped resolution. Embedding the raw canvas as
+// PNG produced a 110 MB file: the canvas is ~1500 px wide at device pixel ratio, and
+// jsPDF stores each one lossless. 150 dpi is already more than an A4 page resolves,
+// so the cap costs nothing visible and the file lands in single-digit MB.
+const DPI = 150, MM_PER_IN = 25.4, JPEG_Q = 0.86;
+const pxFor = mm => Math.round(mm / MM_PER_IN * DPI);
+
+function cropToAspect(src, targetAspect, maxW) {
+  try {
+    const sw = src.width, sh = src.height;
+    if (!sw || !sh) return "";
+    let cw, ch, sx, sy;
+    if (sw / sh > targetAspect) { ch = sh; cw = Math.round(sh * targetAspect); sx = Math.round((sw - cw) / 2); sy = 0; }
+    else { cw = sw; ch = Math.round(sw / targetAspect); sx = 0; sy = Math.round((sh - ch) / 2); }
+    const s = maxW && cw > maxW ? maxW / cw : 1;
+    const out = document.createElement("canvas");
+    out.width = Math.round(cw * s); out.height = Math.round(ch * s);
+    const cx = out.getContext("2d");
+    cx.fillStyle = "#000"; cx.fillRect(0, 0, out.width, out.height);   // brains sit on black
+    cx.drawImage(src, sx, sy, cw, ch, 0, 0, out.width, out.height);
+    return out.toDataURL("image/jpeg", JPEG_Q);
+  } catch (e) { console.warn("crop failed:", e); return ""; }
+}
+
+// Fetched figures are re-encoded the same way. They are flattened onto WHITE first:
+// the matplotlib PNGs carry an alpha channel, and JPEG has none, so without this every
+// transparent background would come out black on the page.
+// The glass-brain renders are mostly white margin — a lateral view fills maybe a fifth
+// of its canvas. Dropped into a PDF tile untrimmed they come out postage-stamp sized,
+// so find the ink bounding box first and keep only that. Same trick make_cluster_cards.py
+// uses on the same PNGs.
+function trimMargin(img) {
+  const probeW = Math.min(img.width, 400);
+  const s = probeW / img.width;
+  const p = document.createElement("canvas");
+  p.width = probeW; p.height = Math.max(1, Math.round(img.height * s));
+  const px = p.getContext("2d");
+  px.fillStyle = "#fff"; px.fillRect(0, 0, p.width, p.height);
+  px.drawImage(img, 0, 0, p.width, p.height);
+  const d = px.getImageData(0, 0, p.width, p.height).data;
+  let x0 = p.width, y0 = p.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < p.height; y++) {
+    for (let x = 0; x < p.width; x++) {
+      const i = (y * p.width + x) * 4;
+      if (d[i] < 244 || d[i+1] < 244 || d[i+2] < 244) {          // not background white
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0 || (x1 - x0) < 8 || (y1 - y0) < 8) return null;      // no ink found — keep whole
+  const pad = 3;
+  const sx = Math.max(0, (x0 - pad) / s), sy = Math.max(0, (y0 - pad) / s);
+  const sw = Math.min(img.width - sx, (x1 - x0 + 2 * pad) / s);
+  const sh = Math.min(img.height - sy, (y1 - y0 + 2 * pad) / s);
+  return { sx, sy, sw, sh };
+}
+
+function shrinkToJPEG(blobUrl, maxW, trim) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let box = null;
+        if (trim) { try { box = trimMargin(img); } catch (e) { box = null; } }
+        const sx = box ? box.sx : 0, sy = box ? box.sy : 0;
+        const sw = box ? box.sw : img.width, sh = box ? box.sh : img.height;
+        const s = sw > maxW ? maxW / sw : 1;
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(sw * s)); c.height = Math.max(1, Math.round(sh * s));
+        const x = c.getContext("2d");
+        x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
+        x.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+        resolve({ data: c.toDataURL("image/jpeg", JPEG_Q), w: sw, h: sh });
+      } catch (e) { resolve({ data: "", w: 0, h: 0 }); }
+      finally { URL.revokeObjectURL(blobUrl); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve({ data: "", w: 0, h: 0 }); };
+    img.src = blobUrl;
+  });
+}
+
+// never throws: a figure that 404s shrinks the PDF instead of breaking it
+async function tryImage(url, maxW, trim) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(String(res.status));
+    return await shrinkToJPEG(URL.createObjectURL(await res.blob()), maxW || 1200, trim);
+  } catch (e) { return { data: "", w: 0, h: 0 }; }
+}
+
+const PAGE_W = 297, PAGE_H = 210;              // A4 landscape — brains are wide
+const ML = 12, MR = 12, CONTENT_W = PAGE_W - ML - MR;
+const FOOTER_Y = PAGE_H - 8;
+
+function footer(pdf, page, total, runLabel) {
+  pdf.setFontSize(7.5); pdf.setTextColor(130, 130, 138);
+  pdf.text(runLabel, ML, FOOTER_Y);
+  pdf.text(`${page} / ${total}`, PAGE_W - MR, FOOTER_Y, { align: "right" });
+  pdf.setTextColor(0, 0, 0);
+}
+function imgOrBox(pdf, data, x, y, w, h, label) {
+  if (data) {
+    try { pdf.addImage(data, "JPEG", x, y, w, h); return; }
+    catch (e) { label = "(embed error)"; }
+  }
+  pdf.setFillColor(244, 244, 246); pdf.rect(x, y, w, h, "F");
+  pdf.setFontSize(7); pdf.setTextColor(150, 120, 120);
+  pdf.text(label || "(missing)", x + 2, y + h / 2);
+  pdf.setTextColor(0, 0, 0);
+}
+
+async function exportPDF() {
+  const Ctor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
+  if (!Ctor) { alert("jsPDF not loaded — refresh and try again."); return; }
+  if (!RUN) return;
+  const btn = $("pdfBtn"), orig = btn.textContent;
+  btn.disabled = true;
+
+  // snapshot everything the capture mutates, so an error cannot strand the user's view
+  const saved = { map: state.map, az: nv.scene.renderAzimuth, el: nv.scene.renderElevation,
+                  transp: state.transp, elec: state.showElec };
+  const runBase = `${CLUST}${RUN.path}/`;
+  const VIEWS = [[270, 0, "left lateral"], [90, 0, "right lateral"], [0, 90, "dorsal"]];
+  const ASPECT = 1.35;
+
+  try {
+    state.transp = 0; applyOpacity();
+    state.showElec = false; updateElectrodes();
+
+    const clusterDefs = DEFS.filter(d => d.cluster !== undefined);
+    const totalPages = 1 + clusterDefs.length + (RUN.figures.overview || []).length;
+    const pdf = new Ctor({ orientation: "l", unit: "mm", format: "a4", compress: true });
+    const runLabel = `${RUN.track_label}  ${RUN.run}  K=${RUN.k}`;
+    let page = 1;
+
+    // ── page 1: coverage + what this run is
+    btn.textContent = "PDF: coverage…";
+    state.map = "coverage"; $("mapSel").value = "coverage"; autoScale();
+    const covStats = render(); await sleep(60);
+    const covShots = [];
+    const tileW = (CONTENT_W - 8) / 3;
+    for (const [az, el] of VIEWS) covShots.push(await captureAt(az, el, ASPECT, pxFor(tileW)));
+
+    let y = 15;
+    pdf.setFontSize(16); pdf.setFont("helvetica", "bold");
+    pdf.text("Electrode sampling and cluster probability", ML, y);
+    pdf.setFont("helvetica", "normal"); y += 6;
+    pdf.setFontSize(9); pdf.setTextColor(110, 110, 118);
+    pdf.text(`${RUN.track_label}  ·  run ${RUN.run}  ·  K=${RUN.k}  ·  ${RUN.cohort}`, ML, y);
+    pdf.setTextColor(0, 0, 0); y += 6;
+
+    const facts = [
+      `Counted within ${M.radius_mm} mm of each fsaverage vertex.  ${M.n_contacts_total} contacts from ${M.n_patients_total} patients.`,
+      `This run: ${RUN.n_electrodes} rows (unit = ${RUN.unit}), ${RUN.n_contacts_with_cluster} contacts localised, ${RUN.n_samples_with_cluster} labelled samples.`,
+      `Coverage P(sampled) = n_patients / ${M.n_patients_total}.  Peak ${covStats ? covStats.peak.toFixed(2) : "-"}; ${covStats ? (100*covStats.shown/covStats.total).toFixed(0) : "-"}% of cortex has an electrode within ${M.radius_mm} mm.`,
+      `Cluster maps: P(cluster k | here) = n_cluster_k / all labelled samples here, gated at ${state.minN} labelled contacts per vertex.`,
+      `Grey cortex means NO ESTIMATE (nothing sampled there), never a probability of zero.`,
+    ];
+    const boxH = 4.6 * facts.length + 4;
+    pdf.setFillColor(246, 246, 248); pdf.rect(ML, y, CONTENT_W, boxH, "F");
+    pdf.setFontSize(8); pdf.setTextColor(60, 60, 66);
+    facts.forEach((f, i) => pdf.text(f, ML + 3, y + 5.6 + i * 4.6));
+    pdf.setTextColor(0, 0, 0);
+    y += boxH + 5;
+
+    const bw = tileW, bh = bw / ASPECT;
+    VIEWS.forEach(([, , name], i) => {
+      const x = ML + i * (bw + 4);
+      imgOrBox(pdf, covShots[i], x, y, bw, bh, "brain capture failed");
+      pdf.setDrawColor(220, 220, 226); pdf.setLineWidth(0.2); pdf.rect(x, y, bw, bh);
+      pdf.setFontSize(7.5); pdf.setTextColor(110, 110, 118);
+      pdf.text(`Coverage — ${name}`, x, y + bh + 3.6);
+      pdf.setTextColor(0, 0, 0);
+    });
+    footer(pdf, page, totalPages, runLabel);
+
+    // ── one page per cluster: live probability map + this run's glass brains
+    for (let i = 0; i < clusterDefs.length; i++) {
+      const d = clusterDefs[i];
+      btn.textContent = `PDF: cluster ${i + 1}/${clusterDefs.length}…`;
+      state.map = d.id; $("mapSel").value = d.id; autoScale();
+      const st = render(); await sleep(80);          // let the mesh update settle
+      const shots = [];
+      const pw = (CONTENT_W - 8) / 3, ph = pw / ASPECT;
+      for (const [az, el] of VIEWS) shots.push(await captureAt(az, el, ASPECT, pxFor(pw)));
+
+      const fig = (RUN.figures.per_cluster || {})[String(d.cluster)] || {};
+      const glassNames = ["lateral_L", "lateral_R", "dorsal", "frontal"];
+      const gwTile = (CONTENT_W - 12) / 4;
+      const glass = (await Promise.all(glassNames.map(v =>
+        fig.glass && fig.glass[v] ? tryImage(runBase + fig.glass[v], pxFor(gwTile), true)
+                                  : Promise.resolve({ data: "" })))).map(g => g.data);
+
+      pdf.addPage(); page++;
+      let yy = 14;
+      pdf.setFontSize(13); pdf.setFont("helvetica", "bold");
+      pdf.text(`Cluster ${d.cluster}`, ML, yy);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(9); pdf.setTextColor(110, 110, 118);
+      const size = RUN.cluster_sizes[String(d.cluster)];
+      pdf.text(`n=${size} of ${RUN.n_samples_with_cluster} labelled ` +
+               `(${(100*size/RUN.n_samples_with_cluster).toFixed(0)}%)  ·  ` +
+               `peak P=${st ? st.peak.toFixed(2) : "-"}  ·  scale max ${state.climMax.toFixed(2)}`,
+               ML + 26, yy);
+      pdf.setTextColor(0, 0, 0); yy += 5;
+
+      pdf.setFontSize(8); pdf.setTextColor(90, 90, 96);
+      pdf.text(`P(cluster ${d.cluster} | labelled electrode within ${M.radius_mm} mm), gated at ` +
+               `${state.minN} contacts. Grey = no estimate.`, ML, yy);
+      pdf.setTextColor(0, 0, 0); yy += 4;
+
+      VIEWS.forEach(([, , name], j) => {
+        const x = ML + j * (pw + 4);
+        imgOrBox(pdf, shots[j], x, yy, pw, ph, "brain capture failed");
+        pdf.setDrawColor(220, 220, 226); pdf.setLineWidth(0.2); pdf.rect(x, yy, pw, ph);
+        pdf.setFontSize(7); pdf.setTextColor(110, 110, 118);
+        pdf.text(`probability — ${name}`, x, yy + ph + 3.2);
+        pdf.setTextColor(0, 0, 0);
+      });
+      yy += ph + 7;
+
+      // the run's own glass brains, straight from recon/cluster_NN/by_condition/
+      pdf.setFontSize(8.5); pdf.setTextColor(60, 60, 66);
+      pdf.text("Contacts of this cluster — glass brain from the run (recon/, coloured by condition)", ML, yy);
+      pdf.setTextColor(0, 0, 0); yy += 3;
+      const gw = gwTile, gh = Math.min(gw * 0.78, FOOTER_Y - yy - 6);
+      glassNames.forEach((name, j) => {
+        const x = ML + j * (gw + 4);
+        imgOrBox(pdf, glass[j], x, yy, gw, gh, "(not in this run)");
+        pdf.setDrawColor(228, 228, 232); pdf.setLineWidth(0.2); pdf.rect(x, yy, gw, gh);
+        pdf.setFontSize(6.5); pdf.setTextColor(130, 130, 138);
+        pdf.text(name.replace("_", " "), x, yy + gh + 3);
+        pdf.setTextColor(0, 0, 0);
+      });
+      footer(pdf, page, totalPages, runLabel);
+    }
+
+    // ── whole-run figures, one per page, at native aspect
+    const ov = RUN.figures.overview || [];
+    for (let i = 0; i < ov.length; i++) {
+      btn.textContent = `PDF: figure ${i + 1}/${ov.length}…`;
+      const fetched = await tryImage(runBase + ov[i].path, pxFor(CONTENT_W));
+      const data = fetched.data;
+      pdf.addPage(); page++;
+      pdf.setFontSize(12); pdf.setFont("helvetica", "bold");
+      pdf.text(ov[i].title, ML, 14);
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7.5); pdf.setTextColor(130, 130, 138);
+      pdf.text(ov[i].path, ML, 19);
+      pdf.setTextColor(0, 0, 0);
+      const availW = CONTENT_W, availH = FOOTER_Y - 24;
+      let w = availW, h = availH;
+      if (data && fetched.w && fetched.h) {
+        const s = Math.min(availW / fetched.w, availH / fetched.h);
+        w = fetched.w * s; h = fetched.h * s;           // fit, never stretch
+      }
+      imgOrBox(pdf, data, ML + (availW - w) / 2, 23, w, h, "(figure not published for this run)");
+      footer(pdf, page, totalPages, runLabel);
+    }
+
+    pdf.save(`clustering_${RUN.track.replace(/\//g, "_")}_${RUN.run}.pdf`);
+  } catch (e) {
+    console.error(e);
+    alert("PDF export failed: " + e.message);
+  } finally {
+    // always restore, even on error — MOBA's version can strand the UI here
+    state.map = saved.map; $("mapSel").value = saved.map;
+    state.transp = saved.transp; state.showElec = saved.elec;
+    try { nv.scene.renderAzimuth = saved.az; nv.scene.renderElevation = saved.el; } catch (e) {}
+    autoScale(); render(); applyOpacity(); updateElectrodes();
+    btn.textContent = orig; btn.disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 function wireUI() {
+  $("runSel").onchange = e => selectRun(e.target.value);
   $("mapSel").onchange = e => { state.map = e.target.value; autoScale(); render(); updateElectrodes(); };
 
   const surfBtn = (kind, on, off) => async () => {
@@ -412,6 +774,7 @@ function wireUI() {
   $("transp").oninput = e => { state.transp = +e.target.value; $("transpVal").textContent = state.transp + "%"; applyOpacity(); };
   $("clim").oninput  = e => { state.climMax = +e.target.value / 100; $("climVal").textContent = state.climMax.toFixed(2); render(); };
   $("gamma").oninput = e => { state.gamma = +e.target.value / 100; $("gammaVal").textContent = state.gamma.toFixed(2); render(); };
+  $("pdfBtn").onclick = exportPDF;
 
   const toggleCtl = () => {
     const c = $("controls"); c.classList.toggle("collapsed");
@@ -419,6 +782,7 @@ function wireUI() {
   };
   $("ctlHead").onclick = toggleCtl;
   window.addEventListener("keydown", e => {
+    if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
     if (e.key === "h") document.querySelectorAll(".panel").forEach(p => p.classList.toggle("hidden"));
     else if (e.key === "c") toggleCtl();
   });

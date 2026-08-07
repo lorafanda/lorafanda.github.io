@@ -883,11 +883,11 @@
       <i>n</i><sub>p</sub>(<i>v</i>) &le; <i>k</i> = 4
       &nbsp;&nbsp;&rArr;&nbsp;&nbsp;
       <i>P&#770;</i><sub>samp</sub>(<i>v</i>) &le;
-      <span class="frac"><span class="num">4</span><span class="den">35</span></span> = 0.114
+      <span class="frac"><span class="num">4</span><span class="den">24</span></span> = 0.167
       <span class="eqn">(1)</span>
     </div></div>
 
-    <p>A "probability of being sampled" that can never exceed 0.11 out of 35 patients is not a
+    <p>A "probability of being sampled" that can never exceed 0.17 out of 24 patients is not a
       probability, it is an artefact of the projection. Everything below therefore uses a fresh,
       radius-based count in which <i>every</i> contact inside the neighbourhood is counted.</p>
 
@@ -940,8 +940,8 @@
 
     <h4>3 · Two estimators, two denominators</h4>
 
-    <p>With <i>P</i> = 35 patients contributing 5247 localised contacts, the tool draws exactly two
-      families of map. They differ only in what they divide by — which is the whole point, and why the
+    <p>With <i>P</i> = 24 patients contributing 3506 localised contacts (the concatenated cohort; the
+      per-condition cohort has 26 and 3836), the tool draws exactly two families of map. They differ only in what they divide by — which is the whole point, and why the
       bundle ships <b>counts rather than ratios</b>: a stored ratio hides its own denominator.</p>
 
     <div class="eqbox"><div class="eq">
@@ -956,13 +956,28 @@
     </div></div>
 
     <ul>
-      <li><b>(7) is a coverage map.</b> "Of the 35 patients, how many have an electrode within 10&nbsp;mm
+      <li><b>(7) is a coverage map.</b> "Of the patients in this run’s cohort, how many have an electrode within 10&nbsp;mm
         of here?" It does not depend on any clustering, so it is computed once and shared by every run.
-        Observed maximum: <b>28 of 35 patients</b> at one vertex, i.e. <i>P&#770;</i> = 0.80.</li>
+        Observed maximum: <b>20 of 24 patients</b> at one vertex, i.e. <i>P&#770;</i> = 0.83.</li>
       <li><b>(8) is a conditional, not a density.</b> "Given that an electrode is here, how likely is it
         to belong to cluster <i>k</i>?" A high value means the cortex is <b>enriched</b> for that cluster
         relative to its overall share — it never means the cluster lives only there.</li>
     </ul>
+
+    <div class="method">
+      <b>Which patients count.</b> The coordinate file carries <b>35</b> patients, but only
+      <b>26</b> ever entered an FBM run — 24 in the concatenated cohort, 26 in the
+      per-condition one. Nine patients have reconstructed contacts and appear in no run.
+      <ul>
+        <li>Counting them inflated <i>both</i> sides of every ratio: 5247 contacts where the
+          concatenated cohort has 3506, over 35 patients where it has 24.</li>
+        <li>Coverage is therefore computed <b>per cohort</b>, over that cohort's contacts, against
+          that cohort's patient count. Runs are grouped by patient set, so this costs one extra
+          coverage map rather than one per run.</li>
+        <li>The corrected figures are the ones quoted above. The earlier 87/81% and
+          <i>P&#770;</i>&nbsp;=&nbsp;0.80 were computed against the wrong denominator.</li>
+      </ul>
+    </div>
 
     <h4>4 · Why a minimum count, and what grey means</h4>
 
@@ -990,8 +1005,8 @@
 
     <p><b>Everything failing (10) is drawn grey, and grey means "no estimate" — never "probability zero".</b>
       That distinction is the entire reason the tool exists, so it is stated in the readout panel on every
-      map rather than left to a caption. The consequence is visible in the numbers: <b>84% of cortex</b>
-      lies within 10&nbsp;mm of some electrode (86.5% left, 81.2% right), but only <b>~18%</b> survives the
+      map rather than left to a caption. The consequence is visible in the numbers: <b>81% of cortex</b>
+      lies within 10&nbsp;mm of some electrode (82.5% left, 79.4% right), but only <b>~18%</b> survives the
       5-sample gate on a K=5 cluster map.</p>
 
     <h4>5 · Rendering: scale and opacity</h4>
@@ -1048,7 +1063,7 @@
       was <b>checked rather than assumed</b>:</p>
 
     <div class="eqbox"><div class="eq">
-      max <i>n</i><sub>c</sub> = 204 , &nbsp; max <i>n</i><sub>p</sub> = 28 , &nbsp;
+      max <i>n</i><sub>c</sub> = 148 , &nbsp; max <i>n</i><sub>p</sub> = 20 , &nbsp;
       max <i>n</i><sub><i>k</i></sub> = 37 &nbsp; &lt; &nbsp; 256 &nbsp;&rArr;&nbsp; <i>b</i> = 1
       <span class="eqn">(15)</span>
     </div></div>

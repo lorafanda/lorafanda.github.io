@@ -4,7 +4,6 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Clustering Visualizer — sampling &amp; cluster probability</title>
-<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
 <style>
   :root { --panel-bg: rgba(18,18,22,.82); --fg:#e8e8ec; --muted:#9aa0aa; --accent:#5ab0ff; }
   * { box-sizing: border-box; }
@@ -130,7 +129,7 @@
           <span class="val" id="gammaVal">0.80</span></div>
       </div>
 
-      <button id="pdfBtn">Save PDF for this run</button>
+      <button id="pdfBtn">Save run report (HTML)</button>
     </div>
   </div>
 
@@ -201,12 +200,12 @@ function mapDefs() {
   const defs = [{
     id: "coverage", group: "Sampling", label: "Coverage — P(patient sampled here)",
     title: "Coverage: how many patients have an electrode here",
-    def: `P = n_patients within ${R()} mm / ${M.n_patients_total} patients total`,
+    def: `P = n_patients within ${R()} mm / ${COH.n_patients} patients in this cohort`,
     note: "The honest denominator for every brain figure in this project. Yellow = many " +
           "independent patients sampled this cortex; purple = one or two. Dark cortex is not " +
           "\"no language\" — it is <b>no electrodes</b>. Identical for every run.",
     cbar: "P(sampled)",
-    val: (c) => ({ num: c[1], den: M.n_patients_total, gate: c[1] }),
+    val: (c) => ({ num: c[1], den: COH.n_patients, gate: c[1] }),
   }, {
     // `raw` belongs on the DEFINITION, not on the object val() returns: render() reads
     // d.raw, so putting it in the return value left it permanently undefined and the
@@ -251,8 +250,10 @@ const curDef = () => DEFS.find(d => d.id === state.map) || DEFS[0];
 // ─────────────────────────────────────────────────────────────────────────────
 // Coverage counts are shared by every run but differ per radius, so they are fetched
 // once per radius rather than once per run.
-async function loadCoverage(radius) {
-  const cv = M.coverage[radius];
+let COH = null;                 // the cohort of the selected run
+async function loadCoverage(cohortId, radius) {
+  COH = M.cohorts[cohortId];
+  const cv = COH.coverage[radius];
   const [lh, rh] = await Promise.all(["lh","rh"].map(h =>
     fetchBin(BUNDLE + cv[h].file, TYPE[cv[h].dtype])));
   COV = { lh, rh };
@@ -264,7 +265,6 @@ async function boot() {
   M = await (await fetch(BUNDLE + "manifest.json")).json();
   CONTACTS = await (await fetch(BUNDLE + M.contacts_file)).json();
   state.radius = M.default_radius;
-  await loadCoverage(state.radius);
 
   const rs = $("runSel");
   let g = null, og = null;
@@ -306,6 +306,7 @@ async function selectRun(id) {
   if (!r) return;
   $("status").style.display = "grid";
   $("status").textContent = `Loading ${r.track_label} · ${r.run}…`;
+  await loadCoverage(r.cohort_id, state.radius);
   const cf = r.counts[state.radius];
   const [lh, rh] = await Promise.all(["lh","rh"].map(h =>
     fetchBin(`${BUNDLE}${r.dir}/${cf[h].file}`, TYPE[cf[h].dtype])));
@@ -326,14 +327,14 @@ async function selectRun(id) {
 
   $("cohortNote").textContent =
     `${r.cohort} · ${r.n_electrodes} rows (${r.unit}) · ${r.n_contacts_with_cluster} contacts localised`;
-  const cvr = M.coverage[state.radius];
+  const cvr = COH.coverage[state.radius];
   $("radNote").textContent =
     `${((cvr.lh.pct_vertices_sampled + cvr.rh.pct_vertices_sampled) / 2).toFixed(0)}% of cortex ` +
     `within ${state.radius} mm of an electrode · up to ` +
     `${Math.max(cvr.lh.max_patients_at_a_vertex, cvr.rh.max_patients_at_a_vertex)} patients at one vertex`;
   $("prov").innerHTML =
     `run <b>${r.run}</b><br>${r.track}<br>K=${r.k} · ${r.n_samples_with_cluster} labelled<br>` +
-    `${M.n_contacts_total} contacts · ${M.n_patients_total} patients<br>` +
+    `<b>${COH.n_patients}</b> patients · ${COH.n_contacts} contacts<br>` +
     `radius <b>${R()} mm</b> · fsaverage`;
 
   autoScale(); render(); updateElectrodes();
@@ -485,8 +486,11 @@ function updateElectrodes() {
   if (!state.showElec || state.surf === "inflated" || !CONTACTS) { nv.drawScene(); return; }
   const d = curDef(), r = 1.7, pts = [], tris = [], cols = [];
   const lab = RUN ? CONTACTS.runs[RUN.id] : null;
+  // only this cohort's contacts exist as far as the maps are concerned
+  const mine = new Set(CONTACTS.cohorts[RUN.cohort_id] || []);
   let vi = 0;
   for (let i = 0; i < CONTACTS.xyz.length; i++) {
+    if (!mine.has(i)) continue;
     // in a cluster map show only that cluster's contacts; in a coverage map show all.
     // an electrode with several labels appears in each of its clusters' maps.
     if (d.cluster !== undefined) {
@@ -545,62 +549,6 @@ function trimMargin(img) {
   const sw = Math.min(img.width - sx, (x1 - x0 + 2 * pad) / s);
   const sh = Math.min(img.height - sy, (y1 - y0 + 2 * pad) / s);
   return { sx, sy, sw, sh };
-}
-
-const PAGE_W = 297, PAGE_H = 210;              // A4 landscape — brains are wide
-const ML = 12, MR = 12, CONTENT_W = PAGE_W - ML - MR;
-const FOOTER_Y = PAGE_H - 8;
-const CBAR_W = 4.5;
-
-function footer(pdf, page, total, runLabel) {
-  pdf.setFontSize(7.5); pdf.setTextColor(130, 130, 138);
-  pdf.text(runLabel, ML, FOOTER_Y);
-  pdf.text(`${page} / ${total}`, PAGE_W - MR, FOOTER_Y, { align: "right" });
-  pdf.setTextColor(0, 0, 0);
-}
-
-function placeholder(pdf, x, y, w, h, label) {
-  pdf.setFillColor(246, 246, 248); pdf.rect(x, y, w, h, "F");
-  pdf.setFontSize(7); pdf.setTextColor(150, 125, 125);
-  pdf.text(label || "(missing)", x + w / 2, y + h / 2, { align: "center" });
-  pdf.setTextColor(0, 0, 0);
-}
-
-// Place an image inside a box at its OWN aspect ratio, centred. Passing a box straight to
-// addImage stretches whatever is handed to it — which is how a dorsal brain ends up
-// looking flattened and a waveform ends up looking taller than it is.
-function drawFit(pdf, im, x, y, w, h, fmt, missingLabel) {
-  if (!im || !im.data || !im.w || !im.h) { placeholder(pdf, x, y, w, h, missingLabel); return; }
-  const s = Math.min(w / im.w, h / im.h);
-  const dw = im.w * s, dh = im.h * s;
-  const dx = x + (w - dw) / 2, dy = y + (h - dh) / 2;
-  try { pdf.addImage(im.data, fmt, dx, dy, dw, dh); }
-  catch (e) { placeholder(pdf, x, y, w, h, "(embed error)"); return; }
-  pdf.setDrawColor(224, 226, 230); pdf.setLineWidth(0.15); pdf.rect(dx, dy, dw, dh);
-}
-
-// The viridis ramp the brain is coloured with, plus the grey that means "no estimate".
-// A probability map without its scale is unreadable on paper, and grey is not zero.
-function drawColorbar(pdf, x, y, h, vmax, title, isCount) {
-  const N = 64, seg = h / N;
-  for (let i = 0; i < N; i++) {
-    const c = cmap(i / (N - 1));
-    pdf.setFillColor(c[0] | 0, c[1] | 0, c[2] | 0);
-    pdf.rect(x, y + h - (i + 1) * seg, CBAR_W, seg + 0.06, "F");
-  }
-  pdf.setDrawColor(170, 172, 178); pdf.setLineWidth(0.15);
-  pdf.rect(x, y, CBAR_W, h);
-  pdf.setFontSize(6.5); pdf.setTextColor(70, 72, 78);
-  pdf.text(isCount ? String(Math.round(vmax)) : vmax.toFixed(2), x + CBAR_W + 1.1, y + 2);
-  pdf.text("0", x + CBAR_W + 1.1, y + h);
-  pdf.setFillColor(140, 140, 140);
-  pdf.rect(x, y + h + 3, CBAR_W, 3.2, "F");
-  pdf.setDrawColor(170, 172, 178); pdf.rect(x, y + h + 3, CBAR_W, 3.2);
-  pdf.text("no est.", x + CBAR_W + 1.1, y + h + 5.6);
-  if (title) {
-    pdf.setFontSize(6); pdf.text(title, x + CBAR_W / 2, y - 1.5, { align: "center" });
-  }
-  pdf.setTextColor(0, 0, 0);
 }
 
 // ── capture ------------------------------------------------------------------
@@ -697,179 +645,345 @@ async function tryImage(url, maxW, trim) {
   } catch (e) { return { data: "", w: 0, h: 0 }; }
 }
 
-// ── export -------------------------------------------------------------------
-async function exportPDF() {
-  const Ctor = (window.jspdf && window.jspdf.jsPDF) || window.jsPDF;
-  if (!Ctor) { alert("jsPDF not loaded — refresh and try again."); return; }
+// ─────────────────────────────────────────────────────────────────────────────
+// Run report
+//
+// jsPDF was replaced by a self-contained HTML document. jsPDF has no layout engine:
+// every box is positioned by hand in millimetres, which is why the old export looked
+// like a spreadsheet. This builds a real page — CSS grid, proper type, SVG donuts —
+// embeds every image as a data URI so the file works offline, and carries @page rules
+// so the browser's own Print → Save as PDF produces a properly paginated document.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Patient colours, reproducing MOBA's curated mapping exactly: group a patient by its id
+// prefix, sort that group alphabetically, index into the group's palette. A patient is
+// then the same colour here as in MOBA's patient view.
+function patientGroup(pid) {
+  const s = String(pid).toUpperCase();
+  if (s.startsWith("EL")) return "EL";
+  if (s.startsWith("PAT")) return "PAT";
+  return "MICRO";
+}
+function patientColorMap(patients) {
+  const pal = M.patient_palette || {};
+  const byGroup = {};
+  for (const p of patients) (byGroup[patientGroup(p)] ||= []).push(p);
+  const out = {};
+  for (const g of Object.keys(byGroup)) {
+    const list = byGroup[g].slice().sort();
+    const colors = pal[g] || pal.EL || ["#888"];
+    list.forEach((p, i) => { out[p] = colors[i % colors.length]; });
+  }
+  return out;
+}
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// Donut chart as inline SVG. A donut rather than a pie because the hole carries the
+// total, which is the number a reader needs to judge any slice.
+function donut(items, size, centre, sub) {
+  const total = items.reduce((s, i) => s + i.value, 0);
+  const R = size / 2, r = R * 0.62, cx = R, cy = R;
+  let a0 = -Math.PI / 2, paths = "";
+  if (!total) {
+    paths = `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="#e6e8ec" stroke-width="${R - r}"/>`;
+  } else if (items.filter(i => i.value > 0).length === 1) {
+    // a single slice is a full turn, and an arc of exactly 2π is degenerate in SVG
+    const only = items.find(i => i.value > 0);
+    paths = `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="${only.color}" stroke-width="${R - r}"><title>${esc(only.label)}: ${only.value} (100%)</title></circle>`;
+  } else {
+    for (const it of items) {
+      if (it.value <= 0) continue;
+      const a1 = a0 + 2 * Math.PI * it.value / total;
+      const big = (a1 - a0) > Math.PI ? 1 : 0;
+      const P = (rad, ang) => `${(cx + rad * Math.cos(ang)).toFixed(2)} ${(cy + rad * Math.sin(ang)).toFixed(2)}`;
+      paths += `<path d="M${P(R, a0)} A${R} ${R} 0 ${big} 1 ${P(R, a1)} L${P(r, a1)} A${r} ${r} 0 ${big} 0 ${P(r, a0)} Z" `
+             + `fill="${it.color}" stroke="#fff" stroke-width="0.9">`
+             + `<title>${esc(it.label)}: ${it.value} (${(100 * it.value / total).toFixed(1)}%)</title></path>`;
+      a0 = a1;
+    }
+  }
+  const mid = centre ? `<text x="${cx}" y="${cy - 1}" text-anchor="middle" class="dnum">${esc(centre)}</text>` : "";
+  const lab = sub ? `<text x="${cx}" y="${cy + 9}" text-anchor="middle" class="dsub">${esc(sub)}</text>` : "";
+  return `<svg viewBox="0 0 ${size} ${size}" class="donut">${paths}${mid}${lab}</svg>`;
+}
+
+function legend(items, total) {
+  return `<ul class="legend">` + items.filter(i => i.value > 0).map(i =>
+    `<li><i style="background:${i.color}"></i><span class="lname">${esc(i.label)}</span>` +
+    `<span class="lval">${i.value}<em>${total ? (100 * i.value / total).toFixed(0) : 0}%</em></span></li>`
+  ).join("") + `</ul>`;
+}
+
+function img(im, alt, cls) {
+  if (!im || !im.data) return `<div class="missing ${cls || ""}">${esc(alt)} — not published for this run</div>`;
+  return `<figure class="${cls || ""}"><img src="${im.data}" alt="${esc(alt)}"><figcaption>${esc(alt)}</figcaption></figure>`;
+}
+
+// the same viridis ramp the brain uses, as a CSS gradient, so the report carries its scale
+function scaleBar(vmax, label) {
+  const stops = [];
+  for (let i = 0; i <= 10; i++) { const c = cmap(i / 10); stops.push(`rgb(${c[0]|0},${c[1]|0},${c[2]|0}) ${i*10}%`); }
+  return `<div class="scale"><div class="sbar" style="background:linear-gradient(to top,${stops.join(",")})"></div>`
+       + `<div class="sticks"><span>${vmax.toFixed(2)}</span><span>0.00</span></div>`
+       + `<div class="sgrey"><i></i>no estimate</div><div class="slab">${esc(label)}</div></div>`;
+}
+
+const REPORT_CSS = `
+:root{--ink:#1b232c;--muted:#68727d;--line:#e3e7eb;--bg:#f7f8fa;--card:#fff;--accent:#1f77b4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 22px 60px}
+header.top{border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:22px}
+header.top h1{margin:0 0 4px;font-size:23px;letter-spacing:-.2px}
+header.top .sub{color:var(--muted);font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{background:#eef2f6;border:1px solid var(--line);border-radius:20px;padding:3px 11px;font-size:12px}
+.chip b{font-weight:600}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:0 0 20px}
+h2.sec{font-size:17px;margin:0 0 3px}
+.sechint{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+.donutwrap{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center}
+.donut{width:150px;height:150px;display:block}
+.dnum{font:600 22px -apple-system,Segoe UI,Arial;fill:var(--ink)}
+.dsub{font:400 9.5px -apple-system,Segoe UI,Arial;fill:var(--muted)}
+.legend{list-style:none;margin:0;padding:0;font-size:11px;columns:2;column-gap:16px}
+.legend li{display:flex;align-items:center;gap:7px;padding:1.5px 0;break-inside:avoid}
+.legend i{width:11px;height:11px;border-radius:3px;flex:none;border:1px solid rgba(0,0,0,.18)}
+.lname{flex:0 0 auto;white-space:nowrap}
+.lval{font-variant-numeric:tabular-nums;color:var(--muted);margin-left:auto;padding-left:8px;white-space:nowrap}
+.lval em{font-style:normal;color:var(--ink);margin-left:5px;min-width:27px;display:inline-block;text-align:right}
+table.sum{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+table.sum th,table.sum td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line)}
+table.sum th:first-child,table.sum td:first-child{text-align:left}
+table.sum thead th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+table.sum td.sw i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px}
+.clus{page-break-inside:avoid;break-inside:avoid}
+.clus h2{display:flex;align-items:baseline;gap:12px;font-size:18px;margin:0 0 2px}
+.clus h2 .k{background:var(--ink);color:#fff;border-radius:7px;padding:1px 10px;font-size:15px}
+.brains{display:grid;grid-template-columns:repeat(3,1fr) 74px;gap:12px;align-items:start;margin-top:12px}
+.brains.glass{grid-template-columns:repeat(3,1fr) 74px}
+figure{margin:0}
+figure img{width:100%;height:210px;object-fit:contain;display:block;
+  border:1px solid var(--line);border-radius:8px;background:#000}
+.brains.glass figure img{height:185px}
+.wide img{height:auto;object-fit:initial}
+figure.lite img{background:#fff}
+figcaption{font-size:11px;color:var(--muted);text-align:center;padding-top:4px}
+.missing{border:1px dashed var(--line);border-radius:8px;padding:22px 10px;text-align:center;
+  color:#a08a8a;font-size:11.5px;background:#fbfbfc}
+.scale{display:flex;flex-direction:column;align-items:center;font-size:10px;color:var(--muted)}
+.sbar{width:15px;height:120px;border:1px solid #c9ced4;border-radius:4px}
+.sticks{display:flex;flex-direction:column;justify-content:space-between;height:120px;
+  position:absolute;margin-left:52px;font-variant-numeric:tabular-nums}
+.sgrey{display:flex;align-items:center;gap:4px;margin-top:7px}
+.sgrey i{width:12px;height:9px;background:#8c8c8c;border:1px solid #c9ced4;border-radius:2px}
+.slab{margin-top:3px;font-weight:600;color:var(--ink)}
+.wide img{background:#fff}
+.note{font-size:12px;color:var(--muted);margin:10px 0 0}
+.warn{color:#a8412f;font-size:12.5px;margin-top:10px}
+footer.bot{margin-top:26px;padding-top:14px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:11.5px;line-height:1.7}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;background:#eef2f6;
+  padding:1px 5px;border-radius:4px}
+@media print{
+  @page{size:A4 landscape;margin:11mm}
+  body{background:#fff}
+  .wrap{max-width:none;padding:0}
+  .card{border:1px solid #d8dde2;box-shadow:none;page-break-inside:avoid;break-inside:avoid}
+  .clus{page-break-before:always;break-before:page}
+  .legend{columns:2}
+  a{color:inherit;text-decoration:none}
+}
+`;
+
+async function exportReport() {
   if (!RUN) return;
   const btn = $("pdfBtn"), orig = btn.textContent;
   btn.disabled = true;
 
-  // snapshot everything the capture mutates, so an error cannot strand the user's view
   const saved = { map: state.map, az: nv.scene.renderAzimuth, el: nv.scene.renderElevation,
                   xray: state.xray, elec: state.showElec };
   const runBase = `${CLUST}${RUN.path}/`;
-  const GLASS = ["lateral_L", "lateral_R", "dorsal"];   // frontal adds nothing at this size
+  const GLASS = ["lateral_L", "lateral_R", "dorsal"];
+  const CAPW = 900, FIGW = 1500;
 
   try {
     state.xray = 0; applyOpacity();
     state.showElec = false; updateElectrodes();
 
     const clusterDefs = DEFS.filter(d => d.cluster !== undefined);
-    const totalPages = 1 + clusterDefs.length + (RUN.figures.overview || []).length;
-    const pdf = new Ctor({ orientation: "l", unit: "mm", format: "a4", compress: true });
-    const runLabel = `${RUN.track_label}  ${RUN.run}  K=${RUN.k}  ·  r=${state.radius} mm  ·  ${state.surf}`;
-    let page = 1;
+    const pcol = patientColorMap(Object.keys(RUN.patient_totals || {}));
+    const clusterHue = (i, n) => `hsl(${Math.round(360 * i / n)} 62% 52%)`;
 
-    const colW = (CONTENT_W - 2 * 4 - (CBAR_W + 12)) / 3;   // 3 views + room for the bar
-
-    // ── page 1: coverage
-    btn.textContent = "PDF: coverage…";
+    // ── coverage
+    btn.textContent = "Report: coverage…";
     state.map = "coverage"; $("mapSel").value = "coverage"; autoScale();
     const covStats = render(); await sleep(60);
     const covShots = [];
-    for (const [az, el] of VIEWS) covShots.push(await captureView(az, el, pxFor(colW)));
+    for (const [az, el] of VIEWS) covShots.push(await captureView(az, el, CAPW));
+    const covMax = state.climMax;
 
-    let y = 15;
-    pdf.setFontSize(16); pdf.setFont("helvetica", "bold");
-    pdf.text("Electrode sampling and cluster probability", ML, y);
-    pdf.setFont("helvetica", "normal"); y += 6;
-    pdf.setFontSize(9); pdf.setTextColor(110, 110, 118);
-    pdf.text(`${RUN.track_label}  ·  run ${RUN.run}  ·  K=${RUN.k}  ·  ${RUN.cohort}`, ML, y);
-    pdf.setTextColor(0, 0, 0); y += 6;
-
-    const cvr = M.coverage[state.radius];
-    const facts = [
-      `Counts within ${state.radius} mm of each fsaverage vertex (${state.surf} surface).  ${M.n_contacts_total} contacts from ${M.n_patients_total} patients.`,
-      `This run: ${RUN.n_electrodes} rows (unit = ${RUN.unit}), ${RUN.n_contacts_with_cluster} contacts localised, ${RUN.n_samples_with_cluster} labelled samples, ${RUN.n_patients_run} patients.`,
-      `Coverage P(sampled) = n_patients / ${M.n_patients_total}.  Peak ${covStats ? covStats.peak.toFixed(2) : "-"}; ${cvr ? ((cvr.lh.pct_vertices_sampled + cvr.rh.pct_vertices_sampled) / 2).toFixed(0) : "-"}% of cortex has an electrode within ${state.radius} mm.`,
-      `Cluster maps: P(cluster k | here) = n_cluster_k / all labelled samples here, gated at ${state.minN} labelled contacts per vertex.`,
-      `Grey cortex means NO ESTIMATE (nothing sampled there), never a probability of zero.`,
-    ];
-    const boxH = 4.6 * facts.length + 4;
-    pdf.setFillColor(246, 246, 248); pdf.rect(ML, y, CONTENT_W, boxH, "F");
-    pdf.setFontSize(8); pdf.setTextColor(60, 60, 66);
-    facts.forEach((f, i) => pdf.text(f, ML + 3, y + 5.6 + i * 4.6));
-    pdf.setTextColor(0, 0, 0);
-    y += boxH + 6;
-
-    const rowH = FOOTER_Y - y - 8;
-    VIEWS.forEach(([, , name], i) => {
-      const x = ML + i * (colW + 4);
-      drawFit(pdf, covShots[i], x, y, colW, rowH, "JPEG", "brain capture failed");
-      pdf.setFontSize(7.5); pdf.setTextColor(110, 110, 118);
-      pdf.text(`Coverage — ${name}`, x + colW / 2, y + rowH + 4, { align: "center" });
-      pdf.setTextColor(0, 0, 0);
-    });
-    drawColorbar(pdf, ML + CONTENT_W - CBAR_W - 10, y + 4, rowH - 14,
-                 state.climMax, "P(sampled)", false);
-    footer(pdf, page, totalPages, runLabel);
-
-    // ── one page per cluster
+    // ── per cluster
+    const blocks = [];
     for (let i = 0; i < clusterDefs.length; i++) {
       const d = clusterDefs[i];
-      btn.textContent = `PDF: cluster ${i + 1}/${clusterDefs.length}…`;
+      btn.textContent = `Report: cluster ${i + 1}/${clusterDefs.length}…`;
       state.map = d.id; $("mapSel").value = d.id; autoScale();
-      const st = render(); await sleep(80);          // let the mesh update settle
+      const st = render(); await sleep(80);
       const shots = [];
-      for (const [az, el] of VIEWS) shots.push(await captureView(az, el, pxFor(colW)));
-
+      for (const [az, el] of VIEWS) shots.push(await captureView(az, el, CAPW));
       const fig = (RUN.figures.per_cluster || {})[String(d.cluster)] || {};
-      const gw = (CONTENT_W - 2 * 4) / 3;
       const glass = await Promise.all(GLASS.map(v =>
-        fig.glass && fig.glass[v] ? tryImage(runBase + fig.glass[v], pxFor(gw), true)
+        fig.glass && fig.glass[v] ? tryImage(runBase + fig.glass[v], 700, true)
                                   : Promise.resolve({ data: "", w: 0, h: 0 })));
-      const centroid = fig.centroid
-        ? await tryImage(runBase + fig.centroid, pxFor(CONTENT_W), false)
-        : { data: "", w: 0, h: 0 };
-
-      pdf.addPage(); page++;
-      let yy = 14;
-      const size = RUN.cluster_sizes[String(d.cluster)];
-      const pats = (RUN.cluster_patients || {})[String(d.cluster)];
-      pdf.setFontSize(13); pdf.setFont("helvetica", "bold");
-      pdf.text(`Cluster ${d.cluster}`, ML, yy);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(9); pdf.setTextColor(110, 110, 118);
-      pdf.text(`n=${size} of ${RUN.n_samples_with_cluster} labelled ` +
-               `(${(100 * size / RUN.n_samples_with_cluster).toFixed(0)}%)  ·  ` +
-               `${pats != null ? pats : "?"} of ${RUN.n_patients_run} patients  ·  ` +
-               `peak P=${st ? st.peak.toFixed(2) : "-"}  ·  scale max ${state.climMax.toFixed(2)}`,
-               ML + 26, yy);
-      pdf.setTextColor(0, 0, 0); yy += 5;
-
-      pdf.setFontSize(8); pdf.setTextColor(90, 90, 96);
-      pdf.text(`P(cluster ${d.cluster} | labelled electrode within ${state.radius} mm), gated at ` +
-               `${state.minN} labelled contacts. Grey = no estimate, not zero.`, ML, yy);
-      pdf.setTextColor(0, 0, 0); yy += 3.5;
-
-      // row 1 — the probability map
-      const r1 = 56;
-      VIEWS.forEach(([, , name], j) => {
-        const x = ML + j * (colW + 4);
-        drawFit(pdf, shots[j], x, yy, colW, r1, "JPEG", "brain capture failed");
-        pdf.setFontSize(7); pdf.setTextColor(110, 110, 118);
-        pdf.text(`probability — ${name}`, x + colW / 2, yy + r1 + 3.2, { align: "center" });
-        pdf.setTextColor(0, 0, 0);
-      });
-      drawColorbar(pdf, ML + CONTENT_W - CBAR_W - 10, yy + 2, r1 - 12,
-                   state.climMax, `P(c${d.cluster})`, false);
-      if (st && st.peak === 0) {
-        pdf.setFontSize(7.5); pdf.setTextColor(170, 90, 80);
-        pdf.text(`No vertex passes the gate — cluster ${d.cluster} has ${size} labelled sample` +
-                 `${size === 1 ? "" : "s"} and none sits where ${state.minN}+ fall within ` +
-                 `${state.radius} mm. Nothing to draw, and that is the result.`,
-                 ML, yy + r1 + 7.5);
-        pdf.setTextColor(0, 0, 0);
-      }
-      yy += r1 + 8;
-
-      // row 2 — this cluster's own contacts, from the run's recon output
-      pdf.setFontSize(8.5); pdf.setTextColor(60, 60, 66);
-      pdf.text("Contacts of this cluster — glass brain from the run (recon/, coloured by condition)", ML, yy);
-      pdf.setTextColor(0, 0, 0); yy += 3;
-      const r2 = 46;
-      GLASS.forEach((name, j) => {
-        const x = ML + j * (gw + 4);
-        drawFit(pdf, glass[j], x, yy, gw, r2, "PNG", "(not in this run)");
-        pdf.setFontSize(6.5); pdf.setTextColor(130, 130, 138);
-        pdf.text(name.replace("_", " "), x + gw / 2, yy + r2 + 3, { align: "center" });
-        pdf.setTextColor(0, 0, 0);
-      });
-      yy += r2 + 7;
-
-      // row 3 — the centroid this cluster is defined by
-      pdf.setFontSize(8.5); pdf.setTextColor(60, 60, 66);
-      pdf.text("Cluster centroid — mean response the cluster is defined by", ML, yy);
-      pdf.setTextColor(0, 0, 0); yy += 2.5;
-      drawFit(pdf, centroid, ML, yy, CONTENT_W, FOOTER_Y - yy - 4, "PNG",
-              "(no centroid figure published for this run)");
-      footer(pdf, page, totalPages, runLabel);
+      const centroid = fig.centroid ? await tryImage(runBase + fig.centroid, FIGW, false)
+                                    : { data: "", w: 0, h: 0 };
+      blocks.push({ d, st, shots, glass, centroid, climMax: state.climMax });
     }
 
-    // ── whole-run figures, one per page, at native aspect
+    // ── whole-run figures
     const ov = RUN.figures.overview || [];
+    const ovImgs = [];
     for (let i = 0; i < ov.length; i++) {
-      btn.textContent = `PDF: figure ${i + 1}/${ov.length}…`;
-      const im = await tryImage(runBase + ov[i].path, pxFor(CONTENT_W), false);
-      pdf.addPage(); page++;
-      pdf.setFontSize(12); pdf.setFont("helvetica", "bold");
-      pdf.text(ov[i].title, ML, 14);
-      pdf.setFont("helvetica", "normal");
-      pdf.setFontSize(7.5); pdf.setTextColor(130, 130, 138);
-      pdf.text(ov[i].path, ML, 19);
-      pdf.setTextColor(0, 0, 0);
-      drawFit(pdf, im, ML, 23, CONTENT_W, FOOTER_Y - 27, "PNG",
-              "(figure not published for this run)");
-      footer(pdf, page, totalPages, runLabel);
+      btn.textContent = `Report: figure ${i + 1}/${ov.length}…`;
+      ovImgs.push(await tryImage(runBase + ov[i].path, FIGW, false));
     }
 
-    pdf.save(`clustering_${RUN.track.replace(/\//g, "_")}_${RUN.run}_r${state.radius}mm.pdf`);
+    // ── assemble -------------------------------------------------------------
+    btn.textContent = "Report: writing…";
+    const K = RUN.clusters.length;
+    const sizeItems = RUN.clusters.map((k, i) => ({
+      label: `Cluster ${k}`, value: RUN.cluster_sizes[String(k)], color: clusterHue(i, K) }));
+    const patTotals = RUN.patient_totals || {};
+    const patItems = Object.keys(patTotals).sort()
+      .map(p => ({ label: p, value: patTotals[p], color: pcol[p] || "#888" }));
+    const nSamples = RUN.n_samples_with_cluster;
+
+    const summary = `<table class="sum"><thead><tr><th>Cluster</th><th>samples</th><th>share</th>` +
+      `<th>patients</th><th>of cohort</th><th>top patient</th></tr></thead><tbody>` +
+      RUN.clusters.map((k, i) => {
+        const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
+        const tot = Object.values(comp).reduce((s, v) => s + v, 0) || 1;
+        const top = Object.entries(comp).sort((a, b) => b[1] - a[1])[0];
+        const np = RUN.cluster_patients[String(k)];
+        return `<tr><td class="sw"><i style="background:${clusterHue(i, K)}"></i>Cluster ${k}</td>` +
+               `<td>${RUN.cluster_sizes[String(k)]}</td><td>${(100 * RUN.cluster_sizes[String(k)] / nSamples).toFixed(1)}%</td>` +
+               `<td>${np}</td><td>${(100 * np / COH.n_patients).toFixed(0)}%</td>` +
+               `<td>${top ? esc(top[0]) + " (" + (100 * top[1] / tot).toFixed(0) + "%)" : "—"}</td></tr>`;
+      }).join("") + `</tbody></table>`;
+
+    const clusterHTML = blocks.map(({ d, st, shots, glass, centroid, climMax }, i) => {
+      const k = d.cluster;
+      const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
+      const tot = Object.values(comp).reduce((s, v) => s + v, 0);
+      const items = Object.keys(comp).sort().map(p => ({ label: p, value: comp[p], color: pcol[p] || "#888" }));
+      const topShare = items.length ? Math.max(...items.map(x => x.value)) / (tot || 1) : 0;
+      const np = RUN.cluster_patients[String(k)];
+      return `
+<section class="card clus">
+  <h2><span class="k" style="background:${clusterHue(i, K)}">Cluster ${k}</span>
+      <span>${RUN.cluster_sizes[String(k)]} samples · ${np} of ${COH.n_patients} patients</span></h2>
+  <p class="sechint">P(cluster ${k} | labelled electrode within ${state.radius} mm), gated at ${state.minN} labelled contacts.
+     Colour scale 0–${climMax.toFixed(2)}. Grey is <b>no estimate</b>, not zero.</p>
+  <div class="brains">
+    ${shots.map((s, j) => img(s, `probability — ${VIEWS[j][2]}`)).join("")}
+    ${scaleBar(climMax, `P(c${k})`)}
+  </div>
+  ${st && st.peak === 0 ? `<p class="warn">No vertex passes the gate — this cluster has ${RUN.cluster_sizes[String(k)]} labelled sample(s)
+     and none sits where ${state.minN}+ fall within ${state.radius} mm. Nothing to draw, and that is the result.</p>` : ""}
+  <div class="brains glass">
+    ${glass.map((g, j) => img(g, GLASS[j].replace("_", " "), "lite")).join("")}
+    <div></div>
+  </div>
+  <div class="two" style="margin-top:16px">
+    <div>${img(centroid, "cluster centroid — the mean response this cluster is defined by", "wide lite")}</div>
+    <div>
+      <h2 class="sec">Which patients is it made of?</h2>
+      <p class="sechint">${np} of ${COH.n_patients} patients contribute. Largest single patient:
+        <b>${(100 * topShare).toFixed(0)}%</b> of the cluster —
+        ${topShare > 0.5 ? "this cluster is dominated by one patient and should not be read as general."
+                         : "no single patient dominates it."}</p>
+      <div class="donutwrap">
+        ${donut(items, 150, String(np), `of ${COH.n_patients} patients`)}
+        ${legend(items, tot)}
+      </div>
+    </div>
+  </div>
+</section>`;
+    }).join("");
+
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>${esc(RUN.track_label)} · ${esc(RUN.run)} — run report</title>
+<style>${REPORT_CSS}</style></head><body><div class="wrap">
+<header class="top">
+  <h1>Electrode sampling and cluster probability</h1>
+  <div class="sub">${esc(RUN.track_label)} · run <code>${esc(RUN.run)}</code> · ${esc(RUN.cohort)}</div>
+  <div class="chips">
+    <span class="chip"><b>K=${RUN.k}</b> clusters</span>
+    <span class="chip"><b>${COH.n_patients}</b> patients</span>
+    <span class="chip"><b>${RUN.n_electrodes}</b> rows (${esc(RUN.unit)})</span>
+    <span class="chip"><b>${RUN.n_contacts_with_cluster}</b> contacts localised</span>
+    <span class="chip">radius <b>${state.radius} mm</b></span>
+    <span class="chip">gate <b>n ≥ ${state.minN}</b></span>
+    <span class="chip">${esc(state.surf)} surface</span>
+  </div>
+</header>
+
+<section class="card">
+  <h2 class="sec">How well was this cohort sampled?</h2>
+  <p class="sechint">P(sampled) = patients with an electrode within ${state.radius} mm, divided by the
+    ${COH.n_patients} patients in this cohort. Only the patients that entered this run are counted —
+    the coordinate file holds ${M.n_patients_in_coords}, but the rest are not part of FBM.</p>
+  <div class="brains">
+    ${covShots.map((s, j) => img(s, `coverage — ${VIEWS[j][2]}`)).join("")}
+    ${scaleBar(covMax, "P(sampled)")}
+  </div>
+  <p class="note">Peak ${covStats ? covStats.peak.toFixed(2) : "—"} ·
+    ${((COH.coverage[state.radius].lh.pct_vertices_sampled + COH.coverage[state.radius].rh.pct_vertices_sampled) / 2).toFixed(0)}%
+    of cortex lies within ${state.radius} mm of an electrode · up to
+    ${Math.max(COH.coverage[state.radius].lh.max_patients_at_a_vertex, COH.coverage[state.radius].rh.max_patients_at_a_vertex)}
+    patients at a single vertex. Dark cortex is <b>no electrodes</b>, not absence of language.</p>
+</section>
+
+<section class="card">
+  <h2 class="sec">What is the run made of?</h2>
+  <p class="sechint">Left: how the ${nSamples} labelled samples split across clusters. Right: how they split
+    across patients. A cluster that mirrors the patient distribution generalises; one that does not is
+    carried by a few people.</p>
+  <div class="two">
+    <div class="donutwrap">${donut(sizeItems, 150, String(K), "clusters")}${legend(sizeItems, nSamples)}</div>
+    <div class="donutwrap">${donut(patItems, 150, String(patItems.length), "patients")}${legend(patItems, nSamples)}</div>
+  </div>
+  ${summary}
+</section>
+
+${clusterHTML}
+
+${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title)}</h2>
+  <p class="sechint"><code>${esc(ov[i].path)}</code></p>${img(im, ov[i].title, "wide lite")}</section>`).join("")}
+
+<footer class="bot">
+  Generated from <code>clustering_visualizer.html</code> · counts from
+  <code>make_coverage_bundle.py</code> · run <code>${esc(RUN.path)}</code> ·
+  cohort <code>${esc(RUN.cohort_id)}</code> (${COH.n_patients} patients, ${COH.n_contacts} contacts) ·
+  radius ${state.radius} mm · gate n ≥ ${state.minN} · ${esc(state.surf)} surface.<br>
+  Patient colours match the MOBA patient view. Print this page (A4 landscape) to get a PDF.
+</footer>
+</div></body></html>`;
+
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `report_${RUN.track.replace(/\//g, "_")}_${RUN.run}_r${state.radius}mm.html`;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 20000);
   } catch (e) {
     console.error(e);
-    alert("PDF export failed: " + e.message);
+    alert("Report export failed: " + e.message);
   } finally {
-    // always restore, even on error — MOBA's version can strand the UI here
     state.map = saved.map; $("mapSel").value = saved.map;
     state.xray = saved.xray; state.showElec = saved.elec;
     try { nv.scene.renderAzimuth = saved.az; nv.scene.renderElevation = saved.el; } catch (e) {}
@@ -901,12 +1015,11 @@ function wireUI() {
   $("radSel").onchange = async e => {
     state.radius = e.target.value;
     $("status").style.display = "grid"; $("status").textContent = `Recomputing at ${state.radius} mm…`;
-    await loadCoverage(state.radius);
-    await selectRun(RUN.id);            // refetches this run's counts at the new radius
+    await selectRun(RUN.id);            // reloads coverage + counts at the new radius
   };
   $("clim").oninput  = e => { state.climMax = +e.target.value / 100; $("climVal").textContent = state.climMax.toFixed(2); render(); };
   $("gamma").oninput = e => { state.gamma = +e.target.value / 100; $("gammaVal").textContent = state.gamma.toFixed(2); render(); };
-  $("pdfBtn").onclick = exportPDF;
+  $("pdfBtn").onclick = exportReport;
 
   const toggleCtl = () => {
     const c = $("controls"); c.classList.toggle("collapsed");

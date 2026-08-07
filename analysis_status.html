@@ -2205,6 +2205,161 @@
 
     <div class="runid multi">source: kmeans/concat_hg · <b>20260803_175417</b>   ·   diagnostics recomputed from X_train.npy, metrics.json, cluster_timing_by_k.csv</div>
 
+    <!-- ============ THE PLAN ============ -->
+    <h3 id="clusterplan">The plan — from five types to a graded decomposition</h3>
+
+    <p class="lead">The diagnostic pass above says a five-type taxonomy is not supportable as it stands.
+      This is the replacement, and the point of it is a <b>figure sequence that argues one thing</b>:
+      language cortex here is better described as a small number of <b>overlapping response profiles that
+      electrodes mix</b> than as discrete types each electrode belongs to. The negative result becomes
+      load-bearing rather than a footnote.</p>
+
+    <div class="method">
+      <b>Why change at all — three findings, all recomputed from run 20260803_175417.</b>
+      <ul>
+        <li><b>The partition is a preprocessing choice.</b> Agreement between solutions from five
+          defensible pipelines, same data, same K, same seed: raw vs unit-norm <b>ARI 0.17</b>,
+          vs PCA-whitened 0.05. Not variations on one answer — different answers.</li>
+        <li><b>K is not identifiable.</b> Silhouette K=4/5/6 = 0.166 / 0.176 / 0.171, a spread smaller
+          than seed noise; under 80% subsampling P(K=4 &gt; K=5) = <b>0.88</b>.</li>
+        <li><b>Hard labels fight the data.</b> 19% of sampled cortex has no cluster above 50% of the local
+          mix; in the per-condition runs 375 electrodes take a different cluster for audio than for
+          reading.</li>
+      </ul>
+    </div>
+
+    <h4>Method — convex NMF, which has direct precedent on this exact data type</h4>
+
+    <p>Convex non-negative matrix factorisation on high-gamma time courses, giving every electrode a
+      <b>graded weight on every component</b> instead of one label. Crucially <b>cNMF admits signed
+      data</b> — the earlier objection that baseline-relative dB blocks NMF was wrong.</p>
+
+    <ul>
+      <li><b>Hamilton, Edwards &amp; Chang (2018)</b>, <i>Current Biology</i> 28(12):1860–1871 —
+        <a href="https://doi.org/10.1016/j.cub.2018.04.033">10.1016/j.cub.2018.04.033</a>. Origin of
+        cNMF-on-high-gamma in speech iEEG; continuous per-electrode weights across 27 participants.</li>
+      <li><b>Hamilton, Oganian, Hall &amp; Chang (2021)</b>, <i>Cell</i> 184(18):4626–4639 —
+        <a href="https://doi.org/10.1016/j.cell.2021.07.019">10.1016/j.cell.2021.07.019</a>. cNMF on
+        <b>z-scored, signed</b> high-gamma. Conclusion is explicitly parallel-and-distributed rather than
+        hierarchical — the same shape of claim this plan would make.</li>
+      <li><b>Kurteff et al. (2024)</b>, <i>J. Neurosci.</i> —
+        <a href="https://doi.org/10.1523/JNEUROSCI.1109-24.2024">10.1523/JNEUROSCI.1109-24.2024</a>.
+        cNMF on <b>three conditions epoched and concatenated</b> — structurally our matrix.</li>
+      <li><b>Norman-Haignere et al. (2022)</b>, <i>Current Biology</i> 32(7):1470–1484 —
+        <a href="https://doi.org/10.1016/j.cub.2022.01.069">10.1016/j.cub.2022.01.069</a>. Electrode ×
+        concatenated-timecourse matrix; every electrode gets a graded weight on every component.</li>
+    </ul>
+
+    <p><b>Secondary:</b> archetypal analysis, which describes electrodes as convex mixtures of <i>extreme</i>
+      profiles and so separates specialists from generalists directly.
+      <b>Olsen et al. (2022)</b>, <i>Front. Neurosci.</i> 16:911034 —
+      <a href="https://doi.org/10.3389/fnins.2022.911034">10.3389/fnins.2022.911034</a> — is the closest
+      architectural template: scale- and polarity-invariant AA on <b>unit-norm</b> data, replacing hard
+      microstate labels with continuous mixtures, with an archetype-generating matrix <b>shared across
+      subjects</b> and subject-specific mixing weights.
+      <b>Hinrich et al. (2016)</b>, <i>IEEE JSTSP</i> 10(7):1160–1171 —
+      <a href="https://doi.org/10.1109/JSTSP.2016.2595103">10.1109/JSTSP.2016.2595103</a> — is the
+      multi-subject formulation. <b>Cona et al. (2019)</b>, <i>NeuroImage</i> 185:322–334 —
+      <a href="https://doi.org/10.1016/j.neuroimage.2018.10.050">10.1016/j.neuroimage.2018.10.050</a> —
+      supplies the specialist/generalist framing in humans.</p>
+
+    <h4>Validation — replacing silhouette with statistics this field accepts</h4>
+    <ul>
+      <li><b>Component count by cross-validated prediction accuracy</b> — Norman-Haignere 2022 (above):
+        <i>"used cross-validated prediction accuracy to determine the number of components"</i>. Held-out
+        electrodes, not internal compactness.</li>
+      <li><b>Discovery / replication split</b> — <b>Yeo et al. (2011)</b>, <i>J. Neurophysiol.</i>
+        106(3):1125–1165 — <a href="https://doi.org/10.1152/jn.00338.2011">10.1152/jn.00338.2011</a>:
+        independent halves clustered separately, 97.4% of vertices assigned to the same network.</li>
+      <li><b>Spatial agreement by Dice</b> — <b>Gordon et al. (2016)</b>, <i>Cereb. Cortex</i>
+        26(1):288–303 — <a href="https://doi.org/10.1093/cercor/bhu239">10.1093/cercor/bhu239</a>:
+        Dice 0.71 between boundary maps from independent datasets.</li>
+      <li><b>Consensus across preprocessing pipelines</b> — <b>Lowe &amp; Schall (2018)</b>, <i>eNeuro</i>
+        5(5) — <a href="https://doi.org/10.1523/ENEURO.0131-18.2018">10.1523/ENEURO.0131-18.2018</a>:
+        consensus clustering over <b>48 pipelines</b> (6 scalings × 4 measurements × 2 metrics). This is
+        the published answer to our ARI-0.17 problem: do not pick a pipeline, cluster the consensus.</li>
+      <li><b>Leave-one-subject-out</b> — <b>Huang et al. (2023)</b>, <i>J. Neurosci.</i> —
+        <a href="https://doi.org/10.1523/JNEUROSCI.1325-22.2023">10.1523/JNEUROSCI.1325-22.2023</a>: the
+        one iEEG clustering paper using LOSO. Every such number reported here will carry a
+        <b>size-matched pseudo-group null</b> beside it, because that null already overturned one of our
+        own findings.</li>
+      <li><b>Keep the K sweep</b> — <b>Castellucci et al. (2026)</b>, <i>Cell Reports</i> —
+        <a href="https://doi.org/10.1016/j.celrep.2025.116783">10.1016/j.celrep.2025.116783</a>:
+        22 patients, 1,784 electrodes, K swept 2–10 across four algorithms. Closest published match to
+        this study's shape.</li>
+      <li><b>Continuous description has iEEG precedent too</b> — <b>Banks et al. (2023)</b>,
+        <i>PLoS Biology</i> 21(8):e3002239 —
+        <a href="https://doi.org/10.1371/journal.pbio.3002239">10.1371/journal.pbio.3002239</a>:
+        diffusion map embedding on 6,742 intracranial sites from 49 participants.</li>
+    </ul>
+
+    <h4>The figure sequence — seven panels, one argument</h4>
+
+    <div class="method">
+      <b>F1 · What was sampled.</b> Coverage map, P(patient sampled) per cohort, plus the electrode ×
+      [audio|picture|reading] matrix layout. <i>Establishes what the dataset can and cannot be asked, and
+      puts the implantation caveat on screen rather than in prose.</i> Source: coverage bundle, already
+      built.
+    </div>
+    <div class="method">
+      <b>F2 · Why not discrete types.</b> Three panels: the pipeline × pipeline ARI matrix; silhouette
+      across K with its subsampling spread; and the share of silhouette carried by each cluster.
+      <i>The pivot. Argues the change of method from evidence rather than preference.</i> Mostly computed
+      already.
+    </div>
+    <div class="method">
+      <b>F3 · The components.</b> For each cNMF component: its time course across the three concatenated
+      blocks, and its weight map on the brain. <i>The main result. Replaces "here are five clusters".</i>
+    </div>
+    <div class="method">
+      <b>F4 · Electrodes are mixtures.</b> Distribution of per-electrode weights — a simplex/ternary plot
+      where the component count allows — with specialists at the corners and generalists in the middle,
+      and the fraction of cortex where one component exceeds 80% (currently 29%), is contested (52%), or
+      has no winner above 50% (19%). <i>Makes the graded claim quantitative.</i>
+    </div>
+    <div class="method">
+      <b>F5 · Anatomical organisation, honestly coloured.</b> Brain coloured by <b>hue = leading
+      component, saturation = how much it leads</b>, so contested cortex desaturates instead of being
+      assigned an arbitrary winner. Pairs that interdigitate — currently c2 (suppression) and c3
+      (multimodal), the only positively correlated pair at r = +0.28 — become visible as mixing rather
+      than as a border. <i>Answers "which clusters sit on top of each other".</i>
+    </div>
+    <div class="method">
+      <b>F6 · Timing, corrected.</b> Onset and peak latency per component, with <b>activations and
+      suppressions on separate axes</b> and non-detections drawn as absent rather than as 100%.
+      <i>Depends on the timing fix; cannot be drawn before it.</i>
+    </div>
+    <div class="method">
+      <b>F7 · It holds up.</b> Cross-validated prediction vs component count; discovery/replication
+      agreement; leave-one-patient-out with the pseudo-group null plotted alongside.
+      <i>The claim that the decomposition is not an artefact of this particular cohort.</i>
+    </div>
+
+    <h4>Order of work</h4>
+    <ol>
+      <li><b>Timing fix first</b> — <code>NaN</code> for non-detection, activation and suppression
+        separated. It changes figures already published and F6 depends on it.</li>
+      <li><b>F2 from existing runs</b> — the negative result needs no new fitting and settles whether the
+        pivot is justified before any of it is built.</li>
+      <li><b>cNMF + component-count by cross-validation</b>, on unit-normalised features (1.36× → 1.70×
+        anatomical cohesion by the neighbour test; normalisation before decomposition follows Olsen 2022
+        and Hamilton 2021).</li>
+      <li><b>Consensus across pipelines</b> in the Lowe &amp; Schall sense, so the pipeline choice stops
+        being load-bearing.</li>
+      <li><b>Publish into both tools</b> — MOBA needs its label registered <i>before</i> the first run
+        (first write wins) and notebook 252 run for <code>recon/</code>; the visualizer needs the track
+        appended to <code>TRACKS</code> and the whole bundle regenerated. Both fail silently otherwise.</li>
+      <li><b>F7 last</b>, once there is something stable enough to be worth validating.</li>
+    </ol>
+
+    <p class="note" style="color:var(--muted);font-size:12.5px">Not yet started — this is a plan, recorded
+      here so the reasoning is auditable before any of it is run. The honest limit stands throughout:
+      24 patients cannot settle generalisation, and every stability number will be reported against a
+      matched null rather than on its own.</p>
+
+    <div class="runid multi">plan · evidence recomputed from kmeans/concat_hg <b>20260803_175417</b> · citations verified against DOI records</div>
+
+
     <p class="lead">The things that are genuinely your call, and the small refreshes needed before this is
       paper‑ready. Nothing here blocks the current results — they're pointers.</p>
 

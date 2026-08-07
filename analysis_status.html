@@ -2051,6 +2051,160 @@
   <section id="caveats">
     <div class="eyebrow" style="color:var(--warn)">Caveats & next steps</div>
     <h2 class="title">Open decisions and loose ends</h2>
+
+    <!-- ============ CLUSTERING DIAGNOSTIC PASS ============ -->
+    <h3 id="clusterdiag">Clustering — a diagnostic pass, and the four claims it destroyed</h3>
+
+    <p class="lead">This started as "which clustering algorithm would generalise better?". Running the
+      diagnostics first turned out to matter more than the answer: <b>every headline reason I gave for
+      changing the algorithm was wrong</b>, and the checks that killed them also surfaced three defects in
+      results already published on this site. Both halves are recorded here, because the retractions are
+      the more useful half.</p>
+
+    <div class="method">
+      <b>Method.</b> All numbers below come from <code>kmeans/concat_hg</code> run
+      <b>20260803_175417</b> — <code>X_train.npy</code> (1027 electrodes &times; 900 features),
+      <code>labels.csv</code>, <code>metrics.json</code> and <code>timing/cluster_timing_by_k.csv</code>
+      from that run directory. Nothing here is recalled; every figure was recomputed.
+    </div>
+
+    <h4>1 · Four things I claimed, and why each is withdrawn</h4>
+
+    <figure><div class="cap"><div class="fignum">FIG C.1</div>
+      <h4>The three controls that overturned the diagnosis</h4>
+      <ul>
+        <li><b>A.</b> Cluster 1 (n=575) really does hold the quiet electrodes — mean |high-gamma| 0.47
+          against 0.79–0.88 elsewhere. That much is true. The inference drawn from it was not.</li>
+        <li><b>B.</b> <b>The retraction that matters.</b> In the shipped features the quietest quartile
+          concentrates in one cluster (spread entropy 0.05). After unit-normalising they spread almost
+          <b>uniformly across all five</b> (entropy 0.96), and their split-half reproducibility is ~0.05 —
+          none. Normalising does not give quiet electrodes real shape; it takes 575 unreliable electrodes
+          out of one honest bin and <b>smears them through every cluster</b>.</li>
+        <li><b>C.</b> Leave-one-patient-out ARI bottoms at 0.45, below the seed-to-seed floor of 0.80 —
+          which looked like proof that single patients destabilise the fit. A size-matched
+          <b>pseudo-patient null</b> (random groups with the identical size multiset) gives min
+          0.459 ± 0.019. The observed 0.448 sits <b>inside</b> that null, z = −0.60. Removing any 13
+          electrodes does this. <b>Not a patient effect.</b></li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/diagnostics/D1_why_the_clusters_are_fragile.png" alt="clustering fragility diagnostics"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG C.2</div>
+      <h4>"The clusters encode patient identity" — withdrawn</h4>
+      <ul>
+        <li>AMI(cluster, patient) = <b>0.184</b> against ~0 under shuffle looked like contamination.</li>
+        <li>But a partition built from <b>MNI coordinates alone</b>, containing no functional information
+          whatsoever, scores <b>0.247</b> — higher. Patients are implanted in different places and
+          clusters are spatially organised, so this association is what a <i>correct</i> clustering
+          predicts. It is a coverage effect, not contamination.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/diagnostics/D2_patient_identity_is_coverage.png" alt="patient identity is a coverage effect"></div>
+    </figure>
+
+    <div class="method">
+      <b>The fourth, and the biggest.</b> I called cluster 1 a <i>signal-to-noise bin</i> and proposed
+      deleting or dissolving it. Three independent checks say the opposite:
+      <ul>
+        <li><b>It is the best-formed cluster in the solution.</b> Per-cluster mean silhouette from
+          <code>metrics.json</code>: c1 <b>+0.266</b>, c2 +0.122, c3 +0.064, c4 +0.058, c0
+          <b>−0.055</b>. The cluster I called noise scores highest; one I called good scores negative.</li>
+        <li><b>It is the modality-selective population.</b> Features are three concatenated 300-bin blocks
+          <code>[audio|picture|reading]</code>, so "low mean over 900 bins" mechanically means "flat in two
+          of three blocks". <b>81% of c1 responds in exactly one condition</b>; 64% of c3 responds in all
+          three. &rho;(mean&nbsp;|HG|, n_high_activity) = 0.567. Deleting c1 would delete the clearest
+          functional contrast in the dataset.</li>
+        <li><b>A responsiveness gate already exists.</b> <code>build_concat_dataset</code> defaults to
+          <code>require_high_activity=True</code>; all 1027 electrodes already passed it in at least one
+          condition. My proposed gate was partly re-implementing one, and the clustering is partly
+          re-discovering it.</li>
+      </ul>
+    </div>
+
+    <h4>2 · Three defects this surfaced in results already on this site</h4>
+
+    <div class="method">
+      <b>These are not about the proposal — they are live on the tabs above.</b>
+      <ul>
+        <li><b>A fabricated onset.</b> In <code>timing/cluster_timing_by_k.csv</code> at K=5, cluster 1 /
+          audio has <code>crosses=False</code>, <code>peak_db=0.439</code> — below the 0.5&nbsp;dB
+          threshold — and <code>onset_pct=<b>100.0</b></code>. A non-detection is stored as the latest
+          possible onset "so it sorts last". Any mean, rank or ladder consuming <code>onset_pct</code> is
+          averaging in a number that was never measured. 1 of 15 cells at K=5.</li>
+        <li><b>The onset ladder mixes activation with suppression.</b> Cluster 2 (n=130, 12.7% of the
+          data) has <b>negative peak_db in all three conditions</b> (−1.31 / −0.84 / −1.53). Onset is
+          defined on <code>|mean HG| &gt; 0.5</code>, so c2's "onsets" are onsets of
+          <b>desynchronisation</b>, rank-ordered on the same axis as activations.</li>
+        <li><b>Cluster 0 is a leftover bin presented as a response type.</b> Mean silhouette −0.055, with
+          74% of its 73 members closer to another cluster's centroid than their own — yet it carries the
+          second-earliest audio onset in the narrative.</li>
+        <li><b>The clusterability evidence rests entirely on the cluster I proposed to remove.</b> Of the
+          total silhouette mass, <b>84.9% is c1 alone</b>; c0 contributes negative; c2+c3+c4 together
+          contribute 0.027 — below the 0.092 structureless-Gaussian null. So the four clusters the story
+          is built on have essentially no silhouette support.</li>
+      </ul>
+    </div>
+
+    <h4>3 · What actually survives</h4>
+    <ul>
+      <li><b>K is not identifiable.</b> Silhouette at K=4/5/6 is 0.1656 / 0.1755 / 0.1712 — a spread of
+        0.010, smaller than seed noise. Under 80% subsampling K=4 wins: P(sil<sub>K4</sub> &gt;
+        sil<sub>K5</sub>) = <b>0.88</b>. K=5 was selected on an unresolvable difference.</li>
+      <li><b>The taxonomy is a preprocessing choice, not a finding.</b> ARI between solutions on the same
+        data, same K, same seed: raw vs unit-norm <b>0.168</b>, raw vs per-patient-z 0.264, raw vs both
+        0.062, raw vs PCA50-whitened 0.047. Five defensible pipelines give five near-orthogonal answers.
+        This belongs in the paper as a figure.</li>
+      <li><b>There is some structure, but only some.</b> Silhouette 0.176 against nulls of 0.094
+        (covariance-matched Gaussian), 0.080 (amplitude-preserved), 0.103 (patient-block). Real, ~1.9&times;,
+        and not a pure amplitude gradient — but a 1.9&times; ratio in 900 dimensions does not license a
+        five-type taxonomy.</li>
+      <li><b>ARI is degenerate on homogeneous folds</b> and the protocol hits it: a fold whose held-out
+        electrodes are all in one cluster scores a meaningless 1.000 (or 0.000). Excluding one such fold
+        moves unit-norm LOPO from 0.854/0.000 to 0.887/0.435. Reported means mixed saturated values with
+        real measurements.</li>
+    </ul>
+
+    <h4>4 · The revised plan</h4>
+    <p>The question is no longer "which algorithm is more robust to one patient's noise" — that problem
+      does not exist as posed. It is <b>"is a discrete five-type taxonomy supportable at all, and if so
+      under which preprocessing?"</b></p>
+    <ul>
+      <li><b>Fix the timing pipeline first.</b> Make non-detection <code>NaN</code> rather than 100.0,
+        and separate activation from suppression before any ladder is drawn. This changes figures already
+        published and takes precedence over any new clustering.</li>
+      <li><b>Ship the preprocessing-sensitivity matrix</b> (ARI between pipelines &times; K) as a result in
+        its own right. It is the honest headline: the partition is not stable to defensible choices.</li>
+      <li><b>Score candidates on out-of-sample prediction, not internal indices</b> — e.g. can cluster
+        identity fit on 23 patients predict held-out anatomy or condition better than chance — with the
+        pseudo-group null alongside every number.</li>
+      <li><b>Test a continuous description against the discrete one.</b> With 28% of electrodes changing
+        cluster across conditions and one cluster carrying 85% of the silhouette, a low-dimensional
+        embedding with modality-breadth as an explicit axis may describe this better than K types.</li>
+      <li><b>Algorithms, demoted to tests:</b> archetypal analysis (no non-negativity requirement — that
+        was my error; only NMF is blocked by signed dB), and GMM on a modest PCA basis with diagonal
+        covariance. <b>Dropped:</b> HDBSCAN (n=1027 in 20–50 dims is outside where density estimation
+        works) and k-shape (shift-invariant, and onset latency is the project's headline variable — my
+        recommendation contradicted itself).</li>
+    </ul>
+
+    <div class="method">
+      <b>Publishing any new run into both tools.</b> Two hard blockers, both silent:
+      <ul>
+        <li><b>MOBA</b> registers automatically via <code>_update_index</code>, but <b>first write wins</b>
+          on the dropdown label — a new <code>feature_set</code> shipped with the wrong label keeps it
+          forever. Add the label to <code>FEATURE_SET_LABELS</code> <i>before</i> the first run, keep it
+          ASCII (existing entries are already mojibake), and extend
+          <code>lf_centroids._is_line_feature_set</code> or the centroid chips render as a 1-pixel strip.
+          <code>recon/</code> is not written by <code>fit_and_save</code> — notebook 252 must be run
+          separately or the 3-D brain stays empty.</li>
+        <li><b>Clustering visualizer</b>: <code>TRACKS</code> in <code>make_coverage_bundle.py</code> is a
+          hard-coded allowlist — a new track is invisible with no warning. Regenerate the whole bundle
+          (never <code>--run</code>, which rewrites the manifest with a single run and drops the rest),
+          and stage figures <i>before</i> generating, since only git-tracked figures are advertised.</li>
+      </ul>
+    </div>
+
+    <div class="runid multi">source: kmeans/concat_hg · <b>20260803_175417</b>   ·   diagnostics recomputed from X_train.npy, metrics.json, cluster_timing_by_k.csv</div>
+
     <p class="lead">The things that are genuinely your call, and the small refreshes needed before this is
       paper‑ready. Nothing here blocks the current results — they're pointers.</p>
 

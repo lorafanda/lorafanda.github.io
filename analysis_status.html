@@ -130,6 +130,17 @@
     font-family:ui-monospace,Menlo,Consolas,monospace;letter-spacing:.2px}
   .runid b{color:#22262b;font-weight:700}
   .runid.multi{background:#fdf7ee;border-color:#e8d5b5}
+  .eqbox{margin:12px 0;padding:11px 14px;background:#fbfcfd;border:1px solid var(--line);
+    border-left:3px solid var(--s2);border-radius:8px;overflow-x:auto}
+  .eq{font-family:"Cambria Math",Cambria,"Times New Roman",Georgia,serif;font-size:15.5px;
+    line-height:2.1;color:var(--ink);white-space:nowrap;position:relative;padding-right:44px}
+  .eq i{font-style:italic}
+  .eq sub,.eq sup{font-size:.72em}
+  .eq .eqn{position:absolute;right:0;color:var(--muted);font-size:12px;font-family:inherit}
+  .frac{display:inline-block;vertical-align:middle;text-align:center;margin:0 .28em}
+  .frac .num{display:block;padding:0 .4em;border-bottom:1px solid currentColor;line-height:1.35}
+  .frac .den{display:block;padding:0 .4em;line-height:1.35}
+  h4+.eqbox{margin-top:8px}
 </style>
 </head>
 <body>
@@ -840,6 +851,298 @@
       </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/xcorr_K10_ref-c4_response_fullrange.png" alt="full lag range"></div>
     </figure>
+  
+    <!-- ============ COVERAGE / CLUSTERING VISUALIZER — METHODS ============ -->
+    <h3 id="cvmethods">The Clustering Visualizer — turning a caveat into a measurement</h3>
+
+    <p class="lead">Every brain figure above carries the same footnote: <i>dot density reflects where
+      electrodes were implanted, not where language is.</i> It is written in prose, which means nobody
+      can check it. This section is the methods write-up for the tool that turns that sentence into a
+      quantity you can look at, threshold, and export —
+      <a href="https://lorafanda.github.io/clustering_visualizer.html" target="_blank">clustering_visualizer</a>.</p>
+
+    <div class="method">
+      <b>The problem, stated plainly.</b>
+      <ul>
+        <li>A cluster's glassbrain shows where its contacts <i>are</i>. It cannot show where its contacts
+          <i>could have been</i>. A region with no dots is either genuinely uninvolved or simply never
+          implanted, and the figure looks identical either way.</li>
+        <li>So the tool computes two different things and keeps them apart: <b>how well a piece of cortex
+          was sampled</b>, and <b>what the electrodes there were doing</b>. The first is the denominator
+          of the second.</li>
+      </ul>
+    </div>
+
+    <h4>1 · Why the existing projection could not be reused</h4>
+
+    <p>The activity visualizer already projects contacts onto <code>fsaverage</code>, so the obvious move
+      was to reuse it. That projection keeps, for each vertex, only the <b>k = 4 nearest</b> contacts.
+      A patient count taken from it is therefore bounded:</p>
+
+    <div class="eqbox"><div class="eq">
+      <i>n</i><sub>p</sub>(<i>v</i>) &le; <i>k</i> = 4
+      &nbsp;&nbsp;&rArr;&nbsp;&nbsp;
+      <i>P&#770;</i><sub>samp</sub>(<i>v</i>) &le;
+      <span class="frac"><span class="num">4</span><span class="den">35</span></span> = 0.114
+      <span class="eqn">(1)</span>
+    </div></div>
+
+    <p>A "probability of being sampled" that can never exceed 0.11 out of 35 patients is not a
+      probability, it is an artefact of the projection. Everything below therefore uses a fresh,
+      radius-based count in which <i>every</i> contact inside the neighbourhood is counted.</p>
+
+    <h4>2 · The neighbourhood, and the three counts</h4>
+
+    <p>Let <i>C</i> be the set of reconstructed contacts, <b>x</b><sub>i</sub> the <code>fsaverage</code>
+      coordinate of contact <i>i</i>, and &pi;(<i>i</i>) the patient it belongs to. For a cortical vertex
+      <i>v</i> the neighbourhood is a closed ball of radius <i>r</i> = 10&nbsp;mm:</p>
+
+    <div class="eqbox"><div class="eq">
+      <i>N</i><sub><i>r</i></sub>(<i>v</i>) = { <i>i</i> &isin; <i>C</i> :
+      &#8214; <b>x</b><sub><i>i</i></sub> &minus; <b>v</b> &#8214;<sub>2</sub> &le; <i>r</i> }
+      <span class="eqn">(2)</span>
+    </div></div>
+
+    <p>Three counts are stored per vertex. The first two describe sampling and are identical for every
+      clustering run; the third is the only part that depends on how the electrodes were labelled.</p>
+
+    <div class="eqbox"><div class="eq">
+      <i>n</i><sub>c</sub>(<i>v</i>) = | <i>N</i><sub><i>r</i></sub>(<i>v</i>) |
+      <span class="eqn">(3)</span>
+    </div>
+    <div class="eq">
+      <i>n</i><sub>p</sub>(<i>v</i>) = | { &pi;(<i>i</i>) : <i>i</i> &isin; <i>N</i><sub><i>r</i></sub>(<i>v</i>) } |
+      <span class="eqn">(4)</span>
+    </div>
+    <div class="eq">
+      <i>n</i><sub><i>k</i></sub>(<i>v</i>) =
+      <span style="font-size:1.5em;vertical-align:-.25em">&Sigma;</span><sub><i>i</i>&isin;<i>N<sub>r</sub></i>(<i>v</i>)</sub>
+      <span style="font-size:1.5em;vertical-align:-.25em">&Sigma;</span><sub><i>s</i>&isin;<i>S</i>(<i>i</i>)</sub>
+      &#120793;[ <i>c</i>(<i>s</i>) = <i>k</i> ]
+      <span class="eqn">(5)</span>
+    </div></div>
+
+    <p><b>The inner sum is not decoration.</b> <i>S</i>(<i>i</i>) is the set of label rows belonging to
+      contact <i>i</i>. In the concatenated runs each electrode is one row and the sum collapses. In the
+      per-condition runs a row is an <i>electrode &times; condition</i> sample, and an electrode can be
+      assigned to a different cluster for audio than for reading — between <b>328 and 394 electrodes per
+      run</b> do exactly that. Writing this as a one-label-per-electrode lookup silently keeps whichever
+      row happened to come last; that bug was live in the first build and would have produced a wrong
+      map for four of the seven runs. The unit is recorded in the manifest and stated in the readout.</p>
+
+    <div class="eqbox"><div class="eq">
+      <i>m</i>(<i>v</i>) =
+      <span style="font-size:1.5em;vertical-align:-.25em">&Sigma;</span><sub><i>k</i></sub>
+      <i>n</i><sub><i>k</i></sub>(<i>v</i>)
+      &nbsp;&nbsp;&nbsp;<span style="color:var(--muted);font-size:.85em">(labelled samples in the neighbourhood)</span>
+      <span class="eqn">(6)</span>
+    </div></div>
+
+    <h4>3 · Two estimators, two denominators</h4>
+
+    <p>With <i>P</i> = 35 patients contributing 5247 localised contacts, the tool draws exactly two
+      families of map. They differ only in what they divide by — which is the whole point, and why the
+      bundle ships <b>counts rather than ratios</b>: a stored ratio hides its own denominator.</p>
+
+    <div class="eqbox"><div class="eq">
+      <i>P&#770;</i><sub>samp</sub>(<i>v</i>) =
+      <span class="frac"><span class="num"><i>n</i><sub>p</sub>(<i>v</i>)</span><span class="den"><i>P</i></span></span>
+      <span class="eqn">(7)</span>
+    </div>
+    <div class="eq">
+      <i>P&#770;</i>( <i>k</i> | <i>v</i> ) =
+      <span class="frac"><span class="num"><i>n</i><sub><i>k</i></sub>(<i>v</i>)</span><span class="den"><i>m</i>(<i>v</i>)</span></span>
+      <span class="eqn">(8)</span>
+    </div></div>
+
+    <ul>
+      <li><b>(7) is a coverage map.</b> "Of the 35 patients, how many have an electrode within 10&nbsp;mm
+        of here?" It does not depend on any clustering, so it is computed once and shared by every run.
+        Observed maximum: <b>28 of 35 patients</b> at one vertex, i.e. <i>P&#770;</i> = 0.80.</li>
+      <li><b>(8) is a conditional, not a density.</b> "Given that an electrode is here, how likely is it
+        to belong to cluster <i>k</i>?" A high value means the cortex is <b>enriched</b> for that cluster
+        relative to its overall share — it never means the cluster lives only there.</li>
+    </ul>
+
+    <h4>4 · Why a minimum count, and what grey means</h4>
+
+    <p>Equation (8) is a binomial proportion. Its standard error is</p>
+
+    <div class="eqbox"><div class="eq">
+      SE[ <i>P&#770;</i>(<i>k</i>|<i>v</i>) ] =
+      <span style="font-size:1.1em">&radic;</span><span style="border-top:1px solid;padding:0 .2em">
+      <span class="frac"><span class="num"><i>P&#770;</i>(1 &minus; <i>P&#770;</i>)</span><span class="den"><i>m</i>(<i>v</i>)</span></span></span>
+      <span class="eqn">(9)</span>
+    </div></div>
+
+    <p>which is pathological at small <i>m</i>: with <i>m</i> = 1 the estimate is exactly 0 or exactly 1
+      and (9) returns zero — maximal apparent confidence from a single contact. Rendering that would put
+      saturated colour on the least reliable vertices in the brain. So a vertex is drawn only if</p>
+
+    <div class="eqbox"><div class="eq">
+      <i>m</i>(<i>v</i>) &ge; <i>n</i><sub>min</sub> = 5
+      &nbsp;&nbsp;<span style="color:var(--muted);font-size:.85em">(cluster maps)</span>
+      &nbsp;&nbsp;&nbsp;&nbsp;
+      <i>n</i><sub>p</sub>(<i>v</i>) &ge; 1
+      &nbsp;&nbsp;<span style="color:var(--muted);font-size:.85em">(coverage maps)</span>
+      <span class="eqn">(10)</span>
+    </div></div>
+
+    <p><b>Everything failing (10) is drawn grey, and grey means "no estimate" — never "probability zero".</b>
+      That distinction is the entire reason the tool exists, so it is stated in the readout panel on every
+      map rather than left to a caption. The consequence is visible in the numbers: <b>84% of cortex</b>
+      lies within 10&nbsp;mm of some electrode (86.5% left, 81.2% right), but only <b>~18%</b> survives the
+      5-sample gate on a K=5 cluster map.</p>
+
+    <h4>5 · Rendering: scale and opacity</h4>
+
+    <p>A cluster holding 7% of the data has most of its map near zero and a few vertices near one. Mapped
+      naively onto 0–1, it renders as flat purple with a handful of saturated specks — the specks being
+      precisely the 5-of-5 vertices with the weakest evidence. The colour ceiling is therefore set from
+      the distribution rather than the extreme, taking the 98th percentile over gated vertices:</p>
+
+    <div class="eqbox"><div class="eq">
+      <i>P</i><sub>max</sub> = <i>Q</i><sub>0.98</sub> { <i>P&#770;</i>(<i>k</i>|<i>v</i>) :
+      <i>m</i>(<i>v</i>) &ge; <i>n</i><sub>min</sub> } ,
+      &nbsp;&nbsp;
+      <i>t</i>(<i>v</i>) = min( 1, <i>P&#770;</i>(<i>k</i>|<i>v</i>) / <i>P</i><sub>max</sub> )
+      <span class="eqn">(11)</span>
+    </div></div>
+
+    <p>Colour is then a blend from the anatomy grey <b>g</b> toward <code>viridis</code>, with opacity
+      rising as a power of <i>t</i> so that low probabilities stay close to plain anatomy and the eye is
+      not drawn to them:</p>
+
+    <div class="eqbox"><div class="eq">
+      &alpha;(<i>t</i>) = &alpha;<sub>0</sub> + (1 &minus; &alpha;<sub>0</sub>) <i>t</i><sup>&gamma;</sup> ,
+      &nbsp;&nbsp; &alpha;<sub>0</sub> = 0.15 , &nbsp; &gamma; = 0.8
+      <span class="eqn">(12)</span>
+    </div>
+    <div class="eq">
+      <b>c</b>(<i>v</i>) = (1 &minus; &alpha;) <b>g</b> + &alpha; &middot; viridis( <i>t</i>(<i>v</i>) )
+      <span class="eqn">(13)</span>
+    </div></div>
+
+    <p><code>viridis</code> is sequential and perceptually uniform. A diverging map (the <code>bwr</code>
+      used on the activity page) would be wrong here: a probability has no meaningful midpoint to diverge
+      about. Because (11) is a chosen scale rather than the true range, the slider visibly moves to
+      <i>P</i><sub>max</sub> and the readout names the value — the scale is stated, not hidden.</p>
+
+    <h4>6 · Storage: what made seven runs affordable</h4>
+
+    <p>Storing all counts together for every run costs, per hemisphere with <i>V</i> = 163842 vertices,
+      <i>K</i> clusters and <i>b</i> bytes per count:</p>
+
+    <div class="eqbox"><div class="eq">
+      <i>B</i><sub>dense</sub> = <i>R</i> &middot; <i>V</i> ( 2 + <i>K</i> ) <i>b</i>
+      &nbsp;&nbsp;&rarr;&nbsp;&nbsp;
+      <i>B</i><sub>split</sub> = <u>2<i>V b</i></u> +
+      <span style="font-size:1.5em;vertical-align:-.25em">&Sigma;</span><sub><i>j</i>=1..<i>R</i></sub>
+      <i>V K<sub>j</sub> b</i>
+      <span class="eqn">(14)</span>
+    </div></div>
+
+    <p>The underlined term is paid once. Sampling depends only on electrode geometry, so
+      <i>n</i><sub>c</sub> and <i>n</i><sub>p</sub> are identical across runs — the same fact that makes
+      (7) run-independent also makes it storable once. Separately, every count fits in one byte, which
+      was <b>checked rather than assumed</b>:</p>
+
+    <div class="eqbox"><div class="eq">
+      max <i>n</i><sub>c</sub> = 204 , &nbsp; max <i>n</i><sub>p</sub> = 28 , &nbsp;
+      max <i>n</i><sub><i>k</i></sub> = 37 &nbsp; &lt; &nbsp; 256 &nbsp;&rArr;&nbsp; <i>b</i> = 1
+      <span class="eqn">(15)</span>
+    </div></div>
+
+    <p>The writer falls back to <code>uint16</code> and records the dtype in the manifest, so a larger
+      radius cannot silently wrap around. Together the two changes took one run from 4.95&nbsp;MB to
+      <b>0.66&nbsp;MB shared + ~1.6&nbsp;MB per run</b>; seven runs total 20&nbsp;MB, of which the page
+      fetches only the selected run.</p>
+
+    <div class="method">
+      <b>Runs bundled</b> — the newest of each usable track, in two cohorts. Cross-cohort comparison is
+      possible but flagged, because mixing cohorts silently is exactly the problem the 1027-electrode
+      cleanup fixed.
+      <ul>
+        <li><b>1027-electrode concatenated cohort</b> (unit = electrode, one label each):
+          K-means K=5 · Ward K=4 · K-means 15-band K=6.</li>
+        <li><b>2026-07-19 per-task cohort</b> (unit = electrode&times;condition; 2102 rows &rarr; 1287
+          localised contacts &rarr; 2031 labelled samples): K-means K=9 · Ward K=13 · K-means 15-band
+          K=11 · Ward 15-band K=10.</li>
+        <li><b>Excluded:</b> every <code>*_raw</code> track (~6&nbsp;GB, no consensus/ranking/stability,
+          three pinned at K=20 = the sweep ceiling), <code>hierarchical/concat_rawds</code> (same K=20
+          problem), and four runs that are empty or hold only stale renders.</li>
+      </ul>
+    </div>
+
+    <h4>7 · The PDF export</h4>
+
+    <p>Each run exports a document that pairs the modelled surface with the run's own figures: a coverage
+      page, then one page per cluster carrying three captured angles of
+      <i>P&#770;</i>(<i>k</i>|<i>v</i>) beside that cluster's glass brains read straight from
+      <code>recon/cluster_NN/by_condition/</code>, then the run's whole-run figures. Two constraints
+      shaped it.</p>
+
+    <ul>
+      <li><b>The WebGL buffer is cleared on present.</b> Niivue is not constructed with
+        <code>preserveDrawingBuffer</code>, so <code>canvas.toDataURL()</code> called after a frame is
+        presented returns an empty image — measured on this page at <b>0% ink</b>. The capture issues a
+        fresh <code>drawScene()</code> and reads the pixels <i>inside the same animation frame</i>.</li>
+      <li><b>Resolution is capped by printed size, not by canvas size.</b> Embedding captures losslessly
+        produced a 110.75&nbsp;MB file. For a box of width <i>w</i> mm at 150&nbsp;dpi — already finer
+        than A4 resolves — the embedded raster is
+        <span style="white-space:nowrap"><i>W</i><sub>px</sub> = &lceil; <i>w</i>/25.4 &middot; 150 &rceil;</span>,
+        JPEG encoded. Same 14 pages and 46 images, <b>1.94&nbsp;MB</b>.</li>
+      <li>Glass-brain PNGs are cropped to their ink bounding box (they are mostly white margin) and
+        flattened onto white before encoding, since they carry an alpha channel and JPEG has none.
+        Missing figures degrade to a labelled placeholder: <code>hierarchical/hg</code> has 13 clusters
+        but only 12 <code>recon/</code> directories, so one page honestly reports no glass brains rather
+        than borrowing another cluster's. Cluster ids are read from <code>labels.csv</code>, never from
+        the directory listing — five runs disagree between the two.</li>
+    </ul>
+
+    <h4>8 · Validation, and the two defects it caught</h4>
+
+    <p>The tool was swept over all <b>7 runs &times; every map = 72 combinations</b>, recording the gated
+      fraction, the peak, and the colourbar for each, with an error trap installed. No exceptions were
+      raised. The designed-in invariant held: because (7) is run-independent, the coverage map must be
+      <i>bit-identical across all seven runs</i> — it reported 84% gated and peak 0.80 every time. Two
+      real defects surfaced:</p>
+
+    <ul>
+      <li><b>The contact-density colourbar read "1.00" under the heading "contacts."</b> The raw-scale
+        flag was being set on the value returned by the per-vertex function instead of on the map
+        definition the renderer reads, so it was permanently undefined and the map was drawn on a
+        normalised 0–1 axis with no way to recover the count. It now reads <b>204</b>, the true maximum
+        of <i>n</i><sub>c</sub>.</li>
+      <li><b>A cluster too small to survive the gate drew an entirely grey brain with no explanation</b> —
+        indistinguishable from a broken page. <code>hierarchical/hg</code> cluster 7 has 3 labelled
+        samples, none at a vertex where <i>m</i> &ge; 5, so by (10) every vertex is legitimately gated
+        out. The readout now says so explicitly, gives the cluster size, and points at the
+        <i>min n</i> control.</li>
+    </ul>
+
+    <h4>9 · Limitations</h4>
+
+    <ul>
+      <li><b>The radius is a smoothing kernel.</b> <i>r</i> = 10&nbsp;mm is a boxcar: every contact
+        inside contributes equally and every contact outside not at all. It blurs sharp functional
+        borders and cannot resolve structure finer than the ball.</li>
+      <li><b>Neighbourhoods overlap, so vertices are not independent.</b> The maps are a description of
+        this cohort's sampling, not a test. No inference should be drawn from the spatial extent of a
+        coloured patch.</li>
+      <li><b>The gate trades coverage for reliability.</b> At <i>n</i><sub>min</sub> = 5 roughly 18% of
+        cortex is shown on a cluster map. Small clusters can vanish entirely — correctly, but the absence
+        is a property of the sampling, not of the brain.</li>
+      <li><b>Depth contacts are projected to a surface.</b> A contact in white matter or deep in a sulcus
+        is counted toward nearby surface vertices, which flatters coverage in regions sampled mainly by
+        depth electrodes.</li>
+      <li><b>(8) conditions on being an electrode in this dataset.</b> It inherits every selection
+        effect upstream — clinical implantation targets, the electrode-inclusion criteria, and the
+        excluded shafts — and is not a statement about cortex in general.</li>
+    </ul>
+
+    <div class="runid multi">source: coverage_viz bundle · <b>7 runs</b> · <code>02_FBM_Clustering/make_coverage_bundle.py</code> · <code>clustering_visualizer.html</code></div>
+
   </section>
 
   <!-- ============ STAGE 03 ============ -->

@@ -201,14 +201,17 @@ function mapDefs() {
     cbar: "P(sampled)",
     val: (c) => ({ num: c[1], den: M.n_patients_total, gate: c[1] }),
   }, {
-    id: "density", group: "Sampling", label: "Coverage — contact density",
+    // `raw` belongs on the DEFINITION, not on the object val() returns: render() reads
+    // d.raw, so putting it in the return value left it permanently undefined and the
+    // colourbar showed "1.00" under the heading "contacts" instead of the real count.
+    id: "density", group: "Sampling", label: "Coverage — contact density", raw: true,
     title: `Contact density: how many contacts sit within ${M.radius_mm} mm`,
     def: `n_contacts within ${M.radius_mm} mm  (scaled to the busiest vertex)`,
     note: "Raw contact count, <b>not</b> patient count — a single dense grid or shaft can light " +
           "up a region on its own. Compare against the patient map to see where coverage " +
           "is deep but not broad. Identical for every run.",
     cbar: "contacts",
-    val: (c) => ({ num: c[0], den: MAXC, gate: c[0], raw: true }),
+    val: (c) => ({ num: c[0], den: MAXC, gate: c[0] }),
   }];
   if (!RUN) return defs;
   const unitTxt = RUN.unit === "electrode" ? "electrodes"
@@ -410,12 +413,24 @@ function render() {
   const scaleTxt = (!d.raw && Math.abs(state.climMax - state.autoScaled) < 1e-9 && state.climMax < 1)
     ? ` Colour scale auto-set to the 98th percentile (<b>${state.climMax.toFixed(2)}</b>) — raise "max" to 1.00 for the true range.`
     : "";
+  // A cluster small enough that none of its contacts survives the gate draws an entirely
+  // grey brain. Say so, otherwise an empty map is indistinguishable from a broken one.
+  let emptyTxt = "";
+  if (d.cluster !== undefined && peak === 0) {
+    const size = RUN.cluster_sizes[String(d.cluster)];
+    emptyTxt = `<br><br><b>Nothing is drawn.</b> Cluster ${d.cluster} has only <b>${size}</b> ` +
+      `labelled sample${size === 1 ? "" : "s"}, and none of them sits where ${state.minN} or more ` +
+      `labelled contacts fall within ${M.radius_mm} mm — so every vertex is gated out. This is a ` +
+      `real result, not a failure: the cluster is too small to support a local fraction. ` +
+      `Lower <i>min n</i> to see where its contacts are.`;
+  }
+
   $("roTitle").textContent = d.title;
   $("roDef").textContent = d.def;
   $("roNote").innerHTML = `${d.note}<br><br>` +
     `<b>${(100*shown/total).toFixed(0)}%</b> of cortex passes the gate · peak ` +
     `<b>${d.raw ? Math.round(peak) : peak.toFixed(2)}</b>` +
-    `${d.raw ? " contacts" : ` (of ${peakDen} there)`}. ${gateTxt}${scaleTxt}`;
+    `${d.raw ? " contacts" : ` (of ${peakDen} there)`}. ${gateTxt}${scaleTxt}${emptyTxt}`;
   return { shown, total, peak, peakDen };
 }
 

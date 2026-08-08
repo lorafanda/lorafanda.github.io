@@ -425,6 +425,30 @@
     <p class="lead">Group the trial‑averaged ERSPs into data‑driven response <b>types</b>. Every representation
       clusters the <b>same</b> 2102 high‑activity samples; only the feature space changes. The high‑gamma track
       is the de‑facto canonical result.</p>
+    <div class="callout q" style="border-left:4px solid var(--stale)">
+      <h3 style="margin:0 0 8px">Read this before the figures below</h3>
+      <p style="margin:0 0 8px">Everything in this tab is the <b>K=5 five-type partition</b> as it was
+        produced. It is kept because it is what the pipeline did and what earlier meetings saw &mdash;
+        but on <b>2026-08-07/08</b> it stopped being the best description of these data, and the figures
+        below have not been re-interpreted.</p>
+      <ul style="margin:0 0 8px">
+        <li><b>The partition is a preprocessing choice.</b> Five defensible pipelines on the same
+          electrodes agree at ARI as low as <b>0.085</b>.</li>
+        <li><b>K is not identifiable.</b> K=5 is indistinguishable from K=3, 4, 6 and 7 under
+          subsampling.</li>
+        <li><b>The separation is one cluster.</b> Cluster&nbsp;1 carries <b>84.9%</b> of the silhouette
+          mass; cluster&nbsp;0 carries <b>&minus;2.2%</b> and is a leftover bin presented here as a
+          response type.</li>
+        <li><b>Four claims were made and withdrawn</b> while checking this, and three defects were found
+          in figures on this very tab &mdash; a fabricated onset, a suppression cluster ranked against
+          activations, and cluster&nbsp;0 above.</li>
+      </ul>
+      <p style="margin:0">The current description is a <b>graded convex-NMF decomposition at K=7</b>, in
+        which 59% of electrodes have no majority component at all.
+        <a href="#caveats">Caveats &rarr; the diagnostic pass, the plan, and FIG&nbsp;C.3</a>.</p>
+    </div>
+
+
 
     <div class="kpis">
       <div class="kpi"><div class="v">HG</div><div class="l">canonical feature (232)</div></div>
@@ -1970,7 +1994,7 @@
       <li><b>01 · ERSP.</b> <code>EL044</code> has audio only; <code>PAT_3301</code> has picture only;
         <code>PAT_3415</code> is missing reading on 8 of 121 electrodes.</li>
       <li><b>02 · Recon.</b> 5247 contacts across 35 patients carry coordinates; 8 real contacts do not (above).</li>
-      <li><b>03 · Clustering.</b> 25 registered runs, all present on disk.</li>
+      <li><b>03 · Clustering.</b> 24 registered runs, all present on disk.</li>
       <li><b>04 · Pooling.</b> <span class="pill ok">closed</span> All 1143 role‑matched contacts now reach the
         export, and the export itself grew <b>2644 → 2724</b> contacts. The 90 that used to vanish were the
         recon gap, not a pooling bug. The gaussian variant still shows 103 — it needs its own re‑run.</li>

@@ -2373,6 +2373,32 @@
       24 patients cannot settle generalisation, and every stability number will be reported against a
       matched null rather than on its own.</p>
 
+        <div class="method">
+      <b>How to read FIG&nbsp;C.3, panel by panel.</b> The figure argues one thing: the five-type
+      taxonomy is a preprocessing choice, and a graded decomposition describes the same electrodes
+      with less pretence and better anatomy. Each panel carries one step of that.
+      <ul>
+        <li><b>Look at A first.</b> If that curve had an elbow, a fixed number of response types
+          would be defensible and none of the rest would be needed. It has none &mdash; that is the
+          permission to move to a graded description.</li>
+        <li><b>C is the claim.</b> The histogram is the whole argument in one panel: if electrodes
+          were types, the mass would sit at the right edge. It sits at 0.46.</li>
+        <li><b>D is why it is better, not just different.</b> One number, on the criterion that is
+          about the brain rather than about the fit.</li>
+        <li><b>E is the sanity check</b> &mdash; and the red band is the part to look at, not the
+          bars. Bars outside the band would mean a patient was carrying the result.</li>
+        <li><b>B and F are the caveats</b>: what the components actually look like, and what 24
+          patients cannot settle.</li>
+      </ul>
+      <b>Where to look elsewhere.</b> The same K=7 decomposition is now published as a run:
+      pick <i>Convex NMF &mdash; graded (argmax)</i> in the
+      <a href="https://lorafanda.github.io/clustering_visualizer.html">clustering visualizer</a> to
+      see each component's spatial probability map, and in MOBA to see its electrodes on the 3-D
+      brain. <b>Both tools show the argmax</b>, which panel C says is a narrow lead for most
+      electrodes &mdash; so read those maps as "which component leads here", never as "which type
+      this electrode is".
+    </div>
+
     <figure><div class="cap"><div class="fignum">FIG C.3</div>
       <h4>The graded decomposition &mdash; convex NMF at K=7</h4>
       <ul>

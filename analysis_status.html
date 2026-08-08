@@ -442,15 +442,6 @@
     </ul><div class="runid">source: stage-01 examples</div></div>
 
     <h3>Results — HG, K‑Means K=9</h3>
-    <figure>
-      <div class="cap"><div class="fignum">FIG 2.1</div><h4>Cluster quality — silhouette knife + PCA projection</h4>
-        <ul>
-          <li>Left: per‑sample silhouette grouped by cluster; dashed line = overall mean (0.152).</li>
-          <li>Right: PCA(2) of the HG features coloured by cluster, with centroids.</li>
-          <li>Moderate but positive separation — expected for continuous neural responses, not discrete categories.</li>
-        </ul><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/silhouette_per_cluster.png" alt="silhouette knife + PCA"></div>
-    </figure>
 
     <figure>
       <div class="cap"><div class="fignum">FIG 2.2</div><h4>Choosing K — every K scored, not just the winner</h4>
@@ -1500,8 +1491,6 @@
       </table></div></div>
     </figure>
 
-    
-
     <h3>Rebuilt on the corrected coordinates — two cohorts, two thresholds</h3>
     <p>Everything above predates the recon name fix. These are regenerated on the corrected coordinates, and split
       into the two cohorts that answer different questions. <b>All six use the same LanA atlas</b>
@@ -1635,10 +1624,6 @@
           116,100 bins survive FDR at q=0.05.</li>
       </ul><div class="runid">source: make_fedorenko_corr.py</div></div>
       <div class="imgwrap"><img data-fig="04_FBM_Pooling/outputs/pooling/atlas_corr/fedorenko/fig9_corr_map_berlin.png" alt="Fig 9 correlation map, green to yellow"></div></figure>
-
-    
-
-    
 
     <h3>How this relates to the LanA / Fedorenko work</h3>
     <div class="method">
@@ -2388,7 +2373,6 @@
       24 patients cannot settle generalisation, and every stability number will be reported against a
       matched null rather than on its own.</p>
 
-    
     <figure><div class="cap"><div class="fignum">FIG C.3</div>
       <h4>The graded decomposition &mdash; convex NMF at K=7</h4>
       <ul>
@@ -2415,7 +2399,6 @@
     </figure>
 
     <div class="runid multi">plan · evidence recomputed from kmeans/concat_hg <b>20260803_175417</b> · citations verified against DOI records</div>
-
 
     <p class="lead">The things that are genuinely your call, and the small refreshes needed before this is
       paper‑ready. Nothing here blocks the current results — they're pointers.</p>

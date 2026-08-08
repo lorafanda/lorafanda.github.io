@@ -816,12 +816,18 @@
         meaningful when two signals are the same <i>shape</i> shifted in time. Over the full trial these
         cluster means are not — one has an early sensory transient, another only a late production
         bump. Checked against the actual difference in peak times:
-        <b>full trial 0 of 8 lags agree; response window 8 of 8 agree.</b> The full-trial version is
-        computed and shown in the notebook purely to demonstrate the failure.</li>
+        <b>full trial 1 of 9, response window 8 of 9</b> (agreement = same sign and within 15% of
+        the peak-time difference; the exact counts move with that tolerance, the gap between the
+        two windows does not). There are <b>nine</b> non-reference clusters at K=10 &mdash; this
+        line used to say eight. The full-trial version is computed and shown in the notebook
+        purely to demonstrate the failure.</li>
       <li><b>Every lag carries its own caveat.</b> <code>peak_r</code> says whether the shapes align at
-        all (below 0.3 the lag is not a delay), the <b>bootstrap CI</b> over electrodes says whether the
-        lag is resolvable, and <code>at_edge</code> flags a lag censored at the search boundary. Curves
-        failing any of these are drawn dashed. 25 of 27 pass; both failures are the n=11 cluster.</li>
+        all (below 0.3 <b>in absolute value</b> the lag is not a delay &mdash; a suppression aligns at
+        r &asymp; &minus;1, which is a perfect alignment, not the absence of one), the <b>bootstrap CI</b>
+        over electrodes says whether the lag is resolvable, <code>at_edge</code> flags a lag censored at
+        the search boundary, and <code>anti</code> flags a pair whose polarities differ, for which the
+        offset is not a lead or a lag at all. Curves failing any of these are drawn dashed.
+        <b>18 of 27 pass</b> &mdash; 22 under the old estimator, and this line used to claim 25.</li>
     </ul></div>
     <div class="callout">
       <b>The obvious null does not work, and it is worth saying why.</b> Shuffling cluster labels and
@@ -831,39 +837,70 @@
       essentially zero width is beaten by almost any real lag. <b>The bootstrap CI, not the p-value, is
       the statistic to read.</b>
     </div>
-    <figure><div class="cap"><div class="fignum">FIG 2.18</div><h4>Lag profiles against the auditory cluster (K=10, ref c1)</h4>
+    <figure><div class="cap"><div class="fignum">FIG 2.18</div><h4>Lag profiles against the auditory cluster (K=10, ref c4)</h4>
+      <div class="callout warn" style="margin:0 0 12px"><b>Rebuilt 2026-08-08 with a polarity-correct estimator.</b>
+        The previous version picked each peak with <code>argmax</code> on the <i>signed</i> correlation.
+        A suppression cluster is an inverted copy of the activation reference, so its true alignment is
+        the most <i>negative</i> r and <code>argmax</code> could never return it — it returned the
+        anti-phase side lobe instead. Three rows were published as measured lags that were not.
+        <b>The headline "one cluster lags by +15%" was one of them and has been withdrawn.</b></div>
       <ul>
-        <li>The reference is chosen on the data, not by id: at K=10 it is <b>c4</b> (n=41) — audio stimulus onset <b>2.17%</b> with a <b>+3.70 dB</b> peak and <b>no stimulus onset at all</b> in picture or reading. <b>Cluster ids change on every re-fit</b>, so the scripts pick the reference by profile rather than by number; on the previous cohort the same cluster was c1.</li>
-        <li>In audio, <b>seven clusters lead the auditory cluster</b> by 4–16% and only <b>one lags it, by +15%</b>.
-          The curves are cleanly single-peaked — itself evidence the shape assumption holds here.</li>
-        <li><b>How to read a curve.</b> x is the time shift applied to that cluster relative to c1;
-          y is how well the two traces match at that shift. <b>Follow a curve to its highest point</b> —
-          that x is the lag. Left of zero the cluster is <b>earlier</b> than c1; right of zero it is
-          <b>later</b>. A tall narrow peak means a well-defined lead/lag; a low flat curve means the two
-          simply do not align at any shift, whatever its argmax says.</li>
+        <li>The reference is chosen from the data rather than by id: <b>c4</b> (n=41) — audio stimulus
+          onset <b>2.17%</b> with a <b>+3.70 dB</b> peak and <b>no stimulus onset at all</b> in picture
+          or reading. Cluster ids change on every re-fit, so
+          <code>pick_reference_cluster()</code> selects the activation with the earliest audio
+          stimulus onset that is silent in the other two conditions. (Until this rebuild the notebook
+          had the reference <i>hard-coded</i> to <code>c1</code> while every published number had been
+          computed against c4, so it could not reproduce its own figures.)</li>
+        <li><b>What audio actually shows.</b> Of the clusters that survive the gate and share the
+          reference's polarity, <b>five lead c4, by 6.7–16.0%</b>, and <b>none lag it</b>.
+          The single positive offset belongs to <b>c7 (n=190), a suppression</b>, at +12.0% with
+          <b>r = −0.92</b> — an anti-correlated alignment, i.e. simultaneous and opposite, which is
+          <b>not</b> a lag. <b>18 of 27</b> rows pass the gate (it was 22 before the fix, and the site
+          previously said 25).</li>
+        <li><b>Suppression clusters are marked, not ranked.</b> Ringed marker and <b>↓supp</b> in the
+          legend: c3, c7 and c9 are suppressions in at least one condition, and their offsets sit below
+          the axis because the alignment is negative. Lead/lag is only defined <i>within</i> a polarity
+          — the same rule the onset ladder now follows.</li>
+        <li><b>How to read a curve.</b> x is the time shift applied to that cluster relative to c4; y is
+          how well the two traces match at that shift. Follow a curve to its <b>peak</b> — its highest
+          point for a same-polarity pair, its <b>lowest</b> for a ringed suppression. Left of zero the
+          cluster is <b>earlier</b> than c4; right of zero it is <b>later</b>.</li>
         <li><b>The grey band is a refusal zone.</b> Peaks inside it (|r| &lt; 0.3) are two different
-          shapes, not a delay. <b>Solid</b> curves passed the gate; <b>dashed and pale</b> ones failed it
-          — either the shapes differ, the peak is censored at the edge of the searched range, or the
-          bootstrap CI is too wide to resolve. They are drawn rather than deleted because "these two do
-          not align" is itself an answer.</li>
-        <li><b>Lags are warped-time %, not milliseconds.</b> Read the <b>order</b> — who leads whom —
-          and treat the exact percentage as approximate.</li>
-      </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
+          shapes, not a delay. <b>Solid</b> curves passed the gate; <b>dashed and pale</b> ones failed —
+          the shapes differ, the peak is censored at the edge of the searched range, or the bootstrap CI
+          is too wide to resolve. They are drawn rather than deleted because "these two do not align" is
+          itself an answer. The <b>nine</b> failing rows are c3 (n=74, all three conditions), c6 (n=7,
+          audio and picture), c9 (n=218, audio and reading) and c0 (n=67, picture and reading) —
+          <i>not</i> the "n=11 cluster" this page used to name, which does not exist at K=10
+          (sizes are 67/82/50/74/41/44/7/190/254/218).</li>
+        <li><b>The curves are not single-peaked</b>, and the page previously claimed they were.
+          15 of the 20 same-polarity pairs carry an anti-phase lobe whose |r| exceeds the in-phase peak.
+          That is precisely why the naive repair — maximising |r| — was rejected: it would have
+          corrupted those 15 rows to fix 7.</li>
+        <li><b>Lags are warped-time %, not milliseconds.</b> Read the <b>order</b>, and treat the exact
+          percentage as approximate.</li>
+      </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b> · <code>make_xcorr_figures.py</code> · notebook 215</div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/xcorr_K10_ref-c4_response.png" alt="cross-correlation lag profiles"></div>
     </figure>
 
     <figure><div class="cap"><div class="fignum">FIG 2.19</div><h4>The same profiles over the full lag range</h4>
       <ul>
         <li>The figure above is cropped to the trustworthy window. This is the <b>whole</b> lag axis
-          (±47% of the trial) with <b>y fixed to the full [−1, +1]</b>, so nothing is hidden by
-          auto-scaling.</li>
+          (<b>±47% of the trial</b>) with <b>y fixed to the full [−1, +1]</b>, so nothing is hidden by
+          auto-scaling. That ±47% is not a free choice: the response window is 150 bins, and an overlap
+          floor of 0.06 gives ⌊150 × 0.94⌋ = 141 bins = 47.0% of a 300-bin trial.</li>
         <li><b>Why the crop exists.</b> The shaded band is ±20%, where the two segments still overlap by
           at least 60%. Outside it the correlation is computed on a shrinking tail and swings back toward
-          ±1 — the wild oscillation past ±40% is that artefact, not structure. Reading a peak from
-          out there would be reading noise.</li>
-        <li>Curves are dashed wherever the interpretability gate fails at that lag range, so the solid
-          ones are those whose peak survives the wider search.</li>
-      </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
+          ±1 — the oscillation past ±40% is that artefact, not structure.</li>
+        <li><b>Peaks outside the shaded band are drawn but never marked.</b> The gate can certify an
+          alignment out where the segments barely overlap; a bold dot there would advertise it as a
+          measurement. Those curves are demoted to dashed instead.</li>
+        <li><b>This figure had no producing code.</b> Nothing tracked in the repository generated it —
+          the notebook only ever saved the cropped view — so its axis and y-limits could not be checked
+          against anything. It is now written by <code>make_xcorr_figures.py</code> alongside FIG 2.18
+          and a matching CSV, from the same run, in one pass.</li>
+      </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b> · <code>make_xcorr_figures.py</code></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/xcorr_K10_ref-c4_response_fullrange.png" alt="full lag range"></div>
     </figure>
   
@@ -1900,8 +1937,6 @@
 
   <b style="font-size:12.5px">Known wrong, small fixes</b>
   <ul style="margin:4px 0 12px">
-    <li><b>Cross-correlation figures (FIG 2.18/2.19) still rank suppression against activation.</b>
-      The onset ladder was fixed on 08 Aug; these were not rebuilt and carry the same defect.</li>
     <li><b>The pipeline consensus produced a 6-electrode cluster.</b> That is not a cluster &mdash;
       exclude it or set a minimum size.</li>
     <li><b><code>lf_centroids._is_line_feature_set</code> does not cover <code>cnmf</code></b>, so
@@ -1925,6 +1960,29 @@
 <li><b>The clustering tab had no forward reference</b> to any of this &mdash; zero mentions of the diagnostics, the plan or the decomposition, and its only outbound link went to stage 04. A supersession notice now leads that tab.</li>
 <li><b>252 split into its two jobs.</b> The recon CSV that MOBA's 3-D brain actually reads is a pandas join &mdash; written directly, <b>1027/1027 matched</b>, so the brain works now. The glassbrains needed pyvista, which was installed (0.48.4 / VTK 9.6.2) and confirmed to render off-screen. <b>FIG C.3 B2 filled automatically.</b> A second <code>by_loading/</code> set shows what the argmax discards: component 2 has 97 argmax contacts and <b>583</b> above 0.08 loading.</li>
 <li><b>Story figures rebuilt</b> on the corrected timing (they were dated 03 Aug and still read the sentinels), and <b>two candidate openings</b> drawn at equal weight &mdash; <a href="#clusterplan">FIG C.4a/b</a>. Decision recorded: <b>the negative result stays in</b> whichever opening is chosen.</li>
+<li><b>Evening &mdash; FIG C.3 B3 and the cross-correlation.</b> <b>B3 was a mirror image of B2.</b>
+  It was a flat sagittal scatter with anterior on the right, while the project's left-lateral camera puts
+  anterior on the <i>left</i> (derived from the camera cross product, then measured by rendering a marker
+  at each pole). B3 now embeds the graded glassbrain from the same run and the same camera, so the two
+  rows are the same view by construction rather than by two scripts agreeing about a convention. The
+  graded render was also rescaled: it had been normalised <i>per component</i>, so every panel peaked at
+  full opacity and the row was not comparable across components.</li>
+<li><b>The cross-correlation defect was worse than the note said, and the obvious fix was wrong.</b>
+  <code>argmax</code> on the signed r cannot return a suppression's alignment, which sits at the most
+  <i>negative</i> r; it returned the anti-phase side lobe instead. <b>Three rows were published as
+  measured lags that were not</b>, including the site's headline "one cluster lags by +15%".
+  Maximising |r| &mdash; the obvious repair &mdash; was tested and <b>rejected</b>: these response ramps
+  are biphasic, 15 of the 20 same-polarity pairs have an anti-phase lobe exceeding their in-phase peak,
+  so |r| would have corrupted 15 correct rows to fix 7. The estimator is now
+  <b>polarity-conditioned</b> &mdash; maximise r within a polarity, maximise &minus;r across &mdash;
+  applied identically at the point estimate, the bootstrap and the shuffle null, with the gate on |r|.
+  It changes exactly the 7 cross-polarity rows. Interpretable rows go <b>22 &rarr; 18 of 27</b>.</li>
+<li><b>Two further problems surfaced while fixing it.</b> Notebook 215 had the reference
+  <b>hard-coded to c1</b> while every published number was computed against <b>c4</b>, so it could not
+  reproduce its own figures &mdash; the reference is now chosen by profile, which is what the write-up
+  always claimed. And <b>nothing in the repository produced FIG 2.19</b>; its &plusmn;47% axis was
+  reverse-engineered (150 response bins at a 0.06 overlap floor = 141 bins = 47.0%) and both figures plus
+  their CSVs are now written in one pass by <code>make_xcorr_figures.py</code>.</li>
 </ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div><div class="nb-day"><div class="nb-date"><span>2026-08-07</span><span class="tag">visualizer, diagnostics, method pivot</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li><b>Clustering visualizer finished</b> &mdash; run switcher over 7 runs in 2 cohorts, adjustable neighbourhood radius (6/10/15 mm), and the PDF export replaced by a self-contained HTML report with patient-composition donuts in the MOBA palette. <a href="https://lorafanda.github.io/clustering_visualizer.html">clustering_visualizer</a>.</li><li><b>The coverage denominator was wrong and is fixed.</b> The coordinate file carries 35 patients but only <b>26</b> ever entered FBM (24 concatenated, 26 per-task). Coverage is now computed per cohort, over that cohort's contacts. Peak P(sampled) 0.80 of 35 &rarr; <b>0.83 of 24</b>.</li><li>Camera orientation in the export was inverted &mdash; every cluster page showed the wrong hemisphere under the right caption. Measured rather than assumed (paint LH red, RH blue, sweep azimuth) and corrected.</li><li><b>Four claims made and then withdrawn</b> after running controls: cluster&nbsp;1 is not a noise bin (it has the <i>highest</i> silhouette, +0.266, and is the modality-selective population &mdash; 81% respond in one condition); the clusters do not encode patient identity (coordinates alone score higher, 0.247 vs 0.184); small patients do not destabilise the fit (inside a size-matched null, z = &minus;0.60); unit-norm does not fix it (it scatters the quiet quartile across every cluster).</li><li><b>Three defects found in results already published here</b>: a non-detection stored as <code>onset_pct = 100.0</code>; an onset ladder that ranks a suppression cluster against activations; and cluster&nbsp;0 carried as a response type despite negative silhouette. Library fixed &mdash; <b>outputs not yet regenerated</b>.</li><li><b>Method pivot recorded with citations</b> &mdash; convex NMF, which accepts signed dB, following Hamilton 2018/2021, Kurteff 2024 and Norman-Haignere 2022 on this exact data type. Validation moves to held-out prediction and pipeline consensus (Lowe &amp; Schall 2018). <a href="#clusterplan">The plan</a>.</li><li>New: <code>functions/lf_decompose.py</code>, notebooks <b>234</b> (evidence), <b>235</b> (decomposition), <b>236</b> (validation).</li><li><b>First results.</b> Lowest agreement between two defensible pipelines <b>0.085</b>; K=5 indistinguishable from K=3,4,6,7; cluster&nbsp;1 carries <b>84.9%</b> of the silhouette mass and cluster&nbsp;0 carries &minus;2.2%. At K=12 the decomposition gives <b>0.1%</b> of electrodes a dominant component and <b>69.5%</b> no majority at all &mdash; with anatomical coherence <b>3.09&times;</b> chance, well above any hard clustering.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div>
 <div class="nb-day"><div class="nb-date"><span>2026-08-03</span><span class="tag">re-run + story figures</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li>Full re-run on <b>1027</b> electrodes. Best K <b>4 &rarr; 5</b>, silhouette <b>0.164 &rarr; 0.176</b> &mdash; dropping the noisy shafts made the partition cleaner, not just smaller.</li><li><b>The auditory reference moved, and would have failed silently.</b> c1 is no longer auditory on this fit (audio peak &minus;1.25 dB, responds in all three conditions). The cross-correlation now picks by profile: <b>c4</b>, n=41, onset 2.17%, peak +3.70 dB, no stimulus onset in picture or reading. Finding survives &mdash; seven clusters lead it, one lags by +15%.</li><li>Both figure scripts resolve their targets now instead of hard-coding a run id or reference cluster. <a href="#overview">S1&ndash;S5</a>.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><ul><li>Role onsets persisted (<code>make_role_onsets.py</code>), unblocking <a href="#overview">S1</a>. Still computed on the older electrode set until 460 re-runs.</li></ul></div></div></div>
         <div class="nb-day"><div class="nb-date"><span>2026-08-03</span><span class="tag">a third unnormalised join</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><ul><li><code>PAT_3415</code> <code>IMG/TA/IPG</code> shafts excluded as noise-contaminated, in <code>prepare_dataset</code> so every track inherits it; added to the dataset cache key.</li></ul></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li><b>Anatomy labels were wrong.</b> <code>lf_anatomy</code> keyed its aparc join on the raw electrode string, so 45% of contacts fell into &quot;unknown&quot; and that read as anatomy. Normalised: <b>55% &rarr; 96% matched</b>, and the largest cluster's top region changed. Third instance of the same bug class. <a href="#integrity">Data integrity</a>.</li><li>Purity now reported <b>against chance</b> (0.24 with 30 regions): c0/c2/c3 are 1.5&ndash;1.7&times;, <b>c1 is 0.76&times; &mdash; below chance</b>. Cards gain hemisphere counts. <a href="#s2">FIG 2.17</a>.</li><li>Added the full-range lag view. <a href="#s2">FIG 2.19</a>.</li></ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div>
@@ -2445,8 +2503,16 @@
         <li><b>A.</b> Held-out variance rises to k=18 and <b>never turns over</b>. There is no natural
           number of components; K is chosen where the gain flattens. Per-component gain falls
           0.049 &rarr; 0.019 across 5&rarr;6, then sits near 0.005. <b>K=7</b> is just past that knee.</li>
-        <li><b>B.</b> The seven profiles, each a weighted average of real electrodes, so the dB scale is
+        <li><b>B1.</b> The seven profiles, each a weighted average of real electrodes, so the dB scale is
           real rather than an abstract loading.</li>
+        <li><b>B2 and B3 &mdash; read them as a pair, column by column.</b> Same brain, same left-lateral
+          camera (<b>anterior on the left</b>), so the only thing that differs between the two rows is
+          <i>which electrodes are drawn</i>. <b>B2</b> is the <b>argmax</b>: electrodes whose leading
+          component is this one, 97&ndash;209 per component. <b>B3</b> is everything loading above 0.08,
+          with radius and opacity scaling with the loading on <b>one scale shared by all seven
+          components</b> &mdash; 479&ndash;583 per component. The gap between the two counts <i>is</i> the
+          argmax's cost: component 2 has <b>97</b> electrodes that call it their leading component and
+          <b>583</b> that carry it. A taxonomy reports the first number and discards the second.</li>
         <li><b>C.</b> <b>Only 3% of electrodes are dominated</b> by one component and <b>59% have no
           majority at all</b> (median largest weight 0.46). A hard label would be a coin flip for most of
           the dataset &mdash; the quantitative case against the taxonomy.</li>

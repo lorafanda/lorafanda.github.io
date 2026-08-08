@@ -643,10 +643,10 @@
         very late sensory response.</li>
       <li><b>Hollow ▲ = carry-over.</b> A response onset on the first post-GO bin nearly always means the signal was
         <i>already</i> above threshold at the cue and simply continued. Without the flag those read as "fires exactly
-        at GO", which is the opposite of what happened. At K=5, 5 of 15 cells are carry-over; only 10 are genuinely
-        new response-locked onsets.</li>
+        at GO", which is the opposite of what happened. At K=5, 5 of 15 cells are carry-over and one (c1 / audio) has no response onset at all,
+        so 9 are genuinely new response-locked onsets.</li>
       <li><b>Two inherited caveats.</b> The criterion uses <code>|mean|</code>, so a strongly <b>suppressed</b>
-        cluster registers an onset exactly like an activated one — c3 and c4 at K=5 cross on <i>negative</i> peaks.
+        cluster registers an onset exactly like an activated one — at K=5 only <b>c2</b> (n=130) is a suppression cluster, negative in all three conditions (peak &minus;1.31 / &minus;0.84 / &minus;1.53); c3 and c4 are activations. Since 2026-08-08 polarity is a stored column and suppression is marked on both ladders.
         And onset is a threshold crossing on a <b>warped</b> axis, so the <b>ordering</b> is the result; the exact
         percentages are not.</li>
     </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
@@ -659,7 +659,7 @@
 
     <figure><div class="cap"><div class="fignum">FIG 2.11b</div><h4>K=6 — time courses and onset ladder (silhouette 0.171)</h4><ul><li>Cluster sizes 11 / 567 / 155 / 50 / 129 / 115. Splitting further isolates <b>c1</b> at n=11 — too small for its mean to be meaningful, which is exactly the trade-off FIG 2.2 makes visible. The rest of the structure is K=5's, redistributed.</li></ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/timing_k06_panel.png" alt="cluster timing panel K=6"></div></figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 2.11c</div><h4>K=4 — time courses and onset ladder (silhouette 0.166)</h4><ul><li>Cluster sizes 136 / 172 / 576 / 143. Coarser. The silent-in-audio cluster survives intact (c2, n=576, onset 100 / 71.2 / 2.5) and the early stimulus-locked group is absorbed — it only separates from K=5 upward.</li></ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/timing_k04_panel.png" alt="cluster timing panel K=4"></div></figure>
+    <figure><div class="cap"><div class="fignum">FIG 2.11c</div><h4>K=4 — time courses and onset ladder (silhouette 0.166)</h4><ul><li>Cluster sizes 136 / 172 / 576 / 143. Coarser. The silent-in-audio cluster survives intact (c2, n=576, onset &mdash; / 71.2 / 2.5 &mdash; no audio crossing at all; its audio peak is 0.43 dB, under the 0.5 dB threshold) and the early stimulus-locked group is absorbed — it only separates from K=5 upward.</li></ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/timing_k04_panel.png" alt="cluster timing panel K=4"></div></figure>
 
     <h3>Across the K sweep — and why the obvious version of this figure is misleading</h3>
     <p>The natural next question is <i>"is this timing ordering stable, or an artefact of the K we picked?"</i>
@@ -676,7 +676,7 @@
       <li><b>2 · It showed a size artefact as if it were biology.</b> This is the serious one. A smaller cluster has
         a noisier mean, and a noisier mean crosses a fixed dB threshold <b>sooner</b>. So as K grows and clusters
         shrink, onsets drift <b>earlier</b> — for statistical reasons, not neural ones. Measured on this run:
-        <b>Spearman(cluster n, onset) = +0.52 audio, +0.50 picture, +0.53 reading</b>, all p &lt; 1e-7. That is a
+        <b>Spearman(cluster n, stimulus onset) = +0.50 audio, +0.68 picture, +0.41 reading (recomputed after the 33 non-detections became NaN)</b>, all p &lt; 1e-7. That is a
         first-order effect, not a nuisance. Any reading of "the spread grows with K" has to be discounted against
         it, so it now gets its own panel instead of being invisible.</li>
 
@@ -1880,11 +1880,7 @@
     <b>2026-08-08</b> &mdash; 214 regenerated, 236 completed, K fixed at 7. What remains is reading and
     deciding, not running.</p>
   <ul>
-    <li><s><b>214 was not re-run.</b></s> <b>Done.</b> <code>timing/cluster_timing_by_k.csv</code> still holds
-      <code>onset_pct = 100.0</code> for cluster 1 / audio and has <b>no <code>polarity</code>
-      column</b>. The library is fixed; the outputs are not. <b>Every timing figure on this site is
-      still the old one</b>, and <code>make_story_figures.py</code> (S4) reads that CSV. Run 214, then
-      the story figures.</li>
+    <li><s><b>214 was not re-run.</b></s> <b>Done 2026-08-08.</b> The CSV now carries a <code>polarity</code> column, all 33 non-detections are NaN, and every timing figure was regenerated. <b>Still outstanding:</b> the story figures (<code>S1_three_lenses.png</code>, <code>S4_timing.png</code>) are still dated 2026-08-03 and read the old CSV &mdash; rerun <code>make_story_figures.py</code>.</li>
     <li><s><b>236 ran only 1 of 6 cells.</b></s> <b>Done.</b> There is no validation yet &mdash; no leave-one-patient-out,
       no pseudo-group null, no pipeline consensus, no discovery/replication. Nothing about the
       decomposition should be quoted as holding up until this finishes.</li>
@@ -2168,14 +2164,14 @@
     <h4>2 · Three defects this surfaced in results already on this site</h4>
 
     <div class="method">
-      <b>These are not about the proposal — they are live on the tabs above.</b>
+      <b>These are not about the proposal. The first two were live on the tabs above when found and were fixed on 2026-08-08; the third is a framing decision, not a bug.</b>
       <ul>
         <li><b>A fabricated onset.</b> In <code>timing/cluster_timing_by_k.csv</code> at K=5, cluster 1 /
           audio has <code>crosses=False</code>, <code>peak_db=0.439</code> — below the 0.5&nbsp;dB
-          threshold — and <code>onset_pct=<b>100.0</b></code>. A non-detection is stored as the latest
+          threshold — and <code>onset_pct=<b>100.0</b></code>. A non-detection was stored as the latest
           possible onset "so it sorts last". Any mean, rank or ladder consuming <code>onset_pct</code> is
-          averaging in a number that was never measured. 1 of 15 cells at K=5.</li>
-        <li><b>The onset ladder mixes activation with suppression.</b> Cluster 2 (n=130, 12.7% of the
+          averaging in a number that was never measured. 1 of 15 cells at K=5 &mdash; and <b>33 across the whole sweep</b> (18 audio, 11 picture, 4 reading). <b>Fixed 2026-08-08: all are NaN.</b></li>
+        <li><b>The onset ladder mixed activation with suppression.</b> <b>Fixed for the ladder on 2026-08-08</b> (polarity column + marking); still true of the cross-correlation ordering in FIG&nbsp;2.18/2.19, which was not rebuilt. Cluster 2 (n=130, 12.7% of the
           data) has <b>negative peak_db in all three conditions</b> (−1.31 / −0.84 / −1.53). Onset is
           defined on <code>|mean HG| &gt; 0.5</code>, so c2's "onsets" are onsets of
           <b>desynchronisation</b>, rank-ordered on the same axis as activations.</li>

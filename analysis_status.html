@@ -416,6 +416,134 @@
       micro‑electrode <b>spike detection</b> (nb 13 / 13b) works and exports spike caches (<code>.h5</code>) +
       wideband <code>.bin</code> for external sorters (Combinato/Kilosort), but its diagnostics live inline in the
       notebooks rather than as committed figures.</div>
+  
+    <h3 id="realtime">1.9 &mdash; Real time, GO-locked: the first run of notebook 150</h3>
+    <p class="lead">Everything else in this project is <b>time-normalised</b>: every trial is stretched onto
+      300 bins with 0% = stimulus onset and 50% = GO. That makes trials commensurable, but the response
+      follows GO after a variable natural delay, and warping spends exactly that delay. Notebook
+      <code>150_ERSP_analysis_pipeline_noTwarping</code> is the same pipeline with nothing warped: epochs
+      cut in <b>real seconds</b> and centred on the <b>GO cue</b>, written to a single root,
+      <code>05_ERSP_LM_RAWONLY_RealTime</code>. Stage <code>05_FBM_ResponseTiming</code> will read it.</p>
+
+    <div class="callout warn" style="margin:0 0 18px">
+      <b>Read this before using the run.</b> The <i>signal</i> is clean &mdash; the two sample figures below
+      are exactly what a GO-locked analysis should look like. The <i>run</i> is not: <b>9 of 30 patients
+      completed</b>, and two of the defects found while checking it <b>also affect notebook 140 and the
+      shipped <code>04_ersp_LM_RAWONLY</code> tree</b>. Nothing here has been fixed yet; this is the report,
+      not the repair.
+    </div>
+
+    <figure><div class="cap"><div class="fignum">FIG RT.1</div>
+      <h4>What the first run actually did, per patient</h4>
+      <ul>
+        <li><b>9 of 30 completed</b> &mdash; 5 MicroEPI and 4 Bern. <b>A naming trap:</b> five of the nine
+          are written to folders called <code>PAT_5515 / 5533 / 6684 / 6704 / 6854</code>, but those are
+          MicroEPI <b>G-01 / G-02 / G-05 / G-04 / G-06</b>, not HUG patients. <b>No HUG patient
+          succeeded.</b> Likewise the failing &ldquo;G-03&rdquo; appears in the log as
+          <code>PAT_6619</code>.</li>
+        <li><b>10 HUG patients: path not found.</b> <code>lf_io_utils.py:383</code> does
+          <code>patient_id = f"PAT_{pid_raw}"</code> unconditionally, and the ids in
+          <code>cfg.patient_ids</code> already carry the prefix &mdash; so it looked for
+          <code>PAT_PAT_3455</code>. All ten real directories exist and are populated; this is a one-line
+          fix that recovers every one of them. <b>No HUG data is missing.</b></li>
+        <li><b>11 patients: out of memory.</b> Not a missing <code>gc.collect()</code> &mdash; the loop
+          already calls <code>plt.close("all")</code> and <code>gc.collect()</code> after every patient, and
+          the body is a function so intermediates stay collectable. The last three failures ask for only
+          <b>113&nbsp;MiB on a 63.7&nbsp;GB machine</b>, which is allocator-level exhaustion, so the fix is a
+          fresh process or kernel per patient, not a code change. (It is not perfectly monotonic: EL045
+          failed at 969&nbsp;MiB <i>after</i> reading 136 channels, between two 113&nbsp;MiB failures.)</li>
+        <li><b>3807 ERSP cubes and 3853 HG plots</b>, every cube tagged <code>_RT_GO</code> &mdash; none
+          untagged, none <code>_TN</code>. HG exceeds cubes because the HG plot is drawn for every channel
+          while cubes are written only for channels that survive the bad-channel/WM exclusions.</li>
+        <li><b>Nothing leaked into 140's trees.</b> The newest file under <code>04_ersp_LM</code> predates
+          this run by four days.</li>
+      </ul>
+      <div class="runid">source: <code>05_ERSP_LM_RAWONLY_RealTime</code> &middot; notebook 150, single execution &middot; every number re-verified against the tree on disk</div></div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/_status_png/realtime/RT1_run_status.png" alt="per-patient run status"></div>
+    </figure>
+
+    <h4>Sample results &mdash; what a GO-locked trial actually looks like</h4>
+    <p>Both panels are the same electrode, <b>PAT_6854 (MicroEPI G-06), contact AGm4</b>, the strongest
+      post-GO high-gamma response in the run (+5.02&nbsp;dB over baseline in the 0&ndash;1.5&nbsp;s after
+      GO).</p>
+
+    <figure><div class="cap"><div class="fignum">FIG RT.2</div>
+      <h4>Single trials, GO at zero, sorted by response duration</h4>
+      <ul>
+        <li><b>This is the figure the whole exercise was for.</b> The black line at 0&nbsp;s is the GO cue.
+          High-gamma switches on right at it and stays on for roughly 1.5&nbsp;s, <b>on essentially every
+          trial</b> &mdash; a vertical band, not a smear.</li>
+        <li><b>Magenta = stimulus onset.</b> It scatters from &minus;2.2 to &minus;4.1&nbsp;s because the
+          auditory stimulus lasts a different length every trial (median 3.07&nbsp;s for this patient). That
+          scatter is precisely what time-warping used to absorb, and what would have blurred the onset if
+          the trials were locked to stimulus onset instead.</li>
+        <li><b>Green = end of the response window</b>, and rows are ordered by it, so it forms a clean
+          staircase. Longest response here is about 2.5&nbsp;s &mdash; comfortably inside the 5&nbsp;s cap.</li>
+        <li>Trials keep their original numbers on the left, so a row can be traced back to the raw file.</li>
+      </ul>
+      <div class="runid">source: <code>PAT_6854/LM/HG/audio/PAT_6854_audio_WM_HGtrials_AGm4_GO.png</code></div></div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/_status_png/realtime/RT_sample_hg.png" alt="GO-locked HG trials"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG RT.3</div>
+      <h4>The saved cube, all three conditions</h4>
+      <ul>
+        <li>These are the <code>.npy</code> files stage 05 will read, drawn as spectrograms. Broadband
+          high-gamma increase locked to GO in <b>all three</b> conditions, with the classic low-frequency
+          desynchronisation below ~25&nbsp;Hz underneath it in audio.</li>
+        <li>The conditions differ in <i>when</i>, which is the point: audio rises immediately at GO, picture
+          around +0.3&nbsp;s with a second burst near +4&nbsp;s, reading around +0.5&nbsp;s and broader.</li>
+        <li><b>Reading the files.</b> Each cube is <code>(129, nt)</code>. Frequencies are
+          <code>linspace(0, 500, 129)</code> &mdash; everything is resampled to exactly 1000&nbsp;Hz and
+          <code>nfft=256</code>. Time is <code>linspace(-2.5, 5.0, nt, endpoint=False)</code>.
+          <b>Neither axis is stored in the file</b>, so stage 05 has to reconstruct both.</li>
+      </ul>
+      <div class="runid">source: <code>PAT_6854/LM/ERSP_matrix/{audio,picture,reading}/..._AGm4_RT_GO.npy</code></div></div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/_status_png/realtime/RT_sample_ersp.png" alt="GO-locked ERSP, three conditions"></div>
+    </figure>
+
+    <div class="callout warn">
+      <b>Four defects found while checking this run. Two of them are not about notebook 150.</b>
+      <ul style="margin:8px 0 0">
+        <li><b>Every MicroEPI trial is counted twice &mdash; and this affects notebook 140 and the shipped
+          <code>04</code> tree, not just this run.</b> The <code>prep0</code> folders for the MicroEPI
+          patients contain <b>two byte-identical TSVs per condition</b> (md5-verified), and
+          <code>collect_trials</code> globs <code>*.tsv</code>, so it ingests both. The IQR report shows it
+          directly: audio <code>n_in = 104 = 52&times;2</code>, picture 108, reading 106. Every trial is
+          therefore double-weighted in every MicroEPI average. This is the most serious item on the page and
+          it is <b>not</b> caused by anything done for the real-time work.</li>
+        <li><b>The baseline in the RT cubes is (&minus;0.4, &minus;0.1) s, not the (&minus;0.6, &minus;0.1)
+          in <code>config.py</code>.</b> The RT branch of <code>compute_ersp</code> reads
+          <code>params.baseline_calc_w</code>; notebook 150 builds <code>ERSPParams</code> without it, so the
+          dataclass default wins. <code>cfg.baseline_w</code> is passed but is dead in that branch, and
+          <code>cfg.baseline_calc_w</code> never arrives at all. Worth knowing that FIG RT.2 and FIG RT.3
+          sit side by side using <b>different baselines</b> &mdash; the HG plot does use
+          (&minus;0.6,&nbsp;&minus;0.1).</li>
+        <li><b>9 &times; <code>montage_overview.tif</code> = 9.1&nbsp;GB of the tree's 12.5&nbsp;GB.</b>
+          About 1&nbsp;GB each, 73% of everything written, and TIFF when the whole run was meant to be PNG.
+          The HG plots were switched to PNG; this call was missed.</li>
+        <li><b>PAT_6704 (G-04) has a fourth condition, <code>auditory_naming_eng</code>.</b>
+          <code>cfg.COND_ALIAS</code> does map it to audio, but it is never passed to
+          <code>collect_trials</code>, and that function's own internal table covers
+          <code>_ger</code> and <code>_fre</code> but not <code>_eng</code>. The patient's auditory trials
+          are split across two folders and neither is the complete condition.</li>
+      </ul>
+    </div>
+
+    <div class="callout">
+      <b>Two properties stage 05 must handle.</b>
+      <ul style="margin:8px 0 0">
+        <li><b>Cube width varies by patient <i>and</i> condition</b> &mdash; ten distinct values across the
+          run. <code>picture</code> is 369 columns for all nine patients; <code>reading</code> runs
+          440&ndash;443; <code>audio</code> runs 471&ndash;625. Anything that stacks conditions or patients
+          must resample onto a common grid first. (The width is set by the longest stimulus in that
+          condition, because the epoch is extended backwards far enough to reach the pre-stimulus baseline.)</li>
+        <li><b>The cubes are interpolated, and their edges are fabricated.</b> The real STFT hop is
+          20&nbsp;ms and the analysis window is 128&nbsp;ms, but the saved grid is 12&ndash;20&nbsp;ms, so
+          most cubes are oversampled. The last 3&ndash;5 columns of every cube are duplicates of their
+          neighbour: the final column is set to NaN by construction and then nearest-filled.</li>
+      </ul>
+    </div>
   </section>
 
   <!-- ============ STAGE 02 ============ -->

@@ -429,8 +429,9 @@
       <b>Read this before using the run.</b> The <i>signal</i> is clean &mdash; the two sample figures below
       are exactly what a GO-locked analysis should look like. The <i>run</i> is not: <b>9 of 30 patients
       completed</b>, and two of the defects found while checking it <b>also affect notebook 140 and the
-      shipped <code>04_ersp_LM_RAWONLY</code> tree</b>. Nothing here has been fixed yet; this is the report,
-      not the repair.
+      shipped <code>04_ersp_LM_RAWONLY</code> tree</b>.
+      <b>All four causes were fixed on 2026-08-11 (see below), but this run predates the fixes and has not
+      been redone.</b> Treat the cubes on disk as a pipeline test, not as data.
     </div>
 
     <figure><div class="cap"><div class="fignum">FIG RT.1</div>
@@ -504,6 +505,7 @@
 
     <div class="callout warn">
       <b>Four defects found while checking this run. Two of them are not about notebook 150.</b>
+      <b>All four are now fixed</b> &mdash; what follows is what was wrong and what changed.
       <ul style="margin:8px 0 0">
         <li><b>Every MicroEPI trial is counted twice &mdash; and this affects notebook 140 and the shipped
           <code>04</code> tree, not just this run.</b> The <code>prep0</code> folders for the MicroEPI
@@ -528,6 +530,49 @@
           <code>_ger</code> and <code>_fre</code> but not <code>_eng</code>. The patient's auditory trials
           are split across two folders and neither is the complete condition.</li>
       </ul>
+    </div>
+
+    <div class="callout ok" style="border-left-color:#2a9d8f">
+      <b>Fixed 2026-08-11.</b>
+      <ul style="margin:8px 0 0">
+        <li><b>Duplicate trial tables are dropped by content hash.</b>
+          <code>collect_trials</code> now hashes each TSV and skips byte-identical repeats, printing
+          which file it dropped and which one it matched. Only <i>byte-identical</i> files go &mdash; a
+          patient with genuinely different files for one condition has separate blocks that must still be
+          concatenated. Verified across all 30 patients: 90 TSVs, 12 redundant copies, and <b>no patient
+          has two different files for the same condition</b>, so the rule is safe.
+          <b>Effect:</b> G-06 audio goes 82&nbsp;&rarr;&nbsp;<b>41</b> kept trials, G-04
+          audio&nbsp;&rarr;&nbsp;46 &mdash; exactly half, which is the doubling confirmed from the other
+          direction. G-05 and every Bern/HUG patient are unchanged.
+          <b>This also changes notebook 140</b>, deliberately: the shipped
+          <code>04_ersp_LM_RAWONLY</code> tree was built with the doubling and is now inconsistent with
+          the code that would regenerate it.</li>
+        <li><b>Condition names normalise by prefix, not by enumeration.</b>
+          <code>auditory_naming_eng</code> and <code>reading_completion_eng</code> are added explicitly,
+          and anything starting <code>auditory_naming</code> / <code>picture_naming</code> /
+          <code>reading_completion</code> now falls back to the right condition with a printed note.
+          Enumerating language codes one at a time was the actual bug; the next one cannot repeat it.
+          Notebook 150 also passes <code>cfg.COND_ALIAS</code>, which it never did.
+          <b>Effect:</b> G-04's fourth condition folder is gone; its auditory trials are one set again.</li>
+        <li><b><code>build_paths_for_patient</code> accepts both HUG spellings.</b> It prepended
+          <code>PAT_</code> unconditionally; <code>config.py</code>'s older patient lists use bare numbers
+          (<code>3455</code>) and the current one uses <code>PAT_3455</code>. Both now resolve to
+          <code>PAT_3455</code>, verified against the real directories. This alone recovers all 10 HUG
+          patients.</li>
+        <li><b>The baseline is stated rather than inherited.</b> Notebook 150 now passes
+          <code>baseline_calc_w</code> explicitly, so the ERSP cube and the HG plot beside it both use
+          <b>(&minus;0.6, &minus;0.1)&nbsp;s before stimulus onset</b> &mdash; the window
+          <code>config.py</code> declares. 140's TN cubes are left on the old
+          (&minus;0.4,&nbsp;&minus;0.1) default on purpose: changing them would invalidate the shipped
+          tree, and warped and un-warped cubes are not comparable anyway.</li>
+        <li><b>The montage overview is written as PNG.</b> <code>plot_montage_overview</code> gained the
+          same <code>fmt</code> switch the HG plot has, defaulting to TIFF so 140 is untouched, with 150
+          passing <code>"png"</code>. Measured on a test figure: <b>1.15&nbsp;MB TIFF &rarr;
+          0.14&nbsp;MB PNG</b>, so the 9.1&nbsp;GB of montages should come back around 1&nbsp;GB.</li>
+      </ul>
+      <p style="margin:10px 0 0"><b>Still to do:</b> re-run, one process per patient so the allocator
+      exhaustion cannot accumulate; and the 9.1&nbsp;GB of TIFF montages from this run are still on disk
+      and can be deleted once the re-run succeeds.</p>
     </div>
 
     <div class="callout">
@@ -2082,6 +2127,15 @@
   </ul>
 </div>
 
+<div class="nb-day"><div class="nb-date"><span>2026-08-11</span><span class="tag">real time, GO-locked &mdash; first run and four fixes</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><ul>
+<li><b>New notebook 150</b>, a copy of 140 with nothing time-warped: epochs cut in real seconds and centred on the <b>GO cue</b> (the stimulus offset &mdash; there is still <b>no speech-onset event anywhere in the data</b>). One output root, <code>05_ERSP_LM_RAWONLY_RealTime</code>, holding GO-locked HG plots sorted by response duration and the <code>_RT_GO</code> cubes. <code>lf_ersp</code> gained <code>align="onset"|"go"</code> in both <code>compute_ersp</code> and <code>plot_hg_trials</code>; the onset path is byte-identical to before and TN is untouched. <a href="#realtime">&sect;1.9, FIG RT.1&ndash;3</a>.</li>
+<li><b>The signal is right.</b> On synthetic data with scrambled stimulus durations, GO alignment recovers a burst planted 0.25&nbsp;s after GO to within one grid step regardless of window or stimulus length, while onset alignment smears it to +1.56&nbsp;s. On real data the sample electrode shows high-gamma switching on at GO as a vertical band across trials.</li>
+<li><b>The run is not.</b> <b>9 of 30 patients</b> completed. 10 HUG patients died on <code>PAT_PAT_3455</code> &mdash; a prefix added twice, for data that was present the whole time. 11 more hit MemoryError; <b>not</b> a missing <code>gc.collect()</code>, since the loop already calls it &mdash; the last three failures ask for 113&nbsp;MiB on a 63.7&nbsp;GB machine, so it is allocator exhaustion and needs one process per patient.</li>
+<li><b>Two defects that were never about notebook 150.</b> <b>Every MicroEPI trial was counted twice</b>: <code>prep0</code> holds byte-identical <code>2026-05-08</code>/<code>2026-05-12</code> TSV pairs for 4 of the 6 MicroEPI patients and <code>collect_trials</code> globbed both, so every average was double-weighted. And <code>auditory_naming_eng</code> never normalised to audio, splitting one patient's auditory trials across two folders. <b>Both reach notebook 140 and the shipped <code>04_ersp_LM_RAWONLY</code> tree.</b></li>
+<li><b>All four fixed.</b> Duplicate TSVs dropped by <b>content hash</b> (only byte-identical ones &mdash; verified no patient has two different files for one condition, so genuine multi-block data is safe); condition names normalised <b>by prefix</b> instead of by enumerating language codes; the HUG prefix accepts both spellings; the baseline passed <b>explicitly</b>, so the cube and the HG plot beside it finally use the same window. Measured effect: G-06 audio 82&nbsp;&rarr;&nbsp;<b>41</b> kept trials, exactly half.</li>
+<li><b>Also corrected:</b> the RT baseline was silently <b>(&minus;0.4,&nbsp;&minus;0.1)</b>, the dataclass default &mdash; not the (&minus;0.6,&nbsp;&minus;0.1) in <code>config.py</code>, which was passed but dead in that branch. And the montage overview was still TIFF: <b>9 files, 9.1&nbsp;GB, 73% of the output tree</b>. Now PNG, 8&times; smaller on test.</li>
+<li><b>Every claim above was re-checked by an independent adversarial pass</b> before publication, which overturned three of them &mdash; including my own diagnosis of the memory failures and my reading of which baseline was in force.</li>
+</ul></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div>
 <div class="nb-day"><div class="nb-date"><span>2026-08-08</span><span class="tag">K=7 published; concatenated history pruned</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li><b>Timing regenerated</b> across the whole K sweep. <b>33 cluster&times;condition cells</b> never crossed threshold and had been stored as <code>onset_pct = 100.0</code>; all are now NaN. Suppression is flagged at every K &mdash; one cluster at K=4&ndash;6, two at K=7, three at K=8/10/11 &mdash; and marked on both the standalone ladder and the panel figure the site uses.</li><li><b>Component count fixed at K=7</b> and 235 re-run to match 236, which had validated K=7 against a K=12 decomposition. In-sample variance 0.543; <b>3%</b> of electrodes dominated, <b>59%</b> with no majority; anatomical coherence <b>2.00&times;</b> chance, above every hard partition tested.</li><li><b>Validation came back clean.</b> Leave-one-patient-out worst fold 0.64 against a size-matched pseudo-patient null of 0.72&nbsp;&plusmn;&nbsp;0.12 &mdash; z = &minus;0.69, inside the null, so no individual carries the solution. Components replicate across independent patient halves at r = 0.687&nbsp;&plusmn;&nbsp;0.036.</li><li>Pipeline consensus reaches 1.70&times; coherence, no better than the best single pipeline &mdash; it buys robustness to the preprocessing choice, not anatomy. One consensus cluster holds 6 electrodes.</li><li>New composite <a href="#clusterplan">FIG C.3</a> and <code>make_decomposition_figure.py</code>, which reads every number from files rather than literals so the figure cannot drift from the analysis. All five plan steps now marked done.</li><li><b>Afternoon.</b> <b>FIG 2.1 removed</b> and <b>18 pre-03-August concatenated runs deleted</b> (5919 files); 215 had hard-coded one of them as <code>XC_RUN</code> and was repointed first, and <code>atlas/lana_concat</code> was preserved &mdash; it is the LanA atlas on that cohort, not concatenated clustering, and a naive filter would have taken it.</li>
 <li><b>K=7 published as a run</b> (<code>cnmf/concat_hg/20260808_085740</code>) and registered for MOBA, with the method label added <i>before</i> the first write because MOBA freezes it otherwise. The published column is the <b>argmax</b>; the seven loadings ride along as <code>w0..w6</code>.</li>
 <li><b>Nine stale claims corrected</b> after an audit against the regenerated CSV. Worst: FIG 2.11c still printed <code>onset 100</code> &mdash; the fabricated sentinel, presented as a result, four bullets below the method box warning against exactly that. The method box also named <b>c3 and c4</b> as the suppression clusters when it is <b>c2</b>, contradicting the Caveats tab about the same run. Correlations and coverage bands recomputed (&rho; +0.52/+0.50/+0.53 &rarr; <b>+0.50/+0.68/+0.41</b>).</li>

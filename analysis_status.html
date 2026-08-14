@@ -141,6 +141,17 @@
   .frac .num{display:block;padding:0 .4em;border-bottom:1px solid currentColor;line-height:1.35}
   .frac .den{display:block;padding:0 .4em;line-height:1.35}
   h4+.eqbox{margin-top:8px}
+
+    table.cmp{width:100%;border-collapse:collapse;margin:0 0 18px;font-size:13.2px}
+    table.cmp th{text-align:left;padding:8px 10px;border-bottom:2px solid var(--line);
+      font-size:12.5px;color:var(--muted);font-weight:600;vertical-align:bottom}
+    table.cmp td{padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:top;
+      line-height:1.5}
+    table.cmp tr:last-child td{border-bottom:none}
+    table.cmp td.good{background:rgba(42,157,143,.07)}
+    table.cmp td.bad{background:rgba(193,18,31,.06)}
+    table.cmp td.warnc{background:rgba(224,139,30,.07)}
+    table.cmp td:first-child{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -1383,6 +1394,148 @@
 
     <div class="runid multi">source: coverage_viz bundle · <b>7 runs</b> · <code>02_FBM_Clustering/make_coverage_bundle.py</code> · <code>clustering_visualizer.html</code></div>
 
+  
+    <h3 id="gradedvspartition">Graded decomposition vs classic partition &mdash; the full accounting</h3>
+    <p class="lead">The clustering track moved from a <b>hard partition</b> (k-means / Ward: every electrode
+      gets exactly one label) to a <b>graded decomposition</b> (convex NMF: every electrode gets a weight on
+      each of K components). This section is the honest ledger for that decision &mdash; what the change
+      buys, what it costs, and where the comparison as usually presented flatters the new method.
+      <b>Every number below was re-derived from the files on 2026-08-12</b>, not quoted from an earlier
+      write-up.</p>
+
+    <div class="callout" style="margin:0 0 18px">
+      <b>What convex NMF actually does here.</b> Ordinary NMF needs non-negative input, which baseline-relative
+      dB is not. <b>Convex</b> NMF (Ding, Li &amp; Jordan 2010) factorises <code>X &asymp; X W G'</code> with
+      <code>W, G &ge; 0</code> &mdash; the data itself is never required to be positive, only the weights. Each
+      component is therefore a <i>weighted average of real electrodes</i>, so it stays in dB and stays
+      interpretable, and each electrode gets a non-negative mixture over components rather than a
+      winner-takes-all label. Hamilton et&nbsp;al. (2021) use the same family on human sTG.
+    </div>
+
+    <h4>The ledger</h4>
+    <table class="cmp">
+      <thead><tr><th style="width:22%"></th>
+        <th style="width:39%">Graded decomposition (convex NMF, K=7)</th>
+        <th style="width:39%">Classic partition (k-means, the shipped track)</th></tr></thead>
+      <tbody>
+      <tr><td><b>Does the answer survive a preprocessing change?</b></td>
+        <td class="good">Not directly comparable &mdash; the decomposition is fitted once on the dB data
+          rather than after a normalisation choice, so there is no equivalent knob to flip.</td>
+        <td class="bad"><b>No.</b> Across five preprocessing variants at K=5 the pairwise agreement is
+          <b>ARI 0.085 at worst and 0.168 median</b> (best 0.973, but only because PCA-20 preserves raw
+          geometry). At K=7, min 0.107 / median 0.162. <b>The preprocessing choice, not the data, picks the
+          partition.</b></td></tr>
+
+      <tr><td><b>Does anatomy agree with the labels?</b></td>
+        <td class="good"><b>2.00&times; chance</b> that a neighbouring electrode shares the label
+          (re-derived today: 2.003).</td>
+        <td class="bad"><b>1.36&times;</b> for the shipped K=5 (re-derived: 1.365). But see the caveat below
+          &mdash; <b>k-means at K=10 reaches 1.87&times;</b>, so the honest gap is much smaller than the
+          headline.</td></tr>
+
+      <tr><td><b>Is a single label even meaningful?</b></td>
+        <td class="good">It admits when it is not: <b>59.0% of electrodes have no component above 0.5</b>,
+          median largest weight <b>0.463</b>, and only <b>3.4%</b> are dominated (&ge;0.8).</td>
+        <td class="bad">Assigns a confident label to all of them anyway. For the 59% with no majority,
+          <b>the label is close to a coin flip</b> between the top two components.</td></tr>
+
+      <tr><td><b>Cluster sizes</b></td>
+        <td class="good">Components are mixtures, so there is no "tiny cluster" failure mode; the smallest
+          component still has 479 electrodes loading above 0.08.</td>
+        <td class="bad">Degenerates as K grows: at <b>K=7 the smallest cluster is 24 electrodes</b>, at
+          <b>K=10 it is 7</b>. A 7-electrode mean is not a response type.</td></tr>
+
+      <tr><td><b>Separation statistic</b></td>
+        <td class="warnc">No silhouette equivalent. Judged instead by held-out reconstruction and by
+          anatomy, which is less familiar to reviewers.</td>
+        <td class="bad">Silhouette is <b>low everywhere</b>: peaks at K=5 with <b>0.176</b>, and the K=7
+          solution scores <b>0.106</b>. The clusters overlap substantially however they are cut.</td></tr>
+
+      <tr><td><b>Is it driven by one patient?</b></td>
+        <td class="good">No. Leave-one-patient-out worst fold <b>ARI 0.643</b> against a
+          <b>size-matched pseudo-patient null of 0.725&nbsp;&plusmn;&nbsp;0.118</b> &mdash;
+          <b>z = &minus;0.69, inside the null</b>. Removing a patient does no more damage than removing that
+          many random electrodes.</td>
+        <td class="warnc">Never tested this way on the shipped partition.</td></tr>
+
+      <tr><td><b>Choosing K</b></td>
+        <td class="bad"><b>No better off.</b> Held-out variance explained rises monotonically from 0.379
+          (K=2) to 0.667 (K=18) and <b>never turns over</b>. Worse: the sweep evaluated
+          2,&nbsp;3,&nbsp;4,&nbsp;5,&nbsp;6,&nbsp;8,&nbsp;10&hellip;18 &mdash; <b>K=7 was never
+          measured</b>. It is interpolated between K=6 (0.563) and K=8 (0.591).</td>
+        <td class="bad">Equally arbitrary. Silhouette prefers K=5, the gap statistic and consensus
+          disagree, and the site has carried three different K values for three different tracks.</td></tr>
+
+      <tr><td><b>Multi-condition electrodes</b></td>
+        <td class="good">Natural: one electrode can load on several components at once, which is what the
+          data looks like.</td>
+        <td class="bad">Forces one label. In the per-condition runs, <b>328&ndash;394 electrodes change
+          cluster depending on the condition</b> &mdash; the partition has to pick one and discard the
+          rest.</td></tr>
+
+      <tr><td><b>Downstream tooling</b></td>
+        <td class="bad"><b>The real cost.</b> MOBA, the decoders and the pooling maps all take one label
+          per electrode. Publishing the argmax throws most of the signal away: component&nbsp;2 has
+          <b>97 argmax electrodes but 583 loading above 0.08</b>. Across components the argmax keeps
+          97&ndash;209 where 479&ndash;583 carry the component.</td>
+        <td class="good">Works everywhere unchanged. One integer column is all any downstream stage
+          needs.</td></tr>
+
+      <tr><td><b>Communicating it</b></td>
+        <td class="bad">Harder. "Each electrode is a mixture over seven components" needs the loading map
+          beside it or it is not falsifiable. Loadings are <b>not probabilities</b>, and components are
+          <b>not orthogonal</b>, so "40% type A" is not a licensed reading.</td>
+        <td class="good">"Five response types" is immediately legible in a meeting, and every reviewer
+          already knows what k-means and a silhouette are.</td></tr>
+
+      <tr><td><b>Replication across patients</b></td>
+        <td class="warnc">Components correlate <b>r = 0.687&nbsp;&plusmn;&nbsp;0.036</b> across independent
+          halves of the cohort &mdash; <b>recognisable, not identical</b>.</td>
+        <td class="warnc">Not measured the same way; ARI across halves would be the comparable test and has
+          not been run.</td></tr>
+
+      <tr><td><b>Signed dB input</b></td>
+        <td class="good">Handled natively &mdash; convex NMF constrains the weights, not the data.</td>
+        <td class="good">k-means is indifferent to sign too. <b>Not</b> a discriminator, despite an earlier
+          claim on this page that it was.</td></tr>
+      </tbody>
+    </table>
+
+    <div class="callout warn">
+      <b>Three places the comparison is usually presented unfairly &mdash; including on this page.</b>
+      <ul style="margin:8px 0 0">
+        <li><b>The anatomy bar chart compares different K.</b> FIG C.3 panel D puts graded K=7
+          (2.00&times;) against the shipped k-means K=5 (1.36&times;). Re-deriving the whole curve today:
+          k-means gives <b>1.365&times; at K=5, 1.603&times; at K=7, 1.867&times; at K=10</b>. Against a
+          partition of comparable granularity the graded advantage is roughly <b>7%</b>, not the
+          <b>47%</b> the figure implies. The direction of the result survives; the magnitude does not.</li>
+        <li><b>Panel D's four bars are hard-coded literals</b> in
+          <code>make_decomposition_figure.py</code>, not read from a file &mdash; there is no
+          <code>spatial_coherence.csv</code> on disk. The two I could check reproduce exactly
+          (1.365&nbsp;&rarr;&nbsp;1.36, 2.003&nbsp;&rarr;&nbsp;2.00), so the numbers are right, but the
+          figure can silently drift from the analysis and the rest of that script was written specifically
+          to avoid that.</li>
+        <li><b>"K=7 sits just past the knee" describes a point that was never measured.</b> The held-out
+          sweep skips 7 entirely.</li>
+      </ul>
+    </div>
+
+    <div class="callout">
+      <b>What this adds up to.</b>
+      <ul style="margin:8px 0 0">
+        <li><b>The negative result is the solid part.</b> Partitions of this dataset are not reproducible
+          across preprocessing (ARI 0.085&ndash;0.17), have low silhouette at every K, and hand a
+          confident label to the 59% of electrodes that do not have one. That holds regardless of what
+          replaces them.</li>
+        <li><b>The positive claim is weaker than the figures suggest.</b> Graded beats a matched-K
+          partition on anatomy by a modest margin, replicates only "recognisably" across patient halves,
+          and still has no principled K. It is the better description, not a settled one.</li>
+        <li><b>Practical recommendation:</b> keep the graded model as the analysis, publish the argmax
+          only ever <i>beside</i> its loading map (as FIG C.3 B2/B3 now does), and keep a hard partition
+          as the familiar entry point rather than as the result. With 24 patients, neither method can
+          settle generalisation.</li>
+      </ul>
+    </div>
   </section>
 
   <!-- ============ STAGE 03 ============ -->

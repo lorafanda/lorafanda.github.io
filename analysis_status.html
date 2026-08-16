@@ -441,10 +441,9 @@
       are exactly what a GO-locked analysis should look like. The <i>run</i> is not: <b>9 of 30 patients
       completed on the first pass</b>, and two of the defects found while checking it <b>also affect
       notebook 140 and the shipped <code>04_ersp_LM_RAWONLY</code> tree</b>.
-      <b>All four causes were fixed on 2026-08-11, and the run was restarted patient by patient on
-      2026-08-14.</b> FIG RT.1 shows the current state: <b>21 of 30 patients have cubes</b>, including six
-      HUG patients that could not start before. Cubes written before 2026-08-11 are a pipeline test, not
-      data.
+      <b>Fixed across 2026-08-11 and 2026-08-14, and the run restarted patient by patient.</b>
+      FIG RT.1 shows the current state: <b>26 of 30 patients have cubes</b>, including all ten HUG patients
+      that could not start at all before. Cubes written before 2026-08-11 are a pipeline test, not data.
     </div>
 
     <figure><div class="cap"><div class="fignum">FIG RT.1</div>
@@ -595,6 +594,51 @@
       <p style="margin:10px 0 0"><b>Still to do:</b> re-run, one process per patient so the allocator
       exhaustion cannot accumulate; and the 9.1&nbsp;GB of TIFF montages from this run are still on disk
       and can be deleted once the re-run succeeds.</p>
+    </div>
+
+    <div class="callout warn">
+      <b>Two silent data failures found on 2026-08-14. Neither raised an error.</b>
+      <ul style="margin:8px 0 0">
+        <li><b>G-02 and G-03 had a flat 2&nbsp;s response on every single trial.</b>
+          <code>lf_micromacro</code> builds <code>trial_end</code> from a log column named
+          <code>response_time</code> and silently falls back to
+          <code>sample_offsets&nbsp;+&nbsp;fs&times;2.0</code> when it cannot find one. Both logs spelled it
+          <code>response_timex</code> &mdash; one stray character &mdash; so every trial got
+          <b>4096 samples, exactly 2.000&nbsp;s at 2048&nbsp;Hz</b>, zero variance, in all three blocks.
+          <b>The response times were in the file the whole time</b>, in a column mislabelled
+          <code>duration</code>.
+          <br>Repaired <b>without re-running PD extraction</b> by
+          <code>repair_trial_end_from_log.py</code>, which rewrites only <code>trial_end</code> as
+          <code>sample_offsets + response_time &times; 2048</code>, joined positionally within condition.
+          <b>The join was proven before anything was written</b>: rebuilding G-01, whose values were already
+          correct, reproduces all 320 of its rows to within <b>1 sample (0.49&nbsp;ms)</b>, which pins the
+          join key, the sampling rate and the formula at once. Trial counts drop (G-02 audio
+          53&nbsp;&rarr;&nbsp;45, G-03 audio 53&nbsp;&rarr;&nbsp;36) because the 5&nbsp;s cap and the IQR
+          trimming finally have real durations to act on &mdash; with a flat 2&nbsp;s <i>nothing</i> had ever
+          been excluded for these two.</li>
+        <li><b>Response accuracy has always been filtered, and nobody chose it.</b>
+          <code>collect_trials</code> defaults to <code>keep_resp_accuracy=("correct","valid","1")</code> and
+          neither notebook has ever passed the argument, so <b>13.0% of trials (543 of 4184) are dropped</b>
+          silently. Two coding schemes coexist &mdash; <code>correct</code>/<code>wrong</code> and
+          <code>1</code>/<code>0</code> &mdash; and both happen to be handled only because the default tuple
+          contains both. Four trials across PAT_2868/3066/3390/3415 carry <code>fitness)</code> as an
+          accuracy value, a parsing artefact that means those rows are probably column-shifted.</li>
+      </ul>
+    </div>
+
+    <div class="callout ok" style="border-left-color:#2a9d8f">
+      <b>EL046 and EL048 recovered from the anatomy Lookup.</b> Neither has a BIDS_elec entry, so WM
+      re-referencing had no source and both were unanalysable. The Lookup workbook supplies
+      <code>isWM</code>, <code>isOut</code>, <code>natus</code> as the recording name, and coordinates.
+      <b>EL046</b>: 13 WM channels, 103 analysable contacts, MNI for all 178.
+      <b>EL048</b>: 16 WM, 55 analysable. Contacts flagged <code>isOut</code> sit outside the brain and are
+      now registered as bad channels (EL046 2, EL048 7) and excluded from the reference.
+      <br><b>The workbook named after the patient is not always the usable one</b> &mdash;
+      <code>EL048_Lookup.xlsx</code> has an entirely empty <code>natus</code> column, so a WM list built from
+      it comes back empty and re-referencing silently does nothing; the generic <code>Lookup.xlsx</code>
+      beside it is populated, and EL046 is the other way round. The reader picks by content, never by name.
+      <br><b>EL048 has no MNI coordinates in either workbook</b>, so even once it runs it cannot enter the
+      recon, the glassbrains or MOBA's 3-D brain.
     </div>
 
     <div class="callout">
@@ -2291,6 +2335,13 @@
   </ul>
 </div>
 
+<div class="nb-day"><div class="nb-date"><span>2026-08-14</span><span class="tag">two silent data failures; EL046/EL048 recovered</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><ul>
+<li><b>G-02 and G-03 had a flat 2&nbsp;s response on every trial</b> &mdash; 4096 samples, zero variance, all three blocks. Their log spelled the column <code>response_timex</code>, so the <code>response_time</code> lookup missed and fell back to <code>offsets + fs&times;2.0</code>. <b>Repaired without re-running PD extraction</b>; the join was proven on G-01 first, reproducing its 320 correct rows to within 1 sample. Trial counts drop, correctly &mdash; with a flat 2&nbsp;s nothing had ever been filtered for these two.</li>
+<li><b>EL046 and EL048 recovered from the anatomy Lookup</b>, neither having any BIDS_elec entry. 13 and 16 WM channels. <code>isOut</code> contacts are outside the brain and are now bad channels. The workbook named after the patient is <i>not</i> always the usable one, so the reader picks by content.</li>
+<li><b>Response accuracy has always been filtered silently</b> &mdash; 13.0% of trials, on a default nobody chose.</li>
+<li><b>Two id-spelling bugs fixed</b>, and all ten HUG patients now run. <b>26 of 30 have cubes</b> (was 9). <a href="#realtime">FIG RT.1/RT.3 rebuilt</a>; RT.3 on the project's own <code>bwr</code> &plusmn;6&nbsp;dB scale, full 0&ndash;400&nbsp;Hz, capped at +3&nbsp;s.</li>
+<li><b>Notebook 150 split into one cell per patient</b>, each with a generated markdown header carrying that patient's site, language, blocks, electrode type and today's findings.</li>
+</ul></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div>
 <div class="nb-day"><div class="nb-date"><span>2026-08-14</span><span class="tag">real-time re-run; the HUG id bug decoded</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><ul>
 <li><b>Re-run restarted patient by patient</b> after the 2026-08-11 fixes. <b>21 of 30 now have cubes</b> (was 9), including six HUG patients that could not start at all before. <a href="#realtime">FIG RT.1 rebuilt</a>.</li>
 <li><b>The HUG failure decoded, and it was two bugs, not one.</b> <code>patient_ids</code> holds strings (<code>"PAT_3455"</code>), the code expected bare ints. <code>build_paths_for_patient</code> prepended <code>PAT_</code> anyway &rarr; <code>PAT_PAT_3455</code> (raised); and <code>PAT_PRESETS</code> is keyed by <b>int</b>, so <code>.get("PAT_3455")</code> returned <code>None</code> <b>with no error</b>. Both fixed; all 10 resolve path <i>and</i> preset. No data was missing.</li>
@@ -2539,6 +2590,10 @@
         <code>linspace(-2.5,&nbsp;5.0,&nbsp;nt)</code>, both reconstructed by the reader.
         <b><code>nt</code> varies by patient <i>and</i> condition</b> (369&ndash;625, ten distinct values),
         so anything stacking them must resample first.</li>
+      <li><b>Only EL048 still has broken trial timing</b> &mdash; all 158 of its trials have
+        <code>trial_end</code> and <code>resp_accuracy</code> = NaN, so every one is filtered out and the
+        patient yields nothing. Waiting on its behavioural file. Every other patient now has real
+        per-trial durations (audited across all 30 on 2026-08-14).</li>
       <li><b>Cube edges are interpolated, not measured.</b> The last column is set to NaN by construction
         and then nearest-filled, so 3&ndash;5 trailing columns are duplicates.</li>
     </ul></div>
@@ -2938,8 +2993,9 @@
 
     <h3>Real time (05) &mdash; open items</h3>
     <div class="method"><ul>
-      <li><b>Finish the re-run.</b> 21 of 30 have cubes; 3 HUG patients still fail on memory and 6 are not
-        reached. Memory needs a <b>fresh process per patient</b>, not a code change &mdash; the loop already
+      <li><b>Finish the re-run.</b> <b>26 of 30</b> have cubes. Outstanding: <b>PAT_3780</b> (memory),
+        <b>PAT_6953</b> (no extracted trials), <b>EL046</b> (ready to run now) and <b>EL048</b>
+        (blocked on its behavioural file). Memory needs a <b>fresh process per patient</b>, not a code change &mdash; the loop already
         calls <code>gc.collect()</code> and the failures ask for 113&nbsp;MiB on a 63.7&nbsp;GB machine.</li>
       <li><b>Re-render the ERSP_clean PNGs</b> once the run finishes. They can be rebuilt from the cubes
         already on disk in one pass; no pipeline time needed. Started and stopped on 2026-08-14 to avoid
@@ -2949,6 +3005,16 @@
         to regenerate it or to freeze it with a note.</li>
       <li><b>Stage 05 needs its own loader.</b> Cube width varies by patient and condition and the axes are
         not stored; <code>02_FBM_Clustering</code>'s loaders assume 300 warped bins.</li>
+      <li><b>Re-render the ERSP_clean PNGs</b> at the 0&ndash;400&nbsp;Hz wide crop once the run
+        finishes &mdash; roughly 700 of ~4000 are done, the rest are still the old square 0&ndash;500&nbsp;Hz
+        renders. Rebuildable from the cubes on disk in one pass.</li>
+      <li><b>Four trials carry <code>fitness)</code> as a response-accuracy value</b> (PAT_2868, 3066,
+        3390, 3415) &mdash; a parsing artefact, so those rows are probably column-shifted and their timing
+        should not be trusted until the source TSV is re-parsed.</li>
+      <li><b>Log the accuracy filter.</b> It drops 13% of trials on a default nobody chose; two lines would
+        make the per-patient counts visible instead of silent.</li>
+      <li><b>Delete the repair backups</b> once G-02/G-03 are confirmed &mdash; 9 <code>.bak</code> files
+        beside their trial tables.</li>
       <li><b>Still no speech-onset event.</b> Everything is locked to the GO cue, not to when the patient
         actually spoke. Worth deciding whether that is good enough for the response-timing claim.</li>
     </ul></div>

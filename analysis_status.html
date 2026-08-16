@@ -1467,6 +1467,87 @@
       winner-takes-all label. Hamilton et&nbsp;al. (2021) use the same family on human sTG.
     </div>
 
+    
+    <h4>1 &mdash; Why the graded decomposition beats k-means here</h4>
+    <p>Not "it is a fancier method". Three specific things k-means gets wrong <b>on this dataset</b>,
+      each measured rather than argued.</p>
+    <div class="method"><ul>
+      <li><b>A k-means partition of this data is not reproducible.</b> Fit the same K=5 on five
+        preprocessing variants of the same electrodes and the partitions agree at
+        <b>ARI 0.085 at worst, 0.168 median</b> (1.0 = identical, 0 = chance). At K=7, 0.107 / 0.162.
+        <b>The preprocessing choice, not the data, is picking the clusters.</b> Nothing built on top of
+        one such partition can be trusted to survive a normalisation change &mdash; and this is the
+        single strongest argument, because it holds no matter what replaces k-means.</li>
+      <li><b>Most electrodes do not have a cluster to belong to.</b> Under the graded fit,
+        <b>59.0%</b> have no component above 0.5 and the median largest weight is <b>0.463</b>; only
+        <b>3.4%</b> are dominated by one component. k-means still hands all of them a confident label.
+        For the majority of the dataset that label is close to a coin flip between the top two
+        components &mdash; and nothing in the k-means output tells you which electrodes those are.</li>
+      <li><b>The graded labels line up better with anatomy.</b> Neighbouring electrodes share a label
+        <b>2.00&times;</b> above chance under the graded argmax, against <b>1.36&times;</b> for the
+        shipped k-means. This is the criterion that is about the brain rather than about reconstruction
+        error, and it is the one you said you actually care about. <i>Read the honest version of this
+        comparison in the caveat below &mdash; the gap is real but smaller than that pairing suggests.</i></li>
+      <li><b>It fits the sign of the data without a workaround.</b> Convex NMF factorises
+        <code>X &asymp; XWG'</code> with only the <i>weights</i> constrained non-negative, so
+        baseline-relative dB goes in unmodified and every component stays a weighted average of real
+        electrodes in real dB units (Ding, Li &amp; Jordan 2010; the same family Hamilton et&nbsp;al. 2021
+        use on human sTG). Note this is <b>not</b> an advantage over k-means, which is equally
+        sign-agnostic &mdash; an earlier version of this page wrongly claimed it was.</li>
+      <li><b>It is not carried by any one patient.</b> Leave-one-patient-out worst fold
+        <b>ARI 0.643</b> against a <b>size-matched pseudo-patient null of 0.725&nbsp;&plusmn;&nbsp;0.118</b>
+        &mdash; <b>z&nbsp;=&nbsp;&minus;0.69, inside the null</b>. Removing a patient does no more damage
+        than removing that many random electrodes. The shipped k-means has never been tested this way.</li>
+    </ul></div>
+
+    <h4>2 &mdash; Reading the results with a critical eye</h4>
+    <p>Six things to hold in mind. The first three are places this page has previously overstated the
+      case; the rest are properties of the method that no amount of tuning removes.</p>
+    <div class="callout warn" style="margin:0 0 14px">
+      <b>Where the comparison flatters the new method.</b>
+      <ul style="margin:8px 0 0">
+        <li><b>The anatomy bars compare different K.</b> FIG C.3 panel D puts graded K=7 (2.00&times;)
+          against k-means at <b>K=5</b> (1.36&times;). Re-deriving the whole curve: k-means gives
+          <b>1.365&times; at K=5, 1.603&times; at K=7, 1.867&times; at K=10</b>. Against a partition of
+          comparable granularity the graded advantage is about <b>7%</b>, not the <b>47%</b> the figure
+          implies. The direction survives; the magnitude does not. <b>Quote 2.00 vs 1.87, not 2.00 vs
+          1.36.</b></li>
+        <li><b>Panel D's four bars are hard-coded literals</b> in
+          <code>make_decomposition_figure.py</code> &mdash; there is no <code>spatial_coherence.csv</code>
+          behind them. The two that could be checked reproduce exactly
+          (1.365&nbsp;&rarr;&nbsp;1.36, 2.003&nbsp;&rarr;&nbsp;2.00), so the numbers are right, but that
+          panel can drift from the analysis without anything failing.</li>
+        <li><b>"K=7 sits just past the knee" describes a point that was never measured.</b> The held-out
+          sweep evaluated 2,&nbsp;3,&nbsp;4,&nbsp;5,&nbsp;6,&nbsp;8,&nbsp;10&hellip;18 &mdash; it
+          <b>skips 7</b>. K=7 is interpolated between K=6 (0.563) and K=8 (0.591).</li>
+      </ul>
+    </div>
+    <div class="method"><ul>
+      <li><b>K is no better determined than it was for k-means.</b> Held-out variance explained rises
+        monotonically from <b>0.379 at K=2 to 0.667 at K=18</b> and <b>never turns over</b>. There is no
+        optimum; K is a judgement about where the gain flattens. Anyone who asks "why seven?" is asking a
+        fair question and the answer is not statistical.</li>
+      <li><b>The argmax is not the result.</b> Whenever you see a hard label from this model &mdash; in
+        MOBA, in a glassbrain, in a decoder &mdash; it is a projection that discards most of the signal.
+        Component 2 has <b>97</b> electrodes that call it their leading component and <b>583</b> that
+        carry it above 0.08. Never show an argmax map without the loading map beside it, which is why
+        FIG C.3 B2 and B3 are drawn as a pair.</li>
+      <li><b>Loadings are not probabilities, and components are not orthogonal.</b> A weight of 0.4 does
+        not mean "40% type A", and two components can overlap in both time course and territory. Phrases
+        like "this electrode is mostly component 3" are safe; percentages and exclusive claims are not.</li>
+      <li><b>Replication across patients is recognisable, not identical</b> &mdash; components correlate
+        <b>r = 0.687&nbsp;&plusmn;&nbsp;0.036</b> between independent halves of the cohort. Strong enough
+        to describe, not strong enough to claim a fixed set of canonical response types.</li>
+      <li><b>24 patients cannot settle generalisation</b>, by either method. Every stability number on
+        this page is reported against a size-matched null precisely because the raw value on its own
+        would be meaningless at this n.</li>
+      <li><b>The negative result is the durable part.</b> If you take one thing from this section:
+        <i>partitions of this dataset are not reproducible across preprocessing, have low silhouette at
+        every K, and force a confident label on the 59% of electrodes that do not have one.</i> That
+        stands whatever replaces them. The graded model is the better description currently available,
+        not a settled answer.</li>
+    </ul></div>
+
     <h4>The ledger</h4>
     <table class="cmp">
       <thead><tr><th style="width:22%"></th>
@@ -2413,6 +2494,32 @@
       <div class="kpi"><div class="v">5</div><div class="l">pipeline stages audited</div></div>
     </div>
 
+    
+    <h3>04 vs 05 ERSP trees &mdash; consistency audit, 2026-08-16</h3>
+    <div class="method"><ul>
+      <li><b>04 is stale for 27 of its 28 patients.</b> Every cube dates from
+        <b>30 May &ndash; 11 June</b>; only EL046 is current. It therefore predates the duplicate-TSV
+        fix, the <code>_eng</code> normalisation, the G-02/G-03 timing repair and the id-spelling
+        fixes. <b>It cannot be used as a reference for judging 05.</b></li>
+      <li><b>627 channel-level differences, now all accounted for:</b> 486 are conditions 05 has not
+        run (EL043 picture/reading, PAT_3965 audio/picture); 72 are Unknown/unparcellated contacts and
+        36 are manual bad channels, all correctly excluded by 05 and not by June's run; 18 were the
+        auxiliary leak below; 15 were EL040's boundary case. <b>Nothing is unexplained.</b></li>
+      <li><b>Auxiliary channels had been ERSP'd as if they were cortex, in both trees.</b> The
+        non-neural filter matched only <code>X1&ndash;X8</code>/<code>E1&ndash;E8</code> and
+        <code>ECG</code>, so <code>EKG-</code>, <code>EMG-</code> and the
+        <code>X9&ndash;X12</code>&nbsp;/&nbsp;<code>X1m1&ndash;X1m8</code>&nbsp;/&nbsp;<code>X2m1&ndash;X2m8</code>
+        families passed through and would have entered clustering as ordinary electrodes. Filter
+        widened after checking all <b>1690</b> distinct channel names across both trees &mdash; the 22
+        names it newly catches are all auxiliary, and every <code>X*</code> name in the cohort is
+        auxiliary, so no real contact is affected. <b>425 files (108&nbsp;MB) deleted</b> across
+        ERSP_matrix, ERSP_clean and HG in both trees.</li>
+      <li><b>EL040's FP-R shank sits on the parcellation boundary.</b> The Unknown rule tests only
+        whether the <i>first</i> token of <code>tissueLabel</code> is "Unknown", so FP-R11
+        (<code>Unknown ctx-rh-rostralmiddlefrontal</code>) was dropped while FP-R12 and FP-R15, which
+        carry the <i>same two labels in the opposite order</i>, were kept. Rather than depend on label
+        order, <b>FP-R10&ndash;FP-R15 are now excluded outright</b> and their 45 files removed.</li>
+    </ul></div>
     <h3>The recon gap was never a recon problem</h3>
     <p>126 electrodes had a perfectly good ERSP but no coordinate, so they were dropping out of every brain
       plot. The obvious reading — "those contacts were never localised, re‑run FreeSurfer" — turned out to be

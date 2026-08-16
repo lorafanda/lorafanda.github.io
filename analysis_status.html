@@ -442,8 +442,7 @@
       completed on the first pass</b>, and two of the defects found while checking it <b>also affect
       notebook 140 and the shipped <code>04_ersp_LM_RAWONLY</code> tree</b>.
       <b>Fixed across 2026-08-11 and 2026-08-14, and the run restarted patient by patient.</b>
-      FIG RT.1 shows the current state: <b>26 of 30 patients have cubes</b>, including all ten HUG patients
-      that could not start at all before. Cubes written before 2026-08-11 are a pipeline test, not data.
+      FIG RT.1 shows the current state: <b>28 of 30 patients have cubes</b>, including all ten HUG patients that could not start at all before. Only <b>EL048</b> (waiting on its behavioural file) and <b>PAT_6953</b> (waiting on its electrode reconstruction) remain. Cubes written before 2026-08-11 are a pipeline test, not data.
     </div>
 
     <figure><div class="cap"><div class="fignum">FIG RT.1</div>
@@ -465,9 +464,12 @@
           <b>113&nbsp;MiB on a 63.7&nbsp;GB machine</b>, which is allocator-level exhaustion, so the fix is a
           fresh process or kernel per patient, not a code change. (It is not perfectly monotonic: EL045
           failed at 969&nbsp;MiB <i>after</i> reading 136 channels, between two 113&nbsp;MiB failures.)</li>
-        <li><b>3807 ERSP cubes and 3853 HG plots</b>, every cube tagged <code>_RT_GO</code> &mdash; none
-          untagged, none <code>_TN</code>. HG exceeds cubes because the HG plot is drawn for every channel
-          while cubes are written only for channels that survive the bad-channel/WM exclusions.</li>
+        <li><b>8646 ERSP cubes</b>, every one tagged <code>_RT_GO</code> &mdash; none untagged, none
+          <code>_TN</code>. HG plots outnumber cubes because HG is drawn for every channel while cubes are
+          written only for channels surviving the WM / bad-channel / Unknown exclusions.
+          <b>425 auxiliary-channel files were deleted on 16 August</b> after the filter was found to be
+          letting <code>EKG-</code>, <code>EMG-</code> and the <code>X</code> families through as if they
+          were cortex &mdash; see the integrity tab.</li>
         <li><b>Nothing leaked into 140's trees.</b> The newest file under <code>04_ersp_LM</code> predates
           this run by four days.</li>
       </ul>
@@ -3100,9 +3102,9 @@
 
     <h3>Real time (05) &mdash; open items</h3>
     <div class="method"><ul>
-      <li><b>Finish the re-run.</b> <b>26 of 30</b> have cubes. Outstanding: <b>PAT_3780</b> (memory),
-        <b>PAT_6953</b> (no extracted trials), <b>EL046</b> (ready to run now) and <b>EL048</b>
-        (blocked on its behavioural file). Memory needs a <b>fresh process per patient</b>, not a code change &mdash; the loop already
+      <li><b>Finish the re-run.</b> <b>28 of 30</b> have cubes. Outstanding: <b>EL048</b> (waiting on
+        its behavioural file &mdash; all 158 trials currently NaN) and <b>PAT_6953</b> (waiting on an
+        electrode reconstruction; its trials are fine and its raw is present). Memory needs a <b>fresh process per patient</b>, not a code change &mdash; the loop already
         calls <code>gc.collect()</code> and the failures ask for 113&nbsp;MiB on a 63.7&nbsp;GB machine.</li>
       <li><b>Re-render the ERSP_clean PNGs</b> once the run finishes. They can be rebuilt from the cubes
         already on disk in one pass; no pipeline time needed. Started and stopped on 2026-08-14 to avoid

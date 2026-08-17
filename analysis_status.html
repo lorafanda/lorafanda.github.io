@@ -205,7 +205,7 @@
     <div class="then"><b>The five figures below answer those four questions in order</b>, one figure per argument. Each gathers the panels belonging to a single claim so it can be judged in one place; the stage tabs hold the same panels with the diagnostics behind them.</div>
 
 <h3>Headline figures — one per argument</h3>
-    <p>The stage tabs below hold 46 numbered figures, ordered by when they were produced. These five
+    <p>The stage tabs below hold 53 numbered figures, ordered by when they were produced. These five
       are ordered by <b>what they argue</b>: each one gathers the panels that belong to a single claim so
       the claim can be judged in one place. Everything in them also appears in its stage tab, with the
       diagnostics that back it.</p>
@@ -291,7 +291,7 @@
         <li><b>c — in what order.</b> Cross‑correlation against the auditory cluster: follow each curve
           to its peak, left of zero is earlier. Only the response window is used, because over the full
           trial these clusters are not the same shape shifted in time and the lag would be meaningless.</li>
-        <li>Same colour means the same cluster in all three panels.</li>
+        <li><b>Cluster ids do not correspond across the panels.</b> Panel a is the <b>K=5</b> partition (that run's <code>recon/</code> holds cluster_00&ndash;cluster_04); panels b and c are <b>K=10</b>. Colour is shared between b and c only.</li>
       </ul><div class="runid">source: kmeans/concat_hg 20260803_175417</div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/story/S4_timing.png" alt="timing"></div>
     </figure>
@@ -342,21 +342,21 @@
     <div class="method"><ul>
       <li><b>Same data, three questions.</b> All three read the identical ERSP substrate; they differ only in <i>who supplies the structure</i> — the data (clustering), the labels (decoding), or prior theory (pooling).</li>
       <li><b>They cross‑check each other.</b> What the unsupervised clustering surfaces on its own should be the same axis the supervised decoder can exploit, and the a‑priori roles should land where both put their signal. Agreement across lenses is the evidence; disagreement flags where the story is fragile.</li>
-      <li><b>Different sample units, on purpose.</b> Clustering keeps each electrode × condition as a separate sample (so the condition axis can emerge); decoding‑parcellation and pooling <i>concatenate</i> the three conditions into one per‑electrode profile (so the electrode's functional <i>type</i> is the unit). That choice sets what question each lens can even ask.</li>
+      <li><b>Different sample units, and the canonical track changed.</b> The clustering run every figure here uses (<code>kmeans/concat_hg 20260803_175417</code>) <i>concatenates</i> the three conditions into one 900‑bin per‑electrode profile — 1027 electrodes — exactly as decoding‑parcellation and pooling do. The older per‑condition track, which kept each electrode × condition as its own sample (2102 samples, K=9), is retained only for comparison. The sample unit still sets what each lens can ask; it is no longer what distinguishes them.</li>
     </ul></div>
 
     <h3>Status at a glance</h3>
     <table>
       <tr><th>Stage</th><th>Status</th><th>What it establishes</th><th>Watch‑outs</th></tr>
-      <tr><td><b>01 ERSP</b></td><td><span class="pill ok">current</span></td>
-        <td>The shared, cleaned, time‑warped ERSP substrate for the cohort.</td>
-        <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only.</td></tr>
-      <tr><td><b>02 Clustering</b></td><td><span class="pill ok">reran 07‑19</span></td>
+      <tr><td><b>01 ERSP</b></td><td><span class="pill ok">reran 08‑16</span></td>
+        <td>The shared, cleaned, time‑warped ERSP substrate, plus a second <b>non‑warped, GO‑locked</b> tree (<a href="#realtime">&sect;1.9</a>).</td>
+        <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only. EL048 and PAT_6953 still incomplete.</td></tr>
+      <tr><td><b>02 Clustering</b></td><td><span class="pill ok">reran 08‑08</span></td>
         <td>Structure does emerge — and it is the condition/modality axis; not noise, but not a clean "language" type either.</td>
-        <td>Recon (252) not yet re‑run; <code>NOTEBOOKS.md</code> still names the 212 track — <b>pick your headline</b>.</td></tr>
+        <td><code>NOTEBOOKS.md</code> still names the 212 track — <b>pick your headline</b>. Superseded by the graded decomposition — see <a href="#gradedvspartition">the ledger</a>.</td></tr>
       <tr><td><b>03 Decoding</b></td><td><span class="pill ok">reran 07‑19</span></td>
         <td>Condition is decodable and driven by the early sensory response; network membership much less so.</td>
-        <td>Notebooks + comparison figures refreshed today; 2 <code>full_300/logreg</code> combos still to re‑run; variant set to decide.</td></tr>
+        <td>Notebooks + comparison figures refreshed 07‑19; 2 <code>full_300/logreg</code> combos still to re‑run; variant set to decide.</td></tr>
       <tr><td><b>04 Pooling</b></td><td><span class="pill ok">current</span></td>
         <td>Hypothesis‑driven roles map on the brain, with a response‑timing sequence across regions.</td>
         <td>poolv2 web tool now bit‑identical to the notebook (convergence fixed).</td></tr>
@@ -464,14 +464,16 @@
           <b>113&nbsp;MiB on a 63.7&nbsp;GB machine</b>, which is allocator-level exhaustion, so the fix is a
           fresh process or kernel per patient, not a code change. (It is not perfectly monotonic: EL045
           failed at 969&nbsp;MiB <i>after</i> reading 136 channels, between two 113&nbsp;MiB failures.)</li>
-        <li><b>8646 ERSP cubes</b>, every one tagged <code>_RT_GO</code> &mdash; none untagged, none
+        <li><b>8722 ERSP cubes</b>, every one tagged <code>_RT_GO</code> &mdash; none untagged, none
           <code>_TN</code>. HG plots outnumber cubes because HG is drawn for every channel while cubes are
           written only for channels surviving the WM / bad-channel / Unknown exclusions.
           <b>425 auxiliary-channel files were deleted on 16 August</b> after the filter was found to be
           letting <code>EKG-</code>, <code>EMG-</code> and the <code>X</code> families through as if they
           were cortex &mdash; see the integrity tab.</li>
-        <li><b>Nothing leaked into 140's trees.</b> The newest file under <code>04_ersp_LM</code> predates
-          this run by four days.</li>
+        <li><b>Nothing leaked into 140's trees.</b> Verified by mtime when this tree was first written: the
+          newest file under <code>04_ersp_LM</code> was four days older. <code>04_ersp_LM</code> has
+          since been re-run for EL046/EL048, so the two trees now share a date &mdash; the isolation
+          claim is about the original run, not a standing property.</li>
       </ul>
       <div class="runid">source: <code>05_ERSP_LM_RAWONLY_RealTime</code> &middot; notebook 150, single execution &middot; every number re-verified against the tree on disk</div></div>
       <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/_status_png/realtime/RT1_run_status.png" alt="per-patient run status"></div>
@@ -2036,8 +2038,8 @@
     <table>
       <thead><tr><th>cohort</th><th>n</th><th>threshold</th><th>in network</th><th>%</th><th>left</th><th>right</th></tr></thead>
       <tbody>
-        <tr><td>all</td><td>5247</td><td>P ≥ 0.05</td><td>4290</td><td>82%</td><td>2357</td><td>1933</td></tr>
-        <tr><td>all</td><td>5247</td><td><b>P ≥ 0.10</b></td><td>1984</td><td>38%</td><td><b>1263</b></td><td>721</td></tr>
+        <tr><td>all</td><td>2981</td><td>P ≥ 0.05</td><td>2553</td><td>86%</td><td>1324</td><td>1221</td></tr>
+        <tr><td>all</td><td>2981</td><td><b>P ≥ 0.10</b></td><td>1171</td><td>39%</td><td><b>717</b></td><td>453</td></tr>
         <tr><td>concat</td><td>2617</td><td>P ≥ 0.05</td><td>2233</td><td>85%</td><td>1063</td><td>1170</td></tr>
         <tr><td>concat</td><td>2617</td><td><b>P ≥ 0.10</b></td><td>1007</td><td>38%</td><td><b>568</b></td><td>439</td></tr>
       </tbody>
@@ -2376,54 +2378,90 @@
       <span class="nb-na">N/A</span> means that stage was untouched, not that the entry is missing.
       Newest first; links jump to the relevant tab.</p>
 <div class="callout q" style="margin:0 0 22px">
-  <h3 style="margin:0 0 8px">Next week</h3>
-  <p style="margin:0 0 10px;color:var(--muted);font-size:13px">Nothing here is blocking &mdash; the
-    03&nbsp;August cohort, the K=7 decomposition and both tools are current as of 2026-08-08.
-    Ordered by what unblocks the most.</p>
+  <h3 style="margin:0 0 8px">What's next</h3>
+  <p style="margin:0 0 10px;color:var(--muted);font-size:13px">Re-checked against the data on
+    2026-08-16. Nothing here blocks the 05 tree as it stands &mdash; <b>28 of 30 patients are in,
+    8722 cubes</b>.</p>
+
+  <b style="font-size:12.5px">Waiting on data, not on code</b>
+  <ul style="margin:4px 0 12px">
+    <li><b>EL048's behavioural file.</b> All 158 trials have <code>trial_end</code> and
+      <code>resp_accuracy</code> = NaN, so the patient yields nothing. Its anatomy and WM reference are
+      already solved. When the file arrives, re-run its cell alone &mdash; and re-check
+      <code>trial_end</code>, not just accuracy, since one missing export explains both.</li>
+    <li><b>PAT_6953's electrodes.</b> Needs either a BIDS
+      <code>sub-6953_electrodes.tsv</code> (only three columns matter: <code>name</code>,
+      <code>tissueLabel</code>, <code>tissueWeights_1</code>) or a Lookup workbook of its own. Its
+      trials and raw are fine &mdash; the <code>elec_recon</code> folder found for it holds FreeSurfer
+      <i>input</i>, not an electrodes table.</li>
+    <li><b>EL048's native&rarr;MNI normalisation.</b> Its reconstruction is sound and supplies the
+      <code>talairach.xfm</code>, but until that is applied EL048 stays out of the recon, the
+      glassbrains and MOBA's 3-D brain even once it processes.</li>
+  </ul>
 
   <b style="font-size:12.5px">Decisions only you can make</b>
   <ul style="margin:4px 0 12px">
-    <li><b>Response timing (05_FBM_ResponseTiming).</b> Two different projects, and they cost very
-      different amounts. <i>(a)</i> A seconds-axis relabel &mdash; bins 150&ndash;299 of every saved
-      ERSP <b>already are</b> the response period, just normalised, so this is a units change and
-      cheap. <i>(b)</i> Genuinely un-warped single trials &mdash; needs the whole ERSP stage re-run
-      from ~29&nbsp;GB of raw, and <b>3+ patients' raw files could not be located</b>. Note before
-      choosing: <b>there is no response-onset event in the data</b>. Only stimulus onset, GO, and a
-      <code>trial_end</code> constructed from a behavioural-log duration whose meaning differs
-      between the HUG and Bern cohorts.</li>
-    <li><b>Pick the opening</b> &mdash; <a href="#clusterplan">FIG C.4a or C.4b</a>. The same ARI
-      matrix is a caveat in A and a finding in B; only its position changes what it means.</li>
-    <li><b>04_ersp_LM</b> &mdash; 264&nbsp;GB of QC plots. Keep or delete.</li>
-    <li><b>The ~132 contacts that exist only in <code>04_ersp_LM_RAWONLY - Copy</code></b>. The
-      snapshot is being kept until this is resolved.</li>
-    <li><b>EL044's 8 unlocalised contacts</b> &mdash; parked by you.</li>
+    <li><b>Is <code>04</code> regenerated, or frozen?</b> It is inconsistent with the current code &mdash;
+      the duplicate-TSV fix alone changes trial counts for four MicroEPI patients, and the auxiliary
+      filter changes which channels export. Either re-run it or mark it superseded; leaving it invites
+      a comparison that cannot be valid.</li>
+    <li><b>EL040 FP-R14.</b> Excluded with the other five, but it is a clean cortical contact
+      (<code>tissueWeights_1</code>&nbsp;=&nbsp;1.0, no Unknown, no WM). One line to restore.</li>
+    <li><b>Per-patient response cap.</b> <code>RT_MAX_POST_S = 5.0</code> is uniform, but EL046's
+      reading median is 7.9&nbsp;s, so that block loses most of its trials while others lose none.</li>
+    <li><b>Opening figure A or B</b> &mdash; <a href="#clusterplan">FIG C.4a / C.4b</a>. Still open.</li>
+    <li><b>How to frame the sample-unit contrast in the Overview.</b> The canonical clustering track now
+      concatenates conditions exactly as pooling does, so the old "different lenses, different units"
+      framing no longer separates them.</li>
   </ul>
 
   <b style="font-size:12.5px">Known wrong, small fixes</b>
   <ul style="margin:4px 0 12px">
-    <li><b>The pipeline consensus produced a 6-electrode cluster.</b> That is not a cluster &mdash;
-      exclude it or set a minimum size.</li>
-    <li><b><code>lf_centroids._is_line_feature_set</code> does not cover <code>cnmf</code></b>, so
-      MOBA renders that run's centroid chips as a 1-pixel strip.</li>
+    <li><b>The Unknown rule is order-sensitive</b> &mdash; it tests only the first token of a
+      multi-label <code>tissueLabel</code>, so two contacts with identical labels in different order
+      are treated differently. EL040 surfaced it; other patients may be affected.</li>
+    <li><b>140 still carries a duplicate pipeline cell</b> (an older copy without the MicroEPI branch or
+      per-grid CAR) writing to the same paths. Removed from 150, not from 140.</li>
+    <li><b>The accuracy filter is silent</b> &mdash; it drops <b>13.0%</b> of trials (543 of 4184) on a
+      default nobody chose. Two lines would log the per-patient counts, and would also catch the case
+      where a missing column drops <i>every</i> trial.</li>
+    <li><b>Four trials carry <code>fitness)</code> as an accuracy value</b> (PAT_2868, 3066, 3390, 3415)
+      &mdash; a parsing artefact, so those rows are probably column-shifted and their timing should not
+      be trusted.</li>
+    <li><b>FIG C.3 panel D's bars are hard-coded literals.</b> The values are right (re-derived) but the
+      figure can drift from the analysis without anything failing.</li>
   </ul>
 
   <b style="font-size:12.5px">Analysis still open</b>
   <ul style="margin:4px 0 0">
-    <li><b>465 gaussian pooling</b> is running on stale counts.</li>
-    <li><b>Two decoding runs</b>: <code>condition/full_300/logreg</code>, and Yeo-7 in 320/330.</li>
-    <li><b>Micro/macro (notebook 11)</b> has never been run to saved output.</li>
-    <li><b>Anatomical coherence across K</b> was only measured at one value. A curve would give a
-      selection criterion about the brain rather than about reconstruction error &mdash; which is
-      the criterion you said you actually care about.</li>
+    <li><b>Re-render the ERSP_clean PNGs</b> at the 0&ndash;400&nbsp;Hz wide crop &mdash; rebuildable from
+      the cubes in one pass, no pipeline time.</li>
+    <li><b>Stage 05 needs its own loader.</b> Cube width varies by patient <i>and</i> condition, and
+      neither axis is stored in the <code>.npy</code>.</li>
+    <li><b>Still no speech-onset event</b> anywhere in the data &mdash; everything is locked to the GO
+      cue, not to when the patient spoke. Decide whether that is enough for the response-timing claim.</li>
+    <li><b>Anatomical coherence across K</b> was measured at one value only; a curve would give a
+      selection criterion about the brain rather than about reconstruction error, which is the criterion
+      you said you actually care about.</li>
+    <li><b>465 pooling</b> on stale counts; <b>two decoding runs</b>
+      (<code>condition/full_300/logreg</code> and Yeo-7); <b>micro/macro nb 11</b> never run to saved
+      output.</li>
   </ul>
 </div>
 
-<div class="nb-day"><div class="nb-date"><span>2026-08-14</span><span class="tag">two silent data failures; EL046/EL048 recovered</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><ul>
+<div class="nb-day"><div class="nb-date"><span>2026-08-16</span><span class="tag">silent data failures, the 04/05 audit, auxiliary channels</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><ul>
 <li><b>G-02 and G-03 had a flat 2&nbsp;s response on every trial</b> &mdash; 4096 samples, zero variance, all three blocks. Their log spelled the column <code>response_timex</code>, so the <code>response_time</code> lookup missed and fell back to <code>offsets + fs&times;2.0</code>. <b>Repaired without re-running PD extraction</b>; the join was proven on G-01 first, reproducing its 320 correct rows to within 1 sample. Trial counts drop, correctly &mdash; with a flat 2&nbsp;s nothing had ever been filtered for these two.</li>
 <li><b>EL046 and EL048 recovered from the anatomy Lookup</b>, neither having any BIDS_elec entry. 13 and 16 WM channels. <code>isOut</code> contacts are outside the brain and are now bad channels. The workbook named after the patient is <i>not</i> always the usable one, so the reader picks by content.</li>
 <li><b>Response accuracy has always been filtered silently</b> &mdash; 13.0% of trials, on a default nobody chose.</li>
 <li><b>Two id-spelling bugs fixed</b>, and all ten HUG patients now run. <b>26 of 30 have cubes</b> (was 9). <a href="#realtime">FIG RT.1/RT.3 rebuilt</a>; RT.3 on the project's own <code>bwr</code> &plusmn;6&nbsp;dB scale, full 0&ndash;400&nbsp;Hz, capped at +3&nbsp;s.</li>
 <li><b>Notebook 150 split into one cell per patient</b>, each with a generated markdown header carrying that patient's site, language, blocks, electrode type and today's findings.</li>
+<li><b>Auxiliary channels had been ERSP'd as cortex in BOTH trees.</b> The non-neural filter matched only <code>X1&ndash;X8</code>/<code>E1&ndash;E8</code> and <code>ECG</code>, so <code>EKG-</code>, <code>EMG-</code> and the <code>X9&ndash;X12</code>&nbsp;/&nbsp;<code>X1m*</code>&nbsp;/&nbsp;<code>X2m*</code> families passed through and would have entered clustering as ordinary electrodes. Widened after checking all <b>1690</b> distinct channel names &mdash; every <code>X*</code> name in the cohort is auxiliary, so no real contact is caught. <b>425 files, 108&nbsp;MB deleted</b>; zero remain.</li>
+<li><b>04 vs 05 audit &mdash; all 627 channel differences accounted for:</b> 486 conditions 05 had not run, 72 Unknown/unparcellated, 36 manual bad channels, 18 the auxiliary leak, 15 EL040. <b>Nothing unexplained.</b></li>
+<li><b>EL040 FP-R10&ndash;FP-R15 excluded.</b> The Unknown rule tests only the <i>first</i> token of <code>tissueLabel</code>, so FP-R11 (<code>Unknown ctx-rh-&hellip;</code>) was dropped while FP-R12 and FP-R15 &mdash; the same two labels in the opposite order &mdash; were kept. Dropped the whole run rather than depend on label order. <i>FP-R14 is a clean cortical contact and is excluded only because the instruction was to drop all six.</i></li>
+<li><b>EL046 recovered, and the cause was mine.</b> Its <code>time_range</code> was reverted to an older value when I repaired a corrupted <code>config.py</code> with <code>git checkout --</code>, which took an uncommitted edit with it. Restored, now covering <b>160/160</b> trials. Also: <b>EL046 is 1024&nbsp;Hz, not 2048</b>, and its reading responses are genuinely slow (median 7.9&nbsp;s), so the 5&nbsp;s cap culls that block hard.</li>
+<li><b>PAT_6953's trials were nested one level too deep</b> in <code>prep0/prep0/</code>, which is why it read as "no trials". Timing is sound; it is now blocked only on an electrode reconstruction.</li>
+<li><b>EL048's reconstruction checked and it is sound</b> &mdash; 78/78 contacts and hemispheres agree with the Lookup, per-axis r&nbsp;=&nbsp;1.000/0.9997/0.9899. The only discrepancy is a constant <b>~23&nbsp;mm</b> anterior-posterior origin offset, so the two coordinate sets must not be mixed. It supplies the <code>talairach.xfm</code> the Lookup lacks, so it is the route to MNI. Caveats: the DKT <code>.annot</code> files are 0 bytes, and it covers the 78 macros only.</li>
+<li><b>Deep audit of this whole page</b> &mdash; 464 claims re-checked against the data across 8 tabs. Fixed: the stale "Status at a glance" pills, FIG S4's claim that colour means the same cluster in all three panels (panel a is K=5, b/c are K=10), the LanA "all" rows (which reproduced a superseded summary: 5247&nbsp;&rarr;&nbsp;<b>2981</b> contacts, 82%&nbsp;&rarr;&nbsp;86%), the figure count, and FIG RT.2's embedded image, which no longer matched the file it cited after the trial repair halved that patient's trial count.</li>
 </ul></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div>
 <div class="nb-day"><div class="nb-date"><span>2026-08-14</span><span class="tag">real-time re-run; the HUG id bug decoded</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><ul>
 <li><b>Re-run restarted patient by patient</b> after the 2026-08-11 fixes. <b>21 of 30 now have cubes</b> (was 9), including six HUG patients that could not start at all before. <a href="#realtime">FIG RT.1 rebuilt</a>.</li>

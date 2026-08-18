@@ -1472,6 +1472,109 @@
       winner-takes-all label. Hamilton et&nbsp;al. (2021) use the same family on human sTG.
     </div>
 
+    <h4 id="cnmfmath">0 &mdash; The equations, and how membership is actually decided</h4>
+    <p>Written out because "graded decomposition" is doing a lot of work in the sentences above, and because
+      the step people expect &mdash; the one where an electrode is <i>assigned</i> to a component &mdash;
+      does not exist.</p>
+
+    <div class="callout" style="margin:0 0 16px">
+      <p style="margin:0 0 10px"><b>The factorisation.</b> <code>X</code> is
+        <b>n&nbsp;electrodes &times; m&nbsp;features</b> &mdash; for <code>concat_hg</code>,
+        1266&nbsp;&times;&nbsp;900, the three conditions' 300-bin high-gamma traces laid end to end, in dB
+        against the pre-stimulus baseline, and therefore <b>signed</b>. The model is</p>
+      <div class="def" style="font-family:ui-monospace,Menlo,Consolas,monospace;background:#f2f5f8;
+        border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:0 0 10px">
+        X &nbsp;&asymp;&nbsp; G (W&#8242; X) &nbsp;&nbsp;&nbsp; with &nbsp; W &ge; 0, &nbsp; G &ge; 0<br>
+        C &nbsp;=&nbsp; W&#8242; X &nbsp;&nbsp; (K &times; m) &nbsp;&mdash; the component profiles<br>
+        columns of W are normalised to sum to 1
+      </div>
+      <ul style="margin:0">
+        <li><b><code>W</code> (n &times; K)</b> builds the components <i>out of the electrodes themselves</i>.
+          Because each column is non-negative and sums to one, component&nbsp;<i>j</i> is a
+          <b>convex combination &mdash; a weighted average &mdash; of real observed responses</b>. That is the
+          whole point of the "convex" variant: the component keeps the units of the data, so it can be plotted
+          as a dB response profile and read directly, rather than being an abstract direction in feature
+          space.</li>
+        <li><b><code>G</code> (n &times; K)</b> is the <b>membership</b>, and it is graded by construction.
+          <code>G[i, j]</code> is how much electrode&nbsp;<i>i</i> expresses component&nbsp;<i>j</i>. Every
+          electrode has a value for every component. Nothing forces one of them to win.</li>
+      </ul>
+    </div>
+
+    <p><b>Why the sign of the data is the reason for this method.</b> The updates never touch <code>X</code>
+      directly, only the Gram matrix <code>A = X X&#8242;</code>, which is split into its positive and negative
+      parts:</p>
+    <div class="def" style="font-family:ui-monospace,Menlo,Consolas,monospace;background:#f2f5f8;
+      border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:0 0 12px">
+      A&#8314; = (|A| + A) / 2 &nbsp;&nbsp;&nbsp; A&#8315; = (|A| &minus; A) / 2 &nbsp;&nbsp; (both &ge; 0)<br><br>
+      W &larr; W &odot; sqrt[ (A&#8314;G + A&#8315;W G&#8242;G) / (A&#8315;G + A&#8314;W G&#8242;G) ]<br>
+      G &larr; G &odot; sqrt[ (A&#8314;W + G W&#8242;A&#8315;W) / (A&#8315;W + G W&#8242;A&#8314;W) ]
+    </div>
+    <p>Only <code>A&#8314;</code> and <code>A&#8315;</code> enter, and both are non-negative, so a suppression
+      (negative dB) is modelled as itself rather than being clipped, shifted or split into a separate
+      "negative" component. The updates are <b>multiplicative</b>: <code>W</code> and <code>G</code> start
+      positive and are only ever multiplied by positive ratios, so non-negativity is preserved without any
+      projection or constraint step. Convergence is on
+      <code>&#8214;X &minus; G W&#8242;X&#8214;<sub>F</sub></code>, checked every 10 iterations, relative
+      tolerance 1e&minus;6, at most 300 iterations.</p>
+
+    <div class="callout warn" style="margin:0 0 16px">
+      <b>It is seeded from k-means, and that matters for how you read it.</b> <code>G</code> is initialised
+      from a k-means partition at the same K (1.0 on the assigned cluster, 0.2 elsewhere, plus noise) and
+      <code>W</code> from the column-normalised <code>G</code>. So the decomposition does not discover
+      structure independently of k-means &mdash; it <b>relaxes the k-means solution</b>, letting electrodes
+      that the partition forced into one cluster spread their weight. When the graded fit and the partition
+      agree, that agreement is partly inherited, not independent corroboration.
+    </div>
+
+    <h4>0a &mdash; So how is an electrode's component decided?</h4>
+    <p><b>It is not.</b> There is no assignment step anywhere in the algorithm. What exists is a weight vector
+      per electrode, normalised so it sums to one:</p>
+    <div class="def" style="font-family:ui-monospace,Menlo,Consolas,monospace;background:#f2f5f8;
+      border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:0 0 12px">
+      G&#770;[i, j] = G[i, j] / &Sigma;<sub>j</sub> G[i, j] &nbsp;&nbsp;&mdash; the published w0&hellip;w6<br>
+      top_weight[i] = max<sub>j</sub> G&#770;[i, j] &nbsp;&nbsp; margin[i] = top &minus; second
+    </div>
+    <p>A single label only appears where a tool demands one. MOBA and the clustering visualizer need a hard
+      colour per contact, so <code>publish_decomposition.py</code> writes
+      <code>argmax<sub>j</sub> G&#770;[i, j]</code> into the cluster column &mdash; and that number is a
+      <b>lossy summary of the thing it summarises</b>. On the current 1266-electrode fit:</p>
+    <table>
+      <thead><tr><th>on <code>concat_hg</code>, K = 7, n = 1266</th><th>value</th><th>what it means</th></tr></thead>
+      <tbody>
+        <tr><td>median top weight</td><td><b>0.43</b></td><td>the typical "winner" holds under half the electrode</td></tr>
+        <tr><td>no majority (top &lt; 0.50)</td><td><b>66.0%</b></td><td>two thirds of electrodes have no component that owns them</td></tr>
+        <tr><td>dominated (top &ge; 0.80)</td><td><b>1.7%</b></td><td>almost nothing is a clean single type</td></tr>
+        <tr><td>in-sample variance explained</td><td><b>0.565</b></td><td>at K = 7</td></tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted);font-size:13px">Read the argmax map as <b>"which component leads here"</b>,
+      never as <b>"which type this electrode is"</b>. For two thirds of contacts the lead is a plurality, not
+      a majority. The full <code>w0&hellip;w6</code> ride along in <code>labels.csv</code> beside
+      <code>top_weight</code> and <code>margin</code>, so nothing is thrown away and the uncertainty stays
+      inspectable.</p>
+
+    <h4>0b &mdash; How K is chosen</h4>
+    <p>Not by silhouette. Silhouette rewards compact well-separated blobs and <b>cannot get worse</b> from
+      over-splitting in the way that matters here, so on graded data it is close to uninformative. K is chosen
+      on <b>held-out reconstruction</b> (<code>cv_rank_curve</code>, the logic Norman-Haignere et&nbsp;al. 2022
+      use):</p>
+    <ol>
+      <li>Split the electrodes into 5 folds.</li>
+      <li>Fit the decomposition <b>without</b> one fold &mdash; those electrodes are never seen.</li>
+      <li>Project the held-out electrodes onto the fitted components by non-negative least squares.</li>
+      <li>Measure their reconstruction error.</li>
+    </ol>
+    <p>Because the held-out electrodes had no say in the components, this <b>can get worse</b> when the rank
+      is too high &mdash; which is exactly what makes it a criterion rather than a monotone reward.
+      <b>K&nbsp;=&nbsp;7</b> is the current choice; the knee of the curve sits at 5&rarr;6 and 7 was carried
+      forward from the validation. The curve is <code>F3a_cv_rank.png</code> in each
+      <code>decomposition/&lt;feature_set&gt;/</code> folder, and the numbers behind it are
+      <code>cv_rank_curve.csv</code> beside it.</p>
+    <p style="color:var(--muted);font-size:13px"><b>Being straight about the K choice:</b> the knee is at
+      5&rarr;6 and the run uses 7. That is a defensible margin on a flat curve, but it is a judgement call,
+      not something the criterion forced. It should be stated that way in any write-up.</p>
+
     
     <h4>1 &mdash; Why the graded decomposition beats k-means here</h4>
     <p>Not "it is a fancier method". Three specific things k-means gets wrong <b>on this dataset</b>,

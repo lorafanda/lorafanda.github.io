@@ -597,7 +597,7 @@ function captureView(az, el, maxW) {
 // SPIN_W is deliberately small. A 900 px frame is 40-80 kB, so 20 of them is
 // ~1.5 MB PER rotation; at 360 px a whole rotation costs about what one still
 // does, which is what makes a dozen of them affordable in a self-contained file.
-const SPIN_N = 60, SPIN_W = 360;
+const SPIN_N = 60, SPIN_W = 560;
 // the pre-rendered frames are ~530 px after cropping; fetch at full width so
 // they are not upscaled when shown at just under half the page
 const SPIN_RENDER_W = 560;
@@ -607,9 +607,9 @@ const SPIN_RENDER_W = 560;
 // from frame to frame - which reads as choppiness no matter how many frames there
 // are. Raising 20 to 60 did not help for exactly this reason. Here every frame is
 // the whole canvas at one fixed size, so the brain rotates in place.
-function rawFrame(src, maxW) {
+function rawFrame(src, maxW, box) {
   try {
-    const sw = src.width, sh = src.height;
+    const sw = box ? box.w : src.width, sh = box ? box.h : src.height;
     if (!sw || !sh) return { data: "", w: 0, h: 0 };
     const sc = sw > maxW ? maxW / sw : 1;
     const o = document.createElement("canvas");
@@ -617,26 +617,71 @@ function rawFrame(src, maxW) {
     o.height = Math.max(1, Math.round(sh * sc));
     const cx = o.getContext("2d");
     cx.fillStyle = "#000"; cx.fillRect(0, 0, o.width, o.height);
-    cx.drawImage(src, 0, 0, o.width, o.height);
+    if (box) cx.drawImage(src, box.x, box.y, box.w, box.h, 0, 0, o.width, o.height);
+    else cx.drawImage(src, 0, 0, o.width, o.height);
     return { data: o.toDataURL("image/jpeg", JPEG_Q), w: o.width, h: o.height };
   } catch (e) { console.warn("spin frame failed:", e); return { data: "", w: 0, h: 0 }; }
 }
 
-function captureRaw(az, el, maxW) {
+function captureRaw(az, el, maxW, box) {
   return new Promise(resolve => {
     try { nv.scene.renderAzimuth = az; nv.scene.renderElevation = el; } catch (e) {}
     requestAnimationFrame(() => {
       try { nv.drawScene(); } catch (e) {}
-      resolve(rawFrame(canvasEl, maxW));
+      resolve(rawFrame(canvasEl, maxW, box));
     });
   });
 }
 
+// Ink box of the current canvas, in source pixels. Same probe trimDark uses.
+function inkBox(src) {
+  const sw = src.width, sh = src.height;
+  if (!sw || !sh) return null;
+  const pw = Math.min(sw, 320), s0 = pw / sw;
+  const c = document.createElement("canvas");
+  c.width = pw; c.height = Math.max(1, Math.round(sh * s0));
+  const cx = c.getContext("2d");
+  cx.drawImage(src, 0, 0, c.width, c.height);
+  const d = cx.getImageData(0, 0, c.width, c.height).data;
+  let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+    const i = (y * c.width + x) * 4;
+    if (d[i] > 18 || d[i+1] > 18 || d[i+2] > 18) {
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < 0) return null;
+  return { x: x0 / s0, y: y0 / s0, w: (x1 - x0 + 1) / s0, h: (y1 - y0 + 1) / s0 };
+}
+
+// ONE box for the whole rotation, from a handful of angles. Per-frame boxes are what
+// made the brain jump; a full 60-frame probe pass would double an already slow export,
+// and the silhouette only changes slowly with azimuth, so 8 samples bound it well.
+async function probeSpinBox(el, nProbe) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+  for (let i = 0; i < nProbe; i++) {
+    const b = await new Promise(res => {
+      try { nv.scene.renderAzimuth = (360 * i) / nProbe; nv.scene.renderElevation = el; } catch (e) {}
+      requestAnimationFrame(() => { try { nv.drawScene(); } catch (e) {} res(inkBox(canvasEl)); });
+    });
+    if (!b) continue;
+    x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
+    x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h);
+  }
+  if (x1 < 0) return null;
+  const pad = 10;
+  return { x: Math.max(0, x0 - pad), y: Math.max(0, y0 - pad),
+           w: Math.min(canvasEl.width, x1 - x0 + 2 * pad),
+           h: Math.min(canvasEl.height, y1 - y0 + 2 * pad) };
+}
+
 async function captureSpin(el, n, maxW) {
+  const box = await probeSpinBox(el, 8);
   const frames = [];
   for (let i = 0; i < n; i++) {
     // full 360 so the loop closes; no ping-pong and no visible seam
-    frames.push(await captureRaw((360 * i) / n, el, maxW || SPIN_W));
+    frames.push(await captureRaw((360 * i) / n, el, maxW || SPIN_W, box));
     await sleep(12);
   }
   return frames.filter(f => f && f.data);
@@ -875,8 +920,10 @@ h2.sec{font-size:17px;margin:0 0 3px}
 .lval{font-variant-numeric:tabular-nums;color:var(--muted);margin-left:auto;padding-left:8px;white-space:nowrap}
 .lval em{font-style:normal;color:var(--ink);margin-left:5px;min-width:27px;display:inline-block;text-align:right}
 .spin figcaption{color:var(--muted);font-size:11.5px;margin-top:5px;text-align:center}
-.spinbox{position:relative;width:100%;max-width:360px;margin:0 auto;line-height:0}
+.spinbox{position:relative;width:100%;max-width:540px;margin:0 auto;line-height:0}
 /* the per-cluster rotations: just under half the 1180 px page each, two per row */
+.spinpair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.spinpair .spinbox{max-width:100%}
 .spingrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 26px;margin-top:8px}
 .spin.big .spinbox{max-width:540px}
 .spintitle{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);margin:0 0 6px}
@@ -1004,8 +1051,12 @@ async function exportReport() {
       const renderSpin = await fetchSpin(runBase, d.cluster, SPIN_N, SPIN_RENDER_W);
       const fig = (RUN.figures.per_cluster || {})[String(d.cluster)] || {};
       const glass = await Promise.all(GLASS.map(v =>
-        fig.glass && fig.glass[v] ? tryImage(runBase + fig.glass[v], 700, true)
-                                  : Promise.resolve({ data: "", w: 0, h: 0 })));
+        // by_cluster/, the same renders FIG C.3 panel B2 uses. The manifest still
+        // points at by_condition/, which is 252's and currently empty.
+        tryImage(`${runBase}recon/cluster_${String(d.cluster).padStart(2, "0")}/by_cluster/${v}.png`,
+                 700, true).then(im => (im && im.data) ? im
+          : (fig.glass && fig.glass[v] ? tryImage(runBase + fig.glass[v], 700, true)
+                                       : { data: "", w: 0, h: 0 }))));
       const centroid = fig.centroid ? await tryImage(runBase + fig.centroid, FIGW, false)
                                     : { data: "", w: 0, h: 0 };
       blocks.push({ d, st, shots, glass, centroid, spinFrames, renderSpin,
@@ -1068,14 +1119,21 @@ async function exportReport() {
     ${glass.map((g, j) => img(g, GLASS[j].replace("_", " "), "lite")).join("")}
     <div></div>
   </div>
-  <div class="two" style="margin-top:16px">
+  <div style="margin-top:16px">
     <div>${img(centroid, "cluster centroid — the mean response this cluster is defined by", "wide lite")}</div>
-    <div>
+    <div style="margin-top:14px">
       <h2 class="sec">Seen from every angle</h2>
-      <p class="sechint">The same probability map as the three stills above, rotated a full
-        turn. A cluster that looks focal from one side and diffuse from another is worth
-        knowing about before it is described as focal.</p>
-      ${spin(spinFrames, `Cluster ${k} probability`)}
+      <p class="sechint">Two full turns of the same cluster. <b>Left:</b> the probability
+        map from the stills above &mdash; a cluster that looks focal from one side and
+        diffuse from another is worth knowing about before it is called focal.
+        <b>Right:</b> the contacts themselves, in the project glass-brain look, with no
+        ${frozen.radius}&nbsp;mm smoothing. The probability field is an estimate built from
+        those contacts, so the two answer different questions and disagreement between them
+        is informative rather than a fault.</p>
+      <div class="spinpair">
+        ${spin(spinFrames, `Cluster ${k} probability`)}
+        ${spin(renderSpin, `Cluster ${k} contacts`)}
+      </div>
     </div>
   </div>
 

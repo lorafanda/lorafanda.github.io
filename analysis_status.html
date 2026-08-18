@@ -176,6 +176,54 @@
   <main>
   <!-- ============ OVERVIEW ============ -->
   <section id="overview" class="on">
+
+    <div class="callout warn" style="margin:0 0 22px;border-left-width:5px">
+      <h3 style="margin:0 0 8px">Cohort migration in progress &mdash; most figures on this site are one
+        cohort behind (audited 2026-08-18)</h3>
+      <p style="margin:0 0 10px">The electrode set moved twice this week: the dash-rule fix recovered all
+        <b>58 of EL034's</b> contacts, EL046 was re-run, and PAT_6953 was added on a temporary manual
+        white-matter reference. The concatenated clustering cohort went <b>1027 electrodes / 24 patients
+        &rarr; 1266 / 27</b>. <b>Stage 02 and Stage 05 followed. Stages 03 and 04 did not.</b></p>
+      <p style="margin:0 0 10px">A figure-by-figure audit of all <b>102</b> images on this page found
+        <b>83 stale</b>, 4 needing checks and 15 current. The current ones are the four Stage-05
+        response-timing figures, the two real-time sample panels and the hand-drawn meeting scans.
+        Everything else was drawn on a cohort that is up to three patients short.</p>
+      <table style="margin:6px 0 12px">
+        <thead><tr><th>Cache</th><th>Cohort it holds</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td><code>02_FBM_Clustering/.../concat_source_v2</code></td>
+              <td>29 patients &rarr; <b>1266 el / 27 pat</b> after the gate</td>
+              <td class="good">current</td></tr>
+          <tr><td><code>04_FBM_Pooling/.../_raw_ungated</code></td>
+              <td>26 patients / 2961 contacts, gated to 24</td>
+              <td class="bad">missing EL034, EL046, PAT_6953</td></tr>
+          <tr><td>Stage 03 classification matrices</td>
+              <td>24 patients / 1941 samples (all 131 run manifests)</td>
+              <td class="bad">missing the same three</td></tr>
+        </tbody>
+      </table>
+      <p style="margin:0 0 8px"><b>Three traps for whoever regenerates these</b>, found in the audit:</p>
+      <ul style="margin:4px 0 10px">
+        <li><b>Three scripts pin the old run id.</b> <code>make_decomposition_figure.py</code>,
+          <code>make_overview_options.py</code> and <code>make_xcorr_figures.py</code> all hard-code
+          <code>kmeans/concat_hg/runs/20260803_175417</code>. Re-running them without editing the pin
+          silently reproduces the old cohort.</li>
+        <li><b><code>make_story_figures.py</code> does the opposite</b> &mdash; it auto-selects the newest
+          run, so re-running it today would produce holes: <code>consensus_heatmap.png</code>,
+          <code>cluster_cards.png</code>, <code>timing/</code> and <code>recon/cluster_NN/</code> do not
+          exist yet under <code>20260817_171544</code>. Correct order: 211/213 &rarr; 252 &rarr;
+          make_cluster_cards &rarr; 214 &rarr; make_xcorr_figures &rarr; make_story_figures.</li>
+        <li><b>Three figure families have no committed generator at all</b> &mdash; the
+          <code>diagnostics/D1_*</code> and <code>D2_*</code> panels, the eight
+          <code>atlas_corr/corr_&lt;term&gt;.png</code> maps, and both <code>attribution_matrix.png</code>.
+          They cannot be regenerated until someone writes the script.</li>
+      </ul>
+      <p style="margin:0"><b>K also changed: the shipped k-means partition is now K=6, not K=5.</b> Cluster
+        ids do not correspond between the two runs, so any sentence naming a specific cluster number is
+        suspect until re-checked. Numeric claims in the text have been corrected to the 1266-electrode fit
+        where the value could be recomputed; the <i>images</i> have not been regenerated.</p>
+    </div>
+
     <div class="eyebrow">Overview</div>
     <h2 class="title">Where the analysis stands</h2>
     <p class="lead">Intracranial (sEEG/depth + micro) recordings during a three‑condition language task —
@@ -688,7 +736,7 @@
           activations, and cluster&nbsp;0 above.</li>
       </ul>
       <p style="margin:0">The current description is a <b>graded convex-NMF decomposition at K=7</b>, in
-        which 59% of electrodes have no majority component at all.
+        which 66% of electrodes have no majority component at all.
         <a href="#caveats">Caveats &rarr; the diagnostic pass, the plan, and FIG&nbsp;C.3</a>.</p>
     </div>
 
@@ -1587,13 +1635,13 @@
         one such partition can be trusted to survive a normalisation change &mdash; and this is the
         single strongest argument, because it holds no matter what replaces k-means.</li>
       <li><b>Most electrodes do not have a cluster to belong to.</b> Under the graded fit,
-        <b>59.0%</b> have no component above 0.5 and the median largest weight is <b>0.463</b>; only
-        <b>3.4%</b> are dominated by one component. k-means still hands all of them a confident label.
+        <b>66.0%</b> have no component above 0.5 and the median largest weight is <b>0.432</b>; only
+        <b>1.7%</b> are dominated by one component. k-means still hands all of them a confident label.
         For the majority of the dataset that label is close to a coin flip between the top two
         components &mdash; and nothing in the k-means output tells you which electrodes those are.</li>
       <li><b>The graded labels line up better with anatomy.</b> Neighbouring electrodes share a label
-        <b>2.00&times;</b> above chance under the graded argmax, against <b>1.36&times;</b> for the
-        shipped k-means. This is the criterion that is about the brain rather than about reconstruction
+        <b>2.05&times;</b> above chance under the graded argmax, against <b>1.38&times;</b> for the
+        shipped k-means (now <b>K=6</b>, not K=5). This is the criterion that is about the brain rather than about reconstruction
         error, and it is the one you said you actually care about. <i>Read the honest version of this
         comparison in the caveat below &mdash; the gap is real but smaller than that pairing suggests.</i></li>
       <li><b>It fits the sign of the data without a workaround.</b> Convex NMF factorises
@@ -1602,10 +1650,15 @@
         electrodes in real dB units (Ding, Li &amp; Jordan 2010; the same family Hamilton et&nbsp;al. 2021
         use on human sTG). Note this is <b>not</b> an advantage over k-means, which is equally
         sign-agnostic &mdash; an earlier version of this page wrongly claimed it was.</li>
-      <li><b>It is not carried by any one patient.</b> Leave-one-patient-out worst fold
-        <b>ARI 0.643</b> against a <b>size-matched pseudo-patient null of 0.725&nbsp;&plusmn;&nbsp;0.118</b>
-        &mdash; <b>z&nbsp;=&nbsp;&minus;0.69, inside the null</b>. Removing a patient does no more damage
-        than removing that many random electrodes. The shipped k-means has never been tested this way.</li>
+      <li><b>One patient does move it &mdash; this claim has been withdrawn.</b> On the 24-patient fit the
+        worst leave-one-patient-out fold (ARI 0.643) sat <i>inside</i> a size-matched pseudo-patient null
+        (0.725&nbsp;&plusmn;&nbsp;0.118, z&nbsp;=&nbsp;&minus;0.69) and this page concluded that no
+        individual carried the solution. <b>At 27 patients that reverses:</b> worst fold
+        <b>ARI 0.627</b> (EL043) against a null of <b>0.814&nbsp;&plusmn;&nbsp;0.024</b> &mdash;
+        <b>z&nbsp;=&nbsp;&minus;7.91, well outside it</b>. Removing that one patient does measurably more
+        damage than removing the same number of random electrodes. <i>concat_rawds still sits inside its
+        own null (z&nbsp;=&nbsp;&minus;0.52), so this is specific to the HG feature set.</i>
+        The shipped k-means has never been tested this way.</li>
     </ul></div>
 
     <h4>2 &mdash; Reading the results with a critical eye</h4>
@@ -1616,7 +1669,7 @@
       <ul style="margin:8px 0 0">
         <li><b>The anatomy bars compare different K.</b> FIG C.3 panel D puts graded K=7 (2.00&times;)
           against k-means at <b>K=5</b> (1.36&times;). Re-deriving the whole curve: k-means gives
-          <b>1.365&times; at K=5, 1.603&times; at K=7, 1.867&times; at K=10</b>. Against a partition of
+          <b>1.418&times; at K=5, 1.376&times; at the shipped K=6, 1.580&times; at K=7, 1.730&times; at K=10</b>. Against a partition of
           comparable granularity the graded advantage is about <b>7%</b>, not the <b>47%</b> the figure
           implies. The direction survives; the magnitude does not. <b>Quote 2.00 vs 1.87, not 2.00 vs
           1.36.</b></li>
@@ -1671,16 +1724,16 @@
           partition.</b></td></tr>
 
       <tr><td><b>Does anatomy agree with the labels?</b></td>
-        <td class="good"><b>2.00&times; chance</b> that a neighbouring electrode shares the label
-          (re-derived today: 2.003).</td>
-        <td class="bad"><b>1.36&times;</b> for the shipped K=5 (re-derived: 1.365). But see the caveat below
+        <td class="good"><b>2.05&times; chance</b> that a neighbouring electrode shares the label
+          (re-derived: 2.046, from <code>decomposition/concat_hg/meta.json</code>).</td>
+        <td class="bad"><b>1.38&times;</b> for the shipped K=6 (re-derived: 1.376). But see the caveat below
           &mdash; <b>k-means at K=10 reaches 1.87&times;</b>, so the honest gap is much smaller than the
           headline.</td></tr>
 
       <tr><td><b>Is a single label even meaningful?</b></td>
-        <td class="good">It admits when it is not: <b>59.0% of electrodes have no component above 0.5</b>,
-          median largest weight <b>0.463</b>, and only <b>3.4%</b> are dominated (&ge;0.8).</td>
-        <td class="bad">Assigns a confident label to all of them anyway. For the 59% with no majority,
+        <td class="good">It admits when it is not: <b>66.0% of electrodes have no component above 0.5</b>,
+          median largest weight <b>0.432</b>, and only <b>1.7%</b> are dominated (&ge;0.8).</td>
+        <td class="bad">Assigns a confident label to all of them anyway. For the 66% with no majority,
           <b>the label is close to a coin flip</b> between the top two components.</td></tr>
 
       <tr><td><b>Cluster sizes</b></td>
@@ -1696,9 +1749,9 @@
           solution scores <b>0.106</b>. The clusters overlap substantially however they are cut.</td></tr>
 
       <tr><td><b>Is it driven by one patient?</b></td>
-        <td class="good">No. Leave-one-patient-out worst fold <b>ARI 0.643</b> against a
-          <b>size-matched pseudo-patient null of 0.725&nbsp;&plusmn;&nbsp;0.118</b> &mdash;
-          <b>z = &minus;0.69, inside the null</b>. Removing a patient does no more damage than removing that
+        <td class="good"><b>Yes, measurably.</b> Leave-one-patient-out worst fold <b>ARI 0.627</b> (EL043)
+          against a <b>size-matched pseudo-patient null of 0.814&nbsp;&plusmn;&nbsp;0.024</b> &mdash;
+          <b>z = &minus;7.91, OUTSIDE the null</b>. Removing a patient does no more damage than removing that
           many random electrodes.</td>
         <td class="warnc">Never tested this way on the shipped partition.</td></tr>
 
@@ -1733,7 +1786,7 @@
           already knows what k-means and a silhouette are.</td></tr>
 
       <tr><td><b>Replication across patients</b></td>
-        <td class="warnc">Components correlate <b>r = 0.687&nbsp;&plusmn;&nbsp;0.036</b> across independent
+        <td class="warnc">Components correlate <b>r = 0.690&nbsp;&plusmn;&nbsp;0.056</b> across independent
           halves of the cohort &mdash; <b>recognisable, not identical</b>.</td>
         <td class="warnc">Not measured the same way; ARI across halves would be the comparable test and has
           not been run.</td></tr>
@@ -1750,7 +1803,8 @@
       <ul style="margin:8px 0 0">
         <li><b>The anatomy bar chart compares different K.</b> FIG C.3 panel D puts graded K=7
           (2.00&times;) against the shipped k-means K=5 (1.36&times;). Re-deriving the whole curve today:
-          k-means gives <b>1.365&times; at K=5, 1.603&times; at K=7, 1.867&times; at K=10</b>. Against a
+          k-means gives
+          <b>1.418&times; at K=5, 1.376&times; at the shipped K=6, 1.580&times; at K=7, 1.730&times; at K=10</b>. Against a
           partition of comparable granularity the graded advantage is roughly <b>7%</b>, not the
           <b>47%</b> the figure implies. The direction of the result survives; the magnitude does not.</li>
         <li><b>Panel D's four bars are hard-coded literals</b> in
@@ -2734,7 +2788,7 @@
 <li><b>Also corrected:</b> the RT baseline was silently <b>(&minus;0.4,&nbsp;&minus;0.1)</b>, the dataclass default &mdash; not the (&minus;0.6,&nbsp;&minus;0.1) in <code>config.py</code>, which was passed but dead in that branch. And the montage overview was still TIFF: <b>9 files, 9.1&nbsp;GB, 73% of the output tree</b>. Now PNG, 8&times; smaller on test.</li>
 <li><b>Every claim above was re-checked by an independent adversarial pass</b> before publication, which overturned three of them &mdash; including my own diagnosis of the memory failures and my reading of which baseline was in force.</li>
 </ul></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div>
-<div class="nb-day"><div class="nb-date"><span>2026-08-08</span><span class="tag">K=7 published; concatenated history pruned</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li><b>Timing regenerated</b> across the whole K sweep. <b>33 cluster&times;condition cells</b> never crossed threshold and had been stored as <code>onset_pct = 100.0</code>; all are now NaN. Suppression is flagged at every K &mdash; one cluster at K=4&ndash;6, two at K=7, three at K=8/10/11 &mdash; and marked on both the standalone ladder and the panel figure the site uses.</li><li><b>Component count fixed at K=7</b> and 235 re-run to match 236, which had validated K=7 against a K=12 decomposition. In-sample variance 0.543; <b>3%</b> of electrodes dominated, <b>59%</b> with no majority; anatomical coherence <b>2.00&times;</b> chance, above every hard partition tested.</li><li><b>Validation came back clean.</b> Leave-one-patient-out worst fold 0.64 against a size-matched pseudo-patient null of 0.72&nbsp;&plusmn;&nbsp;0.12 &mdash; z = &minus;0.69, inside the null, so no individual carries the solution. Components replicate across independent patient halves at r = 0.687&nbsp;&plusmn;&nbsp;0.036.</li><li>Pipeline consensus reaches 1.70&times; coherence, no better than the best single pipeline &mdash; it buys robustness to the preprocessing choice, not anatomy. One consensus cluster holds 6 electrodes.</li><li>New composite <a href="#clusterplan">FIG C.3</a> and <code>make_decomposition_figure.py</code>, which reads every number from files rather than literals so the figure cannot drift from the analysis. All five plan steps now marked done.</li><li><b>Afternoon.</b> <b>FIG 2.1 removed</b> and <b>18 pre-03-August concatenated runs deleted</b> (5919 files); 215 had hard-coded one of them as <code>XC_RUN</code> and was repointed first, and <code>atlas/lana_concat</code> was preserved &mdash; it is the LanA atlas on that cohort, not concatenated clustering, and a naive filter would have taken it.</li>
+<div class="nb-day"><div class="nb-date"><span>2026-08-08</span><span class="tag">K=7 published; concatenated history pruned</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul><li><b>Timing regenerated</b> across the whole K sweep. <b>33 cluster&times;condition cells</b> never crossed threshold and had been stored as <code>onset_pct = 100.0</code>; all are now NaN. Suppression is flagged at every K &mdash; one cluster at K=4&ndash;6, two at K=7, three at K=8/10/11 &mdash; and marked on both the standalone ladder and the panel figure the site uses.</li><li><b>Component count fixed at K=7</b> and 235 re-run to match 236, which had validated K=7 against a K=12 decomposition. In-sample variance 0.543; <b>3%</b> of electrodes dominated, <b>59%</b> with no majority; anatomical coherence <b>2.00&times;</b> chance, above every hard partition tested.</li><li><b>Validation came back clean.</b> Leave-one-patient-out worst fold 0.64 against a size-matched pseudo-patient null of 0.72&nbsp;&plusmn;&nbsp;0.12 &mdash; z = &minus;0.69, inside the null, so no individual carries the solution. <b>[Superseded 2026-08-18: that was the 1027-electrode / 24-patient fit. At 27 patients the worst fold is 0.627 against a null of 0.814&nbsp;&plusmn;&nbsp;0.024, z = &minus;7.91 &mdash; outside the null. The conclusion reversed.]</b> Components replicate across independent patient halves at r = 0.687&nbsp;&plusmn;&nbsp;0.036.</li><li>Pipeline consensus reaches 1.70&times; coherence, no better than the best single pipeline &mdash; it buys robustness to the preprocessing choice, not anatomy. One consensus cluster holds 6 electrodes.</li><li>New composite <a href="#clusterplan">FIG C.3</a> and <code>make_decomposition_figure.py</code>, which reads every number from files rather than literals so the figure cannot drift from the analysis. All five plan steps now marked done.</li><li><b>Afternoon.</b> <b>FIG 2.1 removed</b> and <b>18 pre-03-August concatenated runs deleted</b> (5919 files); 215 had hard-coded one of them as <code>XC_RUN</code> and was repointed first, and <code>atlas/lana_concat</code> was preserved &mdash; it is the LanA atlas on that cohort, not concatenated clustering, and a naive filter would have taken it.</li>
 <li><b>K=7 published as a run</b> (<code>cnmf/concat_hg/20260808_085740</code>) and registered for MOBA, with the method label added <i>before</i> the first write because MOBA freezes it otherwise. The published column is the <b>argmax</b>; the seven loadings ride along as <code>w0..w6</code>.</li>
 <li><b>Nine stale claims corrected</b> after an audit against the regenerated CSV. Worst: FIG 2.11c still printed <code>onset 100</code> &mdash; the fabricated sentinel, presented as a result, four bullets below the method box warning against exactly that. The method box also named <b>c3 and c4</b> as the suppression clusters when it is <b>c2</b>, contradicting the Caveats tab about the same run. Correlations and coverage bands recomputed (&rho; +0.52/+0.50/+0.53 &rarr; <b>+0.50/+0.68/+0.41</b>).</li>
 <li><b>The clustering tab had no forward reference</b> to any of this &mdash; zero mentions of the diagnostics, the plan or the decomposition, and its only outbound link went to stage 04. A supersession notice now leads that tab.</li>
@@ -3312,7 +3366,7 @@
           would be defensible and none of the rest would be needed. It has none &mdash; that is the
           permission to move to a graded description.</li>
         <li><b>C is the claim.</b> The histogram is the whole argument in one panel: if electrodes
-          were types, the mass would sit at the right edge. It sits at 0.46.</li>
+          were types, the mass would sit at the right edge. It sits at 0.43.</li>
         <li><b>D is why it is better, not just different.</b> One number, on the criterion that is
           about the brain rather than about the fit.</li>
         <li><b>E is the sanity check</b> &mdash; and the red band is the part to look at, not the
@@ -3345,17 +3399,19 @@
           components</b> &mdash; 479&ndash;583 per component. The gap between the two counts <i>is</i> the
           argmax's cost: component 2 has <b>97</b> electrodes that call it their leading component and
           <b>583</b> that carry it. A taxonomy reports the first number and discards the second.</li>
-        <li><b>C.</b> <b>Only 3% of electrodes are dominated</b> by one component and <b>59% have no
-          majority at all</b> (median largest weight 0.46). A hard label would be a coin flip for most of
+        <li><b>C.</b> <b>Only 1.7% of electrodes are dominated</b> by one component and <b>66% have no
+          majority at all</b> (median largest weight 0.43). A hard label would be a coin flip for most of
           the dataset &mdash; the quantitative case against the taxonomy.</li>
         <li><b>D.</b> The criterion that matters: neighbouring electrodes sharing a label, over chance.
           Graded K=7 reaches <b>2.00&times;</b>, against 1.71&times; for the best hard clustering and
           1.36&times; for the shipped one. The decomposition respects anatomy better than any partition
           of the same data.</li>
         <li><b>E.</b> Leave-one-patient-out against a <b>size-matched pseudo-patient null</b>. Worst fold
-          0.64 against a null of 0.72&nbsp;&plusmn;&nbsp;0.12 &mdash; <b>z = &minus;0.69, inside it</b>.
+          0.627 against a null of 0.814&nbsp;&plusmn;&nbsp;0.024 &mdash; <b>z = &minus;7.91, OUTSIDE it</b>.
+          <b>This panel is drawn on the superseded 1027-electrode fit and must be regenerated from
+          <code>decomposition/concat_hg/</code> before the plotted bars are trusted.</b>
           Removing a patient does no more damage than removing that many random electrodes.</li>
-        <li><b>F.</b> What it does not settle: components correlate <b>0.687&nbsp;&plusmn;&nbsp;0.036</b>
+        <li><b>F.</b> What it does not settle: components correlate <b>0.690&nbsp;&plusmn;&nbsp;0.056</b>
           across independent patient halves &mdash; recognisable, not identical &mdash; and 24 patients
           cannot settle generalisation whatever the method.</li>
       </ul><div class="runid">source: kmeans/concat_hg &middot; <b>20260803_175417</b> &middot; notebooks 235 + 236 &middot; <code>make_decomposition_figure.py</code></div></div>

@@ -9,7 +9,7 @@
     --bg:#f6f7f9; --panel:#ffffff; --ink:#1c2530; --muted:#67727e;
     --line:#e4e8ec; --accent:#1f77b4; --accent2:#0f5e97; --chip:#eef2f6;
     --ok:#1f9e6e; --warn:#d98324; --stale:#c0392b;
-    --s1:#2c7fb8; --s2:#41ab5d; --s3:#e6773a; --s4:#8064c0;
+    --s1:#2c7fb8; --s2:#41ab5d; --s3:#e6773a; --s4:#8064c0; --s5:#c2185b;
   }
   *{box-sizing:border-box}
   html,body{margin:0;padding:0}
@@ -34,7 +34,7 @@
   nav .dot{width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:var(--muted)}
   nav .n0 .dot{background:#8a97a3}.n1 .dot{background:var(--s1)}.n2 .dot{background:var(--s2)}
   .n3 .dot{background:var(--s3)}.n4 .dot{background:var(--s4)}.n5 .dot{background:var(--warn)}
-  .n6 .dot{background:#c0392b}.n7 .dot{background:#0b7a75}.n8 .dot{background:#5b6ee1}.n9 .dot{background:#7a5b2e}
+  .n10 .dot{background:var(--s5)}.n6 .dot{background:#c0392b}.n7 .dot{background:#0b7a75}.n8 .dot{background:#5b6ee1}.n9 .dot{background:#7a5b2e}
   .step{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px 18px;margin:10px 0}
   .step .num{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;
     background:#0b7a75;color:#fff;font-size:12px;font-weight:700;margin-right:8px}
@@ -164,6 +164,7 @@
     <button class="n2" data-t="s2"><span class="dot"></span>02 · Clustering</button>
     <button class="n3" data-t="s3"><span class="dot"></span>03 · Decoding</button>
     <button class="n4" data-t="s4"><span class="dot"></span>04 · Pooling</button>
+    <button class="n10" data-t="s5"><span class="dot"></span>05 · Response timing</button>
     <button class="n7" data-t="lana"><span class="dot"></span>3a · Language atlas</button>
     <button class="n6" data-t="meetings"><span class="dot"></span>Meetings</button>
     <button class="n8" data-t="integrity"><span class="dot"></span>Data integrity</button>
@@ -1899,6 +1900,155 @@
   </section>
 
   <!-- ============ 3a · LANGUAGE ATLAS ============ -->
+
+  <section id="s5">
+    <div class="eyebrow" style="color:var(--s5)">Stage 05</div>
+    <h2 class="title">Response timing — when do the groups respond, in seconds?</h2>
+
+    <div class="callout q" style="margin:0 0 20px">
+      <h3 style="margin:0 0 8px">The question the warp cannot answer</h3>
+      <p style="margin:0 0 10px">Every analysis before this one runs on <b>time-normalised</b> trials.
+        140 warps each trial to 300 bins so that 0% is stimulus onset and 50% is the GO cue. That makes
+        trials comparable, but it also means a latency can only ever be expressed as a percentage of a
+        trial whose real duration was thrown away. Both the clustering (02) and the pooling roles (04)
+        live in that space.</p>
+      <p style="margin:0">This stage reads the <b>GO-aligned real-time</b> cubes from
+        <code>150_ERSP_analysis_pipeline_noTwarping.ipynb</code> and asks: in <b>seconds after the GO
+        cue</b>, in what order do those already-defined groups respond, and does the order survive the
+        move from one condition to another?</p>
+    </div>
+
+    <h3>Method</h3>
+    <ul>
+      <li><b>Input.</b> <code>05_ERSP_LM_RAWONLY_RealTime/&lt;pid&gt;/LM/ERSP_matrix/&lt;cond&gt;/
+        &lt;pid&gt;_&lt;cond&gt;_&lt;ref&gt;_ERSP_&lt;chan&gt;_RT_GO.npy</code>, shape
+        <code>(129, T)</code>. <b>9241 cubes, 29 patients.</b></li>
+      <li><b>Neither axis is stored in the file.</b> Both are rebuilt in
+        <code>05_FBM_ResponseTiming/functions/lf_rt.py</code> from the expressions the pipeline itself
+        used — <code>x = linspace(-2.5, 5.0, T, endpoint=False)</code> and
+        <code>f = linspace(0, 500, 129)</code> — and that module is the only place this knowledge lives.
+        <b>t = 0 is the GO cue</b>, i.e. stimulus offset.</li>
+      <li><b>T varies from 369 to 635</b> across the tree because the window is fixed but the sampling
+        is not, so the cubes differ in time <i>resolution</i>, not extent. Everything is resampled onto
+        one 20 ms grid — the pipeline's own STFT hop — before anything is compared.</li>
+      <li><b>Timing features</b> are measured on the mean 70–150 Hz trace over 0 → 5 s after GO: onset
+        latency (first crossing of +1 dB sustained ≥ 100 ms), peak latency, peak amplitude, centre of
+        mass, suprathreshold duration, positive area, and the mirrored suppression versions. Values are
+        dB against the <b>pre-stimulus</b> baseline, so 0 dB is baseline and the thresholds are absolute.
+        A fixed pre-GO reference would sit in silence for picture (1 s stimulus) but inside the stimulus
+        for reading (3.5 s) and would not mean the same thing in the two.</li>
+      <li><b>Join.</b> Each electrode is matched to every group label it already carries — k-means and
+        Ward clusters on both feature sets, the convex-NMF leading component <i>and</i> its full weight
+        vector, and the pooling role — on patient + punctuation-stripped contact name.</li>
+    </ul>
+
+    <div class="callout" style="margin:18px 0">
+      <h3 style="margin:0 0 8px">Why Kruskal–Wallis is the wrong test here</h3>
+      <p style="margin:0 0 10px">Electrodes within a patient share a brain, a reference, a montage and a
+        response speed, so they are nowhere near independent. Pooled across electrodes, Kruskal–Wallis
+        returns <b>p &lt; 1e-10 for all twelve</b> group × condition cells — including ones the honest
+        test calls null. It is measuring cohort composition, not physiology.</p>
+      <p style="margin:0">The headline test instead <b>shuffles group labels within each patient</b>,
+        asking whether membership still orders electrodes in time <i>given that patient's own
+        contacts</i>. It matters: the patient's median response duration correlates with electrode
+        latency at ρ = 0.20–0.48, significant in 5 of 6 condition × feature cells
+        (<a href="#s5">RT-T5</a>).</p>
+    </div>
+
+    <figure><div class="cap"><div class="fignum">RT-T2</div><h4>Group ordering in real seconds, median with bootstrap 95% CI</h4>
+      <ul>
+        <li><b>How to read it.</b> One row per group, sorted by median peak latency; three markers per
+          row, one per condition. x is seconds after the GO cue. Read the <b>order</b>, not the absolute
+          values — the 5 s cap and the trial-averaging both compress the tail.</li>
+        <li><b>Ward, concatenated HG.</b> Cluster 3 peaks at <b>0.70 / 0.72 / 0.70 s</b> in audio,
+          picture and reading — the same latency in all three, n = 340. Cluster 0 runs late and
+          condition-dependent: 2.01 s audio, 1.22 s picture, <b>2.58 s reading</b>. Cluster 2 is the
+          audio outlier at 3.66 s but carries only n = 49.</li>
+      </ul>
+      <div class="runid">source: 05_FBM_ResponseTiming, hier_concat_hg 20260817_171627 · 1266-electrode cohort</div></div>
+      <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-T2_hier_concat_hg_peak_lat.png" alt="group ordering, Ward"></div>
+    </figure>
+
+    <h3>Which groupings actually carry timing?</h3>
+    <p>Within-patient permutation p, 500 shuffles. Kruskal–Wallis p was &lt; 1e-10 for every cell in this
+      table.</p>
+    <table>
+      <thead><tr><th>grouping</th><th>audio</th><th>picture</th><th>reading</th></tr></thead>
+      <tbody>
+        <tr><td><b>Ward · concatenated HG</b></td><td><b>0.002</b></td><td><b>0.002</b></td><td><b>0.006</b></td></tr>
+        <tr><td>k-means · concatenated HG</td><td><b>0.002</b></td><td><b>0.020</b></td><td>0.373</td></tr>
+        <tr><td>convex-NMF leading component</td><td><b>0.002</b></td><td><b>0.008</b></td><td><b>0.002</b></td></tr>
+        <tr><td>pooling role (a-priori)</td><td><b>0.018</b></td><td>0.814</td><td>0.291</td></tr>
+      </tbody>
+    </table>
+    <p style="color:var(--muted);font-size:13px">The <b>data-driven</b> partitions carry timing structure
+      that the <b>a-priori</b> roles largely do not, once patient identity is controlled. That is a claim
+      about the roles as currently defined, not about the idea of roles — and it is the opposite of what
+      <a href="#s2">FIG S1</a> shows in warped time, which is worth resolving before either is written up.</p>
+
+    <figure><div class="cap"><div class="fignum">RT-T3</div><h4>Is timing a property of the site or of the task?</h4>
+      <ul>
+        <li><b>What it asks.</b> If a contact is early in audio, is it early in reading? High correlation
+          means the timing belongs to the <b>site</b>; low means it belongs to the <b>task</b>.</li>
+        <li><b>The two features disagree, informatively.</b> <b>Peak</b> latency barely transfers
+          (ρ = 0.10–0.20). <b>Onset</b> latency transfers about twice as well (ρ = 0.34–0.40). So when a
+          region <i>starts</i> responding is more a property of where it is; when it <i>peaks</i> is more
+          a property of what the task demands.</li>
+      </ul>
+      <div class="runid">n = 2884–2959 electrodes for peak, 535–616 for onset</div></div>
+      <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-T3_consistency_onset_lat.png" alt="cross-condition consistency"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">RT-T4</div><h4>The graded view — no hard labels</h4>
+      <ul>
+        <li><b>Why this exists.</b> The convex-NMF decomposition finds that <b>66% of electrodes have no
+          majority component</b>. Forcing an argmax label discards most of the membership. Correlating the
+          component <b>weight</b> against latency keeps it: an electrode that is half component 2 and half
+          component 5 contributes to both.</li>
+      </ul>
+      <div class="runid">source: decomposition/concat_hg, K=7, 1266 electrodes / 27 patients</div></div>
+      <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-T4_loading_vs_peak_lat.png" alt="loading vs latency"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">RT-T5</div><h4>The confound that would explain it all away</h4>
+      <ul>
+        <li><b>The worry.</b> If electrode latency simply tracks how long that <i>patient</i> took to
+          respond, a group holding more contacts from slow responders would look late for reasons that
+          have nothing to do with function.</li>
+        <li><b>It is real and it is partial.</b> Patient-level ρ = 0.20–0.48, significant in 5 of 6.
+          Which is exactly why the within-patient permutation, not Kruskal–Wallis, is the test reported
+          above.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-T5_patient_confound_peak_lat.png" alt="patient confound"></div>
+    </figure>
+
+    <div class="callout warn" style="margin:20px 0 0">
+      <h3 style="margin:0 0 8px">What this cannot tell you</h3>
+      <ul style="margin:4px 0 0">
+        <li><b>The cubes are trial-averaged.</b> No per-trial data is persisted anywhere in the 05 tree,
+          so nothing here correlates a single trial's response time with a single trial's neural timing.
+          Every comparison is <b>across electrodes</b>. The within-trial version — which is the one most
+          reviewers will ask for — needs 150 to persist per-trial high-gamma first.</li>
+        <li><b>t = 0 is the GO cue, not speech onset.</b> There is <b>no speech-onset event anywhere in
+          this dataset</b>. "Response portion" means "after the stimulus ended".</li>
+        <li><b>Onset latency is defined on a minority of electrodes</b> — 580–790 of ~1200 per condition
+          cross +1 dB for 100 ms. The rest have no onset by construction and drop out of that row rather
+          than being scored as arbitrarily late.</li>
+        <li><b>Four patients have partial coverage</b> in the RealTime tree: EL043 no picture, EL044 audio
+          only, PAT_3301 picture only, <b>PAT_3965 reading only</b>. This is why
+          <a href="#integrity">FIG RT.1</a> shows PAT_3965 as incomplete — that figure describes the 05
+          tree, not the cohort. PAT_3965 has all three conditions in 04 and is in every clustering run.</li>
+        <li><b>Only 3626 of 9241 rows carry a cluster label</b>, because the clustering cohort is the 1266
+          electrodes that survived the activity gate with all three conditions present.</li>
+        <li><b>PAT_6953 (151 electrodes) and EL046 (80)</b> have no fsaverage reconstruction, so they are
+          in every timing comparison but absent from every anatomical one — the 231 unmatched contacts
+          behind the recon join's 81.8%.</li>
+        <li><b>The 5 s cap is uniform, response durations are not.</b> EL046's reading median is 7.9 s, so
+          that block loses most of its trials while others lose none.</li>
+      </ul>
+    </div>
+  </section>
+
   <section id="lana">
     <div class="eyebrow" style="color:#0b7a75">3a · anatomical ROI</div>
     <h2 class="title">The Fedorenko / LanA language-atlas analysis</h2>

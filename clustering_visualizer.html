@@ -599,11 +599,41 @@ function captureView(az, el, maxW) {
 // does, which is what makes a dozen of them affordable in a self-contained file.
 const SPIN_N = 60, SPIN_W = 360;
 
+// A rotation must NOT use trimDark. That crops every frame to its own bounding
+// box, so each frame comes out a different size and the brain jumps and rescales
+// from frame to frame - which reads as choppiness no matter how many frames there
+// are. Raising 20 to 60 did not help for exactly this reason. Here every frame is
+// the whole canvas at one fixed size, so the brain rotates in place.
+function rawFrame(src, maxW) {
+  try {
+    const sw = src.width, sh = src.height;
+    if (!sw || !sh) return { data: "", w: 0, h: 0 };
+    const sc = sw > maxW ? maxW / sw : 1;
+    const o = document.createElement("canvas");
+    o.width = Math.max(1, Math.round(sw * sc));
+    o.height = Math.max(1, Math.round(sh * sc));
+    const cx = o.getContext("2d");
+    cx.fillStyle = "#000"; cx.fillRect(0, 0, o.width, o.height);
+    cx.drawImage(src, 0, 0, o.width, o.height);
+    return { data: o.toDataURL("image/jpeg", JPEG_Q), w: o.width, h: o.height };
+  } catch (e) { console.warn("spin frame failed:", e); return { data: "", w: 0, h: 0 }; }
+}
+
+function captureRaw(az, el, maxW) {
+  return new Promise(resolve => {
+    try { nv.scene.renderAzimuth = az; nv.scene.renderElevation = el; } catch (e) {}
+    requestAnimationFrame(() => {
+      try { nv.drawScene(); } catch (e) {}
+      resolve(rawFrame(canvasEl, maxW));
+    });
+  });
+}
+
 async function captureSpin(el, n, maxW) {
   const frames = [];
   for (let i = 0; i < n; i++) {
     // full 360 so the loop closes; no ping-pong and no visible seam
-    frames.push(await captureView((360 * i) / n, el, maxW || SPIN_W));
+    frames.push(await captureRaw((360 * i) / n, el, maxW || SPIN_W));
     await sleep(12);
   }
   return frames.filter(f => f && f.data);
@@ -954,15 +984,6 @@ async function exportReport() {
                     climMax: frozen.climMax });
     }
 
-    // ── every labelled contact, coloured by its cluster
-    btn.textContent = "Report: electrodes by cluster...";
-    state.map = "coverage"; $("mapSel").value = "coverage";
-    state.climMax = frozen.climMax;
-    render();
-    state.showElec = true; state.elecByCluster = true; updateElectrodes();
-    const elecSpin = await captureSpin(0, SPIN_N, SPIN_W);
-    state.showElec = false; state.elecByCluster = false; updateElectrodes();
-
     // ── whole-run figures
     const ov = RUN.figures.overview || [];
     const ovImgs = [];
@@ -1099,14 +1120,15 @@ async function exportReport() {
 </section>
 
 <section class="card">
-  <h2 class="sec">Every labelled contact, coloured by its cluster</h2>
-  <p class="sechint">All ${RUN.n_contacts_with_cluster} localised contacts at once, each in its
-    cluster's colour, through a full turn. The per-cluster maps above are probability fields
-    smoothed over a ${frozen.radius} mm neighbourhood; this is the underlying assignment with no
-    smoothing at all, so clusters that look spatially clean above can look interleaved here.
-    An electrode carrying several labels is drawn in the first of them &mdash; drawing it once per
-    label would stack colours in one place and read as a blend that means nothing.</p>
-  ${spin(elecSpin, "contacts coloured by cluster")}
+  <h2 class="sec">Every cluster, one after the other</h2>
+  <p class="sechint">The glass brains notebook 252 rendered for this run, cycled in cluster
+    order &mdash; the same view each time, so what changes between frames is only which
+    cluster is being shown. These are the project's own renders, not a capture of this page,
+    so they match every other glass brain in the analysis. Unlike the probability maps above
+    they are the raw contact positions with no ${frozen.radius}&nbsp;mm smoothing, which is why
+    a cluster that looks compact as a probability field can look scattered here.</p>
+  ${spin(blocks.map(b => b.glass && b.glass[0]).filter(g => g && g.data),
+         `cluster glass brains, ${GLASS[0].replace("_", " ")}`)}
 </section>
 
 <section class="card">

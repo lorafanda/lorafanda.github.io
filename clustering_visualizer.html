@@ -115,6 +115,10 @@
         <div class="row" id="minNRow"><label>min n</label>
           <input type="range" id="minN" min="1" max="12" step="1" value="5">
           <span class="val" id="minNVal">5</span></div>
+        <div class="row" id="loadRow"><label>min load</label>
+          <input type="range" id="minLoad" min="0" max="90" step="5" value="0">
+          <span class="val" id="minLoadVal">0.00</span></div>
+        <div class="cohort" id="loadNote">graded loading — convex-NMF runs only</div>
       </div>
 
       <div class="grp">
@@ -179,7 +183,7 @@ let M = null, CONTACTS = null, COV = { lh:null, rh:null }, CLU = { lh:null, rh:n
 let RUN = null, nv = null, hemis = {}, elecMesh = null, canvasEl = null;
 const state = { map:"coverage", surf:"pial", glass:false, showElec:false, gate:true,
                 elecByCluster:false,
-                minN:5, climMax:1.0, gamma:0.80, autoScaled:0, radius:"10" };
+                minN:5, minLoad:0, climMax:1.0, gamma:0.80, autoScaled:0, radius:"10" };
 const R = () => state.radius;
 
 // viridis — sequential, perceptually uniform. A probability has no meaningful
@@ -453,6 +457,17 @@ function render() {
   $("cbHi").textContent = d.raw ? Math.round(hi) : hi.toFixed(2);
   $("cbTtl").textContent = d.cbar;
 
+  // A hard partition has no loading to threshold: every contact's membership is 1.0
+  // by construction. Leaving the slider live there would look functional and do
+  // nothing, which is worse than disabling it.
+  const hasLoad = !!(RUN && CONTACTS && CONTACTS.loadings && CONTACTS.loadings[RUN.id]);
+  const lr = $("loadRow");
+  lr.style.opacity = hasLoad ? "1" : ".35";
+  $("minLoad").disabled = !hasLoad;
+  $("loadNote").textContent = hasLoad
+    ? `graded: ${RUN.k} components, contacts sized and faded by their top weight`
+    : "graded loading — convex-NMF runs only; this run is a hard partition";
+
   const mr = $("minNRow"), useN = d.cluster !== undefined && state.gate;
   mr.style.opacity = useN ? "1" : ".35";
   $("minN").disabled = !useN;
@@ -530,8 +545,12 @@ function updateElectrodes() {
   if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} elecMesh = null; }
   // contacts are in anatomical space — they do not lie on the inflated surface
   if (!state.showElec || state.surf === "inflated" || !CONTACTS) { nv.drawScene(); return; }
-  const d = curDef(), r = 1.7, pts = [], tris = [], cols = [];
+  const d = curDef(), pts = [], tris = [], cols = [];
   const lab = RUN ? CONTACTS.runs[RUN.id] : null;
+  // Graded membership, where the run has it. Radius AND opacity both track the
+  // loading: size alone is a weak perceptual channel - people misjudge area against
+  // radius - so the two are moved together, as the by_loading renders do.
+  const load = (RUN && CONTACTS.loadings) ? CONTACTS.loadings[RUN.id] : null;
   // only this cohort's contacts exist as far as the maps are concerned
   const mine = new Set(CONTACTS.cohorts[RUN.cohort_id] || []);
   let vi = 0;
@@ -552,10 +571,21 @@ function updateElectrodes() {
       const L = lab && lab[i];
       if (!Array.isArray(L) || L.indexOf(d.cluster) < 0) continue;
     }
+    // 0.14 is uniform loading at K=7 (1/7); below that a contact is expressing
+    // nothing in particular and is drawn at the floor size rather than vanishing.
+    let w = 1, r = 1.7;
+    if (load) {
+      const lv = load[i];
+      if (lv === null || lv === undefined) continue;
+      if (lv < state.minLoad) continue;
+      w = Math.max(0, Math.min(1, (lv - 0.14) / (0.85 - 0.14)));
+      r = 1.0 + 2.2 * w;
+    }
     const [x, y, z] = CONTACTS.xyz[i];
     for (const o of _OCT) pts.push(x + o[0]*r, y + o[1]*r, z + o[2]*r);
     for (const f of _OCTF) tris.push(vi + f[0], vi + f[1], vi + f[2]);
-    for (let j = 0; j < 6; j++) cols.push(colr[0], colr[1], colr[2], 255);
+    const al = load ? Math.round(90 + 165 * w) : 255;
+    for (let j = 0; j < 6; j++) cols.push(colr[0], colr[1], colr[2], al);
     vi += 6;
   }
   if (!vi) { nv.drawScene(); return; }
@@ -1356,6 +1386,11 @@ function wireUI() {
   $("showElec").onchange = e => { state.showElec = e.target.checked; updateElectrodes(); };
   $("showGate").onchange = e => { state.gate = e.target.checked; render(); };
   $("minN").oninput  = e => { state.minN = +e.target.value; $("minNVal").textContent = state.minN; render(); };
+  $("minLoad").oninput = e => {
+    state.minLoad = +e.target.value / 100;
+    $("minLoadVal").textContent = state.minLoad.toFixed(2);
+    updateElectrodes();
+  };
   $("radSel").onchange = async e => {
     state.radius = e.target.value;
     $("status").style.display = "grid"; $("status").textContent = `Recomputing at ${state.radius} mm…`;

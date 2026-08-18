@@ -167,10 +167,14 @@ const BUNDLE = FSAVG + "coverage_viz/";
 const CLUST  = REPO + "02_FBM_Clustering/outputs/clustering/";
 
 const $ = id => document.getElementById(id);
-// The pyvista renders use this for the surface; matching it here means a glass
-// screenshot from this page sits beside a rendered figure without a colour jump.
-const GLASS_RGB = [234, 214, 219];      // BRAIN_COLOR #ead6db
-const GLASS_XRAY = 0.72;                // meshXRay, not mesh opacity - see applyOpacity
+// MOBA'S RECIPE, not this page's. moba.js sets meshXRay to 0 outright - "0.3 was
+// breaking the shader on ANGLE Metal" - and gets its transparency from ALPHA:
+// per-mesh opacity 0.18 written through opacity / layerOpacity / meshOpacity, plus
+// rgba255[3]. This page writes rgba255 per vertex itself, so the alpha is set
+// directly in the render loop and the mesh properties are set alongside, exactly as
+// MOBA does, for whichever one the running Niivue honours.
+const GLASS_RGB = [234, 214, 219];      // BRAIN_COLOR #ead6db, matches the pyvista renders
+const GLASS_ALPHA = Math.round(0.18 * 255);   // 46 - MOBA's 0.18
 const INFLATED_SHIFT = 65;      // mm; inflated hemispheres are each centred at the origin
 const GREY = [140, 140, 140];   // unsampled / gated-out cortex
 
@@ -417,7 +421,8 @@ function render() {
       const need = d.cluster !== undefined ? state.minN : 1;
       if ((state.gate && r.gate < need) || r.den <= 0) {
         const g = state.glass ? GLASS_RGB : GREY;
-        rgba[o] = g[0]; rgba[o+1] = g[1]; rgba[o+2] = g[2]; rgba[o+3] = 255;
+        rgba[o] = g[0]; rgba[o+1] = g[1]; rgba[o+2] = g[2];
+        rgba[o+3] = state.glass ? GLASS_ALPHA : 255;
         continue;
       }
       shown++;
@@ -425,7 +430,7 @@ function render() {
       if (p > peak) { peak = p; peakDen = r.den; }
       if (state.glass) {          // flat surface; the stats above are still real
         rgba[o] = GLASS_RGB[0]; rgba[o+1] = GLASS_RGB[1];
-        rgba[o+2] = GLASS_RGB[2]; rgba[o+3] = 255;
+        rgba[o+2] = GLASS_RGB[2]; rgba[o+3] = GLASS_ALPHA;
         continue;
       }
       const t = Math.min(1, Math.max(0, p / hi));
@@ -484,10 +489,25 @@ function render() {
 // works, so the control drives that and is labelled for what it does: it makes the
 // surface see-through so contacts and hotspots on the far side show through.
 function applyOpacity() {
-  // glass forces the see-through level; the slider still overrides it upward
-  const xr = state.glass ? Math.max(GLASS_XRAY, state.xray / 100) : state.xray / 100;
-  try { nv.opts.meshXRay = xr; } catch (e) {}
+  // In glass mode meshXRay stays at 0 and the transparency comes from alpha, which is
+  // what MOBA does. Mixing the two washed the surface out and, per MOBA's note, xray
+  // can break the mesh shader outright on some drivers.
+  try { nv.opts.meshXRay = state.glass ? 0 : state.xray / 100; } catch (e) {}
+  if (state.glass) applyGlassAlpha();
   nv.drawScene();
+}
+
+// The same property sweep moba.js uses: Niivue versions disagree about which of these
+// the mesh shader reads, so set all of them and let the running one pick.
+function applyGlassAlpha() {
+  const o = state.glass ? 0.18 : 1.0;
+  try {
+    for (const m of (nv.meshes || [])) {
+      if ("opacity" in m) m.opacity = o;
+      if ("layerOpacity" in m) m.layerOpacity = o;
+      if ("meshOpacity" in m) m.meshOpacity = o;
+    }
+  } catch (e) { console.warn("glass alpha:", e); }
 }
 
 // electrode overlay: one small octahedron per contact, as a single light mesh

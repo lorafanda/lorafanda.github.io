@@ -176,6 +176,8 @@ const $ = id => document.getElementById(id);
 // MOBA does, for whichever one the running Niivue honours.
 const GLASS_RGB = [234, 214, 219];      // BRAIN_COLOR #ead6db, matches the pyvista renders
 const GLASS_ALPHA = Math.round(0.18 * 255);   // 46 - MOBA's 0.18
+// poolv2 loads exactly this: bone, translucent, as ONE colour for the whole mesh.
+const GLASS_RGBA = [205, 198, 190, 30];
 const INFLATED_SHIFT = 65;      // mm; inflated hemispheres are each centred at the origin
 const GREY = [140, 140, 140];   // unsampled / gated-out cortex
 
@@ -364,12 +366,23 @@ async function selectRun(id) {
   $("status").style.display = "none";
 }
 
-async function loadSurface(kind) {
+// THE THING THAT WAS ACTUALLY WRONG. poolv2 and MOBA give the mesh a UNIFORM
+// four-element rgba255 - [205,198,190,30], bone - at LOAD TIME, and their alpha
+// works. This page instead assigns mesh.rgba255 a full PER-VERTEX buffer
+// (nvert x 4) to paint the probability map. Those are two different shader paths,
+// and on the per-vertex path the mesh-level opacity is bypassed, so nothing this
+// page set could ever have made the surface translucent.
+//
+// Glass mode has no map to paint, so it can load the uniform colour and take the
+// same path poolv2 does. render() must then leave the buffer alone.
+async function loadSurface(kind, uniformRgba) {
   const suf = kind === "inflated" ? ".inflated" : "";
   [...nv.meshes].forEach(m => nv.removeMesh(m));
   elecMesh = null;
-  await nv.loadMeshes([{ url: `${FSAVG}meshes/fsaverage_lh${suf}.gii` },
-                       { url: `${FSAVG}meshes/fsaverage_rh${suf}.gii` }]);
+  const spec = { };
+  if (uniformRgba) spec.rgba255 = uniformRgba;
+  await nv.loadMeshes([{ url: `${FSAVG}meshes/fsaverage_lh${suf}.gii`, ...spec },
+                       { url: `${FSAVG}meshes/fsaverage_rh${suf}.gii`, ...spec }]);
   ["lh","rh"].forEach((h, i) => {
     const m = nv.meshes[i], n = m.pts.length / 3;
     hemis[h] = { mesh:m, nvert:n, rgba:new Uint8Array(n * 4) };
@@ -420,6 +433,10 @@ function autoScale() {
 // ── colour every vertex from the counts, then report what got shown
 function render() {
   if (!DEFS.length) return;
+  // In glass mode the surface carries a uniform rgba255 and its alpha is the whole
+  // point. Writing a per-vertex buffer here would switch the shader back to the
+  // opaque path and undo it.
+  if (state.glass) { nv.drawScene(); return; }
   const d = curDef(), hi = d.raw ? MAXC * state.climMax : state.climMax;
   let shown = 0, total = 0, peak = 0, peakDen = 0;
 
@@ -1367,7 +1384,7 @@ function wireUI() {
     state.glass = false; state.surf = kind; setSurfBtns();
     if (wasGlass) { state.elecByCluster = false; state.showElec = $("showElec").checked; }
     $("status").style.display = "grid"; $("status").textContent = "Loading surface…";
-    await loadSurface(kind);
+    await loadSurface(kind);        // no uniform colour: render() repaints per vertex
     $("status").style.display = "none";
     render(); applyOpacity(); updateElectrodes();
   };
@@ -1380,12 +1397,12 @@ function wireUI() {
   $("sGlass").onclick = async () => {
     if (state.glass) return;
     state.glass = true; setSurfBtns();
-    if (state.surf !== "pial") {
-      $("status").style.display = "grid"; $("status").textContent = "Loading surface…";
-      state.surf = "pial";
-      await loadSurface("pial");
-      $("status").style.display = "none";
-    }
+    $("status").style.display = "grid"; $("status").textContent = "Loading surface…";
+    state.surf = "pial";
+    // always reload: the mesh has to come back with a UNIFORM rgba255 rather than the
+    // per-vertex buffer render() leaves behind, or the alpha is ignored
+    await loadSurface("pial", GLASS_RGBA);
+    $("status").style.display = "none";
     state.showElec = true; state.elecByCluster = true;
     $("showElec").checked = true;      // the mode forces it; say so in the UI
     render(); applyOpacity(); updateElectrodes();

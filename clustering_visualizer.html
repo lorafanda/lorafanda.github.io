@@ -597,14 +597,14 @@ function captureView(az, el, maxW) {
 // SPIN_W is deliberately small. A 900 px frame is 40-80 kB, so 20 of them is
 // ~1.5 MB PER rotation; at 360 px a whole rotation costs about what one still
 // does, which is what makes a dozen of them affordable in a self-contained file.
-const SPIN_N = 20, SPIN_W = 360;
+const SPIN_N = 60, SPIN_W = 360;
 
 async function captureSpin(el, n, maxW) {
   const frames = [];
   for (let i = 0; i < n; i++) {
     // full 360 so the loop closes; no ping-pong and no visible seam
     frames.push(await captureView((360 * i) / n, el, maxW || SPIN_W));
-    await sleep(18);
+    await sleep(12);
   }
   return frames.filter(f => f && f.data);
 }
@@ -784,7 +784,7 @@ document.querySelectorAll(".spinbox").forEach(box => {
     fr[i].classList.add("off");
     i = (i + 1) % fr.length;
     fr[i].classList.remove("off");
-  }, 90);
+  }, 40);
 });
 <\/script>`;
 

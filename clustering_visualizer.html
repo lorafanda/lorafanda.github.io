@@ -115,9 +115,6 @@
         <div class="row" id="minNRow"><label>min n</label>
           <input type="range" id="minN" min="1" max="12" step="1" value="5">
           <span class="val" id="minNVal">5</span></div>
-        <div class="row"><label>x-ray</label>
-          <input type="range" id="xray" min="0" max="100" step="1" value="0">
-          <span class="val" id="xrayVal">0%</span></div>
       </div>
 
       <div class="grp">
@@ -182,7 +179,7 @@ let M = null, CONTACTS = null, COV = { lh:null, rh:null }, CLU = { lh:null, rh:n
 let RUN = null, nv = null, hemis = {}, elecMesh = null, canvasEl = null;
 const state = { map:"coverage", surf:"pial", glass:false, showElec:false, gate:true,
                 elecByCluster:false,
-                minN:5, xray:0, climMax:1.0, gamma:0.80, autoScaled:0, radius:"10" };
+                minN:5, climMax:1.0, gamma:0.80, autoScaled:0, radius:"10" };
 const R = () => state.radius;
 
 // viridis — sequential, perceptually uniform. A probability has no meaningful
@@ -299,8 +296,12 @@ async function boot() {
   rs.value = pick.id;
 
   canvasEl = $("brain").querySelector("canvas");
+  // useWebGPU like moba.js: the mesh shader honours per-mesh opacity there, and on
+  // WebGL2 it does not - which is why setting alpha alone produced no glass at all.
+  // Best effort; the constructor falls back to WebGL2 if it ignores the flag.
   nv = new Niivue({ backColor:[0,0,0,1], show3Dcrosshair:false, isColorbar:false,
-                    dragAndDropEnabled:false, isOrientCube:false });
+                    dragAndDropEnabled:false, isOrientCube:false,
+                    useWebGPU: !!navigator.gpu });
   nv.attachToCanvas(canvasEl);
   nv.setSliceType(nv.sliceTypeRender);
   window.nv = nv;               // exposed for console debugging / camera checks
@@ -489,11 +490,13 @@ function render() {
 // works, so the control drives that and is labelled for what it does: it makes the
 // surface see-through so contacts and hotspots on the far side show through.
 function applyOpacity() {
-  // In glass mode meshXRay stays at 0 and the transparency comes from alpha, which is
-  // what MOBA does. Mixing the two washed the surface out and, per MOBA's note, xray
-  // can break the mesh shader outright on some drivers.
-  try { nv.opts.meshXRay = state.glass ? 0 : state.xray / 100; } catch (e) {}
-  if (state.glass) applyGlassAlpha();
+  // meshXRay is gone: measured to do nothing useful here, and moba.js reports it
+  // breaking the mesh shader outright on ANGLE Metal. Transparency is alpha only.
+  try { nv.opts.meshXRay = 0; } catch (e) {}
+  // Glass renders on WHITE, as MOBA does. A translucent brain over black reads as
+  // muddy rather than glassy - the backdrop was most of what looked wrong.
+  try { nv.opts.backColor = state.glass ? [1, 1, 1, 1] : [0, 0, 0, 1]; } catch (e) {}
+  applyGlassAlpha();
   nv.drawScene();
 }
 
@@ -1017,7 +1020,7 @@ async function exportReport() {
   btn.disabled = true;
 
   const saved = { map: state.map, az: nv.scene.renderAzimuth, el: nv.scene.renderElevation,
-                  xray: state.xray, elec: state.showElec };
+                  elec: state.showElec, glass: state.glass };
 
   // FROZEN SETTINGS. Everything in the report is rendered with the values that were
   // live when Save was pressed — the colour ceiling above all.
@@ -1030,7 +1033,7 @@ async function exportReport() {
   const frozen = {
     climMax: state.climMax, autoScaled: state.autoScaled,
     minN: state.minN, gamma: state.gamma, radius: state.radius,
-    surf: state.surf, map: state.map,
+    surf: state.surf, map: state.map, glass: state.glass,
   };
   // Was the frozen ceiling the auto-derived one or set by hand? The report says which,
   // because "0.35" means a different thing in the two cases.
@@ -1043,7 +1046,7 @@ async function exportReport() {
   const CAPW = 900, FIGW = 1500;
 
   try {
-    state.xray = 0; applyOpacity();
+    applyOpacity();
     state.showElec = false; updateElectrodes();
 
     const clusterDefs = DEFS.filter(d => d.cluster !== undefined);
@@ -1297,7 +1300,7 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
     alert("Report export failed: " + e.message);
   } finally {
     state.map = saved.map; $("mapSel").value = saved.map;
-    state.xray = saved.xray; state.showElec = saved.elec;
+    state.showElec = saved.elec; state.glass = saved.glass;
     try { nv.scene.renderAzimuth = saved.az; nv.scene.renderElevation = saved.el; } catch (e) {}
     // Put the ceiling back where the user left it rather than re-deriving it: they
     // chose that number, and a report run should not silently move their slider.
@@ -1333,8 +1336,8 @@ function wireUI() {
   $("sPial").onclick = surfBtn2("pial");
   $("sInfl").onclick = surfBtn2("inflated");
 
-  // GLASS = pial + high meshXRay + one flat surface colour + contacts coloured by
-  // cluster. Not a third mesh: it is a way of DRAWING the pial one, so that a
+  // GLASS = pial + alpha 0.18 + white backdrop + one flat surface colour + contacts
+  // coloured by cluster. Not a third mesh: a way of DRAWING the pial one, so that a
   // screenshot from this page can stand in for a rendered glass brain.
   $("sGlass").onclick = async () => {
     if (state.glass) return;
@@ -1353,7 +1356,6 @@ function wireUI() {
   $("showElec").onchange = e => { state.showElec = e.target.checked; updateElectrodes(); };
   $("showGate").onchange = e => { state.gate = e.target.checked; render(); };
   $("minN").oninput  = e => { state.minN = +e.target.value; $("minNVal").textContent = state.minN; render(); };
-  $("xray").oninput = e => { state.xray = +e.target.value; $("xrayVal").textContent = state.xray + "%"; applyOpacity(); };
   $("radSel").onchange = async e => {
     state.radius = e.target.value;
     $("status").style.display = "grid"; $("status").textContent = `Recomputing at ${state.radius} mm…`;

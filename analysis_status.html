@@ -152,6 +152,15 @@
     table.cmp td.bad{background:rgba(193,18,31,.06)}
     table.cmp td.warnc{background:rgba(224,139,30,.07)}
     table.cmp td:first-child{color:var(--ink)}
+
+  .rtbar{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 14px}
+  .rtbar button{background:#eef2f6;border:1px solid var(--line);border-radius:20px;
+    padding:6px 13px;font:inherit;font-size:12.5px;cursor:pointer;color:var(--muted)}
+  .rtbar button:hover{background:#e3eaf1}
+  .rtbar button.on{background:var(--s5);border-color:var(--s5);color:#fff;font-weight:600}
+  .rtpane{display:none}
+  .rtpane.on{display:block}
+  .rtmeta{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 4px}
 </style>
 </head>
 <body>
@@ -747,6 +756,90 @@
       <div class="kpi"><div class="v">K = 9</div><div class="l">K‑Means, silhouette 0.152</div></div>
       <div class="kpi"><div class="v">2102</div><div class="l">samples clustered</div></div>
     </div>
+
+
+    <h3 id="rtcompare">Compare the clusterings — which one actually orders the response?</h3>
+    <p class="lead">Every electrode carries several group labels at once: two partitions on the
+      concatenated HG features, two on the 15-band features, the convex-NMF leading component, and
+      the a-priori pooling role. They are scored here on one question — <b>given a patient's own
+      contacts, does group membership order them in time?</b> Pick a grouping.</p>
+
+    <div class="rtbar"><button class="rtb on" data-rt="hier_concat_hg">Ward · concatenated HG</button><button class="rtb" data-rt="cnmf_lead">Convex NMF · leading component</button><button class="rtb" data-rt="kmeans_concat_hg">k-means · concatenated HG</button><button class="rtb" data-rt="hier_concat_rawds">Ward · concatenated 15-band</button><button class="rtb" data-rt="kmeans_concat_rawds">k-means · concatenated 15-band</button><button class="rtb" data-rt="role">Pooling role (a-priori)</button></div>
+    
+      <div class="rtpane on" id="rt-hier_concat_hg">
+        <div class="rtmeta">
+          <span class="chip">K = <b>4</b></span>
+          <span class="chip"><b>1209</b> electrodes</span>
+          <span class="chip">audio p = <b>0.001</b></span>
+          <span class="chip">picture p = <b>0.001</b></span>
+          <span class="chip">reading p = <b>0.004</b></span>
+        </div>
+        <p style="margin:8px 0 12px">The strongest and only grouping significant in all three conditions. Cluster 3 peaks at <b>0.70 / 0.72 / 0.70 s</b> — the same latency in three different tasks, n&nbsp;=&nbsp;340.</p>
+        <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-G_hier_concat_hg.png" alt="Ward · concatenated HG response timing"></div>
+      </div>
+      <div class="rtpane" id="rt-cnmf_lead">
+        <div class="rtmeta">
+          <span class="chip">K = <b>7</b></span>
+          <span class="chip"><b>1209</b> electrodes</span>
+          <span class="chip">audio p = <b>0.001</b></span>
+          <span class="chip">picture p = <b>0.008</b></span>
+          <span class="chip">reading p = <b>0.001</b></span>
+        </div>
+        <p style="margin:8px 0 12px">Significant in all three despite the lead being a plurality for two thirds of electrodes. The graded weights carry more than the argmax label does — see <a href="#cnmfmath">the equations</a>.</p>
+        <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-G_cnmf_lead.png" alt="Convex NMF · leading component response timing"></div>
+      </div>
+      <div class="rtpane" id="rt-kmeans_concat_hg">
+        <div class="rtmeta">
+          <span class="chip">K = <b>6</b></span>
+          <span class="chip"><b>1209</b> electrodes</span>
+          <span class="chip">audio p = <b>0.001</b></span>
+          <span class="chip">picture p = <b>0.021</b></span>
+          <span class="chip">reading p = <b><b>0.365</b></b></span>
+        </div>
+        <p style="margin:8px 0 12px">Loses reading entirely. Same features as Ward, different linkage — so the reading result is sensitive to how the partition is cut, not just to what is being partitioned.</p>
+        <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-G_kmeans_concat_hg.png" alt="k-means · concatenated HG response timing"></div>
+      </div>
+      <div class="rtpane" id="rt-hier_concat_rawds">
+        <div class="rtmeta">
+          <span class="chip">K = <b>23</b></span>
+          <span class="chip"><b>1209</b> electrodes</span>
+          <span class="chip">audio p = <b>0.014</b></span>
+          <span class="chip">picture p = <b>0.030</b></span>
+          <span class="chip">reading p = <b><b>0.673</b></b></span>
+        </div>
+        <p style="margin:8px 0 12px">K=23 spreads 1209 electrodes thin. Audio and picture survive; reading does not.</p>
+        <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-G_hier_concat_rawds.png" alt="Ward · concatenated 15-band response timing"></div>
+      </div>
+      <div class="rtpane" id="rt-kmeans_concat_rawds">
+        <div class="rtmeta">
+          <span class="chip">K = <b>23</b></span>
+          <span class="chip"><b>1209</b> electrodes</span>
+          <span class="chip">audio p = <b><b>0.134</b></b></span>
+          <span class="chip">picture p = <b>0.014</b></span>
+          <span class="chip">reading p = <b><b>0.551</b></b></span>
+        </div>
+        <p style="margin:8px 0 12px">The weakest of the data-driven partitions — only picture survives.</p>
+        <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-G_kmeans_concat_rawds.png" alt="k-means · concatenated 15-band response timing"></div>
+      </div>
+      <div class="rtpane" id="rt-role">
+        <div class="rtmeta">
+          <span class="chip">K = <b>18</b></span>
+          <span class="chip"><b>2495</b> electrodes</span>
+          <span class="chip">audio p = <b>0.018</b></span>
+          <span class="chip">picture p = <b><b>0.805</b></b></span>
+          <span class="chip">reading p = <b><b>0.280</b></b></span>
+        </div>
+        <p style="margin:8px 0 12px">The a-priori roles carry timing only in audio. This is the result that conflicts with <a href="#s2">FIG S1</a>, where roles and clusters order the trial alike in warped time.</p>
+        <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-G_role.png" alt="Pooling role (a-priori) response timing"></div>
+      </div>
+
+    <p style="color:var(--muted);font-size:13px;margin:14px 0 0"><b>p is the within-patient
+      permutation</b>, 800 shuffles, on peak latency. Kruskal&ndash;Wallis over pooled electrodes
+      returns p&nbsp;&lt;&nbsp;1e-10 for <i>every</i> cell in every one of these panels, including
+      the ones scored null here — electrodes inside a patient share a brain, a reference and a
+      response speed, so pooling them measures cohort composition rather than physiology. The right
+      panel of each figure shows whether that grouping's warped-time ordering survives the move to
+      real seconds.</p>
 
     <h3>Method</h3>
     <div class="method"><ul>
@@ -2112,18 +2205,47 @@
         (<a href="#s5">RT-T5</a>).</p>
     </div>
 
-    <figure><div class="cap"><div class="fignum">RT-T2</div><h4>Group ordering in real seconds, median with bootstrap 95% CI</h4>
+    <figure><div class="cap"><div class="fignum">RT-1</div><h4>Does the warped-time ordering survive real time?</h4>
       <ul>
-        <li><b>How to read it.</b> One row per group, sorted by median peak latency; three markers per
-          row, one per condition. x is seconds after the GO cue. Read the <b>order</b>, not the absolute
-          values — the 5 s cap and the trial-averaging both compress the tail.</li>
-        <li><b>Ward, concatenated HG.</b> Cluster 3 peaks at <b>0.70 / 0.72 / 0.70 s</b> in audio,
-          picture and reading — the same latency in all three, n = 340. Cluster 0 runs late and
-          condition-dependent: 2.01 s audio, 1.22 s picture, <b>2.58 s reading</b>. Cluster 2 is the
-          audio outlier at 3.66 s but carries only n = 49.</li>
-      </ul>
-      <div class="runid">source: 05_FBM_ResponseTiming, hier_concat_hg 20260817_171627 · 1266-electrode cohort</div></div>
-      <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-T2_hier_concat_hg_peak_lat.png" alt="group ordering, Ward"></div>
+        <li><b>The test.</b> Same electrodes, same groups, two time bases. Only the axis differs, so
+          any disagreement is attributable to the warp and nothing else. Each line is one group;
+          lines that <b>cross</b> mean the order changed.</li>
+        <li><b>It partly survives, and it inverts in picture.</b> Ward: &rho;&nbsp;=&nbsp;+0.60 audio,
+          <b>&minus;0.32 picture</b>, +0.80 reading. Pooling roles agree far more weakly even where
+          positive: +0.27 / <b>&minus;0.38</b> / +0.34.</li>
+        <li><b>Read the ranks, not the values.</b> A percentage of a warped trial and a second after
+          GO are not the same unit; only the ordering is comparable.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-1_warped_vs_real.png" alt="warped vs real ordering"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">RT-2</div><h4>All four groupings on one axis</h4>
+      <ul>
+        <li>Median peak latency per group with bootstrap 95% CI, three conditions per row, sorted by
+          median. Greyed titles are groupings significant in fewer than two conditions.</li>
+        <li><b>The data-driven partitions carry timing that the a-priori roles largely do not</b>,
+          once patient identity is controlled.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-2_groupings_peak_lat.png" alt="grouping comparison"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">RT-3</div><h4>Is timing a property of the site or of the task?</h4>
+      <ul>
+        <li><b>Onset travels; peak does not.</b> Mean Spearman &rho; across condition pairs:
+          <b>0.37 for onset</b>, <b>0.14 for peak</b> — a 2.6&times; difference.</li>
+        <li>So <b>when a site starts responding</b> is largely a property of where it is, while
+          <b>when it peaks</b> is a property of what the task demands.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-3_onset_vs_peak_transfer.png" alt="onset vs peak transfer"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">RT-S1</div><h4>Control &mdash; is it just the patient's speed?</h4>
+      <ul>
+        <li>Patient-level &rho;&nbsp;=&nbsp;0.20&ndash;0.48, significant in 5 of 6 condition &times;
+          feature cells. The confound is <b>real and partial</b>, which is exactly why the
+          within-patient permutation is the headline test above and Kruskal&ndash;Wallis is not.</li>
+      </ul></div>
+      <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-S1_patient_confound_peak_lat.png" alt="patient confound control"></div>
     </figure>
 
     <h3>Which groupings actually carry timing?</h3>
@@ -2143,41 +2265,8 @@
       about the roles as currently defined, not about the idea of roles — and it is the opposite of what
       <a href="#s2">FIG S1</a> shows in warped time, which is worth resolving before either is written up.</p>
 
-    <figure><div class="cap"><div class="fignum">RT-T3</div><h4>Is timing a property of the site or of the task?</h4>
-      <ul>
-        <li><b>What it asks.</b> If a contact is early in audio, is it early in reading? High correlation
-          means the timing belongs to the <b>site</b>; low means it belongs to the <b>task</b>.</li>
-        <li><b>The two features disagree, informatively.</b> <b>Peak</b> latency barely transfers
-          (ρ = 0.10–0.20). <b>Onset</b> latency transfers about twice as well (ρ = 0.34–0.40). So when a
-          region <i>starts</i> responding is more a property of where it is; when it <i>peaks</i> is more
-          a property of what the task demands.</li>
-      </ul>
-      <div class="runid">n = 2884–2959 electrodes for peak, 535–616 for onset</div></div>
-      <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-T3_consistency_onset_lat.png" alt="cross-condition consistency"></div>
-    </figure>
 
-    <figure><div class="cap"><div class="fignum">RT-T4</div><h4>The graded view — no hard labels</h4>
-      <ul>
-        <li><b>Why this exists.</b> The convex-NMF decomposition finds that <b>66% of electrodes have no
-          majority component</b>. Forcing an argmax label discards most of the membership. Correlating the
-          component <b>weight</b> against latency keeps it: an electrode that is half component 2 and half
-          component 5 contributes to both.</li>
-      </ul>
-      <div class="runid">source: decomposition/concat_hg, K=7, 1266 electrodes / 27 patients</div></div>
-      <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-T4_loading_vs_peak_lat.png" alt="loading vs latency"></div>
-    </figure>
 
-    <figure><div class="cap"><div class="fignum">RT-T5</div><h4>The confound that would explain it all away</h4>
-      <ul>
-        <li><b>The worry.</b> If electrode latency simply tracks how long that <i>patient</i> took to
-          respond, a group holding more contacts from slow responders would look late for reasons that
-          have nothing to do with function.</li>
-        <li><b>It is real and it is partial.</b> Patient-level ρ = 0.20–0.48, significant in 5 of 6.
-          Which is exactly why the within-patient permutation, not Kruskal–Wallis, is the test reported
-          above.</li>
-      </ul></div>
-      <div class="imgwrap"><img data-fig="05_FBM_ResponseTiming/outputs/figures/RT-T5_patient_confound_peak_lat.png" alt="patient confound"></div>
-    </figure>
 
     <div class="callout warn" style="margin:20px 0 0">
       <h3 style="margin:0 0 8px">What this cannot tell you</h3>
@@ -3566,6 +3655,16 @@ document.querySelectorAll("img[data-fig]").forEach(img=>{
     if (w) w.innerHTML = '<div class="missing">figure not found yet — regenerate this notebook to produce it</div>';
   };
 });
+
+// stage-05 clustering switcher
+document.querySelectorAll(".rtbar button[data-rt]").forEach(b=>{
+  b.onclick = () => {
+    const k = b.getAttribute("data-rt");
+    document.querySelectorAll(".rtbar button[data-rt]").forEach(x=>x.classList.toggle("on", x===b));
+    document.querySelectorAll(".rtpane").forEach(p=>p.classList.toggle("on", p.id === "rt-"+k));
+  };
+});
+
 // tabs
 const btns = document.querySelectorAll("nav button[data-t]");
 const secs = document.querySelectorAll("main section");

@@ -806,6 +806,26 @@ async function exportReport() {
 
   const saved = { map: state.map, az: nv.scene.renderAzimuth, el: nv.scene.renderElevation,
                   xray: state.xray, elec: state.showElec };
+
+  // FROZEN SETTINGS. Everything in the report is rendered with the values that were
+  // live when Save was pressed — the colour ceiling above all.
+  //
+  // This used to call autoScale() once per cluster, which re-derived the ceiling from
+  // that cluster's own 98th percentile. A cluster covering a little cortex at low
+  // probability then got a low ceiling and rendered just as bright as a cluster
+  // covering half the brain at high probability. The panels looked comparable and
+  // were not. One ceiling across every panel is what makes them comparable.
+  const frozen = {
+    climMax: state.climMax, autoScaled: state.autoScaled,
+    minN: state.minN, gamma: state.gamma, radius: state.radius,
+    surf: state.surf, map: state.map,
+  };
+  // Was the frozen ceiling the auto-derived one or set by hand? The report says which,
+  // because "0.35" means a different thing in the two cases.
+  const climSource = (Math.abs(frozen.climMax - frozen.autoScaled) < 1e-9 && frozen.autoScaled > 0)
+    ? `auto — 98th percentile of the “${frozen.map}” map, frozen at save`
+    : `set by hand`;
+
   const runBase = `${CLUST}${RUN.path}/`;
   const GLASS = ["lateral_L", "lateral_R", "dorsal"];
   const CAPW = 900, FIGW = 1500;
@@ -820,18 +840,22 @@ async function exportReport() {
 
     // ── coverage
     btn.textContent = "Report: coverage…";
-    state.map = "coverage"; $("mapSel").value = "coverage"; autoScale();
+    // no autoScale() here: the frozen ceiling applies to coverage too
+    state.map = "coverage"; $("mapSel").value = "coverage";
+    state.climMax = frozen.climMax;
     const covStats = render(); await sleep(60);
     const covShots = [];
     for (const [az, el] of VIEWS) covShots.push(await captureView(az, el, CAPW));
-    const covMax = state.climMax;
+    const covMax = frozen.climMax;
 
     // ── per cluster
     const blocks = [];
     for (let i = 0; i < clusterDefs.length; i++) {
       const d = clusterDefs[i];
       btn.textContent = `Report: cluster ${i + 1}/${clusterDefs.length}…`;
-      state.map = d.id; $("mapSel").value = d.id; autoScale();
+      // every cluster is drawn on the SAME frozen ceiling, so the panels compare
+      state.map = d.id; $("mapSel").value = d.id;
+      state.climMax = frozen.climMax; state.minN = frozen.minN; state.gamma = frozen.gamma;
       const st = render(); await sleep(80);
       const shots = [];
       for (const [az, el] of VIEWS) shots.push(await captureView(az, el, CAPW));
@@ -841,7 +865,7 @@ async function exportReport() {
                                   : Promise.resolve({ data: "", w: 0, h: 0 })));
       const centroid = fig.centroid ? await tryImage(runBase + fig.centroid, FIGW, false)
                                     : { data: "", w: 0, h: 0 };
-      blocks.push({ d, st, shots, glass, centroid, climMax: state.climMax });
+      blocks.push({ d, st, shots, glass, centroid, climMax: frozen.climMax });
     }
 
     // ── whole-run figures
@@ -886,14 +910,15 @@ async function exportReport() {
 <section class="card clus">
   <h2><span class="k" style="background:${clusterHue(i, K)}">Cluster ${k}</span>
       <span>${RUN.cluster_sizes[String(k)]} samples · ${np} of ${COH.n_patients} patients</span></h2>
-  <p class="sechint">P(cluster ${k} | labelled electrode within ${state.radius} mm), gated at ${state.minN} labelled contacts.
-     Colour scale 0–${climMax.toFixed(2)}. Grey is <b>no estimate</b>, not zero.</p>
+  <p class="sechint">P(cluster ${k} | labelled electrode within ${frozen.radius} mm), gated at ${frozen.minN} labelled contacts.
+     Colour scale <b>0–${climMax.toFixed(2)}</b>, the same on every cluster in this report, so the
+     panels are directly comparable. Grey is <b>no estimate</b>, not zero.</p>
   <div class="brains">
     ${shots.map((s, j) => img(s, `probability — ${VIEWS[j][2]}`)).join("")}
     ${scaleBar(climMax, `P(c${k})`)}
   </div>
   ${st && st.peak === 0 ? `<p class="warn">No vertex passes the gate — this cluster has ${RUN.cluster_sizes[String(k)]} labelled sample(s)
-     and none sits where ${state.minN}+ fall within ${state.radius} mm. Nothing to draw, and that is the result.</p>` : ""}
+     and none sits where ${frozen.minN}+ fall within ${frozen.radius} mm. Nothing to draw, and that is the result.</p>` : ""}
   <div class="brains glass">
     ${glass.map((g, j) => img(g, GLASS[j].replace("_", " "), "lite")).join("")}
     <div></div>
@@ -926,15 +951,21 @@ async function exportReport() {
     <span class="chip"><b>${COH.n_patients}</b> patients</span>
     <span class="chip"><b>${RUN.n_electrodes}</b> rows (${esc(RUN.unit)})</span>
     <span class="chip"><b>${RUN.n_contacts_with_cluster}</b> contacts localised</span>
-    <span class="chip">radius <b>${state.radius} mm</b></span>
-    <span class="chip">gate <b>n ≥ ${state.minN}</b></span>
-    <span class="chip">${esc(state.surf)} surface</span>
+    <span class="chip">radius <b>${frozen.radius} mm</b></span>
+    <span class="chip">gate <b>n ≥ ${frozen.minN}</b></span>
+    <span class="chip">${esc(frozen.surf)} surface</span>
+    <span class="chip">colour max <b>${frozen.climMax.toFixed(2)}</b></span>
+    <span class="chip">gamma <b>${frozen.gamma.toFixed(2)}</b></span>
   </div>
+  <div class="sub" style="margin-top:8px">Every map below is drawn on one fixed colour ceiling of
+    <b>${frozen.climMax.toFixed(2)}</b> (${esc(climSource)}), together with the gate and gamma above,
+    exactly as they stood when this report was saved. Clusters and components are therefore comparable
+    with each other; two reports saved at different ceilings are not comparable with each other.</div>
 </header>
 
 <section class="card">
   <h2 class="sec">How well was this cohort sampled?</h2>
-  <p class="sechint">P(sampled) = patients with an electrode within ${state.radius} mm, divided by the
+  <p class="sechint">P(sampled) = patients with an electrode within ${frozen.radius} mm, divided by the
     ${COH.n_patients} patients in this cohort. Only the patients that entered this run are counted —
     the coordinate file holds ${M.n_patients_in_coords}, but the rest are not part of FBM.</p>
   <div class="brains">
@@ -942,9 +973,9 @@ async function exportReport() {
     ${scaleBar(covMax, "P(sampled)")}
   </div>
   <p class="note">Peak ${covStats ? covStats.peak.toFixed(2) : "—"} ·
-    ${((COH.coverage[state.radius].lh.pct_vertices_sampled + COH.coverage[state.radius].rh.pct_vertices_sampled) / 2).toFixed(0)}%
-    of cortex lies within ${state.radius} mm of an electrode · up to
-    ${Math.max(COH.coverage[state.radius].lh.max_patients_at_a_vertex, COH.coverage[state.radius].rh.max_patients_at_a_vertex)}
+    ${((COH.coverage[frozen.radius].lh.pct_vertices_sampled + COH.coverage[frozen.radius].rh.pct_vertices_sampled) / 2).toFixed(0)}%
+    of cortex lies within ${frozen.radius} mm of an electrode · up to
+    ${Math.max(COH.coverage[frozen.radius].lh.max_patients_at_a_vertex, COH.coverage[frozen.radius].rh.max_patients_at_a_vertex)}
     patients at a single vertex. Dark cortex is <b>no electrodes</b>, not absence of language.</p>
 </section>
 
@@ -969,7 +1000,8 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
   Generated from <code>clustering_visualizer.html</code> · counts from
   <code>make_coverage_bundle.py</code> · run <code>${esc(RUN.path)}</code> ·
   cohort <code>${esc(RUN.cohort_id)}</code> (${COH.n_patients} patients, ${COH.n_contacts} contacts) ·
-  radius ${state.radius} mm · gate n ≥ ${state.minN} · ${esc(state.surf)} surface.<br>
+  radius ${frozen.radius} mm · gate n ≥ ${frozen.minN} · ${esc(frozen.surf)} surface ·
+  colour ceiling ${frozen.climMax.toFixed(2)} (${esc(climSource)}) · gamma ${frozen.gamma.toFixed(2)}.<br>
   Patient colours match the MOBA patient view. Print this page (A4 landscape) to get a PDF.
 </footer>
 </div></body></html>`;
@@ -977,7 +1009,10 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `report_${RUN.track.replace(/\//g, "_")}_${RUN.run}_r${state.radius}mm.html`;
+    // the ceiling and gate are in the filename: two reports of the same run at
+    // different settings are different documents and must not overwrite each other
+    a.download = `report_${RUN.track.replace(/\//g, "_")}_${RUN.run}`
+               + `_r${frozen.radius}mm_n${frozen.minN}_max${frozen.climMax.toFixed(2)}.html`;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 20000);
   } catch (e) {
@@ -987,7 +1022,13 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
     state.map = saved.map; $("mapSel").value = saved.map;
     state.xray = saved.xray; state.showElec = saved.elec;
     try { nv.scene.renderAzimuth = saved.az; nv.scene.renderElevation = saved.el; } catch (e) {}
-    autoScale(); render(); applyOpacity(); updateElectrodes();
+    // Put the ceiling back where the user left it rather than re-deriving it: they
+    // chose that number, and a report run should not silently move their slider.
+    state.climMax = frozen.climMax; state.autoScaled = frozen.autoScaled;
+    state.minN = frozen.minN; state.gamma = frozen.gamma;
+    $("clim").value = Math.round(frozen.climMax * 100);
+    $("climVal").textContent = frozen.climMax.toFixed(2);
+    render(); applyOpacity(); updateElectrodes();
     btn.textContent = orig; btn.disabled = false;
   }
 }

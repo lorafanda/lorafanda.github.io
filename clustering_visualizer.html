@@ -186,14 +186,22 @@ const state = { map:"coverage", surf:"pial", glass:false, showElec:false, gate:t
                 minN:5, minLoad:0, climMax:1.0, gamma:0.80, autoScaled:0, radius:"10" };
 const R = () => state.radius;
 
-// viridis — sequential, perceptually uniform. A probability has no meaningful
-// midpoint, so a diverging map (bwr, as on the activity page) would be wrong here.
-const VIRIDIS = [[68,1,84],[72,36,117],[65,68,135],[53,95,141],[42,120,142],[33,144,141],
-                 [39,173,129],[92,200,99],[170,220,50],[253,231,37]];
+// afmhot — sequential, sampled from matplotlib so the page and the figures agree.
+// A probability has no meaningful midpoint, so a diverging map (bwr, as on the
+// activity page) would still be wrong here.
+//
+// Its ends are black and white, which matters twice on this page: the low end is
+// never actually drawn as black because every vertex is blended FROM the anatomy
+// grey toward the map colour (see render), and the high end being white is why the
+// glass backdrop and the colour scale must not be confused - white cortex at the top
+// of the ramp reads as "saturated", not as "no estimate", which stays grey.
+const CMAP = [[0,0,0],[46,0,0],[92,0,0],[138,10,0],[186,58,0],[232,104,0],
+              [255,150,23],[255,196,69],[255,244,117],[255,255,163],
+              [255,255,209],[255,255,255]];
 function cmap(t) {
   t = t <= 0 ? 0 : t >= 1 ? 1 : t;
-  const x = t * (VIRIDIS.length - 1), i = Math.min(VIRIDIS.length - 2, Math.floor(x)), f = x - i;
-  const a = VIRIDIS[i], b = VIRIDIS[i + 1];
+  const x = t * (CMAP.length - 1), i = Math.min(CMAP.length - 2, Math.floor(x)), f = x - i;
+  const a = CMAP[i], b = CMAP[i + 1];
   return [a[0] + (b[0]-a[0])*f, a[1] + (b[1]-a[1])*f, a[2] + (b[2]-a[2])*f];
 }
 
@@ -951,7 +959,7 @@ document.querySelectorAll(".spinbox").forEach(box => {
 });
 <\/script>`;
 
-// the same viridis ramp the brain uses, as a CSS gradient, so the report carries its scale
+// the same afmhot ramp the brain uses, as a CSS gradient, so the report carries its scale
 function scaleBar(vmax, label) {
   const stops = [];
   for (let i = 0; i <= 10; i++) { const c = cmap(i / 10); stops.push(`rgb(${c[0]|0},${c[1]|0},${c[2]|0}) ${i*10}%`); }

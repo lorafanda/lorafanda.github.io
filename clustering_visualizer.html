@@ -171,7 +171,7 @@ const GREY = [140, 140, 140];   // unsampled / gated-out cortex
 
 let M = null, CONTACTS = null, COV = { lh:null, rh:null }, CLU = { lh:null, rh:null };
 let RUN = null, nv = null, hemis = {}, elecMesh = null, canvasEl = null;
-const state = { map:"coverage", surf:"pial", showElec:false, gate:true,
+const state = { map:"coverage", surf:"pial", showElec:false, gate:true, elecByCluster:false,
                 minN:5, xray:0, climMax:1.0, gamma:0.80, autoScaled:0, radius:"10" };
 const R = () => state.radius;
 
@@ -478,6 +478,15 @@ function applyOpacity() {
 
 // electrode overlay: one small octahedron per contact, as a single light mesh
 // (a sphere-per-node connectome is far too heavy at 5247 contacts)
+// Same hue ramp the report's cluster chips use, so a contact's colour on the
+// brain and its colour in the legend are the same fact.
+const CLUSTER_RGB = Array.from({length: 24}, (_, i) => {
+  const h = (360 * i) / 24 / 360, s2 = 0.62, l = 0.52;
+  const k = n => (n + h * 12) % 12;
+  const a = s2 * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
+});
 const _OCT  = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 const _OCTF = [[0,2,4],[2,1,4],[1,3,4],[3,0,4],[2,0,5],[1,2,5],[3,1,5],[0,3,5]];
 function updateElectrodes() {
@@ -493,14 +502,23 @@ function updateElectrodes() {
     if (!mine.has(i)) continue;
     // in a cluster map show only that cluster's contacts; in a coverage map show all.
     // an electrode with several labels appears in each of its clusters' maps.
-    if (d.cluster !== undefined) {
+    // byCluster: draw EVERY labelled contact, coloured by its cluster, rather
+    // than one cluster's contacts in amber. A multi-label electrode takes its
+    // first label here — the alternative is drawing it several times in one
+    // place, which reads as a single blended colour that means nothing.
+    let colr = [255, 232, 64];
+    if (state.elecByCluster) {
+      const L = lab && lab[i];
+      if (!Array.isArray(L) || !L.length) continue;
+      colr = CLUSTER_RGB[L[0] % CLUSTER_RGB.length] || colr;
+    } else if (d.cluster !== undefined) {
       const L = lab && lab[i];
       if (!Array.isArray(L) || L.indexOf(d.cluster) < 0) continue;
     }
     const [x, y, z] = CONTACTS.xyz[i];
     for (const o of _OCT) pts.push(x + o[0]*r, y + o[1]*r, z + o[2]*r);
     for (const f of _OCTF) tris.push(vi + f[0], vi + f[1], vi + f[2]);
-    for (let j = 0; j < 6; j++) cols.push(255, 232, 64, 255);   // amber
+    for (let j = 0; j < 6; j++) cols.push(colr[0], colr[1], colr[2], 255);
     vi += 6;
   }
   if (!vi) { nv.drawScene(); return; }
@@ -569,6 +587,26 @@ function captureView(az, el, maxW) {
       resolve(trimDark(canvasEl, maxW));
     });
   });
+}
+
+// ── 360° spin, captured the same way a still is ──────────────────────────────
+// Frames are captured from the LIVE canvas, so a rotation inherits the frozen
+// colour ceiling, gate and gamma exactly as the stills do — no second renderer
+// that could drift from the one on screen.
+//
+// SPIN_W is deliberately small. A 900 px frame is 40-80 kB, so 20 of them is
+// ~1.5 MB PER rotation; at 360 px a whole rotation costs about what one still
+// does, which is what makes a dozen of them affordable in a self-contained file.
+const SPIN_N = 20, SPIN_W = 360;
+
+async function captureSpin(el, n, maxW) {
+  const frames = [];
+  for (let i = 0; i < n; i++) {
+    // full 360 so the loop closes; no ping-pong and no visible seam
+    frames.push(await captureView((360 * i) / n, el, maxW || SPIN_W));
+    await sleep(18);
+  }
+  return frames.filter(f => f && f.data);
 }
 
 // Crop the black surround rather than cropping to a fixed aspect: a fixed aspect cut the
@@ -720,6 +758,36 @@ function img(im, alt, cls) {
   return `<figure class="${cls || ""}"><img src="${im.data}" alt="${esc(alt)}"><figcaption>${esc(alt)}</figcaption></figure>`;
 }
 
+// A rotation as a stack of stills cycled by script, not an encoded GIF: the page
+// has no external libraries (a strict self-contained file), and stacking the
+// frames it already knows how to capture avoids adding an encoder for one effect.
+// Degrades to a still first frame if scripting is off.
+let _spinId = 0;
+function spin(frames, alt, cls) {
+  if (!frames || !frames.length)
+    return `<div class="missing ${cls || ""}">${esc(alt)} — not captured</div>`;
+  const id = `sp${++_spinId}`;
+  const imgs = frames.map((f, i) =>
+    `<img src="${f.data}" alt="${esc(alt)}"${i ? ' class="off"' : ""}>`).join("");
+  return `<figure class="spin ${cls || ""}"><div class="spinbox" id="${id}" `
+       + `data-n="${frames.length}">${imgs}</div>`
+       + `<figcaption>${esc(alt)} · ${frames.length}-frame 360° rotation</figcaption></figure>`;
+}
+
+const SPIN_JS = `
+<script>
+document.querySelectorAll(".spinbox").forEach(box => {
+  const fr = Array.from(box.querySelectorAll("img"));
+  if (fr.length < 2) return;
+  let i = 0;
+  setInterval(() => {
+    fr[i].classList.add("off");
+    i = (i + 1) % fr.length;
+    fr[i].classList.remove("off");
+  }, 90);
+});
+<\/script>`;
+
 // the same viridis ramp the brain uses, as a CSS gradient, so the report carries its scale
 function scaleBar(vmax, label) {
   const stops = [];
@@ -755,6 +823,13 @@ h2.sec{font-size:17px;margin:0 0 3px}
 .lname{flex:0 0 auto;white-space:nowrap}
 .lval{font-variant-numeric:tabular-nums;color:var(--muted);margin-left:auto;padding-left:8px;white-space:nowrap}
 .lval em{font-style:normal;color:var(--ink);margin-left:5px;min-width:27px;display:inline-block;text-align:right}
+.spin figcaption{color:var(--muted);font-size:11.5px;margin-top:5px;text-align:center}
+.spinbox{position:relative;width:100%;max-width:360px;margin:0 auto;line-height:0}
+.spinbox img{width:100%;display:block}
+.spinbox img:not(:first-child){position:absolute;inset:0}
+.spinbox img.off{visibility:hidden}
+.cluetop{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
+.fullrow{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
 table.sum{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
 table.sum th,table.sum td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line)}
 table.sum th:first-child,table.sum td:first-child{text-align:left}
@@ -846,6 +921,15 @@ async function exportReport() {
     const covStats = render(); await sleep(60);
     const covShots = [];
     for (const [az, el] of VIEWS) covShots.push(await captureView(az, el, CAPW));
+    btn.textContent = "Report: coverage rotation...";
+    const covSpin = await captureSpin(0, SPIN_N, SPIN_W);
+    // contact density = the same cohort with every contact drawn, so the reader can
+    // see where the electrodes actually are, not only where the coverage mask says
+    // something is estimable.
+    btn.textContent = "Report: contact density...";
+    state.showElec = true; state.elecByCluster = false; updateElectrodes();
+    const densSpin = await captureSpin(0, SPIN_N, SPIN_W);
+    state.showElec = false; updateElectrodes();
     const covMax = frozen.climMax;
 
     // ── per cluster
@@ -859,14 +943,25 @@ async function exportReport() {
       const st = render(); await sleep(80);
       const shots = [];
       for (const [az, el] of VIEWS) shots.push(await captureView(az, el, CAPW));
+      const spinFrames = await captureSpin(0, SPIN_N, SPIN_W);
       const fig = (RUN.figures.per_cluster || {})[String(d.cluster)] || {};
       const glass = await Promise.all(GLASS.map(v =>
         fig.glass && fig.glass[v] ? tryImage(runBase + fig.glass[v], 700, true)
                                   : Promise.resolve({ data: "", w: 0, h: 0 })));
       const centroid = fig.centroid ? await tryImage(runBase + fig.centroid, FIGW, false)
                                     : { data: "", w: 0, h: 0 };
-      blocks.push({ d, st, shots, glass, centroid, climMax: frozen.climMax });
+      blocks.push({ d, st, shots, glass, centroid, spinFrames,
+                    climMax: frozen.climMax });
     }
+
+    // ── every labelled contact, coloured by its cluster
+    btn.textContent = "Report: electrodes by cluster...";
+    state.map = "coverage"; $("mapSel").value = "coverage";
+    state.climMax = frozen.climMax;
+    render();
+    state.showElec = true; state.elecByCluster = true; updateElectrodes();
+    const elecSpin = await captureSpin(0, SPIN_N, SPIN_W);
+    state.showElec = false; state.elecByCluster = false; updateElectrodes();
 
     // ── whole-run figures
     const ov = RUN.figures.overview || [];
@@ -899,7 +994,7 @@ async function exportReport() {
                `<td>${top ? esc(top[0]) + " (" + (100 * top[1] / tot).toFixed(0) + "%)" : "—"}</td></tr>`;
       }).join("") + `</tbody></table>`;
 
-    const clusterHTML = blocks.map(({ d, st, shots, glass, centroid, climMax }, i) => {
+    const clusterHTML = blocks.map(({ d, st, shots, glass, centroid, spinFrames, climMax }, i) => {
       const k = d.cluster;
       const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
       const tot = Object.values(comp).reduce((s, v) => s + v, 0);
@@ -926,15 +1021,23 @@ async function exportReport() {
   <div class="two" style="margin-top:16px">
     <div>${img(centroid, "cluster centroid — the mean response this cluster is defined by", "wide lite")}</div>
     <div>
-      <h2 class="sec">Which patients is it made of?</h2>
-      <p class="sechint">${np} of ${COH.n_patients} patients contribute. Largest single patient:
-        <b>${(100 * topShare).toFixed(0)}%</b> of the cluster —
-        ${topShare > 0.5 ? "this cluster is dominated by one patient and should not be read as general."
-                         : "no single patient dominates it."}</p>
-      <div class="donutwrap">
-        ${donut(items, 150, String(np), `of ${COH.n_patients} patients`)}
-        ${legend(items, tot)}
-      </div>
+      <h2 class="sec">Seen from every angle</h2>
+      <p class="sechint">The same probability map as the three stills above, rotated a full
+        turn. A cluster that looks focal from one side and diffuse from another is worth
+        knowing about before it is described as focal.</p>
+      ${spin(spinFrames, `Cluster ${k} probability`)}
+    </div>
+  </div>
+
+  <div class="fullrow">
+    <h2 class="sec">Which patients is it made of?</h2>
+    <p class="sechint">${np} of ${COH.n_patients} patients contribute. Largest single patient:
+      <b>${(100 * topShare).toFixed(0)}%</b> of the cluster —
+      ${topShare > 0.5 ? "this cluster is dominated by one patient and should not be read as general."
+                       : "no single patient dominates it."}</p>
+    <div class="donutwrap">
+      ${donut(items, 150, String(np), `of ${COH.n_patients} patients`)}
+      ${legend(items, tot)}
     </div>
   </div>
 </section>`;
@@ -977,6 +1080,33 @@ async function exportReport() {
     of cortex lies within ${frozen.radius} mm of an electrode · up to
     ${Math.max(COH.coverage[frozen.radius].lh.max_patients_at_a_vertex, COH.coverage[frozen.radius].rh.max_patients_at_a_vertex)}
     patients at a single vertex. Dark cortex is <b>no electrodes</b>, not absence of language.</p>
+
+  <div class="two" style="margin-top:20px">
+    <div>
+      <h2 class="sec">Coverage, all the way round</h2>
+      <p class="sechint">The same P(sampled) map through a full turn. Medial and ventral cortex
+        is badly under-sampled in a way the three lateral stills cannot show.</p>
+      ${spin(covSpin, "P(sampled)")}
+    </div>
+    <div>
+      <h2 class="sec">Where the contacts actually are</h2>
+      <p class="sechint">Every contact in the cohort, rotating. The coverage map above is a
+        smoothed <i>estimate</i> derived from these; this is the raw sampling behind it, and
+        the two should be read together.</p>
+      ${spin(densSpin, "contact density")}
+    </div>
+  </div>
+</section>
+
+<section class="card">
+  <h2 class="sec">Every labelled contact, coloured by its cluster</h2>
+  <p class="sechint">All ${RUN.n_contacts_with_cluster} localised contacts at once, each in its
+    cluster's colour, through a full turn. The per-cluster maps above are probability fields
+    smoothed over a ${frozen.radius} mm neighbourhood; this is the underlying assignment with no
+    smoothing at all, so clusters that look spatially clean above can look interleaved here.
+    An electrode carrying several labels is drawn in the first of them &mdash; drawing it once per
+    label would stack colours in one place and read as a blend that means nothing.</p>
+  ${spin(elecSpin, "contacts coloured by cluster")}
 </section>
 
 <section class="card">
@@ -1004,7 +1134,7 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
   colour ceiling ${frozen.climMax.toFixed(2)} (${esc(climSource)}) · gamma ${frozen.gamma.toFixed(2)}.<br>
   Patient colours match the MOBA patient view. Print this page (A4 landscape) to get a PDF.
 </footer>
-</div></body></html>`;
+</div>${SPIN_JS}</body></html>`;
 
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const a = document.createElement("a");

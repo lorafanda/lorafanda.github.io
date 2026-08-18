@@ -152,7 +152,14 @@
   <div id="hint">drag rotate · scroll zoom · <b>h</b> panels · <b>c</b> controls</div>
 
 <script type="module">
-import { Niivue, NVMesh } from "https://unpkg.com/@niivue/niivue@0.45.1/dist/index.js";
+// 0.69.0, matching poolv2. The mesh shader changed between 0.45 and 0.69 and this
+// page needs the newer one: on 0.45 a mesh carrying a PER-VERTEX rgba255 buffer
+// ignores mesh-level opacity outright, which is what defeated every attempt to make
+// the glass surface translucent. 0.69 exports NVMesh as an alias of NVMesh2, so the
+// named import below is unchanged, and the API this page uses (loadMeshes, addMesh,
+// removeMesh, meshes, opts, scene, gl, drawScene, setSliceType) is stable across the
+// two versions.
+import { Niivue, NVMesh } from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Data: per-vertex COUNTS within radius_mm of each fsaverage vertex, from

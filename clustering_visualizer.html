@@ -1329,7 +1329,7 @@ async function exportReport() {
     const isHG = String(RUN.track || "").split("/").pop().endsWith("hg");
     const rasterCap = isHG
       ? "every electrode in this cluster, sorted by membership — strongest at top"
-      : "the same centroid, greyed where the cluster's electrodes disagree";
+      : "the same centroid, with a dot where the cluster's electrodes disagree";
     const clusterHTML = blocks.map(({ d, st, shots, glass, glassShots, centroid,
                                  raster, spinFrames, renderSpin, climMax }, i) => {
       const k = d.cluster;

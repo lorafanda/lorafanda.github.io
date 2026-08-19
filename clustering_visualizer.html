@@ -212,9 +212,15 @@ const R = () => state.radius;
 // grey toward the map colour (see render), and the high end being white is why the
 // glass backdrop and the colour scale must not be confused - white cortex at the top
 // of the ramp reads as "saturated", not as "no estimate", which stays grey.
+// afmhot, TRUNCATED BEFORE WHITE. The full ramp ends at [255,255,255], and the
+// report now draws the brain on white - so the hottest cortex became the same
+// colour as the background and a peak read as a hole in the brain rather than as
+// the strongest thing on it. Ending at bright yellow keeps the ramp monotonic in
+// luminance and leaves every value below it where it already was, so figures
+// published on the old ramp still line up. The dark end is unchanged: it never
+// shows as pure black, because render() blends it toward the cortex grey.
 const CMAP = [[0,0,0],[46,0,0],[92,0,0],[138,10,0],[186,58,0],[232,104,0],
-              [255,150,23],[255,196,69],[255,244,117],[255,255,163],
-              [255,255,209],[255,255,255]];
+              [255,150,23],[255,196,69],[255,244,117],[255,255,163]];
 function cmap(t) {
   t = t <= 0 ? 0 : t >= 1 ? 1 : t;
   const x = t * (CMAP.length - 1), i = Math.min(CMAP.length - 2, Math.floor(x)), f = x - i;
@@ -402,6 +408,22 @@ async function loadSurface(kind, uniformRgba) {
     const m = nv.meshes[i], n = m.pts.length / 3;
     hemis[h] = { mesh:m, nvert:n, rgba:new Uint8Array(n * 4) };
   });
+  // Niivue's default mesh shader is Phong, and its specular lobe puts a moving
+  // bright spot on the cortex - so the "brightest" cortex partly reports the
+  // camera angle rather than the probability under it, and it is the shine that
+  // reads as gloss when the brain is lightened. Matte keeps the diffuse term and
+  // drops the specular one.
+  //
+  // GLASS KEEPS THE DEFAULT. Its surface is nearly transparent, so the highlight
+  // is part of what makes its edges read at all, and that look is already settled.
+  // The two hemispheres only, reached through hemis rather than nv.meshes: that
+  // list also holds the electrode overlay, and the contacts are not what is glossy.
+  const shader = state.glass ? "Phong" : "Matte";
+  for (const h of ["lh", "rh"]) {
+    const m = hemis[h] && hemis[h].mesh;
+    if (m) { try { nv.setMeshShader(m.id, shader); } catch (e) {} }
+  }
+
   if (kind === "inflated") {   // each inflated hemi is centred at the origin — pull them apart
     [[-INFLATED_SHIFT, hemis.lh.mesh], [INFLATED_SHIFT, hemis.rh.mesh]].forEach(([dx, m]) => {
       const p = m.pts; for (let k = 0; k < p.length; k += 3) p[k] += dx;

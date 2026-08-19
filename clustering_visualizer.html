@@ -1217,9 +1217,15 @@ async function exportReport() {
                  700, true).then(im => (im && im.data) ? im
           : (fig.glass && fig.glass[v] ? tryImage(runBase + fig.glass[v], 700, true)
                                        : { data: "", w: 0, h: 0 }))));
+      // make_centroid_rasters writes these; fetched by path rather than through the
+      // manifest, like the by_cluster glassbrains above, so a run that has them shows
+      // them without the bundle needing to be rebuilt first.
+      const raster = await tryImage(
+        `${runBase}cluster_rasters/cluster_${String(d.cluster).padStart(2, "0")}.png`,
+        FIGW, false);
       const centroid = fig.centroid ? await tryImage(runBase + fig.centroid, FIGW, false)
                                     : { data: "", w: 0, h: 0 };
-      blocks.push({ d, st, shots, glass, centroid, spinFrames, renderSpin,
+      blocks.push({ d, st, shots, glass, centroid, raster, spinFrames, renderSpin,
                     climMax: frozen.climMax });
     }
 
@@ -1316,8 +1322,16 @@ async function exportReport() {
                `<td>${top ? esc(top[0]) + " (" + (100 * top[1] / tot).toFixed(0) + "%)" : "—"}</td></tr>`;
       }).join("") + `</tbody></table>`;
 
+    // The two feature sets carry a different second panel, so the caption has to
+    // follow the run rather than be fixed.
+    // On the feature set, not the whole track: "kmeans/hg" does not end in "_hg"
+    // and would take the rawds caption while carrying an hg raster.
+    const isHG = String(RUN.track || "").split("/").pop().endsWith("hg");
+    const rasterCap = isHG
+      ? "every electrode in this cluster, sorted by membership — strongest at top"
+      : "the same centroid, greyed where the cluster's electrodes disagree";
     const clusterHTML = blocks.map(({ d, st, shots, glass, glassShots, centroid,
-                                 spinFrames, renderSpin, climMax }, i) => {
+                                 raster, spinFrames, renderSpin, climMax }, i) => {
       const k = d.cluster;
       const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
       const tot = Object.values(comp).reduce((s, v) => s + v, 0);
@@ -1355,6 +1369,9 @@ async function exportReport() {
     the only glass view of it.</p>
   <div style="margin-top:16px">
     <div>${img(centroid, "cluster centroid — the mean response this cluster is defined by", "wide lite")}</div>
+    ${raster && raster.data
+      ? `<div style="margin-top:12px">${img(raster, rasterCap, "wide lite")}</div>`
+      : ""}
     <div style="margin-top:14px">
       <h2 class="sec">Seen from every angle</h2>
       <p class="sechint">Two full turns of the same cluster. <b>Left:</b> the probability

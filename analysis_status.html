@@ -3595,56 +3595,65 @@
     </figure>
 
     <figure><div class="cap"><div class="fignum">FIG C.7</div>
-      <h4>Is the K=7 partition a separation? &mdash; a negative result</h4>
-      <p style="margin:0 0 8px"><b>The short answer: no, not as a partition &mdash; and yes, as a
-        decomposition.</b> Those are two different claims about the same run and this figure
-        separates them, because conflating them is the easiest mistake to make here.</p>
+      <h4>Is the K=7 partition a separation? &mdash; yes, but only in its own space</h4>
+      <div class="callout q" style="margin:0 0 12px">
+        <b>Corrected 2026-08-19.</b> The first version of this figure scored all three methods in
+        raw dB and concluded that the convex-NMF partition did not separate at all
+        (z&nbsp;=&nbsp;+1.0). That was an error in the test, not a finding:
+        <b>convex NMF unit-norms each electrode before fitting and k-means and Ward do not</b>, so
+        cNMF was being measured in a space it never optimised in. Scored in its own space it reaches
+        <b>z&nbsp;=&nbsp;+15</b>. The corrected result is below; the earlier claim should be
+        disregarded wherever it was repeated.
+      </div>
       <ul>
-        <li><b>A &mdash; the partition, against its own null.</b> All three methods run on the
-          <b>same 1266&nbsp;&times;&nbsp;900 matrix at the same K=7</b>, so nothing here is confounded
-          by different inputs. Each is scored against <b>its own null</b>: k-means optimises
-          compactness and convex NMF does not, so scoring cNMF against a k-means null would be rigged
-          against it. The null (red line, &plusmn;1&nbsp;SD band) is a Gaussian carrying <i>this
-          dataset's own covariance</i> &mdash; correlated features, smooth time courses, one blob, no
-          clusters. White noise would have been a null anything could beat.
-          <br><b>cNMF argmax: silhouette 0.046 against a null of 0.042&nbsp;&plusmn;&nbsp;0.005,
-          z&nbsp;=&nbsp;+1.0.</b> It is not distinguishable from the same procedure applied to
-          structureless data. k-means reaches 0.113 (z&nbsp;=&nbsp;+15.4) and Ward 0.115
-          (z&nbsp;=&nbsp;+16.4) on the identical matrix &mdash; <b>so the null is beatable</b>, and
-          this is a statement about the argmax rather than about the test being too hard.</li>
-        <li><b>B &mdash; and yet the decomposition is real.</b> Bi-cross-validation, holding out
-          <i>rows and columns</i>, rises from <b>0.39</b> at K=2 to <b>0.57</b> at its peak near K=8.
-          The components predict data they never saw. <b>A and B are both true:</b> the graded
-          structure generalises, and hard labels drawn from it are not a separation. That is exactly
-          the thing <a href="#howcnmfdecides">FIG C.5</a> shows electrode by electrode, now with a
-          number on it.</li>
-        <li><b>C &mdash; two things that would otherwise flatter the comparison.</b> k-means and Ward
-          put <b>42%</b> and <b>46%</b> of all electrodes into a single cluster, against cNMF's
-          <b>23%</b>. One big loose cluster beside several small tight ones is a shape silhouette
-          rewards, so their advantage over the null is real but partly structural rather than
-          biological. And the three methods <b>do not agree on what the clusters are</b>: ARI
-          <b>0.21</b> between cNMF and k-means, <b>0.19</b> against Ward, and only <b>0.49</b> between
-          k-means and Ward &mdash; two hard methods on identical input agreeing half the time.</li>
+        <li><b>A &mdash; each method separates, but only in its own space.</b> All three run on the
+          <b>same 1266&nbsp;&times;&nbsp;900 matrix at the same K=7</b>. Each is scored in
+          <i>both</i> spaces and against a null built the same way in that space &mdash; the same
+          algorithm run on a Gaussian carrying this dataset's own covariance (correlated features,
+          smooth time courses, one blob, no clusters). The solid outlined bar is the space that
+          method actually fits in.
+          <table class="sum" style="margin:8px 0"><tr><th></th><th>in dB</th><th>in unit-norm</th></tr>
+          <tr><td>cNMF argmax <i>(fits unit-norm)</i></td><td>0.046 &nbsp;z&nbsp;+1</td><td><b>0.094 &nbsp;z&nbsp;+15</b></td></tr>
+          <tr><td>k-means <i>(fits dB)</i></td><td><b>0.113 &nbsp;z&nbsp;+10</b></td><td>&minus;0.004 &nbsp;z&nbsp;&minus;25</td></tr>
+          <tr><td>Ward <i>(fits dB)</i></td><td><b>0.115 &nbsp;z&nbsp;+15</b></td><td>&minus;0.010 &nbsp;z&nbsp;&minus;11</td></tr></table>
+          Every method beats its null decisively at home and collapses in the other's space. <b>The
+          answer to "is this a real separation" is therefore yes &mdash; but silhouette is not a
+          space-free measure, and quoting one number without saying which space produced it is
+          meaningless.</b></li>
+        <li><b>What the two spaces actually ask.</b> Unit-norm divides each electrode by its own
+          magnitude, so it compares <b>response shape</b> and is blind to how strongly a contact
+          responds. Raw dB keeps magnitude, so part of what k-means and Ward separate is <b>loud
+          electrodes from quiet ones</b>. Neither is wrong; they are different questions, and which
+          one you want is a scientific choice rather than a technical one.</li>
+        <li><b>C &mdash; which is also why the methods barely agree.</b> ARI <b>0.21</b> between cNMF
+          and k-means, <b>0.19</b> against Ward, <b>0.49</b> between k-means and Ward. Read alongside
+          A, that low agreement is not two methods contradicting each other about one structure &mdash;
+          it is two methods describing <i>different</i> structure. Also visible: k-means and Ward put
+          <b>42%</b> and <b>46%</b> of all electrodes into one cluster against cNMF's <b>23%</b>, and a
+          big loose cluster beside small tight ones is a shape silhouette rewards.</li>
+        <li><b>B &mdash; separately, the decomposition generalises.</b> Bi-cross-validation, holding
+          out <i>rows and columns</i>, rises from <b>0.39</b> at K=2 to <b>0.57</b> near K=8. The
+          components predict data they never saw, which is a different and stronger claim than any
+          silhouette.</li>
         <li><b>D &mdash; which components are distinctive at all.</b> Share of features reaching a
           large effect (Cohen's |d|&nbsp;&gt;&nbsp;0.8) between that component's electrodes and every
           other electrode; the number above each bar is its largest |d|. <b>c4 is the one unambiguous
-          component</b> at 55.7%, the broad-suppression profile. <b>c2 reaches only 11.0%</b> with a
-          largest |d| of 1.1. Reading rule for this dataset: below roughly 15% a component is poorly
-          characterised, whatever its label says.</li>
-        <li><b>What this changes.</b> Group-level statements &mdash; <i>what component 4 responds
-          to</i> &mdash; survive, and <a href="#howcnmfdecides">FIG C.6</a> shows the argmax recovers
-          the same feature signature as the model's own loadings (r&nbsp;=&nbsp;0.97&ndash;0.99).
-          Per-electrode statements &mdash; <i>this contact belongs to cluster&nbsp;3</i> &mdash; do
-          not, and should not be made from this run. The honest framing of the clustering is a graded
-          decomposition, not a taxonomy of seven types.</li>
-        <li><b>Stability of the test itself.</b> The null was repeated <b>12&times;</b> for cNMF and
-          <b>10&times;</b> for k-means. At three repetitions the cNMF z moved between &minus;0.1 and
-          +0.7 across seeds, which is too unstable to publish; every number here is written to
+          component</b> at 55.7%; <b>c2 reaches only 11.0%</b> with a largest |d| of 1.1. Reading rule
+          for this dataset: below roughly 15% a component is poorly characterised whatever its label
+          says.</li>
+        <li><b>What still does not follow.</b> A partition can separate well on average while many
+          individual points sit near a boundary, and that is this dataset:
+          <a href="#howcnmfdecides">FIG C.5</a> shows 19% of electrodes with their top two components
+          within 0.05 and a median top weight of 0.43. <b>Group-level claims survive; per-electrode
+          membership claims do not.</b> C.7 corrects how well the groups separate &mdash; it does not
+          rehabilitate the individual labels.</li>
+        <li><b>Stability of the test.</b> Nulls were repeated 12&times; for cNMF and 10&times; for the
+          hard methods, in each space. Every number is written to
           <code>comparison/separation_stats.json</code> and the figure is drawn from that file, so the
           caption cannot drift from the analysis.</li>
       </ul>
       <div class="runid">source: cnmf/concat_hg <b>20260818_112939</b> &middot; kmeans/concat_hg <b>20260817_171544</b> &middot; hierarchical/concat_hg <b>20260817_171627</b> &middot; <code>make_separation_figure.py</code></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparison/C7_separation.png" alt="silhouette against matched nulls for convex NMF, k-means and Ward at K=7; bi-cross-validation curve; cluster sizes and ARI; per-component effect sizes"></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparison/C7_separation.png" alt="silhouette in both dB and unit-norm space for convex NMF, k-means and Ward at K=7, each against a matched null; bi-cross-validation curve; cluster sizes and ARI; per-component effect sizes"></div>
     </figure>
 
         <h4>Opening the story &mdash; two candidates</h4>

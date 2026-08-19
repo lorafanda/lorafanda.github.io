@@ -598,7 +598,16 @@ function updateElectrodes() {
     if (state.elecByCluster) {
       const L = lab && lab[i];
       if (!Array.isArray(L) || !L.length) continue;
-      colr = CLUSTER_RGB[L[0] % CLUSTER_RGB.length] || colr;
+      // A CLUSTER MAP STILL MEANS THAT CLUSTER, even here. Glass mode forces
+      // elecByCluster on, and this branch used to draw every labelled contact
+      // unconditionally - so switching cluster repainted the surface and left the
+      // contacts identical, which read as the selector being dead in glass mode.
+      // Colour by the SELECTED cluster, not by L[0]: on a multi-label electrode
+      // those differ, and the first label would colour a contact for a cluster
+      // the map is not showing.
+      if (d.cluster !== undefined && L.indexOf(d.cluster) < 0) continue;
+      const cid = d.cluster !== undefined ? d.cluster : L[0];
+      colr = CLUSTER_RGB[cid % CLUSTER_RGB.length] || colr;
     } else if (d.cluster !== undefined) {
       const L = lab && lab[i];
       if (!Array.isArray(L) || L.indexOf(d.cluster) < 0) continue;
@@ -678,12 +687,12 @@ function trimMargin(img) {
 // opposite convention does not carry over to this page's mesh orientation.
 const VIEWS = [[90, 0, "left lateral"], [270, 0, "right lateral"], [0, 90, "dorsal"]];
 
-function captureView(az, el, maxW) {
+function captureView(az, el, maxW, onWhite) {
   return new Promise(resolve => {
     try { nv.scene.renderAzimuth = az; nv.scene.renderElevation = el; } catch (e) {}
     requestAnimationFrame(() => {
       try { nv.drawScene(); } catch (e) {}
-      resolve(trimDark(canvasEl, maxW));
+      resolve(trimDark(canvasEl, maxW, onWhite));
     });
   });
 }
@@ -706,7 +715,7 @@ const SPIN_RENDER_W = 560;
 // from frame to frame - which reads as choppiness no matter how many frames there
 // are. Raising 20 to 60 did not help for exactly this reason. Here every frame is
 // the whole canvas at one fixed size, so the brain rotates in place.
-function rawFrame(src, maxW, box) {
+function rawFrame(src, maxW, box, onWhite) {
   try {
     const sw = box ? box.w : src.width, sh = box ? box.h : src.height;
     if (!sw || !sh) return { data: "", w: 0, h: 0 };
@@ -715,6 +724,7 @@ function rawFrame(src, maxW, box) {
     o.width = Math.max(1, Math.round(sw * sc));
     o.height = Math.max(1, Math.round(sh * sc));
     const cx = o.getContext("2d");
+    // see the note in trimDark: black, even for glass - the surface lives in alpha
     cx.fillStyle = "#000"; cx.fillRect(0, 0, o.width, o.height);
     if (box) cx.drawImage(src, box.x, box.y, box.w, box.h, 0, 0, o.width, o.height);
     else cx.drawImage(src, 0, 0, o.width, o.height);
@@ -722,18 +732,18 @@ function rawFrame(src, maxW, box) {
   } catch (e) { console.warn("spin frame failed:", e); return { data: "", w: 0, h: 0 }; }
 }
 
-function captureRaw(az, el, maxW, box) {
+function captureRaw(az, el, maxW, box, onWhite) {
   return new Promise(resolve => {
     try { nv.scene.renderAzimuth = az; nv.scene.renderElevation = el; } catch (e) {}
     requestAnimationFrame(() => {
       try { nv.drawScene(); } catch (e) {}
-      resolve(rawFrame(canvasEl, maxW, box));
+      resolve(rawFrame(canvasEl, maxW, box, onWhite));
     });
   });
 }
 
 // Ink box of the current canvas, in source pixels. Same probe trimDark uses.
-function inkBox(src) {
+function inkBox(src, onWhite) {
   const sw = src.width, sh = src.height;
   if (!sw || !sh) return null;
   const pw = Math.min(sw, 320), s0 = pw / sw;
@@ -745,7 +755,12 @@ function inkBox(src) {
   let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
   for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
     const i = (y * c.width + x) * 4;
-    if (d[i] > 18 || d[i+1] > 18 || d[i+2] > 18) {
+    // The glass surface lands around 248 on a 255 ground, so the cutoff has to sit
+    // just under pure white. At the 237 used elsewhere the brain reads as background
+    // and the box collapses onto the contacts instead.
+    const ink = onWhite ? (d[i] < 252 || d[i+1] < 252 || d[i+2] < 252)
+                        : (d[i] > 18  || d[i+1] > 18  || d[i+2] > 18);
+    if (ink) {
       if (x < x0) x0 = x; if (x > x1) x1 = x;
       if (y < y0) y0 = y; if (y > y1) y1 = y;
     }
@@ -788,7 +803,7 @@ async function captureSpin(el, n, maxW) {
 
 // Crop the black surround rather than cropping to a fixed aspect: a fixed aspect cut the
 // top and bottom off the dorsal view, which is a different shape from the laterals.
-function trimDark(src, maxW) {
+function trimDark(src, maxW, onWhite) {
   try {
     const sw = src.width, sh = src.height;
     if (!sw || !sh) return { data: "", w: 0, h: 0 };
@@ -802,7 +817,12 @@ function trimDark(src, maxW) {
     for (let y = 0; y < p.height; y++) {
       for (let x = 0; x < p.width; x++) {
         const i = (y * p.width + x) * 4;
-        if (d[i] > 18 || d[i + 1] > 18 || d[i + 2] > 18) {
+        // In glass the BACKGROUND is the opaque white part and the brain is darker,
+        // so "not background" inverts. onWhite drives only this test - the backdrop
+        // fill below stays black either way; see the note there.
+        const ink = onWhite ? (d[i] < 237 || d[i + 1] < 237 || d[i + 2] < 237)
+                            : (d[i] > 18  || d[i + 1] > 18  || d[i + 2] > 18);
+        if (ink) {
           if (x < x0) x0 = x; if (x > x1) x1 = x;
           if (y < y0) y0 = y; if (y > y1) y1 = y;
         }
@@ -817,6 +837,13 @@ function trimDark(src, maxW) {
     const o = document.createElement("canvas");
     o.width = Math.max(1, Math.round(w * sc)); o.height = Math.max(1, Math.round(h * sc));
     const cx = o.getContext("2d");
+    // THE BACKDROP STAYS BLACK, INCLUDING FOR GLASS. Niivue leaves the glass surface
+    // in the ALPHA channel: those pixels read back as RGB (255,255,255) with alpha
+    // 120-220, and the page composites them over its own black background, which is
+    // what turns them into the grey brain you see. Filling white here instead computes
+    // 255*a + 255*(1-a) = 255 for every one of them - the brain is erased and the
+    // capture is a cloud of contacts floating on white. Only the ink test below
+    // inverts for glass, because there the BACKGROUND is the opaque white part.
     cx.fillStyle = "#000"; cx.fillRect(0, 0, o.width, o.height);
     cx.drawImage(src, sx, sy, w, h, 0, 0, o.width, o.height);
     return { data: o.toDataURL("image/jpeg", JPEG_Q), w, h };
@@ -1162,6 +1189,68 @@ async function exportReport() {
                     climMax: frozen.climMax });
     }
 
+    // ── per-cluster glass stills, captured from this page
+    // ONE surface swap for the whole set. Entering glass mode reloads the pial mesh
+    // with a uniform rgba255, so doing it per cluster would add K reloads to an
+    // already slow export. Only the map changes inside the loop - which is precisely
+    // what now makes each still show its own cluster, rather than all of them.
+    const glassWas = { glass: state.glass, byCluster: state.elecByCluster,
+                       elec: state.showElec };
+    try {
+      if (!state.glass) {
+        btn.textContent = "Report: glass surface…";
+        state.glass = true; state.surf = "pial";
+        await loadSurface("pial", GLASS_RGBA);
+        applyOpacity();
+      }
+      state.showElec = true; state.elecByCluster = true;
+      // ONE CROP BOX PER VIEW, measured once and reused for every cluster. Cropping
+      // each still to its own ink would frame each cluster differently - a tight
+      // cluster would fill its panel and a spread one would shrink - and the panels
+      // would stop being comparable, which is the entire point of freezing the
+      // settings. The brain silhouette is identical across clusters, so one box is
+      // the correct box. Measured on the coverage map, where every contact is drawn.
+      state.map = "coverage"; $("mapSel").value = "coverage";
+      render(); updateElectrodes(); await sleep(60);
+      const gBox = [];
+      for (const [az, el] of VIEWS) {
+        gBox.push(await new Promise(r => {
+          try { nv.scene.renderAzimuth = az; nv.scene.renderElevation = el; } catch (e) {}
+          requestAnimationFrame(() => {
+            try { nv.drawScene(); } catch (e) {}
+            const b = inkBox(canvasEl, true);
+            const pad = 10;
+            r(b ? { x: Math.max(0, b.x - pad), y: Math.max(0, b.y - pad),
+                    w: Math.min(canvasEl.width,  b.w + 2 * pad),
+                    h: Math.min(canvasEl.height, b.h + 2 * pad) } : null);
+          });
+        }));
+      }
+      for (let i = 0; i < blocks.length; i++) {
+        btn.textContent = `Report: glass ${i + 1}/${blocks.length}…`;
+        state.map = blocks[i].d.id; $("mapSel").value = blocks[i].d.id;
+        render(); updateElectrodes(); await sleep(60);
+        const gs = [];
+        // onWhite: the glass backdrop is white, so both the crop and the fill invert
+        for (let v = 0; v < VIEWS.length; v++) {
+          const [az, el] = VIEWS[v];
+          gs.push(gBox[v] ? await captureRaw(az, el, CAPW, gBox[v], true)
+                          : await captureView(az, el, CAPW, true));
+        }
+        blocks[i].glassShots = gs;
+      }
+    } catch (e) {
+      // A failed glass pass must not cost the report the work already captured.
+      console.warn("glass pass failed:", e);
+    } finally {
+      state.glass = glassWas.glass; state.elecByCluster = glassWas.byCluster;
+      state.showElec = glassWas.elec; state.surf = frozen.surf;
+      // Always reload: leaving a uniform-rgba255 mesh behind under a non-glass state
+      // is the one way this pass could damage what the user sees afterwards.
+      await loadSurface(frozen.surf, glassWas.glass ? GLASS_RGBA : undefined);
+      applyOpacity();
+    }
+
     // ── whole-run figures
     const ov = RUN.figures.overview || [];
     const ovImgs = [];
@@ -1193,8 +1282,8 @@ async function exportReport() {
                `<td>${top ? esc(top[0]) + " (" + (100 * top[1] / tot).toFixed(0) + "%)" : "—"}</td></tr>`;
       }).join("") + `</tbody></table>`;
 
-    const clusterHTML = blocks.map(({ d, st, shots, glass, centroid, spinFrames,
-                                 renderSpin, climMax }, i) => {
+    const clusterHTML = blocks.map(({ d, st, shots, glass, glassShots, centroid,
+                                 spinFrames, renderSpin, climMax }, i) => {
       const k = d.cluster;
       const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
       const tot = Object.values(comp).reduce((s, v) => s + v, 0);
@@ -1215,9 +1304,21 @@ async function exportReport() {
   ${st && st.peak === 0 ? `<p class="warn">No vertex passes the gate — this cluster has ${RUN.cluster_sizes[String(k)]} labelled sample(s)
      and none sits where ${frozen.minN}+ fall within ${frozen.radius} mm. Nothing to draw, and that is the result.</p>` : ""}
   <div class="brains glass">
+    ${(glassShots || []).map((g, j) => img(g, `contacts — ${VIEWS[j][2]}`, "lite")).join("")}
+    <div></div>
+  </div>
+  <p class="sechint">The contacts themselves on a glass brain, captured from the viewer at
+    the same three angles as the probability maps above and with no ${frozen.radius}&nbsp;mm
+    smoothing &mdash; so this is where the electrodes are, and the maps above are what was
+    estimated from them.</p>
+  <div class="brains glass">
     ${glass.map((g, j) => img(g, GLASS[j].replace("_", " "), "lite")).join("")}
     <div></div>
   </div>
+  <p class="sechint">The same view rendered offline by <code>render_cnmf_glassbrains.py</code>,
+    through pyvista rather than WebGL, so it will not match the row above pixel for pixel.
+    An empty row here means this run has not been rendered yet, and the row above is then
+    the only glass view of it.</p>
   <div style="margin-top:16px">
     <div>${img(centroid, "cluster centroid — the mean response this cluster is defined by", "wide lite")}</div>
     <div style="margin-top:14px">

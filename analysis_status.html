@@ -3515,6 +3515,85 @@
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/decomposition/concat_hg/D3_graded_decomposition.png" alt="graded decomposition, convex NMF K=7, 1266 electrodes / 27 patients"></div>
     </figure>
 
+    <h4 id="howcnmfdecides">How the decomposition actually decides &mdash; and what drives each component</h4>
+    <p>Both figures below exist to answer one question that FIG C.3 states but does not let you
+      <i>see</i>: <b>convex NMF never partitions anything.</b> It fits K additive profiles and gives
+      every electrode a weight on each, <code>X &asymp; G(W&prime;X)</code> with W,&nbsp;G&nbsp;&ge;&nbsp;0.
+      The cluster label used everywhere else on this site &mdash; in the glassbrains, the centroids, the
+      timing ladder &mdash; is an <b>argmax over G taken afterwards, outside the model</b>. C.5 is what
+      that step throws away. C.6 asks whether throwing it away changes the answer.</p>
+
+    <figure><div class="cap"><div class="fignum">FIG C.5</div>
+      <h4>How the decomposition assigns electrodes</h4>
+      <ul>
+        <li><b>A &mdash; every electrode's mixture, not its membership.</b> One row per electrode
+          (1266), one column per component. Colour is the weight that electrode puts on that
+          component, <b>row-normalised so each row sums to 1</b> &mdash; raw G is not comparable
+          between electrodes, because a loud electrode loads higher on everything. Rows are grouped
+          by which component won the argmax (cyan lines mark the boundaries) and sorted within each
+          group by how strongly it won. <b>If this were a partition the diagonal blocks would be
+          solid dark and everything else pale.</b> They are not: the blocks are real, so there is
+          structure, but every block fades downward and carries substantial off-diagonal weight.
+          The tick on the colour bar marks <b>0.14</b>, an even split over seven components.</li>
+        <li><b>B &mdash; how close the decision was.</b> For each electrode, its top weight minus its
+          second, on the same row order as A. Short bars are electrodes whose two leading components
+          were nearly tied. <b>236 electrodes (19%) sit below 0.05</b>, and at the 10th percentile the
+          gap is <b>0.023</b> &mdash; for those the cluster label is close to a coin flip, and any
+          statement about "which cluster this contact belongs to" is not supportable. Note the bars
+          shorten toward the bottom of every block: the electrodes a cluster is least sure of are
+          exactly the ones it is least sure of in A.</li>
+        <li><b>C &mdash; how much the winner actually took.</b> The share of electrodes whose top
+          weight exceeds a threshold, swept from an even split to 1.0. Median top weight is
+          <b>0.43</b>; only <b>34%</b> reach a majority (&gt;&nbsp;0.5). The typical electrode is
+          mostly-but-not-only one component, which is the same fact FIG C.3 panel C reports as
+          66% having no majority &mdash; here as a curve, so you can pick your own threshold and read
+          off what it costs.</li>
+        <li><b>D &mdash; are the components even distinct from each other?</b> Correlation between the
+          seven fitted profiles. Most pairs are near-orthogonal (median <b>r = &minus;0.02</b>), which
+          is what you want. But <b>c2 and c4 sit at r = &minus;0.89</b>, boxed in red: they are near
+          mirror images, an activation and its suppression. Treating those as two independent response
+          types is a choice, not a finding, and the same caution applies more weakly to c5/c6
+          (r&nbsp;=&nbsp;+0.48).</li>
+      </ul>
+      <div class="runid">source: cnmf/concat_hg &middot; <b>20260818_112939</b> &middot; <code>make_decomposition_drivers.py</code> &middot; the concat_rawds equivalent is in that run's <code>decomposition_drivers/</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/cnmf/concat_hg/runs/20260818_112939/decomposition_drivers/D1_membership.png" alt="membership structure of the convex NMF decomposition: mixture matrix, decision margin, top-weight curve, component correlation"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG C.6</div>
+      <h4>What each component is made of &mdash; two routes to the same question</h4>
+      <ul>
+        <li><b>Rows</b> are the seven components, labelled with how many electrodes the argmax gave
+          each. <b>Columns are three different questions about the same component</b>, all on the same
+          x axis: the three conditions laid end to end, solid line = condition boundary, dashed =
+          the GO cue at 50% of each condition.</li>
+        <li><b>Left &mdash; what the component looks like.</b> The mean of its electrodes, each weighted
+          by its loading, in dB. <b>Not</b> <code>components.npy</code>: that is stored as a unit-norm
+          direction with values around &plusmn;0.05, so on a dB axis it draws a flat line. The two are
+          also not interchangeable &mdash; they agree at only <b>r = 0.40 to 0.97</b> depending on the
+          component &mdash; so the figure draws the one that is in real units and says so.</li>
+        <li><b>Middle &mdash; loading correlation, the model's own answer.</b> Across all 1266
+          electrodes, the correlation between the weight on this component and the value of each
+          feature. Read it as: <i>as an electrode loads more on this component, this feature rises
+          (green) or falls (purple)</i>. <b>This never passes through the argmax</b>, so it describes
+          what the decomposition actually fitted rather than what the labelling did afterwards.</li>
+        <li><b>Right &mdash; cluster vs rest, what a hard clustering would report.</b> Cohen's d between
+          the electrodes the argmax gave this component and every other electrode. Same layout, an
+          effect size rather than a correlation, so the scale differs &mdash; the shapes are what should
+          be compared.</li>
+        <li><b>The result is that the two right columns agree, at r = 0.97&ndash;0.99 on every
+          component</b> (printed at the end of each row, and the same on concat_rawds). This is worth
+          stating precisely, because it is narrower than it looks: <b>the argmax is unreliable for any
+          individual electrode &mdash; C.5 panel B &mdash; and still recovers the component's feature
+          signature.</b> So group-level claims about what a component responds to survive the hard
+          labelling; per-electrode claims about membership do not.</li>
+        <li><b>Colour is deliberately not the project bwr</b> in the two right columns. Those are a
+          correlation and an effect size, not dB, and reusing bwr would invite reading them against
+          the dB scale bar.</li>
+      </ul>
+      <div class="runid">source: cnmf/concat_hg &middot; <b>20260818_112939</b> &middot; <code>make_decomposition_drivers.py</code> &middot; concat_rawds draws the same three columns as band&nbsp;&times;&nbsp;time heatmaps</div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/cnmf/concat_hg/runs/20260818_112939/decomposition_drivers/D2_drivers.png" alt="per-component drivers: loading-weighted mean profile, loading correlation, and cluster-vs-rest Cohen's d"></div>
+    </figure>
+
         <h4>Opening the story &mdash; two candidates</h4>
     <p>The same evidence opens two ways and the choice is editorial, so both are drawn from the same
       files and at the same weight. <b>Decision taken 2026-08-08: the negative result stays in</b>

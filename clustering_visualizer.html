@@ -694,13 +694,13 @@ function updateElectrodes() {
     }
     // 0.14 is uniform loading at K=7 (1/7); below that a contact is expressing
     // nothing in particular and is drawn at the floor size rather than vanishing.
-    let w = 1, r = 2.3;
+    let w = 1, r = 1.73;
     if (load) {
       const lv = load[i];
       if (lv === null || lv === undefined) continue;
       if (lv < state.minLoad) continue;
       w = Math.max(0, Math.min(1, (lv - 0.14) / (0.85 - 0.14)));
-      r = 1.4 + 2.9 * w;
+      r = 1.05 + 2.18 * w;
       // Below 0.5 the contact is not clearly expressing this component, so it fades
       // toward grey as well as shrinking. Size alone is a weak cue at these radii - two
       // contacts one step apart differ by a fraction of a millimetre on screen - and

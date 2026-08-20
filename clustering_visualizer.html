@@ -597,13 +597,25 @@ function applyGlassAlpha() {
 // (a sphere-per-node connectome is far too heavy at 5247 contacts)
 // Same hue ramp the report's cluster chips use, so a contact's colour on the
 // brain and its colour in the legend are the same fact.
-const CLUSTER_RGB = Array.from({length: 24}, (_, i) => {
-  const h = (360 * i) / 24 / 360, s2 = 0.62, l = 0.52;
+// ONE cluster palette for the whole page - the contacts in the glass view and every
+// chip, donut slice and bar in the report all come from here, so a cluster is the same
+// colour wherever it appears.
+//
+// Hues are spread across THIS run's K. The old table was a fixed 24 steps indexed by
+// cluster id, so a K=7 run only ever reached hue 90 and the entire run was drawn inside
+// one red-to-yellow band - neighbouring clusters were genuinely hard to tell apart on
+// the brain, which is exactly what a by-cluster view is for.
+function clusterRGB(cid) {
+  const ks = (RUN && RUN.clusters) ? RUN.clusters : null;
+  const K = ks && ks.length ? ks.length : 24;
+  const idx = ks ? Math.max(0, ks.indexOf(cid)) : cid;
+  const h = ((360 * idx) / K) / 360, s2 = 0.62, l = 0.52;
   const k = n => (n + h * 12) % 12;
   const a = s2 * Math.min(l, 1 - l);
   const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
   return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
-});
+}
+const clusterCSS = cid => { const c = clusterRGB(cid); return `rgb(${c[0]},${c[1]},${c[2]})`; };
 const _OCT  = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
 const _OCTF = [[0,2,4],[2,1,4],[1,3,4],[3,0,4],[2,0,5],[1,2,5],[3,1,5],[0,3,5]];
 function updateElectrodes() {
@@ -640,7 +652,7 @@ function updateElectrodes() {
       // the map is not showing.
       if (d.cluster !== undefined && L.indexOf(d.cluster) < 0) continue;
       const cid = d.cluster !== undefined ? d.cluster : L[0];
-      colr = CLUSTER_RGB[cid % CLUSTER_RGB.length] || colr;
+      colr = clusterRGB(cid) || colr;
     } else if (d.cluster !== undefined) {
       const L = lab && lab[i];
       if (!Array.isArray(L) || L.indexOf(d.cluster) < 0) continue;
@@ -1012,15 +1024,18 @@ function legend(items, total) {
 // Deliberately NOT width-proportional to cluster size: a card grid exists so the
 // clusters can be read against each other, and a 12-sample cluster drawn 3 px wide
 // says nothing about who is in it. Size is carried in the caption instead.
-function stackbar(items, total, h) {
+function stackbar(items, total, h, scaleMax) {
   h = h || 13;
   const t = total || items.reduce((s, i) => s + i.value, 0);
-  if (!t) return `<svg viewBox="0 0 100 ${h}" class="sbar" preserveAspectRatio="none">`
-              + `<rect x="0" y="0" width="100" height="${h}" fill="#e6e8ec"/></svg>`;
+  // scaleMax puts every cluster on ONE x axis measured in samples, so the length of a
+  // bar is the size of the cluster and the segments are who is in it. Without it the
+  // bar fills the track and only composition is readable.
+  const span = scaleMax ? 100 * t / scaleMax : 100;
+  if (!t) return `<svg viewBox="0 0 100 ${h}" class="sbar" preserveAspectRatio="none"></svg>`;
   let x = 0, out = "";
   for (const it of items) {
     if (it.value <= 0) continue;
-    const w = 100 * it.value / t;
+    const w = span * it.value / t;
     out += `<rect x="${x.toFixed(3)}" y="0" width="${w.toFixed(3)}" height="${h}" fill="${it.color}">`
          + `<title>${esc(it.label)}: ${it.value} (${(100 * it.value / t).toFixed(1)}%)</title></rect>`;
     x += w;
@@ -1112,7 +1127,10 @@ h2.sec{font-size:17px;margin:0 0 3px}
 /* the per-cluster rotations: just under half the 1180 px page each, two per row */
 .spinpair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
 .spinpair .spinbox{max-width:100%}
-.spingrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:22px 26px;margin-top:8px}
+.spingrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 14px;margin-top:8px}
+.spin.quad .spinbox{max-width:100%;aspect-ratio:3/2}
+.spin.quad .spinbox img{width:100%;height:100%;object-fit:contain}
+.spin.quad figcaption{font-size:10px;margin-top:3px}
 .spin.big .spinbox{max-width:540px}
 .spintitle{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);margin:0 0 6px}
 .spintitle .k{color:#fff;font-weight:600;border-radius:5px;padding:1px 8px;font-size:12px}
@@ -1121,18 +1139,27 @@ h2.sec{font-size:17px;margin:0 0 3px}
 .spinbox img.off{visibility:hidden}
 .cluetop{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
 .cards{display:grid;gap:8px}
-.cardhead,.cardrow{display:grid;grid-template-columns:74px 1.45fr 1fr 1fr 1fr 1.7fr;gap:10px;align-items:center}
+/* the two lateral views carry the most anatomy, so they get the width; the cluster
+   chip is a square and the composition track gives up space to them */
+.cardhead,.cardrow,.cardaxis{display:grid;grid-template-columns:30px .95fr 1.6fr 1.6fr 1.05fr 1.15fr;gap:9px;align-items:center}
 .cardhead{padding:0 10px 4px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-.cardrow{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
-.cardrow .kchip{color:#fff;font-weight:600;border-radius:6px;padding:2px 0;font-size:12px;text-align:center}
+.cardaxis{padding:3px 10px 0}
+.cardrow{padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.cardrow .kchip{color:#fff;font-weight:600;border-radius:6px;font-size:11px;width:30px;height:30px;
+  display:flex;align-items:center;justify-content:center}
 .cellimg{width:100%;height:auto;display:block;border-radius:4px}
 .cellmiss{font-size:10px;color:var(--muted);border:1px dashed var(--line);border-radius:4px;padding:12px 4px;text-align:center}
-.sbar{width:100%;height:13px;display:block;border-radius:3px;overflow:hidden}
-.sbcap{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.35}
-.runstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:8px;margin:0 0 18px}
-.rs{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fbfcfd}
-.rs b{display:block;font-size:17px;line-height:1.15}
-.rs span{font-size:10.5px;color:var(--muted)}
+.sbtrack{background:#f1f3f6;border-radius:3px;overflow:hidden}
+.sbar{width:100%;height:15px;display:block}
+.sbcap{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.3}
+.baxis{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);
+  border-top:1px solid var(--line);padding-top:2px;font-variant-numeric:tabular-nums}
+/* one row, always: the tiles share the width instead of wrapping */
+.runstats{display:flex;gap:6px;margin:0 0 18px}
+.rs{flex:1 1 0;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 7px;background:#fbfcfd}
+.rs b{display:block;font-size:13.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rs span{display:block;font-size:8.5px;color:var(--muted);line-height:1.25}
+.cluepair{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;margin-top:16px}
 .fullrow{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
 table.sum{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
 table.sum th,table.sum td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line)}
@@ -1216,7 +1243,8 @@ async function exportReport() {
 
     const clusterDefs = DEFS.filter(d => d.cluster !== undefined);
     const pcol = patientColorMap(Object.keys(RUN.patient_totals || {}));
-    const clusterHue = (i, n) => `hsl(${Math.round(360 * i / n)} 62% 52%)`;
+    // same palette the glass view paints contacts with - not a parallel one
+    const clusterHue = (i) => clusterCSS(RUN.clusters[i]);
 
     // ── coverage
     btn.textContent = "Report: coverage…";
@@ -1249,8 +1277,6 @@ async function exportReport() {
       const shots = [];
       for (const [az, el] of VIEWS) shots.push(await captureView(az, el, CAPW, true));
       const spinFrames = await captureSpin(0, SPIN_N, SPIN_W, true);
-      btn.textContent = `Report: cluster ${i + 1} rotation...`;
-      const renderSpin = await fetchSpin(runBase, d.cluster, SPIN_N, SPIN_RENDER_W);
       const fig = (RUN.figures.per_cluster || {})[String(d.cluster)] || {};
       const glass = await Promise.all(GLASS.map(v =>
         // by_cluster/, the same renders FIG C.3 panel B2 uses. The manifest still
@@ -1267,7 +1293,7 @@ async function exportReport() {
         FIGW, false);
       const centroid = fig.centroid ? await tryImage(runBase + fig.centroid, FIGW, false)
                                     : { data: "", w: 0, h: 0 };
-      blocks.push({ d, st, shots, glass, centroid, raster, spinFrames, renderSpin,
+      blocks.push({ d, st, shots, glass, centroid, raster, spinFrames,
                     climMax: frozen.climMax });
     }
 
@@ -1320,6 +1346,11 @@ async function exportReport() {
                           : await captureView(az, el, CAPW, true));
         }
         blocks[i].glassShots = gs;
+        // The 360 comes from here too, rather than being fetched from the repo. It costs
+        // no extra frames - it replaces the offline rotation the report used to pull -
+        // and it means a run that was never rendered offline still turns.
+        btn.textContent = `Report: glass rotation ${i + 1}/${blocks.length}...`;
+        blocks[i].glassSpin = await captureSpin(0, SPIN_N, SPIN_W, true);
       }
     } catch (e) {
       // A failed glass pass must not cost the report the work already captured.
@@ -1345,7 +1376,7 @@ async function exportReport() {
     btn.textContent = "Report: writing…";
     const K = RUN.clusters.length;
     const sizeItems = RUN.clusters.map((k, i) => ({
-      label: `Cluster ${k}`, value: RUN.cluster_sizes[String(k)], color: clusterHue(i, K) }));
+      label: `Cluster ${k}`, value: RUN.cluster_sizes[String(k)], color: clusterHue(i) }));
     const patTotals = RUN.patient_totals || {};
     const patItems = Object.keys(patTotals).sort()
       .map(p => ({ label: p, value: patTotals[p], color: pcol[p] || "#888" }));
@@ -1358,7 +1389,7 @@ async function exportReport() {
         const tot = Object.values(comp).reduce((s, v) => s + v, 0) || 1;
         const top = Object.entries(comp).sort((a, b) => b[1] - a[1])[0];
         const np = RUN.cluster_patients[String(k)];
-        return `<tr><td class="sw"><i style="background:${clusterHue(i, K)}"></i>Cluster ${k}</td>` +
+        return `<tr><td class="sw"><i style="background:${clusterHue(i)}"></i>Cluster ${k}</td>` +
                `<td>${RUN.cluster_sizes[String(k)]}</td><td>${(100 * RUN.cluster_sizes[String(k)] / nSamples).toFixed(1)}%</td>` +
                `<td>${np}</td><td>${(100 * np / COH.n_patients).toFixed(0)}%</td>` +
                `<td>${top ? esc(top[0]) + " (" + (100 * top[1] / tot).toFixed(0) + "%)" : "—"}</td></tr>`;
@@ -1401,6 +1432,13 @@ async function exportReport() {
     // brain in this grid is the live glass scene at the frozen settings, so a run
     // that 252 never rendered still gets a full set of cards.
     let cardFallback = false;
+    // One x axis in samples for every composition bar. Taken from the same quantity the
+    // bars are built from (the per-patient counts), not cluster_sizes - the two can
+    // differ by unlabelled rows, and an axis that does not match its bars is worse than
+    // no axis.
+    const compTot = k => Object.values((RUN.cluster_patient_counts || {})[String(k)] || {})
+                               .reduce((a, v) => a + v, 0);
+    const barMax = Math.max(1, ...RUN.clusters.map(compTot));
     const cardsRows = blocks.map(({ d, shots, glassShots, centroid }, i) => {
       const k = d.cluster;
       const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
@@ -1415,10 +1453,10 @@ async function exportReport() {
         return cellImg(use, v[2]);
       }).join("");
       return `<div class="cardrow">
-        <div class="kchip" style="background:${clusterHue(i, K)}">c${k}</div>
+        <div class="kchip" style="background:${clusterHue(i)}">c${k}</div>
         ${cellImg(centroid, "centroid")}
         ${cells}
-        <div>${stackbar(items, tot)}
+        <div><div class="sbtrack">${stackbar(items, tot, 15, barMax)}</div>
           <div class="sbcap">${tot} samples · ${RUN.cluster_patients[String(k)]} patients${
             top ? " · " + esc(top[0]) + " " + (100 * top[1] / (tot || 1)).toFixed(0) + "%" : ""}</div>
         </div>
@@ -1432,11 +1470,15 @@ async function exportReport() {
     captured from this viewer at the frozen settings${cardFallback
       ? " &mdash; except where the glass pass did not complete, which falls back to the probability map"
       : ""}, so nothing here depends on a run having been rendered offline.
-    The composition bars are normalised to full width, so they compare
-    <i>who</i> is in a cluster, not how big it is; size is in the caption.</p>
+    The composition bars share one x axis in samples, so a longer bar is a bigger
+    cluster and the segments inside it are the patients it came from &mdash; length and
+    composition are readable in the same glance.</p>
   <div class="cardhead"><div></div><div>centroid</div>
-    ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it</div></div>
+    ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div></div>
   <div class="cards">${cardsRows}</div>
+  <div class="cardaxis"><div></div><div></div><div></div><div></div><div></div>
+    <div class="baxis"><span>0</span><span>${Math.round(barMax / 2)}</span><span>${barMax}</span></div>
+  </div>
 </section>`;
 
     // The two feature sets carry a different second panel, so the caption has to
@@ -1448,7 +1490,7 @@ async function exportReport() {
       ? "every electrode in this cluster, sorted by membership — strongest at top"
       : "the same centroid, with a dot where the cluster's electrodes disagree";
     const clusterHTML = blocks.map(({ d, st, shots, glass, glassShots, centroid,
-                                 raster, spinFrames, renderSpin, climMax }, i) => {
+                                 raster, spinFrames, glassSpin, climMax }, i) => {
       const k = d.cluster;
       const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
       const tot = Object.values(comp).reduce((s, v) => s + v, 0);
@@ -1457,7 +1499,7 @@ async function exportReport() {
       const np = RUN.cluster_patients[String(k)];
       return `
 <section class="card clus">
-  <h2><span class="k" style="background:${clusterHue(i, K)}">Cluster ${k}</span>
+  <h2><span class="k" style="background:${clusterHue(i)}">Cluster ${k}</span>
       <span>${RUN.cluster_sizes[String(k)]} samples · ${np} of ${COH.n_patients} patients</span></h2>
   <p class="sechint">P(cluster ${k} | labelled electrode within ${frozen.radius} mm), gated at ${frozen.minN} labelled contacts.
      Colour scale <b>0–${climMax.toFixed(2)}</b>, the same on every cluster in this report, so the
@@ -1485,22 +1527,22 @@ async function exportReport() {
     An empty row here means this run has not been rendered yet, and the row above is then
     the only glass view of it.</p>
   <div style="margin-top:16px">
-    <div>${img(centroid, "cluster centroid — the mean response this cluster is defined by", "wide lite")}</div>
-    ${raster && raster.data
-      ? `<div style="margin-top:12px">${img(raster, rasterCap, "wide lite")}</div>`
-      : ""}
+    <div class="${raster && raster.data ? "cluepair" : ""}" style="margin-top:0">
+      <div>${img(centroid, "cluster centroid — the mean response this cluster is defined by", "wide lite")}</div>
+      ${raster && raster.data ? `<div>${img(raster, rasterCap, "wide lite")}</div>` : ""}
+    </div>
     <div style="margin-top:14px">
       <h2 class="sec">Seen from every angle</h2>
       <p class="sechint">Two full turns of the same cluster. <b>Left:</b> the probability
         map from the stills above &mdash; a cluster that looks focal from one side and
         diffuse from another is worth knowing about before it is called focal.
-        <b>Right:</b> the contacts themselves, in the project glass-brain look, with no
+        <b>Right:</b> the contacts themselves, captured from this viewer's glass brain, with no
         ${frozen.radius}&nbsp;mm smoothing. The probability field is an estimate built from
         those contacts, so the two answer different questions and disagreement between them
         is informative rather than a fault.</p>
       <div class="spinpair">
         ${spin(spinFrames, `Cluster ${k} probability`)}
-        ${spin(renderSpin, `Cluster ${k} contacts`)}
+        ${spin(glassSpin, `Cluster ${k} contacts`)}
       </div>
     </div>
   </div>
@@ -1592,16 +1634,15 @@ async function exportReport() {
 
 <section class="card">
   <h2 class="sec">Every cluster, a full turn each</h2>
-  <p class="sechint">One 360&deg; rotation per cluster, ${K} in total, from
-    <code>render_cnmf_glassbrains.py</code> &mdash; the project's own glass-brain look, not a
-    capture of this page. These are the raw contact positions of each cluster with no
-    ${frozen.radius}&nbsp;mm smoothing, so a cluster that looks compact as a probability
-    field can look scattered here. Each turn takes about 5&nbsp;s.</p>
+  <p class="sechint">One 360&deg; rotation per cluster, ${K} in total, captured from this
+    viewer's glass brain at the frozen settings. These are the raw contact positions of each
+    cluster with no ${frozen.radius}&nbsp;mm smoothing, so a cluster that looks compact as a
+    probability field can look scattered here. Each turn takes about 5&nbsp;s.</p>
   <div class="spingrid">
-    ${blocks.map(({ d, renderSpin }, i) => `<div>
-      <div class="spintitle"><span class="k" style="background:${clusterHue(i, K)}">Cluster ${d.cluster}</span>
+    ${blocks.map(({ d, glassSpin }, i) => `<div>
+      <div class="spintitle"><span class="k" style="background:${clusterHue(i)}">Cluster ${d.cluster}</span>
         <span>${RUN.cluster_sizes[String(d.cluster)]} samples</span></div>
-      ${spin(renderSpin, `cluster ${d.cluster}`, "big")}
+      ${spin(glassSpin, `cluster ${d.cluster}`, "quad")}
     </div>`).join("")}
   </div>
 </section>

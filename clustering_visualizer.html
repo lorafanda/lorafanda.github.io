@@ -1112,8 +1112,14 @@ const NOTES_JS = `
 <script>
 (() => {
   const KEY = "fbm-notes:" + (document.body.dataset.run || "run");
-  let store = {};
+  const bakedEl = document.getElementById("baked-notes");
+  let store = {}, baked = {};
   try { store = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+  try { baked = JSON.parse((bakedEl && bakedEl.textContent) || "{}"); } catch (e) {}
+  // Notes baked into the file travel with it. The browser's own copy wins only where it
+  // actually holds something for that key, so opening a baked report on a machine that
+  // has never seen it shows what the author wrote rather than an empty box.
+  for (const k in baked) if (!store[k]) store[k] = baked[k];
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
   document.querySelectorAll(".note").forEach(n => {
     const k = n.dataset.note;
@@ -1127,6 +1133,29 @@ const NOTES_JS = `
     n.classList.toggle("empty", !n.textContent.trim());
     n.addEventListener("input", sync);
     n.addEventListener("blur", sync);
+  });
+  save();
+  const btn = document.getElementById("saveNotes");
+  if (btn) btn.addEventListener("click", () => {
+    // Serialise THIS document with the notes written into it, both as the visible text
+    // and as JSON, so the copy renders them without a script and still reloads them if
+    // it is edited further.
+    if (bakedEl) bakedEl.textContent = JSON.stringify(store);
+    document.querySelectorAll(".note").forEach(n => {
+      const t = store[n.dataset.note] || "";
+      n.textContent = t;
+      n.classList.toggle("empty", !t);
+    });
+    const out = "<!doctype html>\\n" + document.documentElement.outerHTML;
+    const b = new Blob([out], { type: "text/html;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = (document.body.dataset.file || "report").replace(/\\.html$/, "") + "_notes.html";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+    const was = btn.textContent;
+    btn.textContent = "Saved \u2713";
+    setTimeout(() => { btn.textContent = was; }, 2000);
   });
 })();
 <\/script>`;
@@ -1207,6 +1236,13 @@ table.res td.rv{font-variant-numeric:tabular-nums;white-space:nowrap;width:1%;
   color:var(--accent);font-weight:600}
 table.res td:last-child{color:var(--muted)}
 /* notes: one editable block per section, kept in localStorage per run */
+.notebar{position:fixed;right:16px;bottom:16px;z-index:50;display:flex;align-items:center;gap:11px;
+  background:var(--card);border:1px solid var(--line);border-radius:11px;padding:9px 13px;
+  box-shadow:0 8px 28px rgba(0,0,0,.13);font-size:10.5px;color:var(--muted);max-width:360px;line-height:1.4}
+.notebar button{font:inherit;font-size:12px;font-weight:600;color:#fff;background:var(--accent);
+  border:0;border-radius:7px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.notebar button:hover{filter:brightness(1.08)}
+@media print{.notebar{display:none}}
 .noteblk{margin-top:18px;border-top:1px dashed var(--line);padding-top:10px}
 .notelab{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:5px}
 .note{min-height:44px;border:1px solid var(--line);border-radius:8px;padding:8px 11px;
@@ -1432,6 +1468,9 @@ async function exportReport() {
 
     // ── assemble -------------------------------------------------------------
     btn.textContent = "Report: writing…";
+    // named once: the report's own download and the notes copy must agree
+    const reportName = `report_${RUN.track.replace(/\//g, "_")}_${RUN.run}`
+                     + `_r${frozen.radius}mm_n${frozen.minN}_max${frozen.climMax.toFixed(2)}.html`;
     const K = RUN.clusters.length;
     const sizeItems = RUN.clusters.map((k, i) => ({
       label: `Cluster ${k}`, value: RUN.cluster_sizes[String(k)], color: clusterHue(i) }));
@@ -1639,7 +1678,8 @@ async function exportReport() {
 
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>${esc(RUN.track_label)} · ${esc(RUN.run)} — run report</title>
-<style>${REPORT_CSS}</style></head><body data-run="${esc(RUN.id)}"><div class="wrap">
+<style>${REPORT_CSS}</style></head>
+<body data-run="${esc(RUN.id)}" data-file="${esc(reportName)}"><div class="wrap">
 <header class="top">
   <h1>Electrode sampling and cluster probability</h1>
   <div class="sub">${esc(RUN.track_label)} · run <code>${esc(RUN.run)}</code> · ${esc(RUN.cohort)}</div>
@@ -1749,6 +1789,11 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
   colour ceiling ${frozen.climMax.toFixed(2)} (${esc(climSource)}) · gamma ${frozen.gamma.toFixed(2)}.<br>
   Patient colours match the MOBA patient view. Print this page (A4 landscape) to get a PDF.
 </footer>
+<div class="notebar">
+  <button id="saveNotes" type="button">Download copy with notes</button>
+  <span>Typing is kept in this browser only. Use this to write the notes into a file you can send.</span>
+</div>
+<script id="baked-notes" type="application/json">{}<\/script>
 </div>${SPIN_JS}${NOTES_JS}</body></html>`;
 
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
@@ -1756,8 +1801,7 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
     a.href = URL.createObjectURL(blob);
     // the ceiling and gate are in the filename: two reports of the same run at
     // different settings are different documents and must not overwrite each other
-    a.download = `report_${RUN.track.replace(/\//g, "_")}_${RUN.run}`
-               + `_r${frozen.radius}mm_n${frozen.minN}_max${frozen.climMax.toFixed(2)}.html`;
+    a.download = reportName;
     document.body.appendChild(a); a.click(); a.remove();
     setTimeout(() => URL.revokeObjectURL(a.href), 20000);
   } catch (e) {

@@ -1070,41 +1070,21 @@ function legend(items, total) {
   ).join("") + `</ul>`;
 }
 
-// Composition as a horizontal stacked bar, normalised to the full width.
-// Deliberately NOT width-proportional to cluster size: a card grid exists so the
-// clusters can be read against each other, and a 12-sample cluster drawn 3 px wide
-// says nothing about who is in it. Size is carried in the caption instead.
-function stackbar(items, total, h, scaleMax) {
-  h = h || 13;
-  const t = total || items.reduce((s, i) => s + i.value, 0);
-  // scaleMax puts every cluster on ONE x axis measured in samples, so the length of a
-  // bar is the size of the cluster and the segments are who is in it. Without it the
-  // bar fills the track and only composition is readable.
-  const span = scaleMax ? 100 * t / scaleMax : 100;
-  if (!t) return `<svg viewBox="0 0 100 ${h}" class="compbar" preserveAspectRatio="none"></svg>`;
-  let x = 0, out = "";
-  for (const it of items) {
-    if (it.value <= 0) continue;
-    const w = span * it.value / t;
-    out += `<rect x="${x.toFixed(3)}" y="0" width="${w.toFixed(3)}" height="${h}" fill="${it.color}">`
-         + `<title>${esc(it.label)}: ${it.value} (${(100 * it.value / t).toFixed(1)}%)</title></rect>`;
-    x += w;
-    // a hairline where each patient ends, so the segments are countable rather than a
-    // gradient. vector-effect keeps it 1 px after the viewBox is stretched to the track.
-    if (x < span - 1e-6)
-      out += `<line x1="${x.toFixed(3)}" y1="0" x2="${x.toFixed(3)}" y2="${h}" `
-           + `stroke="#fff" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
-  }
-  return `<svg viewBox="0 0 100 ${h}" class="compbar" preserveAspectRatio="none">${out}</svg>`;
+// Fetch a small JSON, or null. The report must survive a run that has not published a
+// given metrics file - that is a normal state, not an error worth aborting an export for.
+async function tryJSON(url) {
+  try { const r = await fetch(url); return r.ok ? await r.json() : null; }
+  catch (e) { return null; }
 }
 
-// A bare <img> for the card grid. img() wraps every picture in a <figure> with a
-// visible caption, which is right for a full-width panel and wrong for a row of
-// thumbnails - the captions would be taller than the brains.
-function cellImg(im, alt) {
-  return (im && im.data)
-    ? `<img class="cellimg" src="${im.data}" alt="${esc(alt)}">`
-    : `<div class="cellmiss">${esc(alt)}</div>`;
+// An editable notes block. contenteditable rather than <textarea> so it grows with what
+// is typed and prints as ordinary text; the saved file keeps notes in localStorage keyed
+// by run, so reopening the same report in the same browser brings them back. Notes are
+// per browser, not baked into the file - re-saving the report does not carry them.
+function note(key) {
+  return `<div class="noteblk"><div class="notelab">Notes</div>`
+       + `<div class="note empty" contenteditable="true" data-note="${esc(key)}" `
+       + `data-ph="Write what you make of this section — kept in this browser."></div></div>`;
 }
 
 function img(im, alt, cls) {
@@ -1127,6 +1107,29 @@ function spin(frames, alt, cls) {
        + `data-n="${frames.length}">${imgs}</div>`
        + `<figcaption>${esc(alt)} · ${frames.length}-frame 360° rotation</figcaption></figure>`;
 }
+
+const NOTES_JS = `
+<script>
+(() => {
+  const KEY = "fbm-notes:" + (document.body.dataset.run || "run");
+  let store = {};
+  try { store = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
+  document.querySelectorAll(".note").forEach(n => {
+    const k = n.dataset.note;
+    if (store[k]) n.textContent = store[k];
+    const sync = () => {
+      const t = n.textContent.trim();
+      if (t) store[k] = t; else delete store[k];
+      n.classList.toggle("empty", !t);
+      save();
+    };
+    n.classList.toggle("empty", !n.textContent.trim());
+    n.addEventListener("input", sync);
+    n.addEventListener("blur", sync);
+  });
+})();
+<\/script>`;
 
 const SPIN_JS = `
 <script>
@@ -1194,28 +1197,27 @@ h2.sec{font-size:17px;margin:0 0 3px}
 .spinbox img:not(:first-child){position:absolute;inset:0}
 .spinbox img.off{visibility:hidden}
 .cluetop{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
-.cards{display:grid;gap:8px}
-/* the two lateral views carry the most anatomy, so they get the width; the cluster
-   chip is a square and the composition track gives up space to them */
-.cardhead,.cardrow,.cardaxis{display:grid;grid-template-columns:30px .95fr 1.6fr 1.6fr 1.05fr 1.15fr;gap:9px;align-items:center}
-.cardhead{padding:0 10px 4px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
-.cardaxis{padding:3px 10px 0}
-.cardrow{padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
-.cardrow .kchip{color:#fff;font-weight:600;border-radius:6px;font-size:11px;width:30px;height:30px;
-  display:flex;align-items:center;justify-content:center}
-.cellimg{width:100%;height:auto;display:block;border-radius:4px}
-.cellmiss{font-size:10px;color:var(--muted);border:1px dashed var(--line);border-radius:4px;padding:12px 4px;text-align:center}
-.sbtrack{background:#f1f3f6;border-radius:3px;overflow:hidden}
-/* not .sbar - scaleBar already owns that name further down, and it wins on order */
-.compbar{width:100%;height:15px;display:block}
-.sbcap{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.3}
-.baxis{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);
-  border-top:1px solid var(--line);padding-top:2px;font-variant-numeric:tabular-nums}
-/* one row, always: the tiles share the width instead of wrapping */
-.runstats{display:flex;gap:6px;margin:0 0 18px}
-.rs{flex:1 1 0;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 7px;background:#fbfcfd}
-.rs b{display:block;font-size:13.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.rs span{display:block;font-size:8.5px;color:var(--muted);line-height:1.25}
+/* results table */
+table.res{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
+table.res th{text-align:left;font-weight:600;color:var(--muted);font-size:10.5px;
+  text-transform:uppercase;letter-spacing:.04em;padding:0 10px 6px 0;border-bottom:1px solid var(--line)}
+table.res td{padding:8px 10px 8px 0;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.5}
+table.res td:first-child{white-space:nowrap;font-weight:600;width:1%}
+table.res td.rv{font-variant-numeric:tabular-nums;white-space:nowrap;width:1%;
+  color:var(--accent);font-weight:600}
+table.res td:last-child{color:var(--muted)}
+/* notes: one editable block per section, kept in localStorage per run */
+.noteblk{margin-top:18px;border-top:1px dashed var(--line);padding-top:10px}
+.notelab{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:5px}
+.note{min-height:44px;border:1px solid var(--line);border-radius:8px;padding:8px 11px;
+  font-size:12.5px;line-height:1.55;background:#fffdf6;outline:none;white-space:pre-wrap}
+.note:focus{border-color:var(--accent);background:#fff}
+.note.empty::before{content:attr(data-ph);color:#aab2ba}
+/* on paper an empty prompt is noise, so blank notes drop out of the print entirely */
+@media print{
+  .note{background:#fff}
+  .noteblk:has(.note.empty){display:none}
+}
 .cluepair{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;margin-top:16px}
 .fullrow{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
 table.sum{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
@@ -1290,7 +1292,6 @@ async function exportReport() {
     : `set by hand`;
 
   const runBase = `${CLUST}${RUN.path}/`;
-  const GLASS = ["lateral_L", "lateral_R", "dorsal"];
   const CAPW = 900, FIGW = 1500;
 
   try {
@@ -1335,13 +1336,6 @@ async function exportReport() {
       for (const [az, el] of VIEWS) shots.push(await captureView(az, el, CAPW, true));
       const spinFrames = await captureSpin(0, SPIN_N, SPIN_W, true);
       const fig = (RUN.figures.per_cluster || {})[String(d.cluster)] || {};
-      const glass = await Promise.all(GLASS.map(v =>
-        // by_cluster/, the same renders FIG C.3 panel B2 uses. The manifest still
-        // points at by_condition/, which is 252's and currently empty.
-        tryImage(`${runBase}recon/cluster_${String(d.cluster).padStart(2, "0")}/by_cluster/${v}.png`,
-                 700, true).then(im => (im && im.data) ? im
-          : (fig.glass && fig.glass[v] ? tryImage(runBase + fig.glass[v], 700, true)
-                                       : { data: "", w: 0, h: 0 }))));
       // make_centroid_rasters writes these; fetched by path rather than through the
       // manifest, like the by_cluster glassbrains above, so a run that has them shows
       // them without the bundle needing to be rebuilt first.
@@ -1350,7 +1344,7 @@ async function exportReport() {
         FIGW, false);
       const centroid = fig.centroid ? await tryImage(runBase + fig.centroid, FIGW, false)
                                     : { data: "", w: 0, h: 0 };
-      blocks.push({ d, st, shots, glass, centroid, raster, spinFrames,
+      blocks.push({ d, st, shots, centroid, raster, spinFrames,
                     climMax: frozen.climMax });
     }
 
@@ -1491,58 +1485,83 @@ async function exportReport() {
           "most one-patient-heavy (c" + conc.k + ")") : ""}
     </div>`;
 
-    // ── cluster cards ------------------------------------------------------
-    // Built here, from what this viewer captured a moment ago - not fetched. Every
-    // brain in this grid is the live glass scene at the frozen settings, so a run
-    // that 252 never rendered still gets a full set of cards.
-    let cardFallback = false;
-    // One x axis in samples for every composition bar. Taken from the same quantity the
-    // bars are built from (the per-patient counts), not cluster_sizes - the two can
-    // differ by unlabelled rows, and an axis that does not match its bars is worse than
-    // no axis.
-    const compTot = k => Object.values((RUN.cluster_patient_counts || {})[String(k)] || {})
-                               .reduce((a, v) => a + v, 0);
-    const barMax = Math.max(1, ...RUN.clusters.map(compTot));
-    const cardsRows = blocks.map(({ d, shots, glassShots, centroid }, i) => {
-      const k = d.cluster;
-      const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
-      const tot = Object.values(comp).reduce((a, v) => a + v, 0);
-      const items = Object.keys(comp).sort()
-        .map(q => ({ label: q, value: comp[q], color: pcol[q] || "#888" }));
-      const top = Object.entries(comp).sort((a, b) => b[1] - a[1])[0];
-      const cells = VIEWS.map((v, j) => {
-        const g = (glassShots || [])[j];
-        const use = (g && g.data) ? g : shots[j];
-        if (!(g && g.data)) cardFallback = true;
-        return cellImg(use, v[2]);
-      }).join("");
-      return `<div class="cardrow">
-        <div class="kchip" style="background:${clusterHue(i)}">c${k}</div>
-        ${cellImg(centroid, "centroid")}
-        ${cells}
-        <div><div class="sbtrack">${stackbar(items, tot, 15, barMax)}</div>
-          <div class="sbcap">${tot} samples · ${RUN.cluster_patients[String(k)]} patients${
-            top ? " · " + esc(top[0]) + " " + (100 * top[1] / (tot || 1)).toFixed(0) + "%" : ""}</div>
-        </div>
-      </div>`;
-    }).join("");
+    // ── results ------------------------------------------------------------
+    // Read from the run's own files rather than restated, so a number here cannot drift
+    // from the analysis that produced it. Each row carries how to read it, because a
+    // silhouette of 0.16 means something quite different on iEEG responses than the
+    // textbook reading of "weak structure" suggests.
+    btn.textContent = "Report: results…";
+    const method = String(RUN.track || "").split("/")[0];
+    const fset   = String(RUN.track || "").split("/")[1] || "";
+    const RES = {
+      metrics:   await tryJSON(runBase + "metrics.json"),
+      stability: await tryJSON(runBase + "stability_summary.json"),
+      decomp:    method === "cnmf" ? await tryJSON(`${CLUST}decomposition/${fset}/meta.json`) : null,
+    };
+    const rows = [];
+    const add = (name, val, how) => {
+      if (val === null || val === undefined || (typeof val === "number" && !isFinite(val))) return;
+      rows.push(`<tr><td>${esc(name)}</td><td class="rv">${esc(String(val))}</td><td>${how}</td></tr>`);
+    };
+    const f3 = v => (v === null || v === undefined) ? null : (+v).toFixed(3);
+    const pc = v => (v === null || v === undefined) ? null : (100 * v).toFixed(1) + "%";
 
-    const cardsHTML = `<section class="card">
-  <h2 class="sec">Cluster cards</h2>
-  <p class="sechint">One row per cluster: its mean response, the same three angles for every
-    cluster, and who it is made of. The brains are the contacts themselves on a glass brain,
-    captured from this viewer at the frozen settings${cardFallback
-      ? " &mdash; except where the glass pass did not complete, which falls back to the probability map"
-      : ""}, so nothing here depends on a run having been rendered offline.
-    The composition bars share one x axis in samples, so a longer bar is a bigger
-    cluster and the segments inside it are the patients it came from &mdash; length and
-    composition are readable in the same glance.</p>
-  <div class="cardhead"><div></div><div>centroid</div>
-    ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div></div>
-  <div class="cards">${cardsRows}</div>
-  <div class="cardaxis"><div></div><div></div><div></div><div></div><div></div>
-    <div class="baxis"><span>0</span><span>${Math.round(barMax / 2)}</span><span>${barMax}</span></div>
-  </div>
+    if (RES.metrics) {
+      add("Silhouette, overall", f3(RES.metrics.silhouette_overall),
+        "&minus;1 to +1: how much closer a sample sits to its own cluster than to the next one. " +
+        "On iEEG responses 0.1&ndash;0.2 is the normal range and means broad, overlapping " +
+        "populations rather than crisp types &mdash; it is not a failed fit.");
+      add("Calinski&ndash;Harabasz", RES.metrics.calinski_harabasz === undefined ? null
+            : (+RES.metrics.calinski_harabasz).toFixed(1),
+        "Between-cluster spread divided by within-cluster spread. Higher is tighter, but it " +
+        "climbs with K on its own, so only compare runs fitted at the same K.");
+      add("Davies&ndash;Bouldin", f3(RES.metrics.davies_bouldin),
+        "How similar each cluster is to whichever one most resembles it, averaged. Lower is " +
+        "better; below about 1 counts as well separated.");
+    }
+    if (RES.stability) {
+      add("Stability, mean", f3(RES.stability.mean_jaccard),
+        `Refit ${RES.stability.n_runs} times on ${pc(RES.stability.subsample_frac)} of the samples ` +
+        "and matched back to the full fit. 1.0 is an identical partition every time; around " +
+        "0.3&ndash;0.4 means it moves substantially when the sample changes.");
+      add("Stability, worst cluster", f3(RES.stability.min_jaccard),
+        "The least reproducible single cluster. A run can be stable on average and still carry " +
+        "one cluster that does not survive resampling, so check this before quoting a cluster " +
+        "on its own.");
+    }
+    if (RES.decomp) {
+      const mx = RES.decomp.mixture || {};
+      add("Variance explained", f3(RES.decomp.in_sample_var_explained),
+        "How much of the dB response matrix the components rebuild. In sample, so it can only " +
+        "rise with K &mdash; useful as a description, not as a way to choose K.");
+      add("One dominant component", pc(mx.frac_dominant),
+        "Electrodes where a single component carries most of the weight. Low is expected here: " +
+        "a graded model is not trying to assign each electrode to one type.");
+      add("No majority component", pc(mx.frac_no_majority),
+        "Electrodes whose weight is spread across components with none above half. This is the " +
+        "result the graded model exists to express, and the reason a hard partition of the same " +
+        "data is a summary rather than a description.");
+      add("Median top weight", f3(mx.median_top_weight),
+        "The typical electrode's strongest component weight. Near 1/K would mean components are " +
+        "not differentiating electrodes at all.");
+      const asc = RES.decomp.argmax_spatial_coherence;
+      if (Array.isArray(asc) && asc.length > 1)
+        add("Anatomical coherence", (+asc[1]).toFixed(2) + "× chance",
+          "How much more often neighbouring electrodes share a component than they would if " +
+          "components were shuffled. Above 1 means the decomposition tracks anatomy it was " +
+          "never given.");
+    }
+
+    const resultsHTML = `<section class="card">
+  <h2 class="sec">Results for this run</h2>
+  <p class="sechint">${rows.length
+    ? "Read from this run's own files at save time, so nothing here can drift from the analysis "
+      + "that produced it. The right-hand column is what each number means and what counts as a "
+      + "good value for it."
+    : "This run publishes no metrics files yet, so there is nothing to report here."}</p>
+  ${rows.length ? `<table class="res"><thead><tr><th>Measure</th><th>Value</th>
+    <th>How to read it</th></tr></thead><tbody>${rows.join("")}</tbody></table>` : ""}
+  ${note("results")}
 </section>`;
 
     // The two feature sets carry a different second panel, so the caption has to
@@ -1553,7 +1572,7 @@ async function exportReport() {
     const rasterCap = isHG
       ? "every electrode in this cluster, sorted by membership — strongest at top"
       : "the same centroid, with a dot where the cluster's electrodes disagree";
-    const clusterHTML = blocks.map(({ d, st, shots, glass, glassShots, centroid,
+    const clusterHTML = blocks.map(({ d, st, shots, glassShots, centroid,
                                  raster, spinFrames, glassSpin, climMax }, i) => {
       const k = d.cluster;
       const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
@@ -1582,14 +1601,6 @@ async function exportReport() {
     the same three angles as the probability maps above and with no ${frozen.radius}&nbsp;mm
     smoothing &mdash; so this is where the electrodes are, and the maps above are what was
     estimated from them.</p>
-  <div class="brains glass">
-    ${glass.map((g, j) => img(g, GLASS[j].replace("_", " "), "lite")).join("")}
-    <div></div>
-  </div>
-  <p class="sechint">The same view rendered offline by <code>render_cnmf_glassbrains.py</code>,
-    through pyvista rather than WebGL, so it will not match the row above pixel for pixel.
-    An empty row here means this run has not been rendered yet, and the row above is then
-    the only glass view of it.</p>
   <div style="margin-top:16px">
     <div class="${raster && raster.data ? "cluepair" : ""}" style="margin-top:0">
       <div>${img(centroid, "cluster centroid — the mean response this cluster is defined by", "wide lite")}</div>
@@ -1621,13 +1632,14 @@ async function exportReport() {
       ${donut(items, 150, String(np), `of ${COH.n_patients} patients`)}
       ${legend(items, tot)}
     </div>
+    ${note("cluster-" + k)}
   </div>
 </section>`;
     }).join("");
 
     const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
 <title>${esc(RUN.track_label)} · ${esc(RUN.run)} — run report</title>
-<style>${REPORT_CSS}</style></head><body><div class="wrap">
+<style>${REPORT_CSS}</style></head><body data-run="${esc(RUN.id)}"><div class="wrap">
 <header class="top">
   <h1>Electrode sampling and cluster probability</h1>
   <div class="sub">${esc(RUN.track_label)} · run <code>${esc(RUN.run)}</code> · ${esc(RUN.cohort)}</div>
@@ -1662,6 +1674,7 @@ async function exportReport() {
     <div class="donutwrap">${donut(patItems, 150, String(patItems.length), "patients")}${legend(patItems, nSamples)}</div>
   </div>
   ${summary}
+  ${note("overview")}
 </section>
 
 <section class="card">
@@ -1702,6 +1715,7 @@ async function exportReport() {
       ${spin(glassCovSpin, "all contacts, by cluster")}
     </div>
   </div>
+  ${note("coverage")}
 </section>
 
 <section class="card">
@@ -1717,14 +1731,15 @@ async function exportReport() {
       ${spin(glassSpin, `cluster ${d.cluster}`, "quad")}
     </div>`).join("")}
   </div>
+  ${note("turns")}
 </section>
 
-${cardsHTML}
+${resultsHTML}
 
 ${clusterHTML}
 
 ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title)}</h2>
-  <p class="sechint"><code>${esc(ov[i].path)}</code></p>${img(im, ov[i].title, "wide lite")}</section>`).join("")}
+  <p class="sechint"><code>${esc(ov[i].path)}</code></p>${img(im, ov[i].title, "wide lite")}${note('figure-' + i)}</section>`).join("")}
 
 <footer class="bot">
   Generated from <code>clustering_visualizer.html</code> · counts from
@@ -1734,7 +1749,7 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
   colour ceiling ${frozen.climMax.toFixed(2)} (${esc(climSource)}) · gamma ${frozen.gamma.toFixed(2)}.<br>
   Patient colours match the MOBA patient view. Print this page (A4 landscape) to get a PDF.
 </footer>
-</div>${SPIN_JS}</body></html>`;
+</div>${SPIN_JS}${NOTES_JS}</body></html>`;
 
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const a = document.createElement("a");

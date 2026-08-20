@@ -616,8 +616,43 @@ function clusterRGB(cid) {
   return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
 }
 const clusterCSS = cid => { const c = clusterRGB(cid); return `rgb(${c[0]},${c[1]},${c[2]})`; };
-const _OCT  = [[1,0,0],[-1,0,0],[0,1,0],[0,-1,0],[0,0,1],[0,0,-1]];
-const _OCTF = [[0,2,4],[2,1,4],[1,3,4],[3,0,4],[2,0,5],[1,2,5],[3,1,5],[0,3,5]];
+// A round contact, the same icosphere MOBA draws. The bare octahedron this used to push
+// has six vertices and reads as a faceted diamond at these radii - the silhouette is a
+// hexagon, and at a few hundred contacts that is what the eye picks up. This is MOBA's
+// construction verbatim: a 12-vertex icosahedron, one Loop subdivision, midpoints
+// projected back onto the unit sphere. 42 vertices and 80 faces per contact, so at
+// ~1300 contacts ~55k vertices in one mesh - well inside what a single NVMesh takes,
+// and lighter than subdividing an octahedron to the same roundness.
+const [_OCT, _OCTF] = (() => {
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  const V = [
+    [-1, PHI, 0], [1, PHI, 0], [-1, -PHI, 0], [1, -PHI, 0],
+    [0, -1, PHI], [0, 1, PHI], [0, -1, -PHI], [0, 1, -PHI],
+    [PHI, 0, -1], [PHI, 0, 1], [-PHI, 0, -1], [-PHI, 0, 1],
+  ].map(v => { const L = Math.hypot(v[0], v[1], v[2]); return [v[0]/L, v[1]/L, v[2]/L]; });
+  const F0 = [
+    [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
+    [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+    [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
+    [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1],
+  ];
+  const mid = new Map(), F = [];
+  const cut = (x, y) => {
+    const key = x < y ? x + "_" + y : y + "_" + x;
+    if (mid.has(key)) return mid.get(key);
+    const va = V[x], vb = V[y];
+    let mx = (va[0]+vb[0])/2, my = (va[1]+vb[1])/2, mz = (va[2]+vb[2])/2;
+    const L = Math.hypot(mx, my, mz) || 1;
+    V.push([mx/L, my/L, mz/L]);
+    mid.set(key, V.length - 1);
+    return V.length - 1;
+  };
+  for (const [x, y, z] of F0) {
+    const xy = cut(x, y), yz = cut(y, z), zx = cut(z, x);
+    F.push([x, xy, zx], [y, yz, xy], [z, zx, yz], [xy, yz, zx]);
+  }
+  return [V, F];
+})();
 function updateElectrodes() {
   if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} elecMesh = null; }
   // contacts are in anatomical space — they do not lie on the inflated surface
@@ -659,20 +694,31 @@ function updateElectrodes() {
     }
     // 0.14 is uniform loading at K=7 (1/7); below that a contact is expressing
     // nothing in particular and is drawn at the floor size rather than vanishing.
-    let w = 1, r = 1.7;
+    let w = 1, r = 2.3;
     if (load) {
       const lv = load[i];
       if (lv === null || lv === undefined) continue;
       if (lv < state.minLoad) continue;
       w = Math.max(0, Math.min(1, (lv - 0.14) / (0.85 - 0.14)));
-      r = 1.0 + 2.2 * w;
+      r = 1.4 + 2.9 * w;
+      // Below 0.5 the contact is not clearly expressing this component, so it fades
+      // toward grey as well as shrinking. Size alone is a weak cue at these radii - two
+      // contacts one step apart differ by a fraction of a millimetre on screen - and
+      // colour carries the same quantity where size cannot.
+      if (lv < 0.5) {
+        const g = Math.max(0, Math.min(1, (lv - 0.14) / (0.5 - 0.14)));
+        const GREY = 148;
+        colr = [Math.round(GREY + (colr[0] - GREY) * g),
+                Math.round(GREY + (colr[1] - GREY) * g),
+                Math.round(GREY + (colr[2] - GREY) * g)];
+      }
     }
     const [x, y, z] = CONTACTS.xyz[i];
     for (const o of _OCT) pts.push(x + o[0]*r, y + o[1]*r, z + o[2]*r);
     for (const f of _OCTF) tris.push(vi + f[0], vi + f[1], vi + f[2]);
     const al = load ? Math.round(90 + 165 * w) : 255;
-    for (let j = 0; j < 6; j++) cols.push(colr[0], colr[1], colr[2], al);
-    vi += 6;
+    for (let j = 0; j < _OCT.length; j++) cols.push(colr[0], colr[1], colr[2], al);
+    vi += _OCT.length;
   }
   if (!vi) { nv.drawScene(); return; }
   try {
@@ -835,8 +881,12 @@ async function probeSpinBox(el, nProbe, onWhite) {
            h: Math.min(canvasEl.height, y1 - y0 + 2 * pad) };
 }
 
-async function captureSpin(el, n, maxW, onWhite) {
-  const box = await probeSpinBox(el, 8, onWhite);
+async function captureSpin(el, n, maxW, onWhite, box) {
+  // A caller that passes a box gets EVERY spin framed identically. Probing per call
+  // frames each subject to its own extent, which is right for a lone rotation and wrong
+  // for a set meant to be compared - a tight cluster would be drawn larger than a spread
+  // one purely because it occupies less of the canvas.
+  box = box || await probeSpinBox(el, 8, onWhite);
   const frames = [];
   for (let i = 0; i < n; i++) {
     // full 360 so the loop closes; no ping-pong and no visible seam
@@ -1031,7 +1081,7 @@ function stackbar(items, total, h, scaleMax) {
   // bar is the size of the cluster and the segments are who is in it. Without it the
   // bar fills the track and only composition is readable.
   const span = scaleMax ? 100 * t / scaleMax : 100;
-  if (!t) return `<svg viewBox="0 0 100 ${h}" class="sbar" preserveAspectRatio="none"></svg>`;
+  if (!t) return `<svg viewBox="0 0 100 ${h}" class="compbar" preserveAspectRatio="none"></svg>`;
   let x = 0, out = "";
   for (const it of items) {
     if (it.value <= 0) continue;
@@ -1039,8 +1089,13 @@ function stackbar(items, total, h, scaleMax) {
     out += `<rect x="${x.toFixed(3)}" y="0" width="${w.toFixed(3)}" height="${h}" fill="${it.color}">`
          + `<title>${esc(it.label)}: ${it.value} (${(100 * it.value / t).toFixed(1)}%)</title></rect>`;
     x += w;
+    // a hairline where each patient ends, so the segments are countable rather than a
+    // gradient. vector-effect keeps it 1 px after the viewBox is stretched to the track.
+    if (x < span - 1e-6)
+      out += `<line x1="${x.toFixed(3)}" y1="0" x2="${x.toFixed(3)}" y2="${h}" `
+           + `stroke="#fff" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
   }
-  return `<svg viewBox="0 0 100 ${h}" class="sbar" preserveAspectRatio="none">${out}</svg>`;
+  return `<svg viewBox="0 0 100 ${h}" class="compbar" preserveAspectRatio="none">${out}</svg>`;
 }
 
 // A bare <img> for the card grid. img() wraps every picture in a <figure> with a
@@ -1112,6 +1167,7 @@ header.top .sub{color:var(--muted);font-size:13px}
 h2.sec{font-size:17px;margin:0 0 3px}
 .sechint{color:var(--muted);font-size:12.5px;margin:0 0 16px}
 .two{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
 .donutwrap{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center}
 .donut{width:150px;height:150px;display:block}
 .dnum{font:600 22px -apple-system,Segoe UI,Arial;fill:var(--ink)}
@@ -1150,7 +1206,8 @@ h2.sec{font-size:17px;margin:0 0 3px}
 .cellimg{width:100%;height:auto;display:block;border-radius:4px}
 .cellmiss{font-size:10px;color:var(--muted);border:1px dashed var(--line);border-radius:4px;padding:12px 4px;text-align:center}
 .sbtrack{background:#f1f3f6;border-radius:3px;overflow:hidden}
-.sbar{width:100%;height:15px;display:block}
+/* not .sbar - scaleBar already owns that name further down, and it wins on order */
+.compbar{width:100%;height:15px;display:block}
 .sbcap{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.3}
 .baxis{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);
   border-top:1px solid var(--line);padding-top:2px;font-variant-numeric:tabular-nums}
@@ -1302,6 +1359,7 @@ async function exportReport() {
     // with a uniform rgba255, so doing it per cluster would add K reloads to an
     // already slow export. Only the map changes inside the loop - which is precisely
     // what now makes each still show its own cluster, rather than all of them.
+    let glassCovSpin = null;
     const glassWas = { glass: state.glass, byCluster: state.elecByCluster,
                        elec: state.showElec };
     try {
@@ -1320,6 +1378,12 @@ async function exportReport() {
       // the correct box. Measured on the coverage map, where every contact is drawn.
       state.map = "coverage"; $("mapSel").value = "coverage";
       render(); updateElectrodes(); await sleep(60);
+      // Measured here, on coverage, where every contact in the cohort is drawn - so the
+      // box bounds the whole set and no cluster can fall outside it.
+      btn.textContent = "Report: glass rotation box...";
+      const gSpinBox = await probeSpinBox(0, 8, true);
+      btn.textContent = "Report: glass coverage rotation...";
+      glassCovSpin = await captureSpin(0, SPIN_N, SPIN_W, true, gSpinBox);
       const gBox = [];
       for (const [az, el] of VIEWS) {
         gBox.push(await new Promise(r => {
@@ -1350,7 +1414,7 @@ async function exportReport() {
         // no extra frames - it replaces the offline rotation the report used to pull -
         // and it means a run that was never rendered offline still turns.
         btn.textContent = `Report: glass rotation ${i + 1}/${blocks.length}...`;
-        blocks[i].glassSpin = await captureSpin(0, SPIN_N, SPIN_W, true);
+        blocks[i].glassSpin = await captureSpin(0, SPIN_N, SPIN_W, true, gSpinBox);
       }
     } catch (e) {
       // A failed glass pass must not cost the report the work already captured.
@@ -1615,7 +1679,7 @@ async function exportReport() {
     ${Math.max(COH.coverage[frozen.radius].lh.max_patients_at_a_vertex, COH.coverage[frozen.radius].rh.max_patients_at_a_vertex)}
     patients at a single vertex. Dark cortex is <b>no electrodes</b>, not absence of language.</p>
 
-  <div class="two" style="margin-top:20px">
+  <div class="three" style="margin-top:20px">
     <div>
       <h2 class="sec">Coverage, all the way round</h2>
       <p class="sechint">The same P(sampled) map through a full turn. Medial and ventral cortex
@@ -1628,6 +1692,14 @@ async function exportReport() {
         smoothed <i>estimate</i> derived from these; this is the raw sampling behind it, and
         the two should be read together.</p>
       ${spin(densSpin, "contact density")}
+    </div>
+    <div>
+      <h2 class="sec">The same cohort, glass</h2>
+      <p class="sechint">Every contact again, on the glass brain and coloured by cluster,
+        framed in the same box as every other turn in this report. The two panels to the
+        left answer "how much of cortex is estimable" and "where are the electrodes";
+        this one answers "which cluster is where", on one brain rather than ${K} apart.</p>
+      ${spin(glassCovSpin, "all contacts, by cluster")}
     </div>
   </div>
 </section>

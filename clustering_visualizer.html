@@ -1008,6 +1008,35 @@ function legend(items, total) {
   ).join("") + `</ul>`;
 }
 
+// Composition as a horizontal stacked bar, normalised to the full width.
+// Deliberately NOT width-proportional to cluster size: a card grid exists so the
+// clusters can be read against each other, and a 12-sample cluster drawn 3 px wide
+// says nothing about who is in it. Size is carried in the caption instead.
+function stackbar(items, total, h) {
+  h = h || 13;
+  const t = total || items.reduce((s, i) => s + i.value, 0);
+  if (!t) return `<svg viewBox="0 0 100 ${h}" class="sbar" preserveAspectRatio="none">`
+              + `<rect x="0" y="0" width="100" height="${h}" fill="#e6e8ec"/></svg>`;
+  let x = 0, out = "";
+  for (const it of items) {
+    if (it.value <= 0) continue;
+    const w = 100 * it.value / t;
+    out += `<rect x="${x.toFixed(3)}" y="0" width="${w.toFixed(3)}" height="${h}" fill="${it.color}">`
+         + `<title>${esc(it.label)}: ${it.value} (${(100 * it.value / t).toFixed(1)}%)</title></rect>`;
+    x += w;
+  }
+  return `<svg viewBox="0 0 100 ${h}" class="sbar" preserveAspectRatio="none">${out}</svg>`;
+}
+
+// A bare <img> for the card grid. img() wraps every picture in a <figure> with a
+// visible caption, which is right for a full-width panel and wrong for a row of
+// thumbnails - the captions would be taller than the brains.
+function cellImg(im, alt) {
+  return (im && im.data)
+    ? `<img class="cellimg" src="${im.data}" alt="${esc(alt)}">`
+    : `<div class="cellmiss">${esc(alt)}</div>`;
+}
+
 function img(im, alt, cls) {
   if (!im || !im.data) return `<div class="missing ${cls || ""}">${esc(alt)} — not published for this run</div>`;
   return `<figure class="${cls || ""}"><img src="${im.data}" alt="${esc(alt)}"><figcaption>${esc(alt)}</figcaption></figure>`;
@@ -1091,6 +1120,19 @@ h2.sec{font-size:17px;margin:0 0 3px}
 .spinbox img:not(:first-child){position:absolute;inset:0}
 .spinbox img.off{visibility:hidden}
 .cluetop{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
+.cards{display:grid;gap:8px}
+.cardhead,.cardrow{display:grid;grid-template-columns:74px 1.45fr 1fr 1fr 1fr 1.7fr;gap:10px;align-items:center}
+.cardhead{padding:0 10px 4px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cardrow{padding:8px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.cardrow .kchip{color:#fff;font-weight:600;border-radius:6px;padding:2px 0;font-size:12px;text-align:center}
+.cellimg{width:100%;height:auto;display:block;border-radius:4px}
+.cellmiss{font-size:10px;color:var(--muted);border:1px dashed var(--line);border-radius:4px;padding:12px 4px;text-align:center}
+.sbar{width:100%;height:13px;display:block;border-radius:3px;overflow:hidden}
+.sbcap{font-size:10.5px;color:var(--muted);margin-top:4px;line-height:1.35}
+.runstats{display:grid;grid-template-columns:repeat(auto-fit,minmax(122px,1fr));gap:8px;margin:0 0 18px}
+.rs{border:1px solid var(--line);border-radius:9px;padding:8px 10px;background:#fbfcfd}
+.rs b{display:block;font-size:17px;line-height:1.15}
+.rs span{font-size:10.5px;color:var(--muted)}
 .fullrow{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
 table.sum{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
 table.sum th,table.sum td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line)}
@@ -1322,6 +1364,81 @@ async function exportReport() {
                `<td>${top ? esc(top[0]) + " (" + (100 * top[1] / tot).toFixed(0) + "%)" : "—"}</td></tr>`;
       }).join("") + `</tbody></table>`;
 
+    // ── overall run statistics -------------------------------------------
+    const szVals = RUN.clusters.map(k => RUN.cluster_sizes[String(k)]);
+    const npVals = RUN.clusters.map(k => RUN.cluster_patients[String(k)]);
+    const maxI = szVals.indexOf(Math.max(...szVals));
+    const minI = szVals.indexOf(Math.min(...szVals));
+    const med = a => { const b = [...a].sort((x, y) => x - y), m = b.length >> 1;
+                       return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+    // The single most patient-concentrated cluster in the run. This is the number
+    // that decides whether a cluster can be read as a population effect at all, so
+    // it belongs at the top rather than buried in the per-cluster sections.
+    let conc = { k: null, share: 0 };
+    for (const k of RUN.clusters) {
+      const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
+      const tot = Object.values(comp).reduce((a, v) => a + v, 0) || 1;
+      const top = Object.values(comp).length ? Math.max(...Object.values(comp)) : 0;
+      if (top / tot > conc.share) conc = { k, share: top / tot };
+    }
+    const tile = (v, lab) => `<div class="rs"><b>${v}</b><span>${lab}</span></div>`;
+    const runStats = `<div class="runstats">
+      ${tile(K, "clusters")}
+      ${tile(nSamples, "labelled samples")}
+      ${tile(RUN.n_electrodes, esc(RUN.unit) + " rows")}
+      ${tile(RUN.n_contacts_with_cluster, "contacts localised")}
+      ${tile(patItems.length + " / " + COH.n_patients, "patients contributing")}
+      ${RUN.n_electrodes_multilabel ? tile(RUN.n_electrodes_multilabel, "multi-label rows") : ""}
+      ${tile((100 * szVals[maxI] / nSamples).toFixed(0) + "%", "largest cluster (c" + RUN.clusters[maxI] + ")")}
+      ${tile((100 * szVals[minI] / nSamples).toFixed(0) + "%", "smallest cluster (c" + RUN.clusters[minI] + ")")}
+      ${tile(med(npVals), "median patients per cluster")}
+      ${conc.k !== null ? tile((100 * conc.share).toFixed(0) + "%",
+          "most one-patient-heavy (c" + conc.k + ")") : ""}
+    </div>`;
+
+    // ── cluster cards ------------------------------------------------------
+    // Built here, from what this viewer captured a moment ago - not fetched. Every
+    // brain in this grid is the live glass scene at the frozen settings, so a run
+    // that 252 never rendered still gets a full set of cards.
+    let cardFallback = false;
+    const cardsRows = blocks.map(({ d, shots, glassShots, centroid }, i) => {
+      const k = d.cluster;
+      const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
+      const tot = Object.values(comp).reduce((a, v) => a + v, 0);
+      const items = Object.keys(comp).sort()
+        .map(q => ({ label: q, value: comp[q], color: pcol[q] || "#888" }));
+      const top = Object.entries(comp).sort((a, b) => b[1] - a[1])[0];
+      const cells = VIEWS.map((v, j) => {
+        const g = (glassShots || [])[j];
+        const use = (g && g.data) ? g : shots[j];
+        if (!(g && g.data)) cardFallback = true;
+        return cellImg(use, v[2]);
+      }).join("");
+      return `<div class="cardrow">
+        <div class="kchip" style="background:${clusterHue(i, K)}">c${k}</div>
+        ${cellImg(centroid, "centroid")}
+        ${cells}
+        <div>${stackbar(items, tot)}
+          <div class="sbcap">${tot} samples · ${RUN.cluster_patients[String(k)]} patients${
+            top ? " · " + esc(top[0]) + " " + (100 * top[1] / (tot || 1)).toFixed(0) + "%" : ""}</div>
+        </div>
+      </div>`;
+    }).join("");
+
+    const cardsHTML = `<section class="card">
+  <h2 class="sec">Cluster cards</h2>
+  <p class="sechint">One row per cluster: its mean response, the same three angles for every
+    cluster, and who it is made of. The brains are the contacts themselves on a glass brain,
+    captured from this viewer at the frozen settings${cardFallback
+      ? " &mdash; except where the glass pass did not complete, which falls back to the probability map"
+      : ""}, so nothing here depends on a run having been rendered offline.
+    The composition bars are normalised to full width, so they compare
+    <i>who</i> is in a cluster, not how big it is; size is in the caption.</p>
+  <div class="cardhead"><div></div><div>centroid</div>
+    ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it</div></div>
+  <div class="cards">${cardsRows}</div>
+</section>`;
+
     // The two feature sets carry a different second panel, so the caption has to
     // follow the run rather than be fixed.
     // On the feature set, not the whole track: "kmeans/hg" does not end in "_hg"
@@ -1426,6 +1543,22 @@ async function exportReport() {
 </header>
 
 <section class="card">
+  <h2 class="sec">Overall run statistics</h2>
+  <p class="sechint">What this run is, before any map is drawn. Every count is the run's own,
+    read from the bundle rather than restated from a caption.</p>
+  ${runStats}
+  <h2 class="sec" style="margin-top:6px">What is the run made of?</h2>
+  <p class="sechint">Left: how the ${nSamples} labelled samples split across clusters. Right: how they split
+    across patients. A cluster that mirrors the patient distribution generalises; one that does not is
+    carried by a few people. The patient colours here are the key for every composition bar below.</p>
+  <div class="two">
+    <div class="donutwrap">${donut(sizeItems, 150, String(K), "clusters")}${legend(sizeItems, nSamples)}</div>
+    <div class="donutwrap">${donut(patItems, 150, String(patItems.length), "patients")}${legend(patItems, nSamples)}</div>
+  </div>
+  ${summary}
+</section>
+
+<section class="card">
   <h2 class="sec">How well was this cohort sampled?</h2>
   <p class="sechint">P(sampled) = patients with an electrode within ${frozen.radius} mm, divided by the
     ${COH.n_patients} patients in this cohort. Only the patients that entered this run are counted —
@@ -1473,17 +1606,7 @@ async function exportReport() {
   </div>
 </section>
 
-<section class="card">
-  <h2 class="sec">What is the run made of?</h2>
-  <p class="sechint">Left: how the ${nSamples} labelled samples split across clusters. Right: how they split
-    across patients. A cluster that mirrors the patient distribution generalises; one that does not is
-    carried by a few people.</p>
-  <div class="two">
-    <div class="donutwrap">${donut(sizeItems, 150, String(K), "clusters")}${legend(sizeItems, nSamples)}</div>
-    <div class="donutwrap">${donut(patItems, 150, String(patItems.length), "patients")}${legend(patItems, nSamples)}</div>
-  </div>
-  ${summary}
-</section>
+${cardsHTML}
 
 ${clusterHTML}
 

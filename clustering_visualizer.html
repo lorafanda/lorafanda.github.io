@@ -1221,6 +1221,27 @@ async function tryJSON(url) {
   catch (e) { return null; }
 }
 
+// Minimal CSV -> array of objects. The per-K metrics live in CSVs the notebooks already
+// write; parsing them here beats adding another JSON the pipeline has to remember to
+// emit. No quoted-field handling because these files are plain numbers.
+async function tryCSV(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    // built without a literal escape so the source survives being generated
+    const rows = (await r.text()).trim().split(String.fromCharCode(10))
+                   .map(x => x.split(String.fromCharCode(13)).join(""));
+    if (rows.length < 2) return null;
+    const head = rows[0].split(",");
+    return rows.slice(1).map(line => {
+      const c = line.split(",");
+      const o = {};
+      head.forEach((h, i) => { o[h.trim()] = c[i]; });
+      return o;
+    });
+  } catch (e) { return null; }
+}
+
 // An editable notes block. contenteditable rather than <textarea> so it grows with what
 // is typed and prints as ordinary text; the saved file keeps notes in localStorage keyed
 // by run, so reopening the same report in the same browser brings them back. Notes are
@@ -1341,6 +1362,22 @@ const NOTES_JS = `
 })();
 <\/script>`;
 
+const KPICK_JS = `
+<script>
+document.querySelectorAll(".kpick").forEach(bar => {
+  const scope = bar.closest("section");
+  bar.addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-kpick]");
+    if (!b) return;
+    const k = b.dataset.kpick;
+    bar.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    scope.querySelectorAll("[data-kblock]").forEach(d => {
+      d.hidden = d.dataset.kblock !== k;
+    });
+  });
+});
+<\/script>`;
+
 const SPIN_JS = `
 <script>
 document.querySelectorAll(".spinbox").forEach(box => {
@@ -1437,6 +1474,18 @@ h2.sec{font-size:17px;margin:0 0 3px}
 .rs{flex:1 1 0;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 7px;background:#fbfcfd}
 .rs b{display:block;font-size:13.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rs span{display:block;font-size:8.5px;color:var(--muted);line-height:1.25}
+.kpick{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 14px}
+.kpick button{font:inherit;font-size:12.5px;min-width:34px;padding:5px 9px;cursor:pointer;
+  border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:7px}
+.kpick button:hover{background:#f2f5f8}
+.kpick button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.kpick button[data-pub]{box-shadow:inset 0 -3px 0 #f0a500}
+.kchips{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;margin-top:14px}
+.kchips figure{margin:0}
+.kchips img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:6px;background:#fff}
+.kchips figcaption{font-size:10.5px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:5px}
+.kchips figcaption i{width:9px;height:9px;border-radius:2px;flex:none}
+@media print{.kpick{display:none}.kblock[hidden]{display:none}}
 /* results table */
 table.res{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
 table.res th{text-align:left;font-weight:600;color:var(--muted);font-size:10.5px;
@@ -1793,6 +1842,40 @@ async function exportReport() {
   </div>
 </section>`;
 
+    // ── the K panel -----------------------------------------------------------
+    // Everything here was computed by the notebooks and is only READ. A saved report
+    // cannot refit, so each K shows what already exists on disk for that cut and says so
+    // plainly when something has not been produced yet. The brains are NOT switched:
+    // they are captures of one cut, and per-K renders do not exist.
+    btn.textContent = "Report: K panel…";
+    const KP = { ks: [], byK: {}, pub: Number(RUN0.k) };
+    if (SWEEP && SWEEP.ks && SWEEP.ks.length > 1) {
+      KP.ks = SWEEP.ks.slice();
+      const sweepMetrics = await tryCSV(runBase + "sweep_metrics.csv");   // k-means / Ward
+      const sweepCnmf    = await tryCSV(runBase + "sweep_by_k.csv");      // convex NMF
+      const stabByK      = await tryCSV(runBase + "stability_by_k.csv");
+      const pick = (rows, k) => (rows || []).find(r => Number(r.k) === k);
+
+      for (const k of KP.ks) {
+        btn.textContent = `Report: K panel ${k}…`;
+        const st = SWEEP.stats[String(k)] || {};
+        const ids = st.clusters || [];
+        // centroid chips for this cut, if make_missing_centroids has drawn them
+        const chips = await Promise.all(ids.map(c =>
+          tryImage(`${runBase}cluster_centroids/k_${String(k).padStart(2, "0")}/`
+                   + `cluster_${String(c).padStart(2, "0")}.png`, 320, false)));
+        KP.byK[k] = {
+          stats: st,
+          metrics: pick(sweepMetrics, k) || null,
+          cnmf: pick(sweepCnmf, k) || null,
+          stability: pick(stabByK, k) || null,
+          chips: chips.filter(x => x && x.data),
+          nChips: chips.filter(x => x && x.data).length,
+          nClusters: ids.length,
+        };
+      }
+    }
+
     // ── results ------------------------------------------------------------
     // Read from the run's own files rather than restated, so a number here cannot drift
     // from the analysis that produced it. Each row carries how to read it, because a
@@ -1859,6 +1942,70 @@ async function exportReport() {
           "components were shuffled. Above 1 means the decomposition tracks anatomy it was " +
           "never given.");
     }
+
+    // ── K panel markup ────────────────────────────────────────────────────
+    const num = (v, d) => (v === null || v === undefined || v === "") ? null
+                        : Number(v).toFixed(d);
+    const kPanelHTML = !KP.ks.length ? "" : `<section class="card">
+  <h2 class="sec">The same run at other K</h2>
+  <p class="sechint">This run publishes <b>K=${KP.pub}</b>${
+      KP.ks.includes(KP.pub) ? "" : " (outside the range below)"}. Its sweep also holds the
+    cuts below, so the same electrodes can be grouped a different number of ways without
+    refitting anything. Everything here is read from what the notebooks already wrote -
+    nothing is recomputed when you press a button, and a cut that has not been produced
+    yet says so rather than showing a blank.
+    <b>The brains elsewhere in this report are not affected</b>: they are captures of
+    K=${KSEL}, and per-K renders do not exist.</p>
+  <div class="kpick">${KP.ks.map(k =>
+      `<button type="button" data-kpick="${k}"${k === KSEL ? ' class="on"' : ""}
+        ${k === KP.pub ? 'data-pub="1"' : ""}>${k}</button>`).join("")}</div>
+  ${KP.ks.map(k => {
+    const B = KP.byK[k], st = B.stats || {}, ids = st.clusters || [];
+    const sizes = st.cluster_sizes || {}, pats = st.cluster_patients || {};
+    const tot = ids.reduce((a, c) => a + (sizes[String(c)] || 0), 0);
+    const mrow = [];
+    if (B.metrics) {
+      const q = (f, d) => num(B.metrics[f], d);
+      if (q("silhouette", 3)) mrow.push(["Silhouette", q("silhouette", 3)]);
+      if (q("calinski_harabasz", 1)) mrow.push(["Calinski–Harabasz", q("calinski_harabasz", 1)]);
+      if (q("davies_bouldin", 3)) mrow.push(["Davies–Bouldin", q("davies_bouldin", 3)]);
+    }
+    if (B.cnmf) {
+      const q = (f, d) => num(B.cnmf[f], d);
+      if (q("var_explained", 3)) mrow.push(["Variance explained", q("var_explained", 3)]);
+      if (q("frac_no_majority", 3))
+        mrow.push(["No majority component", (100 * Number(B.cnmf.frac_no_majority)).toFixed(1) + "%"]);
+      if (q("median_top_weight", 3)) mrow.push(["Median top weight", q("median_top_weight", 3)]);
+    }
+    if (B.stability) {
+      const q = (f, d) => num(B.stability[f], d);
+      if (q("mean_jaccard", 3)) mrow.push(["Stability, mean", q("mean_jaccard", 3)]);
+      if (q("min_jaccard", 3)) mrow.push(["Stability, worst cluster", q("min_jaccard", 3)]);
+    }
+    return `<div class="kblock" data-kblock="${k}"${k === KSEL ? "" : ' hidden'}>
+      <div class="runstats">
+        ${tile(k, "clusters")}
+        ${tile(tot, "labelled rows")}
+        ${tile(Math.max(...ids.map(c => sizes[String(c)] || 0)) || 0, "largest cluster")}
+        ${tile(Math.min(...ids.map(c => sizes[String(c)] || 0)) || 0, "smallest cluster")}
+        ${tile(Math.max(...ids.map(c => pats[String(c)] || 0)) || 0, "widest cluster (patients)")}
+      </div>
+      ${mrow.length ? `<table class="res"><tbody>${mrow.map(
+          ([n, v]) => `<tr><td>${esc(n)}</td><td class="rv">${esc(String(v))}</td></tr>`
+        ).join("")}</tbody></table>`
+        : `<p class="sechint">No metrics published for K=${k} yet. sweep_metrics.csv /
+           sweep_by_k.csv give the partition quality, sweep_stability.py the stability -
+           both are cells in 235.</p>`}
+      <div class="kchips">${B.chips.length
+        ? B.chips.map((im, i) => `<figure><img src="${im.data}" alt="cluster ${ids[i]}">
+            <figcaption><i style="background:${clusterCSS(ids[i])}"></i>c${ids[i]} ·
+            ${sizes[String(ids[i])] || 0}</figcaption></figure>`).join("")
+        : `<p class="sechint">No centroid chips for K=${k}. make_missing_centroids.py
+           --force draws them from cluster_labels_by_k.csv (cell 6c in 235).</p>`}</div>
+    </div>`;
+  }).join("")}
+  ${note("k-panel")}
+</section>`;
 
     const resultsHTML = `<section class="card">
   <h2 class="sec">Results for this run</h2>
@@ -1969,6 +2116,8 @@ async function exportReport() {
     with each other; two reports saved at different ceilings are not comparable with each other.</div>
 </header>
 
+${kPanelHTML}
+
 <section class="card">
   <h2 class="sec">Overall run statistics</h2>
   <p class="sechint">What this run is, before any map is drawn. Every count is the run's own,
@@ -2065,7 +2214,7 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
   <span>Typing is kept in this browser only. Use this to write the notes into a file you can send.</span>
 </div>
 <script id="baked-notes" type="application/json">{}<\/script>
-</div>${SPIN_JS}${NOTES_JS}</body></html>`;
+</div>${SPIN_JS}${KPICK_JS}${NOTES_JS}</body></html>`;
 
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const a = document.createElement("a");

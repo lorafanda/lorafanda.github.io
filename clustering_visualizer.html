@@ -1283,15 +1283,34 @@ function stackbar(items, total, h, scaleMax) {
 // A bare <img> for the card grid. img() wraps every picture in a <figure> with a
 // visible caption, which is right for a full-width panel and wrong for a row of
 // thumbnails - the captions would be taller than the brains.
+// ── image de-duplication ────────────────────────────────────────────────────
+// The same picture is legitimately shown twice: the glass rotation appears in "Every
+// cluster, a full turn each" AND in that cluster's own section, and the glass stills
+// appear on the cluster card AND in the per-cluster row. Embedding the bytes twice cost
+// 35.7 MB of a 97.5 MB report, 32.1 MB of it rotation frames.
+//
+// Each distinct data URI is now written once. Later uses emit an <img> with no src
+// carrying data-mirror, and a few lines of script copy it across at load. Both sections
+// stay exactly as they are; only the duplicate bytes go.
+let _srcSeen = new Map(), _srcN = 0;
+function srcAttr(data) {
+  const prev = _srcSeen.get(data);
+  if (prev) return `data-mirror="${prev}"`;
+  const id = "i" + (++_srcN);
+  _srcSeen.set(data, id);
+  return `src="${data}" data-src-id="${id}"`;
+}
+
 function cellImg(im, alt) {
   return (im && im.data)
-    ? `<img class="cellimg" src="${im.data}" alt="${esc(alt)}">`
+    ? `<img class="cellimg" ${srcAttr(im.data)} alt="${esc(alt)}">`
     : `<div class="cellmiss">${esc(alt)}</div>`;
 }
 
 function img(im, alt, cls) {
   if (!im || !im.data) return `<div class="missing ${cls || ""}">${esc(alt)} — not published for this run</div>`;
-  return `<figure class="${cls || ""}"><img src="${im.data}" alt="${esc(alt)}"><figcaption>${esc(alt)}</figcaption></figure>`;
+  return `<figure class="${cls || ""}"><img ${srcAttr(im.data)} alt="${esc(alt)}">`
+       + `<figcaption>${esc(alt)}</figcaption></figure>`;
 }
 
 // A rotation as a stack of stills cycled by script, not an encoded GIF: the page
@@ -1304,7 +1323,7 @@ function spin(frames, alt, cls) {
     return `<div class="missing ${cls || ""}">${esc(alt)} — not captured</div>`;
   const id = `sp${++_spinId}`;
   const imgs = frames.map((f, i) =>
-    `<img src="${f.data}" alt="${esc(alt)}"${i ? ' class="off"' : ""}>`).join("");
+    `<img ${srcAttr(f.data)} alt="${esc(alt)}"${i ? ' class="off"' : ""}>`).join("");
   return `<figure class="spin ${cls || ""}"><div class="spinbox" id="${id}" `
        + `data-n="${frames.length}">${imgs}</div>`
        + `<figcaption>${esc(alt)} · ${frames.length}-frame 360° rotation</figcaption></figure>`;
@@ -1348,7 +1367,14 @@ const NOTES_JS = `
       n.textContent = t;
       n.classList.toggle("empty", !t);
     });
+    // Mirrors are populated in the DOM by now. Serialising them would write every
+    // duplicated picture back into the copy and undo the de-duplication, so strip
+    // the filled-in srcs first and restore them afterwards.
+    const mirrors = [...document.querySelectorAll("img[data-mirror]")];
+    const held = mirrors.map(m => m.getAttribute("src"));
+    mirrors.forEach(m => m.removeAttribute("src"));
     const out = "<!doctype html>\\n" + document.documentElement.outerHTML;
+    mirrors.forEach((m, i) => { if (held[i]) m.setAttribute("src", held[i]); });
     const b = new Blob([out], { type: "text/html;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(b);
@@ -1375,6 +1401,15 @@ document.querySelectorAll(".kpick").forEach(bar => {
       d.hidden = d.dataset.kblock !== k;
     });
   });
+});
+<\/script>`;
+
+const MIRROR_JS = `
+<script>
+// Pictures shown in two places are stored once; fill the second copy from the first.
+document.querySelectorAll("img[data-mirror]").forEach(m => {
+  const src = document.querySelector('img[data-src-id="' + m.dataset.mirror + '"]');
+  if (src) m.src = src.currentSrc || src.src;
 });
 <\/script>`;
 
@@ -1474,6 +1509,7 @@ h2.sec{font-size:17px;margin:0 0 3px}
 .rs{flex:1 1 0;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 7px;background:#fbfcfd}
 .rs b{display:block;font-size:13.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .rs span{display:block;font-size:8.5px;color:var(--muted);line-height:1.25}
+.atk{font-weight:400;color:var(--muted);font-size:10.5px;white-space:nowrap}
 .kpick{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 14px}
 .kpick button{font:inherit;font-size:12.5px;min-width:34px;padding:5px 9px;cursor:pointer;
   border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:7px}
@@ -1565,6 +1601,7 @@ async function exportReport() {
   const btn = $("pdfBtn"), orig = btn.textContent;
   btn.disabled = true;
 
+  _srcSeen = new Map(); _srcN = 0;     // one image registry per report
   const saved = { map: state.map, az: nv.scene.renderAzimuth, el: nv.scene.renderElevation,
                   elec: state.showElec, glass: state.glass };
 
@@ -1596,6 +1633,11 @@ async function exportReport() {
     state.showElec = false; updateElectrodes();
 
     const clusterDefs = DEFS.filter(d => d.cluster !== undefined);
+    // empty at the run's own K, so the published artifacts are used unchanged
+    // lf_centroids writes k_5 .. k_23 with NO zero padding. Padding to k_05 here
+    // silently 404s for every K under 10 - the K panel showed chips at 10, 11 and 12 and
+    // nothing below, which looked like missing data and was a mis-built path.
+    const kDir = (Number(KSEL) === Number(RUN0.k)) ? "" : `k_${KSEL}/`;
     const pcol = patientColorMap(Object.keys(RUN.patient_totals || {}));
     // same palette the glass view paints contacts with - not a parallel one
     const clusterHue = (i) => clusterCSS(RUN.clusters[i]);
@@ -1632,14 +1674,22 @@ async function exportReport() {
       for (const [az, el] of VIEWS) shots.push(await captureView(az, el, CAPW, true));
       const spinFrames = await captureSpin(0, SPIN_N, SPIN_W, true);
       const fig = (RUN.figures.per_cluster || {})[String(d.cluster)] || {};
-      // make_centroid_rasters writes these; fetched by path rather than through the
-      // manifest, like the by_cluster glassbrains above, so a run that has them shows
-      // them without the bundle needing to be rebuilt first.
-      const raster = await tryImage(
-        `${runBase}cluster_rasters/cluster_${String(d.cluster).padStart(2, "0")}.png`,
-        FIGW, false);
-      const centroid = fig.centroid ? await tryImage(runBase + fig.centroid, FIGW, false)
-                                    : { data: "", w: 0, h: 0 };
+      // CENTROIDS MUST FOLLOW K. fig.centroid points at cluster_centroids/cluster_NN.png,
+      // which is the PUBLISHED cut. Exporting at any other K used it anyway, so a K=11
+      // report showed K=6's centroids for clusters 0-5 under K=11 headings and "not
+      // published" for 6-10 - wrong rather than merely missing, and the k_11/ chips were
+      // sitting there unused. At a re-cut K the k_NN/ folder is the only correct source
+      // and there is deliberately NO fallback to the flat chips.
+      const cc = String(d.cluster).padStart(2, "0");
+      const centroid = kDir
+        ? await tryImage(`${runBase}cluster_centroids/${kDir}cluster_${cc}.png`, FIGW, false)
+        : (fig.centroid ? await tryImage(runBase + fig.centroid, FIGW, false)
+                        : { data: "", w: 0, h: 0 });
+      // make_centroid_rasters only writes the published cut. Rather than show that cut's
+      // raster beside another cut's centroid, try a per-K folder and otherwise show none.
+      const raster = kDir
+        ? await tryImage(`${runBase}cluster_rasters/${kDir}cluster_${cc}.png`, FIGW, false)
+        : await tryImage(`${runBase}cluster_rasters/cluster_${cc}.png`, FIGW, false);
       blocks.push({ d, st, shots, centroid, raster, spinFrames,
                     climMax: frozen.climMax });
     }
@@ -1734,7 +1784,8 @@ async function exportReport() {
     btn.textContent = "Report: writing…";
     // named once: the report's own download and the notes copy must agree
     const reportName = `report_${RUN.track.replace(/\//g, "_")}_${RUN.run}`
-                     + `_r${frozen.radius}mm_n${frozen.minN}_max${frozen.climMax.toFixed(2)}.html`;
+                     + `_K${KSEL}_r${frozen.radius}mm_n${frozen.minN}`
+                     + `_max${frozen.climMax.toFixed(2)}.html`;
     const K = RUN.clusters.length;
     const sizeItems = RUN.clusters.map((k, i) => ({
       label: `Cluster ${k}`, value: RUN.cluster_sizes[String(k)], color: clusterHue(i) }));
@@ -1862,7 +1913,7 @@ async function exportReport() {
         const ids = st.clusters || [];
         // centroid chips for this cut, if make_missing_centroids has drawn them
         const chips = await Promise.all(ids.map(c =>
-          tryImage(`${runBase}cluster_centroids/k_${String(k).padStart(2, "0")}/`
+          tryImage(`${runBase}cluster_centroids/k_${k}/`
                    + `cluster_${String(c).padStart(2, "0")}.png`, 320, false)));
         KP.byK[k] = {
           stats: st,
@@ -1884,47 +1935,103 @@ async function exportReport() {
     btn.textContent = "Report: results…";
     const method = String(RUN.track || "").split("/")[0];
     const fset   = String(RUN.track || "").split("/")[1] || "";
+    // AT THE K THIS REPORT WAS EXPORTED AT, not at the run's published K. metrics.json
+    // and stability_summary.json describe the published cut only; quoting them under a
+    // re-cut heading is a number silently changing meaning, which is the whole reason
+    // the per-K files exist. At a re-cut K they are ignored and the sweep files are read
+    // instead; where a sweep file is absent the row is simply not shown.
+    const atPub = Number(KSEL) === Number(RUN0.k);
+    const swM = await tryCSV(runBase + "sweep_metrics.csv");
+    const swC = await tryCSV(runBase + "sweep_by_k.csv");
+    const swS = await tryCSV(runBase + "stability_by_k.csv");
+    const atK = rows => (rows || []).find(x => Number(x.k) === Number(KSEL)) || null;
+    const mK = atK(swM), cK = atK(swC), sK = atK(swS);
     const RES = {
-      metrics:   await tryJSON(runBase + "metrics.json"),
-      stability: await tryJSON(runBase + "stability_summary.json"),
-      decomp:    method === "cnmf" ? await tryJSON(`${CLUST}decomposition/${fset}/meta.json`) : null,
+      metrics:   atPub ? await tryJSON(runBase + "metrics.json") : null,
+      stability: atPub ? await tryJSON(runBase + "stability_summary.json") : null,
+      decomp:    (atPub && method === "cnmf")
+                 ? await tryJSON(`${CLUST}decomposition/${fset}/meta.json`) : null,
+      // sweep rows, used at any K - and preferred over the published files when both
+      // exist, so the table cannot disagree with the K panel above it
+      swMetrics: mK, swCnmf: cK, swStab: sK, atPub,
     };
     const rows = [];
     const add = (name, val, how) => {
       if (val === null || val === undefined || (typeof val === "number" && !isFinite(val))) return;
-      rows.push(`<tr><td>${esc(name)}</td><td class="rv">${esc(String(val))}</td><td>${how}</td></tr>`);
+      // The "at K=" tag is markup and the label is not, so escape the label and append
+      // the tag afterwards rather than escaping the two together.
+      let lab = String(name), tag = "";
+      if (lab.endsWith("␟ATK")) {
+        lab = lab.slice(0, -4);
+        tag = ` <span class="atk">at K=${KSEL}</span>`;
+      }
+      rows.push(`<tr><td>${esc(lab)}${tag}</td><td class="rv">${esc(String(val))}</td>`
+              + `<td>${how}</td></tr>`);
     };
     const f3 = v => (v === null || v === undefined) ? null : (+v).toFixed(3);
     const pc = v => (v === null || v === undefined) ? null : (100 * v).toFixed(1) + "%";
 
-    if (RES.metrics) {
-      add("Silhouette, overall", f3(RES.metrics.silhouette_overall),
+    const AT = "␟ATK";   // marker, expanded inside add() - the label is escaped
+    if (RES.swMetrics) {
+      add("Silhouette, overall" + AT, f3(RES.swMetrics.silhouette),
         "&minus;1 to +1: how much closer a sample sits to its own cluster than to the next one. " +
-        "On iEEG responses 0.1&ndash;0.2 is the normal range and means broad, overlapping " +
+        "On iEEG responses 0.1–0.2 is the normal range and means broad, overlapping " +
         "populations rather than crisp types &mdash; it is not a failed fit.");
-      add("Calinski&ndash;Harabasz", RES.metrics.calinski_harabasz === undefined ? null
+      add("Calinski–Harabasz" + AT,
+        RES.swMetrics.calinski_harabasz === undefined ? null
+          : (+RES.swMetrics.calinski_harabasz).toFixed(1),
+        "Between-cluster spread divided by within-cluster spread. Higher is tighter, but it " +
+        "climbs with K on its own, so only compare runs fitted at the same K.");
+      add("Davies–Bouldin" + AT, f3(RES.swMetrics.davies_bouldin),
+        "How similar each cluster is to whichever one most resembles it, averaged. Lower is " +
+        "better; below about 1 counts as well separated.");
+    } else if (RES.metrics) {
+      add("Silhouette, overall", f3(RES.metrics.silhouette_overall),
+        "−1 to +1: how much closer a sample sits to its own cluster than to the next one. " +
+        "On iEEG responses 0.1–0.2 is the normal range and means broad, overlapping " +
+        "populations rather than crisp types &mdash; it is not a failed fit.");
+      add("Calinski–Harabasz", RES.metrics.calinski_harabasz === undefined ? null
             : (+RES.metrics.calinski_harabasz).toFixed(1),
         "Between-cluster spread divided by within-cluster spread. Higher is tighter, but it " +
         "climbs with K on its own, so only compare runs fitted at the same K.");
-      add("Davies&ndash;Bouldin", f3(RES.metrics.davies_bouldin),
+      add("Davies–Bouldin", f3(RES.metrics.davies_bouldin),
         "How similar each cluster is to whichever one most resembles it, averaged. Lower is " +
         "better; below about 1 counts as well separated.");
     }
-    if (RES.stability) {
+    if (RES.swStab) {
+      add("Stability, mean" + AT, f3(RES.swStab.mean_jaccard),
+        `Refit ${RES.swStab.n_runs} times on ${pc(RES.swStab.subsample_frac)} of the samples ` +
+        "and matched back. 1.0 is an identical partition every time; around " +
+        "0.3–0.4 means it moves substantially when the sample changes.");
+      add("Stability, worst cluster" + AT, f3(RES.swStab.min_jaccard),
+        "The least reproducible single cluster at this K.");
+    } else if (RES.stability) {
       add("Stability, mean", f3(RES.stability.mean_jaccard),
         `Refit ${RES.stability.n_runs} times on ${pc(RES.stability.subsample_frac)} of the samples ` +
         "and matched back to the full fit. 1.0 is an identical partition every time; around " +
-        "0.3&ndash;0.4 means it moves substantially when the sample changes.");
+        "0.3–0.4 means it moves substantially when the sample changes.");
       add("Stability, worst cluster", f3(RES.stability.min_jaccard),
         "The least reproducible single cluster. A run can be stable on average and still carry " +
         "one cluster that does not survive resampling, so check this before quoting a cluster " +
         "on its own.");
     }
+    if (RES.swCnmf) {
+      add("Variance explained" + AT, f3(RES.swCnmf.var_explained),
+        "How much of the dB response matrix the components rebuild at this K. In sample, " +
+        "so it can only rise with a better fit &mdash; and on this run it does not rise " +
+        "monotonically, which says the higher cuts land in poorer optima.");
+      add("No majority component" + AT,
+        RES.swCnmf.frac_no_majority === undefined ? null
+          : (100 * Number(RES.swCnmf.frac_no_majority)).toFixed(1) + "%",
+        "Electrodes whose weight is spread across components with none above half.");
+      add("Median top weight" + AT, f3(RES.swCnmf.median_top_weight),
+        "The typical electrode's strongest component weight.");
+    }
     if (RES.decomp) {
       const mx = RES.decomp.mixture || {};
       add("Variance explained", f3(RES.decomp.in_sample_var_explained),
         "How much of the dB response matrix the components rebuild. In sample, so it can only " +
-        "rise with K &mdash; useful as a description, not as a way to choose K.");
+        "rise with K — useful as a description, not as a way to choose K.");
       add("One dominant component", pc(mx.frac_dominant),
         "Electrodes where a single component carries most of the weight. Low is expected here: " +
         "a graded model is not trying to assign each electrode to one type.");
@@ -1997,7 +2104,7 @@ async function exportReport() {
            sweep_by_k.csv give the partition quality, sweep_stability.py the stability -
            both are cells in 235.</p>`}
       <div class="kchips">${B.chips.length
-        ? B.chips.map((im, i) => `<figure><img src="${im.data}" alt="cluster ${ids[i]}">
+        ? B.chips.map((im, i) => `<figure><img ${srcAttr(im.data)} alt="cluster ${ids[i]}">
             <figcaption><i style="background:${clusterCSS(ids[i])}"></i>c${ids[i]} ·
             ${sizes[String(ids[i])] || 0}</figcaption></figure>`).join("")
         : `<p class="sechint">No centroid chips for K=${k}. make_missing_centroids.py
@@ -2214,7 +2321,7 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
   <span>Typing is kept in this browser only. Use this to write the notes into a file you can send.</span>
 </div>
 <script id="baked-notes" type="application/json">{}<\/script>
-</div>${SPIN_JS}${KPICK_JS}${NOTES_JS}</body></html>`;
+</div>${MIRROR_JS}${SPIN_JS}${KPICK_JS}${NOTES_JS}</body></html>`;
 
     const blob = new Blob([html], { type: "text/html;charset=utf-8" });
     const a = document.createElement("a");

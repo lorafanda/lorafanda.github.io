@@ -1087,6 +1087,43 @@ function note(key) {
        + `data-ph="Write what you make of this section — kept in this browser."></div></div>`;
 }
 
+// Composition as a horizontal stacked bar, normalised to the full width.
+// Deliberately NOT width-proportional to cluster size: a card grid exists so the
+// clusters can be read against each other, and a 12-sample cluster drawn 3 px wide
+// says nothing about who is in it. Size is carried in the caption instead.
+function stackbar(items, total, h, scaleMax) {
+  h = h || 13;
+  const t = total || items.reduce((s, i) => s + i.value, 0);
+  // scaleMax puts every cluster on ONE x axis measured in samples, so the length of a
+  // bar is the size of the cluster and the segments are who is in it. Without it the
+  // bar fills the track and only composition is readable.
+  const span = scaleMax ? 100 * t / scaleMax : 100;
+  if (!t) return `<svg viewBox="0 0 100 ${h}" class="compbar" preserveAspectRatio="none"></svg>`;
+  let x = 0, out = "";
+  for (const it of items) {
+    if (it.value <= 0) continue;
+    const w = span * it.value / t;
+    out += `<rect x="${x.toFixed(3)}" y="0" width="${w.toFixed(3)}" height="${h}" fill="${it.color}">`
+         + `<title>${esc(it.label)}: ${it.value} (${(100 * it.value / t).toFixed(1)}%)</title></rect>`;
+    x += w;
+    // a hairline where each patient ends, so the segments are countable rather than a
+    // gradient. vector-effect keeps it 1 px after the viewBox is stretched to the track.
+    if (x < span - 1e-6)
+      out += `<line x1="${x.toFixed(3)}" y1="0" x2="${x.toFixed(3)}" y2="${h}" `
+           + `stroke="#fff" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+  }
+  return `<svg viewBox="0 0 100 ${h}" class="compbar" preserveAspectRatio="none">${out}</svg>`;
+}
+
+// A bare <img> for the card grid. img() wraps every picture in a <figure> with a
+// visible caption, which is right for a full-width panel and wrong for a row of
+// thumbnails - the captions would be taller than the brains.
+function cellImg(im, alt) {
+  return (im && im.data)
+    ? `<img class="cellimg" src="${im.data}" alt="${esc(alt)}">`
+    : `<div class="cellmiss">${esc(alt)}</div>`;
+}
+
 function img(im, alt, cls) {
   if (!im || !im.data) return `<div class="missing ${cls || ""}">${esc(alt)} — not published for this run</div>`;
   return `<figure class="${cls || ""}"><img src="${im.data}" alt="${esc(alt)}"><figcaption>${esc(alt)}</figcaption></figure>`;
@@ -1226,6 +1263,28 @@ h2.sec{font-size:17px;margin:0 0 3px}
 .spinbox img:not(:first-child){position:absolute;inset:0}
 .spinbox img.off{visibility:hidden}
 .cluetop{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
+.cards{display:grid;gap:8px}
+/* the two lateral views carry the most anatomy, so they get the width; the cluster
+   chip is a square and the composition track gives up space to them */
+.cardhead,.cardrow,.cardaxis{display:grid;grid-template-columns:30px .95fr 1.6fr 1.6fr 1.05fr 1.15fr;gap:9px;align-items:center}
+.cardhead{padding:0 10px 4px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cardaxis{padding:3px 10px 0}
+.cardrow{padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.cardrow .kchip{color:#fff;font-weight:600;border-radius:6px;font-size:11px;width:30px;height:30px;
+  display:flex;align-items:center;justify-content:center}
+.cellimg{width:100%;height:auto;display:block;border-radius:4px}
+.cellmiss{font-size:10px;color:var(--muted);border:1px dashed var(--line);border-radius:4px;padding:12px 4px;text-align:center}
+.sbtrack{background:#f1f3f6;border-radius:3px;overflow:hidden}
+/* not .sbar - scaleBar already owns that name further down, and it wins on order */
+.compbar{width:100%;height:15px;display:block}
+.sbcap{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.3}
+.baxis{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);
+  border-top:1px solid var(--line);padding-top:2px;font-variant-numeric:tabular-nums}
+/* one row, always: the tiles share the width instead of wrapping */
+.runstats{display:flex;gap:6px;margin:0 0 18px}
+.rs{flex:1 1 0;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 7px;background:#fbfcfd}
+.rs b{display:block;font-size:13.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rs span{display:block;font-size:8.5px;color:var(--muted);line-height:1.25}
 /* results table */
 table.res{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
 table.res th{text-align:left;font-weight:600;color:var(--muted);font-size:10.5px;
@@ -1459,7 +1518,11 @@ async function exportReport() {
     }
 
     // ── whole-run figures
-    const ov = RUN.figures.overview || [];
+    // cluster_cards.png is the offline version of the section built above: same idea,
+    // the superseded layout, and 252's renders rather than this viewer's. Carrying both
+    // put two different answers to one question in one report.
+    const ov = (RUN.figures.overview || [])
+      .filter(f => !/(^|\/)cluster_cards\.png$/.test(String(f.path || "")));
     const ovImgs = [];
     for (let i = 0; i < ov.length; i++) {
       btn.textContent = `Report: figure ${i + 1}/${ov.length}…`;
@@ -1523,6 +1586,60 @@ async function exportReport() {
       ${conc.k !== null ? tile((100 * conc.share).toFixed(0) + "%",
           "most one-patient-heavy (c" + conc.k + ")") : ""}
     </div>`;
+
+    // ── cluster cards ------------------------------------------------------
+    // Built here, from what this viewer captured a moment ago - not fetched. Every
+    // brain in this grid is the live glass scene at the frozen settings, so a run
+    // that 252 never rendered still gets a full set of cards.
+    let cardFallback = false;
+    // One x axis in samples for every composition bar. Taken from the same quantity the
+    // bars are built from (the per-patient counts), not cluster_sizes - the two can
+    // differ by unlabelled rows, and an axis that does not match its bars is worse than
+    // no axis.
+    const compTot = k => Object.values((RUN.cluster_patient_counts || {})[String(k)] || {})
+                               .reduce((a, v) => a + v, 0);
+    const barMax = Math.max(1, ...RUN.clusters.map(compTot));
+    const cardsRows = blocks.map(({ d, shots, glassShots, centroid }, i) => {
+      const k = d.cluster;
+      const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
+      const tot = Object.values(comp).reduce((a, v) => a + v, 0);
+      const items = Object.keys(comp).sort()
+        .map(q => ({ label: q, value: comp[q], color: pcol[q] || "#888" }));
+      const top = Object.entries(comp).sort((a, b) => b[1] - a[1])[0];
+      const cells = VIEWS.map((v, j) => {
+        const g = (glassShots || [])[j];
+        const use = (g && g.data) ? g : shots[j];
+        if (!(g && g.data)) cardFallback = true;
+        return cellImg(use, v[2]);
+      }).join("");
+      return `<div class="cardrow">
+        <div class="kchip" style="background:${clusterHue(i)}">c${k}</div>
+        ${cellImg(centroid, "centroid")}
+        ${cells}
+        <div><div class="sbtrack">${stackbar(items, tot, 15, barMax)}</div>
+          <div class="sbcap">${tot} samples · ${RUN.cluster_patients[String(k)]} patients${
+            top ? " · " + esc(top[0]) + " " + (100 * top[1] / (tot || 1)).toFixed(0) + "%" : ""}</div>
+        </div>
+      </div>`;
+    }).join("");
+
+    const cardsHTML = `<section class="card">
+  <h2 class="sec">Cluster cards</h2>
+  <p class="sechint">One row per cluster: its mean response, the same three angles for every
+    cluster, and who it is made of. The brains are the contacts themselves on a glass brain,
+    captured from this viewer at the frozen settings${cardFallback
+      ? " &mdash; except where the glass pass did not complete, which falls back to the probability map"
+      : ""}, so nothing here depends on a run having been rendered offline.
+    The composition bars share one x axis in samples, so a longer bar is a bigger
+    cluster and the segments inside it are the patients it came from &mdash; length and
+    composition are readable in the same glance.</p>
+  <div class="cardhead"><div></div><div>centroid</div>
+    ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div></div>
+  <div class="cards">${cardsRows}</div>
+  <div class="cardaxis"><div></div><div></div><div></div><div></div><div></div>
+    <div class="baxis"><span>0</span><span>${Math.round(barMax / 2)}</span><span>${barMax}</span></div>
+  </div>
+</section>`;
 
     // ── results ------------------------------------------------------------
     // Read from the run's own files rather than restated, so a number here cannot drift
@@ -1716,6 +1833,8 @@ async function exportReport() {
   ${summary}
   ${note("overview")}
 </section>
+
+${cardsHTML}
 
 <section class="card">
   <h2 class="sec">How well was this cohort sampled?</h2>

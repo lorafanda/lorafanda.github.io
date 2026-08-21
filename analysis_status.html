@@ -3728,16 +3728,24 @@
           for electrodes that pass the gate. The composition is not uniform &mdash; a 7&times;2 test
           gives &chi;<sup>2</sup>&nbsp;=&nbsp;134.4, p&nbsp;=&nbsp;1.5&times;10<sup>&minus;26</sup>
           &mdash; but no component is <i>made of</i> the discarded electrodes.</li>
-        <li><b>The hard partitions do have one, and in both directions.</b> k-means puts <b>58% of all
-          electrodes</b> into a single cluster that is 74% added, and Ward puts <b>70%</b> into one
-          that is 71% added &mdash; while both also carve out a small cluster that is almost purely
-          gated (4% and 3%). That is a responsive/non-responsive split wearing cluster labels.</li>
-        <li><b>The tell is in the silhouette itself.</b> For k-means and Ward the <b>added electrodes
-          score higher than the gated ones</b> (0.137 vs 0.080; 0.175 vs 0.085). A partition whose
-          cleanest structure lives in the contacts the gate calls non-responsive is separating
-          <i>responsive from non-responsive</i>, not one response type from another. This is the
-          failure mode predicted before notebook <b>237</b> was run: a flat population makes an easy,
-          well-separated cluster, so an ungated run scores better while meaning less.</li>
+        <li><b>The hard partitions do have one, and in both directions.</b> k-means has a cluster that
+          is <b>74% added</b> and one that is <b>4%</b>; Ward has <b>71%</b> and <b>3%</b>. Checked at
+          matched K, the <b>enrichment is robust</b> &mdash; the most-added cluster stays at 74&ndash;78%
+          at K=4, 7 and 10 &mdash; and the almost-purely-gated cluster gets <i>purer</i> as K rises, to
+          <b>0.0% added</b> at K=7 and K=10 for both methods. <b>The cluster SIZES in this figure are
+          not robust</b>: they are K=4, the value silhouette picked for these runs, and at K=7 the
+          largest cluster falls from 58% to 38.7% (k-means) and from 70% to 36.1% (Ward). Read the
+          composition, not the size.</li>
+        <li><b>Corrected 2026-08-20 &mdash; the silhouette was not the tell.</b> This caption first
+          argued that for k-means and Ward the added electrodes score higher silhouette than the gated
+          ones (0.137 vs 0.080; 0.175 vs 0.085), and read that as the diagnostic. <b>That holds only at
+          K=4.</b> Checked at matched K it is a wash at K=7 (0.068/0.074 and 0.041/0.042) and
+          <b>reverses at K=10</b> (0.062/0.058 and 0.050/0.043). The claim is withdrawn.
+          <br>What stands without it: one cluster is consistently built from the electrodes the gate
+          removes, and another consistently excludes them entirely, at every K tested. That is still a
+          responsive/non-responsive split wearing cluster labels &mdash; the failure mode predicted
+          before notebook <b>237</b> was run &mdash; but the evidence for it is the composition, not
+          the silhouette.</li>
         <li><b>Why convex NMF escapes it.</b> It unit-norms each electrode before fitting, which
           divides out exactly the amplitude the hard methods are keying on. This is the same
           space-dependence <a href="#separation">FIG C.7</a> had to be corrected for, seen from the

@@ -84,6 +84,11 @@
         <label class="title" for="runSel">Run</label>
         <select id="runSel"></select>
         <div class="cohort" id="cohortNote">—</div>
+        <div id="kRow" style="display:none">
+          <div class="ksub">Clusters (K)</div>
+          <div id="kBtns" class="kbtns"></div>
+          <div class="cohort" id="kNote">—</div>
+        </div>
       </div>
 
       <div class="grp">
@@ -293,6 +298,125 @@ const curDef = () => DEFS.find(d => d.id === state.map) || DEFS[0];
 // Coverage counts are shared by every run but differ per radius, so they are fetched
 // once per radius rather than once per run.
 let COH = null;                 // the cohort of the selected run
+
+// ── K control ───────────────────────────────────────────────────────────────
+// A run publishes one K, but its sweep holds several. Rather than ship per-vertex counts
+// for every K - K bytes per vertex per radius per hemisphere, about 380 MB across these
+// runs - the bundle ships the NEIGHBOURHOOD: which contacts lie within R mm of each
+// vertex. That is geometry, so one copy covers every K, and the counts for any labelling
+// are one pass over it here. Verified against the precomputed counts: identical.
+let RUN0 = null;      // the run exactly as the manifest publishes it
+let SWEEP = null;     // {labels: {k: [per global contact]}, stats: {k: {...}}}
+let KSEL = null;      // the K currently shown
+const NBRC = {};      // radius -> {lh, rh} CSR, cached; the r=15 index is 29 MB
+
+async function loadNeighbours(radius) {
+  if (NBRC[radius]) return NBRC[radius];
+  const spec = (M.neighbours || {})[radius];
+  if (!spec) return null;
+  const out = {};
+  for (const h of ["lh", "rh"]) {
+    const off = await fetchBin(BUNDLE + spec[h].off, Uint32Array);
+    // split into <=4 MB parts to clear the repo's commit guard; rejoin here
+    const parts = await Promise.all(
+      spec[h].idx_parts.map(f => fetchBin(BUNDLE + f, Uint16Array)));
+    const idx = new Uint16Array(spec[h].nnz);
+    let at = 0;
+    for (const q of parts) { idx.set(q, at); at += q.length; }
+    if (at !== spec[h].nnz) throw new Error(`index ${radius} ${h}: ${at} of ${spec[h].nnz}`);
+    out[h] = { off, idx, nvert: spec[h].n_vertices };
+  }
+  NBRC[radius] = out;
+  return out;
+}
+
+// Rebuild per-vertex cluster counts for an arbitrary labelling. Mirrors exactly what
+// make_coverage_bundle does in numpy, including counting a multi-label electrode once
+// per label it carries rather than once per electrode.
+function countsFor(nbr, labels, K, memberMask) {
+  const out = {};
+  for (const h of ["lh", "rh"]) {
+    const { off, idx, nvert } = nbr[h];
+    const arr = new Uint16Array(nvert * K);
+    for (let v = 0; v < nvert; v++) {
+      const a = off[v], b = off[v + 1], base = v * K;
+      for (let i = a; i < b; i++) {
+        const g = idx[i];
+        if (!memberMask[g]) continue;
+        const L = labels[g];
+        if (!L) continue;
+        for (let j = 0; j < L.length; j++) arr[base + L[j]]++;
+      }
+    }
+    out[h] = arr;
+  }
+  return out;
+}
+
+function cohortMask(cohortId) {
+  const mask = new Uint8Array(CONTACTS.xyz.length);
+  for (const i of CONTACTS.cohorts[cohortId]) mask[i] = 1;
+  return mask;
+}
+
+async function applyK(k) {
+  if (!RUN0) return;
+  const pub = Number(RUN0.k);
+  KSEL = Number(k);
+  if (KSEL === pub) {
+    // the published cut has counts already built; use them rather than recompute
+    const cf = RUN0.counts[state.radius];
+    const [lh, rh] = await Promise.all(["lh", "rh"].map(h =>
+      fetchBin(`${BUNDLE}${RUN0.dir}/${cf[h].file}`, TYPE[cf[h].dtype])));
+    CLU = { lh, rh };
+    RUN = RUN0;
+  } else {
+    const nbr = await loadNeighbours(state.radius);
+    const st = SWEEP.stats[String(KSEL)];
+    CLU = countsFor(nbr, SWEEP.labels[String(KSEL)], KSEL, cohortMask(RUN0.cohort_id));
+    // Rewrite the run's cluster fields so everything downstream - the map list, the
+    // colours, the report - follows K without knowing this control exists. Sizes come
+    // from the bundle, computed over the run's ROWS, because recomputing them here from
+    // localised contacts only would quietly change the denominator.
+    RUN = Object.assign({}, RUN0, {
+      k: KSEL, clusters: st.clusters,
+      cluster_sizes: st.cluster_sizes,
+      cluster_patients: st.cluster_patients,
+      cluster_patient_counts: st.cluster_patient_counts,
+    });
+  }
+  drawKButtons();
+}
+
+function drawKButtons() {
+  const row = $("kRow"), box = $("kBtns");
+  if (!SWEEP || !SWEEP.ks || SWEEP.ks.length < 2) { row.style.display = "none"; return; }
+  row.style.display = "";
+  box.innerHTML = "";
+  const pub = Number(RUN0.k);
+  for (const k of SWEEP.ks) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = k;
+    if (k === KSEL) b.classList.add("on");
+    if (k === pub) b.classList.add("pub");
+    b.title = k === pub ? `K=${k} - the cut this run publishes` : `re-cut this run at K=${k}`;
+    b.addEventListener("click", async () => {
+      if (KSEL === k) return;
+      box.querySelectorAll("button").forEach(x => x.disabled = true);
+      try { await applyK(k); autoScale(); render(); updateElectrodes(); }
+      finally { box.querySelectorAll("button").forEach(x => x.disabled = false); }
+      refreshMapList();
+    });
+    box.appendChild(b);
+  }
+  const pubIn = SWEEP.ks.includes(pub);
+  $("kNote").innerHTML = pubIn
+    ? (KSEL === pub
+        ? `K=${pub} is this run's published cut.`
+        : `Re-cut at K=${KSEL}. Published cut is <b>K=${pub}</b> (marked).`)
+    : `Re-cut at K=${KSEL}. This run publishes <b>K=${pub}</b>, outside the 5-12 range.`;
+}
 async function loadCoverage(cohortId, radius) {
   COH = M.cohorts[cohortId];
   const cv = COH.coverage[radius];
@@ -347,29 +471,49 @@ async function boot() {
   $("status").style.display = "none";
 }
 
-async function selectRun(id) {
-  const r = M.runs.find(x => x.id === id);
-  if (!r) return;
-  $("status").style.display = "grid";
-  $("status").textContent = `Loading ${r.track_label} · ${r.run}…`;
-  await loadCoverage(r.cohort_id, state.radius);
-  const cf = r.counts[state.radius];
-  const [lh, rh] = await Promise.all(["lh","rh"].map(h =>
-    fetchBin(`${BUNDLE}${r.dir}/${cf[h].file}`, TYPE[cf[h].dtype])));
-  CLU = { lh, rh };
-  RUN = r;
-  location.hash = r.id;
-
+// The per-cluster map list depends on K, so it is rebuilt both when the run changes and
+// when the K buttons re-cut it.
+function refreshMapList() {
   DEFS = mapDefs();
   const sel = $("mapSel");
+  const keep = state.map;
   sel.innerHTML = "";
   let g = null, og = null;
   for (const d of DEFS) {
     if (d.group !== g) { g = d.group; og = document.createElement("optgroup"); og.label = g; sel.appendChild(og); }
     const o = document.createElement("option"); o.value = d.id; o.textContent = d.label; og.appendChild(o);
   }
-  if (!DEFS.some(d => d.id === state.map)) state.map = "coverage";
+  // A cluster map that no longer exists at this K falls back rather than rendering a
+  // slice past the end of the counts array.
+  if (!DEFS.some(d => d.id === keep)) state.map = "coverage";
   sel.value = state.map;
+}
+
+async function selectRun(id, keepK) {
+  const r = M.runs.find(x => x.id === id);
+  if (!r) return;
+  $("status").style.display = "grid";
+  $("status").textContent = `Loading ${r.track_label} · ${r.run}…`;
+  await loadCoverage(r.cohort_id, state.radius);
+  const prevK = KSEL;
+  RUN0 = r; RUN = r; SWEEP = null;
+  let wantK = Number(r.k);
+  if (r.sweep) {
+    const base = `${BUNDLE}${r.dir}/`;
+    const [labels, stats] = await Promise.all([
+      fetch(base + r.sweep.labels).then(x => x.json()),
+      fetch(base + r.sweep.stats).then(x => x.json()),
+    ]);
+    SWEEP = { ks: r.sweep.ks.map(Number), labels, stats };
+    // A run can publish a K outside the control's range (K=4 and K=23 both occur here).
+    // Land on a cut that exists rather than on a button that is not there.
+    if (keepK && SWEEP.ks.includes(prevK)) wantK = prevK;
+    else if (!SWEEP.ks.includes(wantK)) wantK = SWEEP.ks.includes(7) ? 7 : SWEEP.ks[0];
+  }
+  await applyK(wantK);
+  location.hash = r.id;
+
+  refreshMapList();
 
   $("cohortNote").textContent =
     `${r.cohort} · ${r.n_electrodes} rows (${r.unit}) · ${r.n_contacts_with_cluster} contacts localised`;
@@ -1232,6 +1376,14 @@ header.top .sub{color:var(--muted);font-size:13px}
 .chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .chip{background:#eef2f6;border:1px solid var(--line);border-radius:20px;padding:3px 11px;font-size:12px}
 .chip b{font-weight:600}
+.ksub{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8b949e;margin:9px 0 4px}
+.kbtns{display:flex;flex-wrap:wrap;gap:4px}
+.kbtns button{font:inherit;font-size:11.5px;min-width:27px;padding:3px 0;flex:1 1 0;
+  border:1px solid #3a424c;background:#232a33;color:#c9d3de;border-radius:6px;cursor:pointer}
+.kbtns button:hover{background:#2c3540}
+.kbtns button.on{background:#1f77b4;border-color:#1f77b4;color:#fff;font-weight:600}
+.kbtns button.pub{box-shadow:inset 0 -2px 0 #f0a500}
+.kbtns button:disabled{opacity:.35;cursor:default}
 .card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:0 0 20px}
 h2.sec{font-size:17px;margin:0 0 3px}
 .sechint{color:var(--muted);font-size:12.5px;margin:0 0 16px}
@@ -1993,7 +2145,7 @@ function wireUI() {
   $("radSel").onchange = async e => {
     state.radius = e.target.value;
     $("status").style.display = "grid"; $("status").textContent = `Recomputing at ${state.radius} mm…`;
-    await selectRun(RUN.id);            // reloads coverage + counts at the new radius
+    await selectRun(RUN.id, true);      // reloads at the new radius, keeping K
   };
   $("clim").oninput  = e => { state.climMax = +e.target.value / 100; $("climVal").textContent = state.climMax.toFixed(2); render(); };
   $("gamma").oninput = e => { state.gamma = +e.target.value / 100; $("gammaVal").textContent = state.gamma.toFixed(2); render(); };

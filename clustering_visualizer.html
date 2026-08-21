@@ -393,6 +393,34 @@ function coverageForRun(nbr, mask, patIdx) {
   return out;
 }
 
+// WHICH CLUSTER EACH CONTACT BELONGS TO, AT THE K ON SCREEN.
+//
+// contacts.json["runs"][id] is the PUBLISHED cut and only knows ids 0..K_pub-1. Reading
+// it at a re-cut K put the wrong partition on every surface - pial, inflated and glass
+// alike, since they all draw through updateElectrodes. On cnmf/concat_hg viewed at K=11:
+// cluster 9 drew 0 contacts because id 9 does not exist in the K=7 vector, and cluster 0
+// drew 118 - the K=7 members - where K=11 has 88.
+function labelsForK() {
+  if (!RUN) return null;
+  if (SWEEP && SWEEP.labels && Number(KSEL) !== Number(RUN0.k)) {
+    const v = SWEEP.labels[String(KSEL)];
+    if (v) return v;
+  }
+  return CONTACTS.runs[RUN.id] || null;
+}
+
+// The graded weights belong to a cut too. Only the published one is in the bundle, so at
+// a re-cut K the loading gate and the size/grey ramp would be driven by another
+// partition's weights; better to have no graded control than a lying one.
+function loadingsForK() {
+  if (!RUN || !CONTACTS.loadings) return null;
+  if (SWEEP && Number(KSEL) !== Number(RUN0.k)) {
+    const v = (SWEEP.loadings || {})[String(KSEL)];
+    return v || null;
+  }
+  return CONTACTS.loadings[RUN.id] || null;
+}
+
 function cohortMask(cohortId) {
   const mask = new Uint8Array(CONTACTS.xyz.length);
   for (const i of CONTACTS.cohorts[cohortId]) mask[i] = 1;
@@ -401,7 +429,7 @@ function cohortMask(cohortId) {
 
 // The contacts this run holds, and each one's patient index within the run.
 function runContactIndex() {
-  const labs = CONTACTS.runs[RUN0.id] || [];
+  const labs = CONTACTS.runs[RUN0.id] || [];   // membership only; K-independent
   const inCohort = CONTACTS.cohorts[RUN0.cohort_id] || [];
   const mask = new Uint8Array(CONTACTS.xyz.length);
   const pats = [];
@@ -590,11 +618,15 @@ async function selectRun(id, keepK) {
   let wantK = Number(r.k);
   if (r.sweep) {
     const base = `${BUNDLE}${r.dir}/`;
-    const [labels, stats] = await Promise.all([
+    const [labels, stats, loadings] = await Promise.all([
       fetch(base + r.sweep.labels).then(x => x.json()),
       fetch(base + r.sweep.stats).then(x => x.json()),
+      // only the graded runs have these; a hard partition has no weights to gate on
+      r.sweep.loadings
+        ? fetch(base + r.sweep.loadings).then(x => x.json()).catch(() => null)
+        : Promise.resolve(null),
     ]);
-    SWEEP = { ks: r.sweep.ks.map(Number), labels, stats };
+    SWEEP = { ks: r.sweep.ks.map(Number), labels, stats, loadings };
     // A run can publish a K outside the control's range (K=4 and K=23 both occur here).
     // Land on a cut that exists rather than on a button that is not there.
     if (keepK && SWEEP.ks.includes(prevK)) wantK = prevK;
@@ -762,7 +794,7 @@ function render() {
   // A hard partition has no loading to threshold: every contact's membership is 1.0
   // by construction. Leaving the slider live there would look functional and do
   // nothing, which is worse than disabling it.
-  const hasLoad = !!(RUN && CONTACTS && CONTACTS.loadings && CONTACTS.loadings[RUN.id]);
+  const hasLoad = !!loadingsForK();
   const lr = $("loadRow");
   lr.style.opacity = hasLoad ? "1" : ".35";
   $("minLoad").disabled = !hasLoad;
@@ -897,11 +929,11 @@ function updateElectrodes() {
   // contacts are in anatomical space — they do not lie on the inflated surface
   if (!state.showElec || state.surf === "inflated" || !CONTACTS) { nv.drawScene(); return; }
   const d = curDef(), pts = [], tris = [], cols = [];
-  const lab = RUN ? CONTACTS.runs[RUN.id] : null;
+  const lab = labelsForK();
   // Graded membership, where the run has it. Radius AND opacity both track the
   // loading: size alone is a weak perceptual channel - people misjudge area against
   // radius - so the two are moved together, as the by_loading renders do.
-  const load = (RUN && CONTACTS.loadings) ? CONTACTS.loadings[RUN.id] : null;
+  const load = loadingsForK();
   // ONLY THE CONTACTS THIS RUN ACTUALLY CONTAINS.
   // Cohorts are defined by patient, not by electrode, so cohort1_n27 ("1266-electrode
   // concat") and cohort2_n27 ("ungated concat") hold the identical 3611 contacts. Drawing

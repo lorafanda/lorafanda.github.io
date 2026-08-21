@@ -3705,6 +3705,81 @@
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/cnmf/concat_hg_all/runs/20260819_220417/decomposition_drivers/D1_membership.png" alt="membership structure of the ungated convex NMF decomposition, with gated and added electrodes marked in blue and grey"></div>
     </figure>
 
+    <figure><div class="cap"><div class="fignum">FIG C.9</div>
+      <h4>Is any cluster mostly the electrodes the gate would have removed?</h4>
+      <p style="margin:0 0 8px">Panel B of <a href="#howcnmfdecides">FIG C.5</a> generalised so it
+        applies to all three methods: per-electrode confidence, grouped by cluster and coloured by
+        gate, but on <b>silhouette</b> rather than the loading margin &mdash; k-means and Ward have no
+        loadings, so the margin does not exist for them.
+        <span style="color:#4a6fa5"><b>Blue</b></span> = would pass the responsiveness gate,
+        <span style="color:#8e969e"><b>grey</b></span> = only present because it was lifted.
+        <b>57.0% of all 2946 electrodes are grey</b>, so a cluster is only notable if it departs from
+        that. <b>Each method is scored in the space it fits in</b> &mdash; convex NMF unit-norms each
+        electrode, k-means and Ward use raw dB, and silhouette is not a space-free quantity.</p>
+      <ul>
+        <li><b>The answer depends entirely on the method, and the split is sharp.</b>
+          <table class="sum" style="margin:8px 0">
+          <tr><th></th><th>most added</th><th>least added</th><th>silhouette: gated</th><th>added</th></tr>
+          <tr><td><b>cNMF</b> <i>(unit-norm)</i></td><td>c5 &mdash; 69%</td><td>c6 &mdash; <b>35%</b></td><td>+0.066</td><td>+0.034</td></tr>
+          <tr><td><b>k-means</b> <i>(dB)</i></td><td>c2 &mdash; <b>74%</b>, n=1696</td><td>c0 &mdash; <b>4%</b>, n=275</td><td>+0.080</td><td><b>+0.137</b></td></tr>
+          <tr><td><b>Ward</b> <i>(dB)</i></td><td>c3 &mdash; <b>71%</b>, n=2075</td><td>c0 &mdash; <b>3%</b>, n=269</td><td>+0.085</td><td><b>+0.175</b></td></tr></table></li>
+        <li><b>Convex NMF has no such cluster.</b> Its most extreme is 69% against a 57% baseline, and
+          the one cluster that stands out goes the <i>other</i> way: <b>c6 at 35% added</b>, enriched
+          for electrodes that pass the gate. The composition is not uniform &mdash; a 7&times;2 test
+          gives &chi;<sup>2</sup>&nbsp;=&nbsp;134.4, p&nbsp;=&nbsp;1.5&times;10<sup>&minus;26</sup>
+          &mdash; but no component is <i>made of</i> the discarded electrodes.</li>
+        <li><b>The hard partitions do have one, and in both directions.</b> k-means puts <b>58% of all
+          electrodes</b> into a single cluster that is 74% added, and Ward puts <b>70%</b> into one
+          that is 71% added &mdash; while both also carve out a small cluster that is almost purely
+          gated (4% and 3%). That is a responsive/non-responsive split wearing cluster labels.</li>
+        <li><b>The tell is in the silhouette itself.</b> For k-means and Ward the <b>added electrodes
+          score higher than the gated ones</b> (0.137 vs 0.080; 0.175 vs 0.085). A partition whose
+          cleanest structure lives in the contacts the gate calls non-responsive is separating
+          <i>responsive from non-responsive</i>, not one response type from another. This is the
+          failure mode predicted before notebook <b>237</b> was run: a flat population makes an easy,
+          well-separated cluster, so an ungated run scores better while meaning less.</li>
+        <li><b>Why convex NMF escapes it.</b> It unit-norms each electrode before fitting, which
+          divides out exactly the amplitude the hard methods are keying on. This is the same
+          space-dependence <a href="#separation">FIG C.7</a> had to be corrected for, seen from the
+          other side: there it decided which method looked separable, here it decides whether a method
+          rediscovers the gate.</li>
+      </ul>
+      <div class="runid">source: cnmf <b>20260819_220417</b> · kmeans <b>20260819_235524</b> · hierarchical <b>20260819_235654</b>, all concat_hg_all · <code>make_gate_split_figures.py</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparison/G1_silhouette_by_gate.png" alt="per-electrode silhouette grouped by cluster and coloured by responsiveness gate, for convex NMF, k-means and Ward"></div>
+    </figure>
+
+    <figure><div class="cap"><div class="fignum">FIG C.10</div>
+      <h4>Do the added electrodes join the cluster, or dilute it?</h4>
+      <p style="margin:0 0 8px">For each of the fifteen clusters, Cohen's d against all other
+        electrodes computed <b>twice</b>: once from that cluster's <span style="color:#4a6fa5"><b>gated
+        members only</b></span>, once from its <span style="color:#8e969e"><b>added members
+        only</b></span>. If the added electrodes belong to the same response type the two curves have
+        the same shape; if the cluster is two different things sharing one label, they do not.</p>
+      <ul>
+        <li><b>They join. r = 0.75 to 0.95 on every cluster of every method.</b> Whatever the gate was
+          removing, it was not a different response type &mdash; the added electrodes carry the same
+          feature signature as the gated members of the cluster they land in.</li>
+        <li><b>But they carry it weaker.</b> The grey curve sits consistently <i>inside</i> the blue
+          one: same shape, smaller effect size. That is what the amplitude measurement predicts &mdash;
+          the added electrodes have mean |HG| <b>0.392 dB</b> against <b>0.639</b> for the gated set,
+          and peak <b>1.58</b> against <b>2.51</b>. They are quieter versions of the same thing, which
+          is precisely why an amplitude threshold removes them and why a threshold is the wrong tool.</li>
+        <li><b>Read together with C.9, this is the argument for changing the criterion rather than the
+          cohort.</b> The gate is not discarding a distinct population (C.10), but including that
+          population lets the hard methods build a cluster out of it (C.9). A <b>reliability</b>
+          criterion &mdash; does the electrode's response reproduce across trial halves &mdash; would
+          separate a quiet-but-real response from a quiet-and-random one, which an amplitude threshold
+          cannot. Norman-Haignere et al. (2019) select their 271 electrodes exactly this way, at
+          split-half r&nbsp;&gt;&nbsp;0.2. Notebook <b>238</b> has that analysis written; it needs
+          stage 01 to save odd/even-trial ERSP cubes first, which it currently does not.</li>
+        <li><b>One caveat on the low end.</b> Ward c2 is the weakest agreement at r = 0.75 and is only
+          28% added, so it is not the diluted cluster you would predict from the composition alone.
+          Agreement and composition are separate axes and this figure is not a ranking.</li>
+      </ul>
+      <div class="runid">same three runs · <code>make_gate_split_figures.py</code> · numbers in <code>comparison/gate_split_stats.json</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparison/G2_drivers_by_gate.png" alt="Cohen's d per cluster computed separately from gated and added electrodes, for all three methods"></div>
+    </figure>
+
         <h4>Opening the story &mdash; two candidates</h4>
     <p>The same evidence opens two ways and the choice is editorial, so both are drawn from the same
       files and at the same weight. <b>Decision taken 2026-08-08: the negative result stays in</b>

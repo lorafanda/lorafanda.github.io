@@ -1616,6 +1616,15 @@ h2.sec{font-size:17px;margin:0 0 3px}
 .kpick button:hover{background:#f2f5f8}
 .kpick button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 .kpick button[data-pub]{box-shadow:inset 0 -3px 0 #f0a500}
+.kbrains{display:grid;gap:8px;margin-top:14px}
+.kbrow{display:grid;grid-template-columns:120px 3fr 1.15fr;gap:10px;align-items:center;
+  border:1px solid var(--line);border-radius:9px;padding:7px 9px;background:#fff}
+.kblab{font-size:10.5px;color:var(--muted);line-height:1.35}
+.kbchip{display:inline-block;color:#fff;font-weight:600;border-radius:5px;padding:1px 7px;
+  font-size:11px;margin-bottom:3px}
+.kbviews{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.kbviews img{width:100%;height:auto;display:block;border-radius:4px}
+.kbcen img{width:100%;height:auto;display:block;border-radius:4px}
 .kchips{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;margin-top:14px}
 .kchips figure{margin:0}
 .kchips img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:6px;background:#fff}
@@ -1800,6 +1809,7 @@ async function exportReport() {
     // already slow export. Only the map changes inside the loop - which is precisely
     // what now makes each still show its own cluster, rather than all of them.
     let glassCovSpin = null;
+    const KBRAINS = {};   // k -> [ [3 glass stills] per cluster ]
     const glassWas = { glass: state.glass, byCluster: state.elecByCluster,
                        elec: state.showElec };
     try {
@@ -1855,6 +1865,41 @@ async function exportReport() {
         // and it means a run that was never rendered offline still turns.
         btn.textContent = `Report: glass rotation ${i + 1}/${blocks.length}...`;
         blocks[i].glassSpin = await captureSpin(0, SPIN_N, SPIN_W, true, gSpinBox);
+      }
+
+      // ── EVERY CLUSTER AT EVERY K, captured while the glass surface is already up.
+      // The K panel could switch its numbers and centroid chips but not its brains, so
+      // pressing a button changed the table and left the cortex showing another cut.
+      // Done here rather than in its own pass because entering glass mode reloads the
+      // pial mesh: one swap for all of it instead of one per K.
+      //
+      // Stills only. A 60-frame turn for each of these clusters would be roughly 8600
+      // more frames and a third of a gigabyte, which no browser will open.
+      if (SWEEP && SWEEP.ks && SWEEP.ks.length > 1) {
+        const kWas = KSEL;
+        for (const kk of SWEEP.ks) {
+          btn.textContent = `Report: K=${kk} brains…`;
+          await applyK(kk);
+          refreshMapList();
+          const ids = (SWEEP.stats[String(kk)] || {}).clusters || [];
+          const shots = [];
+          for (const c of ids) {
+            state.map = `c${c}`;
+            if (!DEFS.some(d => d.id === state.map)) { shots.push(null); continue; }
+            state.climMax = frozen.climMax; state.minN = frozen.minN; state.gamma = frozen.gamma;
+            render(); updateElectrodes(); await sleep(60);
+            const one = [];
+            for (let v = 0; v < VIEWS.length; v++) {
+              const [az, el] = VIEWS[v];
+              one.push(gBox[v] ? await captureRaw(az, el, CAPW, gBox[v], true)
+                               : await captureView(az, el, CAPW, true));
+            }
+            shots.push(one);
+          }
+          KBRAINS[kk] = shots;
+        }
+        await applyK(kWas);
+        refreshMapList();
       }
     } catch (e) {
       // A failed glass pass must not cost the report the work already captured.
@@ -2023,6 +2068,8 @@ async function exportReport() {
           chips: chips.filter(x => x && x.data),
           nChips: chips.filter(x => x && x.data).length,
           nClusters: ids.length,
+          brains: KBRAINS[k] || null,
+          ids,
         };
       }
     }
@@ -2203,7 +2250,26 @@ async function exportReport() {
         : `<p class="sechint">No metrics published for K=${k} yet. sweep_metrics.csv /
            sweep_by_k.csv give the partition quality, sweep_stability.py the stability -
            both are cells in 235.</p>`}
-      <div class="kchips">${B.chips.length
+      ${(B.brains && B.brains.some(Boolean)) ? `<div class="kbrains">${
+        (B.ids || []).map((c, i) => {
+          const g = (B.brains || [])[i];
+          if (!g) return "";
+          return `<div class="kbrow">
+            <div class="kblab"><span class="kbchip" style="background:${clusterCSS(c)}">c${c}</span>
+              <span>${(st.cluster_sizes || {})[String(c)] || 0} samples ·
+              ${(st.cluster_patients || {})[String(c)] || 0} patients</span></div>
+            <div class="kbviews">${g.map((im, v) =>
+              cellImg(im, `c${c} ${VIEWS[v][2]}`)).join("")}</div>
+            ${B.chips[i] && B.chips[i].data
+              ? `<div class="kbcen">${cellImg(B.chips[i], `c${c} centroid`)}</div>` : "<div></div>"}
+          </div>`;
+        }).join("")}</div>
+        <p class="sechint">Every cluster at K=${k}, on the glass brain at the frozen
+          settings, in the same box as every other brain in this report. Stills rather
+          than turns: a 60-frame rotation for each cluster at each K would add about 8600
+          frames and a third of a gigabyte. The rotations further down stay at
+          K=${KSEL}.</p>` : ""}
+      <div class="kchips" hidden>${B.chips.length
         ? B.chips.map((im, i) => `<figure><img ${srcAttr(im.data)} alt="cluster ${ids[i]}">
             <figcaption><i style="background:${clusterCSS(ids[i])}"></i>c${ids[i]} ·
             ${sizes[String(ids[i])] || 0}</figcaption></figure>`).join("")

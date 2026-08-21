@@ -247,7 +247,8 @@ function mapDefs() {
   const defs = [{
     id: "coverage", group: "Sampling", label: "Coverage — P(patient sampled here)",
     title: "Coverage: how many patients have an electrode here",
-    def: `P = n_patients within ${R()} mm / ${COH.n_patients} patients in this cohort`,
+    def: `P = n_patients within ${R()} mm / ${COH.n_patients} patients, counting only `
+       + `the ${RUNCOV ? RUNCOV.nContacts : COH.n_contacts} contacts this run contains`,
     note: "The honest denominator for every brain figure in this project. Yellow = many " +
           "independent patients sampled this cortex; purple = one or two. Dark cortex is not " +
           "\"no language\" — it is <b>no electrodes</b>. Identical for every run.",
@@ -306,6 +307,7 @@ let COH = null;                 // the cohort of the selected run
 // vertex. That is geometry, so one copy covers every K, and the counts for any labelling
 // are one pass over it here. Verified against the precomputed counts: identical.
 let RUN0 = null;      // the run exactly as the manifest publishes it
+let RUNCOV = null;    // this run's own coverage summary, not the cohort's
 let SWEEP = null;     // {labels: {k: [per global contact]}, stats: {k: {...}}}
 let KSEL = null;      // the K currently shown
 const NBRC = {};      // radius -> {lh, rh} CSR, cached; the r=15 index is 29 MB
@@ -353,10 +355,66 @@ function countsFor(nbr, labels, K, memberMask) {
   return out;
 }
 
+// Coverage and contact density FOR THIS RUN, not for its patients' whole implantation.
+//
+// The shipped coverage_<cohort>_*.bin counts every contact belonging to the cohort's
+// patients. Cohorts are keyed by patient, so the gated and ungated concat cohorts hold
+// exactly the same 3611 contacts and their coverage maps are byte-identical - a gated
+// run was being shown sampling from 2576 electrodes it does not contain. Since the
+// bundle now ships the neighbourhood, the honest per-run version is one pass over it.
+//
+// Distinct patients per vertex is a set membership problem; with at most a few dozen
+// patients two 32-bit masks hold it exactly and popcount is cheap.
+function coverageForRun(nbr, mask, patIdx) {
+  const out = {};
+  for (const h of ["lh", "rh"]) {
+    const { off, idx, nvert } = nbr[h];
+    const arr = new Uint16Array(nvert * 2);       // [n_contacts, n_patients] per vertex
+    for (let v = 0; v < nvert; v++) {
+      const a = off[v], b = off[v + 1];
+      let c = 0, lo = 0, hi = 0;
+      for (let i = a; i < b; i++) {
+        const g = idx[i];
+        if (!mask[g]) continue;
+        c++;
+        const q = patIdx[g];
+        if (q < 0) continue;
+        if (q < 31) lo |= (1 << q); else hi |= (1 << (q - 31));
+      }
+      let n = 0, m = lo;
+      while (m) { m &= m - 1; n++; }
+      m = hi;
+      while (m) { m &= m - 1; n++; }
+      arr[v * 2] = c > 65535 ? 65535 : c;
+      arr[v * 2 + 1] = n;
+    }
+    out[h] = arr;
+  }
+  return out;
+}
+
 function cohortMask(cohortId) {
   const mask = new Uint8Array(CONTACTS.xyz.length);
   for (const i of CONTACTS.cohorts[cohortId]) mask[i] = 1;
   return mask;
+}
+
+// The contacts this run holds, and each one's patient index within the run.
+function runContactIndex() {
+  const labs = CONTACTS.runs[RUN0.id] || [];
+  const inCohort = CONTACTS.cohorts[RUN0.cohort_id] || [];
+  const mask = new Uint8Array(CONTACTS.xyz.length);
+  const pats = [];
+  const patOf = new Int16Array(CONTACTS.xyz.length).fill(-1);
+  for (const i of inCohort) {
+    if (!labs[i]) continue;                       // not in this run
+    mask[i] = 1;
+    const p = CONTACTS.patient[i];
+    let q = pats.indexOf(p);
+    if (q < 0) { q = pats.length; pats.push(p); }
+    patOf[i] = q;
+  }
+  return { mask, patOf, nPat: pats.length, nContacts: pats.length ? mask.reduce((a, b) => a + b, 0) : 0 };
 }
 
 async function applyK(k) {
@@ -404,9 +462,15 @@ function drawKButtons() {
     b.addEventListener("click", async () => {
       if (KSEL === k) return;
       box.querySelectorAll("button").forEach(x => x.disabled = true);
-      try { await applyK(k); autoScale(); render(); updateElectrodes(); }
-      finally { box.querySelectorAll("button").forEach(x => x.disabled = false); }
-      refreshMapList();
+      try {
+        await applyK(k);
+        // BEFORE render(). DEFS still described the previous K at this point, so
+        // render() read stale definitions - a cluster id past the end of the new counts,
+        // or a map that no longer exists - and the brain kept showing the old cut until
+        // the dropdown was touched. That is the "buttons do not refresh" symptom.
+        refreshMapList();
+        autoScale(); render(); updateElectrodes();
+      } finally { box.querySelectorAll("button").forEach(x => x.disabled = false); }
     });
     box.appendChild(b);
   }
@@ -496,7 +560,33 @@ async function selectRun(id, keepK) {
   $("status").textContent = `Loading ${r.track_label} · ${r.run}…`;
   await loadCoverage(r.cohort_id, state.radius);
   const prevK = KSEL;
-  RUN0 = r; RUN = r; SWEEP = null;
+  RUN0 = r; RUN = r; SWEEP = null; RUNCOV = null;
+
+  // Coverage and density restricted to the electrodes THIS run contains. The shipped
+  // cohort maps count every contact from the run's patients, and cohorts are keyed by
+  // patient - so the gated and ungated concat cohorts share one identical map and a
+  // gated run was shown sampling from electrodes it excludes.
+  try {
+    const RC = runContactIndex();
+    const nbr = await loadNeighbours(state.radius);
+    if (nbr && RC.nPat) {
+      COV = coverageForRun(nbr, RC.mask, RC.patOf);
+      MAXC = 1;
+      let sampled = 0, verts = 0, maxp = 0;
+      for (const a of [COV.lh, COV.rh]) {
+        for (let v = 0; v < a.length; v += 2) {
+          if (a[v] > MAXC) MAXC = a[v];
+          if (a[v + 1] > maxp) maxp = a[v + 1];
+          if (a[v + 1] > 0) sampled++;
+          verts++;
+        }
+      }
+      RUNCOV = { pct: 100 * sampled / Math.max(1, verts), maxPatients: maxp,
+                 nContacts: RC.nContacts, nPatients: RC.nPat };
+    }
+  } catch (e) {
+    console.warn("per-run coverage failed, falling back to the cohort map:", e);
+  }
   let wantK = Number(r.k);
   if (r.sweep) {
     const base = `${BUNDLE}${r.dir}/`;
@@ -518,13 +608,18 @@ async function selectRun(id, keepK) {
   $("cohortNote").textContent =
     `${r.cohort} · ${r.n_electrodes} rows (${r.unit}) · ${r.n_contacts_with_cluster} contacts localised`;
   const cvr = COH.coverage[state.radius];
+  // quoted from the map actually on screen, so the caption cannot describe a different
+  // set of electrodes from the one being drawn
+  const pct = RUNCOV ? RUNCOV.pct
+    : (cvr.lh.pct_vertices_sampled + cvr.rh.pct_vertices_sampled) / 2;
+  const mxp = RUNCOV ? RUNCOV.maxPatients
+    : Math.max(cvr.lh.max_patients_at_a_vertex, cvr.rh.max_patients_at_a_vertex);
   $("radNote").textContent =
-    `${((cvr.lh.pct_vertices_sampled + cvr.rh.pct_vertices_sampled) / 2).toFixed(0)}% of cortex ` +
-    `within ${state.radius} mm of an electrode · up to ` +
-    `${Math.max(cvr.lh.max_patients_at_a_vertex, cvr.rh.max_patients_at_a_vertex)} patients at one vertex`;
+    `${pct.toFixed(0)}% of cortex within ${state.radius} mm of one of this run's ` +
+    `electrodes · up to ${mxp} patients at one vertex`;
   $("prov").innerHTML =
     `run <b>${r.run}</b><br>${r.track}<br>K=${r.k} · ${r.n_samples_with_cluster} labelled<br>` +
-    `<b>${COH.n_patients}</b> patients · ${COH.n_contacts} contacts<br>` +
+    `<b>${COH.n_patients}</b> patients · ${RUNCOV ? RUNCOV.nContacts : COH.n_contacts} contacts<br>` +
     `radius <b>${R()} mm</b> · fsaverage`;
 
   autoScale(); render(); updateElectrodes();
@@ -807,8 +902,13 @@ function updateElectrodes() {
   // loading: size alone is a weak perceptual channel - people misjudge area against
   // radius - so the two are moved together, as the by_loading renders do.
   const load = (RUN && CONTACTS.loadings) ? CONTACTS.loadings[RUN.id] : null;
-  // only this cohort's contacts exist as far as the maps are concerned
-  const mine = new Set(CONTACTS.cohorts[RUN.cohort_id] || []);
+  // ONLY THE CONTACTS THIS RUN ACTUALLY CONTAINS.
+  // Cohorts are defined by patient, not by electrode, so cohort1_n27 ("1266-electrode
+  // concat") and cohort2_n27 ("ungated concat") hold the identical 3611 contacts. Drawing
+  // the cohort therefore put 2576 contacts on a gated run's brain that the run had
+  // excluded - the ungated electrodes appearing on a gated map. A contact is in the run
+  // if the run gave it a label.
+  const mine = new Set((CONTACTS.cohorts[RUN.cohort_id] || []).filter(i => lab && lab[i]));
   let vi = 0;
   for (let i = 0; i < CONTACTS.xyz.length; i++) {
     if (!mine.has(i)) continue;

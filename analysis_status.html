@@ -3658,6 +3658,113 @@
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparison/C7_separation.png" alt="silhouette in both dB and unit-norm space for convex NMF, k-means and Ward at K=7, each against a matched null; bi-cross-validation curve; cluster sizes and ARI; per-component effect sizes"></div>
     </figure>
 
+    <h4 id="ownspace">Reading C.7 &mdash; unit-norm, argmax, and what &ldquo;its own space&rdquo; means</h4>
+    <p style="margin:0 0 10px">Three terms carry most of the weight in <a href="#separation">FIG C.7</a>
+      and in <a href="#acrossfeatures">FIG C.12</a> below, and the figure is easy to misread without
+      them.</p>
+
+    <table class="sum" style="margin:8px 0 12px">
+      <tr><th style="width:9rem">Term</th><th>What it is</th><th>Why it matters here</th></tr>
+      <tr>
+        <td><b>unit-norm</b></td>
+        <td>Divide every electrode's 900-number vector by its own length, so all electrodes
+          become the same length and only the <b>shape</b> of the response is left.</td>
+        <td>Per-electrode vector norms run <b>8.96 to 126.13</b> &mdash; a <b>14&times;</b> range. In
+          raw dB the biggest difference between two electrodes is usually how loud they are, so a
+          distance-based method sorts on loudness first. Unit-norm divides that out and asks about
+          response shape instead.</td>
+      </tr>
+      <tr>
+        <td><b>argmax</b></td>
+        <td>Convex NMF gives each electrode <b>seven weights summing to 1</b> &mdash; how much of
+          each component it expresses. The argmax is simply which weight is largest, used as a
+          label so the result can be compared against k-means and Ward.</td>
+        <td>It is a <b>lossy summary of a graded quantity</b>. Median top weight <b>0.43</b> against
+          0.14 for an even split; only <b>34%</b> have a majority component; <b>236 electrodes
+          (19%)</b> have their top two within 0.05. For about a fifth of electrodes the label is
+          close to a coin flip.</td>
+      </tr>
+      <tr>
+        <td><b>its own space</b></td>
+        <td>The coordinate system a method was actually fitted in. Convex NMF fits on
+          <b>unit-normed</b> data; k-means and Ward fit on <b>raw dB</b>. Nothing else differs
+          &mdash; same matrix, same gate, same time warping.</td>
+        <td><b>Silhouette is not a property of a clustering alone</b>, but of the clustering and the
+          coordinate system it is measured in. Scoring all three in dB measures two of them at home
+          and one in a space it never optimised in.</td>
+      </tr>
+    </table>
+
+    <p style="margin:0 0 8px"><b>Why this is not a technicality.</b> Read each method at home and in
+      the other's space, and the pattern is symmetric:</p>
+    <table class="sum" style="margin:0 0 12px">
+      <tr><th></th><th>scored in dB</th><th>scored in unit-norm</th></tr>
+      <tr><td><b>convex NMF</b> <i>(home: unit-norm)</i></td><td>0.046 &nbsp;<i>z&nbsp;=&nbsp;+1</i></td><td><b>0.094 &nbsp;z&nbsp;=&nbsp;+11</b></td></tr>
+      <tr><td><b>k-means</b> <i>(home: dB)</i></td><td><b>0.113 &nbsp;z&nbsp;=&nbsp;+10</b></td><td>&minus;0.004 &nbsp;<i>z&nbsp;=&nbsp;&minus;25</i></td></tr>
+      <tr><td><b>Ward</b> <i>(home: dB)</i></td><td><b>0.115 &nbsp;z&nbsp;=&nbsp;+15</b></td><td>&minus;0.010 &nbsp;<i>z&nbsp;=&nbsp;&minus;11</i></td></tr>
+    </table>
+    <p style="margin:0 0 10px">Every method separates decisively at home and collapses in the
+      other's space. They are <b>describing different structure, not contradicting each other about
+      the same structure</b> &mdash; which is also why they agree so weakly with one another
+      (ARI 0.21 / 0.19 / 0.49). The first version of C.7 scored all three in dB and concluded that
+      convex NMF does not separate; that was an error in the test, corrected 2026-08-19.</p>
+    <p style="margin:0 0 4px"><b>Which space is &ldquo;correct&rdquo;?</b> Neither, in the abstract.
+      Raw dB keeps amplitude, so part of what k-means separates is loud electrodes from quiet ones.
+      Unit-norm divides amplitude out and compares shape only. The choice turns on whether amplitude
+      is signal or nuisance here &mdash; and note the dB values are already relative to a
+      pre-stimulus baseline, so &ldquo;amplitude&rdquo; means <i>response</i> amplitude, not raw
+      power. The 14&times; spread is 14&times; in responsiveness, which is precisely why an amplitude
+      gate and a distance metric end up measuring nearly the same thing (<a href="#gatesplit">FIG
+      C.10</a>).</p>
+
+    <figure id="acrossfeatures"><div class="cap"><div class="fignum">FIG C.12</div>
+      <h4>The same question, asked of every feature set</h4>
+      <p style="margin:0 0 8px">C.7 tests one feature set. This runs the identical test on every
+        feature set that has all three methods, so they can be compared directly:
+        <code>concat_hg</code> (1266&times;900, gated high gamma), <code>concat_hg_all</code>
+        (2946&times;900, the gate lifted) and <code>concat_rawds</code> (1266&times;1350, 15 bands
+        &times; 3 conditions &times; 30 bins). <code>hg</code>, <code>raw</code> and
+        <code>rawds</code> are excluded because they have no convex NMF run, so the three-way
+        comparison cannot be made on them. Every cell is scored against <b>its own null</b> &mdash; a
+        Gaussian carrying that feature set's covariance, 10 per cell &mdash; and in both spaces, with
+        the green box marking the home space.</p>
+      <ul>
+        <li><b>The answer is about the features, not the method.</b> Read the home-space column:
+          <table class="sum" style="margin:8px 0">
+          <tr><th></th><th>convex NMF</th><th>k-means</th><th>Ward</th></tr>
+          <tr><td><b>high gamma, gated</b></td><td>+11</td><td>+10</td><td><b>+15</b></td></tr>
+          <tr><td><b>high gamma, gate lifted</b></td><td style="color:#c1121f">+3</td><td style="color:#c1121f">+0</td><td style="color:#c1121f">+2</td></tr>
+          <tr><td><b>15 bands &times; time</b></td><td><b>+23</b></td><td>+15</td><td>+20</td></tr></table>
+          All three separate on gated high gamma, all three separate <i>best</i> on bands&times;time,
+          and <b>all three collapse to chance once the responsiveness gate is lifted</b>. The
+          methods disagree about very little here; the feature set decides almost everything.</li>
+
+        <li><b>The gate is what makes the structure findable.</b> Ungated, k-means reaches
+          z&nbsp;=&nbsp;+0.3 &mdash; indistinguishable from a one-blob null &mdash; and Ward +1.9.
+          Read together with <a href="#gatesplit">FIG C.9</a>, which shows those same ungated runs
+          building a cluster 74% and 71% made of the contacts the gate removes, the picture is
+          consistent: adding 1680 quiet contacts does not add structure, it adds a smear that the
+          hard methods then partition.</li>
+
+        <li><b>Bands&times;time beats high gamma alone, for every method.</b> The 15-band
+          representation carries frequency structure that the HG collapse throws away, and it scores
+          higher for all three (+15 to +23 against +10 to +15). Convex NMF is the strongest cell in
+          the whole figure at <b>z&nbsp;=&nbsp;+23</b>. That is an argument for looking harder at
+          <code>concat_rawds</code>, which the project currently treats as the secondary track.</li>
+
+        <li><b>One caveat that limits the comparison.</b> Everything is read at a fixed
+          <b>K&nbsp;=&nbsp;7</b>, the published choice for <code>concat_hg</code>. It is
+          <i>not</i> the best K for <code>concat_rawds</code>, where bi-cross-validation picks 14 and
+          LOPO 9 and split-half 2 &mdash; the three criteria do not agree there at all. So this
+          compares the feature sets at one granularity; it does not show what each could do at its
+          own.</li>
+      </ul>
+      <div class="runid">sources: newest run per method per feature set &middot;
+        <code>make_separation_across_features.py</code> &middot; numbers in
+        <code>comparison/separation_across_features.csv</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparison/C12_separation_across_features.png" alt="heatmap of separation z-scores for three methods across three feature sets, scored in both dB and unit-norm space, with home-space scores as a bar chart"></div>
+    </figure>
+
     <figure><div class="cap"><div class="fignum">FIG C.8</div>
       <h4>The same figure without the responsiveness gate &mdash; what the gate was removing</h4>
       <p style="margin:0 0 8px"><b>This is <a href="#howcnmfdecides">FIG C.5</a> redrawn on the ungated

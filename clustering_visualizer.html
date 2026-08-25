@@ -421,28 +421,19 @@ function loadingsForK() {
   return CONTACTS.loadings[RUN.id] || null;
 }
 
-// Show one hemisphere at a time, surface AND contacts.
+// Drop the far side's CONTACTS on a lateral view, and nothing else.
 //
-// On a lateral view the far hemisphere sits behind the near one, and through a glass
-// surface its contacts read as if they were on this side. VIEWS[0] is the left lateral
-// and VIEWS[1] the right, so each lateral keeps only its own side; dorsal keeps both,
-// because that view is about the two together.
-//
-// Done by assigning a uniform rgba255 with alpha 0 - the same mechanism the page already
-// uses to colour the glass surface - rather than a "visible" mesh property, which this
-// build of Niivue does not appear to honour for meshes. Glass mode only: outside it the
-// surface carries a per-vertex buffer and this would fight the shader path.
+// Through a glass surface the opposite hemisphere's dots sit behind the near one and
+// read as if they were on this side, which is worst exactly where it matters - a lateral
+// view of a lateralised cluster. Only the contacts are removed: the surface renders
+// normally, both hemispheres, same colour and same alpha, so the sole difference between
+// a lateral still and the full scene is which dots are in it. VIEWS[0] is the left
+// lateral and VIEWS[1] the right; dorsal keeps both, because that view is about the two
+// together.
 let HEMI_ONLY = null;          // null | "lh" | "rh"; capture-time only
-function showHemis(which) {
+function contactsHemi(which) {
   HEMI_ONLY = (which === "both") ? null : which;
-  for (const h of ["lh", "rh"]) {
-    const H = hemis[h];
-    if (!H || !H.mesh) continue;
-    const on = (which === "both" || which === h);
-    H.mesh.rgba255 = new Uint8Array(on ? GLASS_RGBA : [0, 0, 0, 0]);
-    try { H.mesh.updateMesh(nv.gl); } catch (e) {}
-  }
-  updateElectrodes();          // re-emits the overlay under the new hemisphere filter
+  updateElectrodes();          // re-emits the overlay under the new filter
 }
 
 const HEMI_FOR_VIEW = ["lh", "rh", "both"];   // matches VIEWS
@@ -1942,12 +1933,12 @@ async function exportReport() {
             const one = [];
             for (let v = 0; v < VIEWS.length; v++) {
               const [az, el] = VIEWS[v];
-              showHemis(HEMI_FOR_VIEW[v]);
+              contactsHemi(HEMI_FOR_VIEW[v]);
               await sleep(40);
               one.push(gBox[v] ? await captureRaw(az, el, CAPW, gBox[v], true)
                                : await captureView(az, el, CAPW, true));
             }
-            showHemis("both");
+            contactsHemi("both");
             shots.push(one);
           }
           KBRAINS[kk] = shots;
@@ -1959,7 +1950,7 @@ async function exportReport() {
       // A failed glass pass must not cost the report the work already captured.
       console.warn("glass pass failed:", e);
     } finally {
-      showHemis("both");   // a pass that failed mid-view must not leave one side off
+      contactsHemi("both");  // a pass that failed mid-view must not leave dots missing
       state.glass = glassWas.glass; state.elecByCluster = glassWas.byCluster;
       state.showElec = glassWas.elec; state.surf = frozen.surf;
       // Always reload: leaving a uniform-rgba255 mesh behind under a non-glass state
@@ -2347,8 +2338,8 @@ async function exportReport() {
           <div class="baxis"><span>0</span><span>${Math.round(kBarMax / 2)}</span><span>${kBarMax}</span></div>
         </div>
         <p class="sechint">Every cluster at K=${k}, on the glass brain at the frozen settings.
-          Each lateral view shows only its own hemisphere &mdash; the far side is hidden, so a
-          contact behind the midline cannot be mistaken for one in front of it. Stills rather
+          Each lateral view drops the far side's contacts &mdash; the surface is untouched, so a
+          dot behind the midline cannot be mistaken for one in front of it. Stills rather
           than turns: a 60-frame rotation for each of these clusters would add about 8600
           frames and a third of a gigabyte. The rotations further down stay at K=${KSEL}.</p>` : ""}
       <div class="kchips" hidden>${B.chips.length

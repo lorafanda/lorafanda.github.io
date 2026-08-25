@@ -178,6 +178,7 @@
     <button class="n6" data-t="meetings"><span class="dot"></span>Meetings</button>
     <button class="n8" data-t="integrity"><span class="dot"></span>Data integrity</button>
     <button class="n9" data-t="notebook"><span class="dot"></span>Lab notebook</button>
+    <button class="n2" data-t="clustercmp"><span class="dot"></span>07 · Cluster comparisons</button>
     <button class="n5" data-t="caveats"><span class="dot"></span>Caveats & next steps</button>
     <div class="foot">Figures load from the committed repo. Interactive 3‑D role map: <a href="poolv2.html">poolv2</a>.</div>
   </nav>
@@ -4344,6 +4345,209 @@
       <li><b>Role rendering</b> — dB‑strength gradient, single‑hue selection, and a de‑cluttered palette (spectral tags muted).</li>
       <li><b>Role definitions</b> — developed 6‑box premotor planning restored; UTF‑8 role metadata fixed.</li>
     </ul></div>
+  </section>
+
+  <section id="clustercmp">
+    <h2>07 · Cluster comparisons &mdash; BSF against the alternatives</h2>
+    <p><b>Two pinned runs anchor this tab</b>, chosen rather than resolved as
+      &ldquo;newest&rdquo;, because the point of a best-so-far is that it does not move
+      when something else is run:</p>
+    <table class="sum" style="margin:8px 0">
+      <tr><th></th><th>run</th><th>feature set</th><th>n</th><th>K</th><th>gate</th></tr>
+      <tr><td><b>BSF</b> <i>best so far</i></td>
+          <td><code>kmeans_concat_hg_all_20260819_235524</code></td>
+          <td><code>concat_hg_all</code></td><td>2946</td><td>8</td>
+          <td><b>lifted</b></td></tr>
+      <tr><td><b>SBSF</b> <i>second best</i></td>
+          <td><code>kmeans_concat_hg_20260817_171544</code></td>
+          <td><code>concat_hg</code></td><td>1266</td><td>8</td>
+          <td>applied</td></tr>
+    </table>
+    <div class="method">
+      <b>The cohort guarantee, checked rather than assumed.</b> Everything in Part 1 is
+      the <b>same 2946 electrodes across 27 patients</b>, and everything in Part 2 is
+      the <b>same 1266</b>. Within each feature set the three runs were verified to hold
+      a <b>bit-identical <code>X_train</code> in the identical electrode order</b>
+      (<code>np.allclose</code> at 1e-6, plus a key-by-key comparison of
+      <code>patient_id|electrode</code>), so any difference between the figures below is
+      the METHOD and nothing else. Part 1 and Part 2 are deliberately different cohorts
+      and are never mixed.
+      <ul>
+        <li><b>convex NMF at K=8 on <code>concat_hg_all</code> did not exist</b> &mdash;
+          that run is K=7 and carries no <code>loadings_by_k/</code>. It was fitted here
+          with the project's own <code>convex_nmf</code> (300 iterations, unit-normed,
+          <code>random_state=0</code>) and cached into the run's own
+          <code>loadings_by_k/G_k08.npy</code>, the layout <code>concat_hg</code> and
+          <code>concat_rawds</code> already use. Purely additive; no existing file was
+          modified.</li>
+        <li><b>Each method is read in its home space.</b> convex NMF unit-norms before
+          fitting; k-means and Ward use raw dB. Silhouette is not space-free, and
+          scoring all three in dB is the error that made the first version of
+          <a href="#separation">FIG C.7</a> wrong.</li>
+        <li><b>Panels D and F of the original C.3 are dropped</b> by request. D
+          (anatomical coherence) is reported as a statistic below instead; F (split-half
+          replication) is not reported here at all. <b>B3</b> (loading-weighted
+          glassbrain) is convex-NMF-only and needs a K=8 pyvista render that does not
+          exist, so it is drawn for no method rather than for one.</li>
+      </ul>
+    </div>
+
+    <h3>Part 1 &mdash; the three algorithms at K=8, on the BSF cohort</h3>
+
+    <h4 id="bsfstats">The statistics</h4>
+    <p style="margin:0 0 4px"><b>Separation against a matched null.</b> The null is a
+      Gaussian carrying this feature set's own covariance &mdash; correlated features,
+      smooth time courses, one blob, no cluster structure &mdash; refitted with the same
+      method, 10 times per cell. White noise would be trivially beatable and would
+      prove nothing.</p>
+    <table class='sum' style='margin:8px 0'><tr><th></th><th>home space</th><th>silhouette (home)</th><th>matched null</th><th>z</th><th>scored in the other space</th></tr><tr><td><b>k-means <b>(BSF)</b></b></td><td><code>dB</code></td><td><b>+0.0707</b></td><td>+0.0654 &plusmn; 0.0010</td><td style='color:#1b7837'><b>+5.1</b></td><td>-0.0532 <i>(z -23.9)</i></td></tr><tr><td><b>Ward</b></td><td><code>dB</code></td><td><b>+0.0473</b></td><td>+0.0321 &plusmn; 0.0032</td><td style='color:#1b7837'><b>+4.8</b></td><td>-0.0806 <i>(z -17.0)</i></td></tr><tr><td><b>convex NMF</b></td><td><code>unit-norm</code></td><td><b>+0.0456</b></td><td>+0.0342 &plusmn; 0.0048</td><td style='color:#68727d'><b>+2.4</b></td><td>+0.0098 <i>(z -11.3)</i></td></tr></table>
+    <p style="margin:0 0 4px"><b>Every method separates at home and collapses in the
+      other's space.</b> That is <a href="#separation">FIG C.7</a> reproduced at K=8 on
+      the ungated cohort: the three are describing different structure, not disagreeing
+      about the same structure.</p>
+
+    <p style="margin:10px 0 4px"><b>Do they find the same thing?</b> No.</p>
+    <table class='sum' style='margin:8px 0'><tr><th>pair</th><th>ARI</th><th>NMI</th></tr><tr><td>k-means <b>(BSF)</b> vs Ward</td><td><b>0.356</b></td><td>0.457</td></tr><tr><td>k-means <b>(BSF)</b> vs convex NMF</td><td><b>0.152</b></td><td>0.298</td></tr><tr><td>Ward vs convex NMF</td><td><b>0.116</b></td><td>0.244</td></tr></table>
+
+    <p style="margin:10px 0 4px"><b>Anatomical coherence</b> &mdash; of an electrode's 10
+      nearest neighbours in fsaverage space, how many share its label, divided by the
+      same quantity under a label shuffle. The chance correction matters: a solution with
+      one dominant cluster scores high on the raw version for free.</p>
+    <table class='sum' style='margin:8px 0'><tr><th></th><th>neighbours sharing label</th><th>over chance</th></tr><tr><td><b>k-means <b>(BSF)</b></b></td><td>0.376</td><td><b>1.43&times;</b></td></tr><tr><td><b>Ward</b></td><td>0.425</td><td><b>1.45&times;</b></td></tr><tr><td><b>convex NMF</b></td><td>0.267</td><td style="color:#1b7837"><b>2.02&times;</b></td></tr></table>
+
+    <p style="margin:10px 0 4px"><b>Leave one patient out</b>, refit with the SAME
+      method, against a size-matched pseudo-patient null.
+      <code>lf_decompose.lopo_stability</code> hard-codes KMeans, which would silently
+      have made this the wrong test for Ward and convex NMF; the version used here
+      delegates the refit to the method so each is compared against itself.</p>
+    <table class='sum' style='margin:8px 0'><tr><th></th><th>worst fold</th><th>size-matched null (min)</th><th>z</th><th>verdict</th></tr><tr><td><b>k-means <b>(BSF)</b></b></td><td>0.629</td><td>0.566 &plusmn; 0.078</td><td>+0.80</td><td style='color:#1b7837'>inside the null &mdash; no patient carries it</td></tr><tr><td><b>Ward</b></td><td>0.314</td><td>0.253 &plusmn; 0.030</td><td>+2.03</td><td style='color:#1b7837'>above the null &mdash; more robust than chance</td></tr><tr><td><b>convex NMF</b></td><td>0.305</td><td>0.348 &plusmn; 0.027</td><td>-1.62</td><td style='color:#1b7837'>inside the null &mdash; no patient carries it</td></tr></table>
+
+
+    <figure id="c3a"><div class="cap"><div class="fignum">FIG C.3a</div>
+      <h4>The decomposition at K=8 &mdash; k-means (BSF)</h4>
+      <ul>
+        <li><b>A.</b> Held-out variance vs K, <b>bi-cross-validated</b>. The curve on the
+          rest of the site holds out electrodes only and refits them across the full
+          feature set, which makes it monotone in K by construction; this one holds out a
+          block of rows AND columns, so an extra component has to earn its place.</li>
+        <li><b>C.</b> How confident each label is. <b>Silhouette</b> for k-means and
+          Ward, <b>largest normalised loading</b> for convex NMF &mdash; the same
+          question, but not the same axis, and the panel says so on itself. Only convex
+          NMF has a graded membership to report at all; that is the difference, not a
+          presentational choice.</li>
+        <li><b>B1.</b> Each cluster's mean response in raw dB, audio | picture | reading,
+          on one shared y-axis so cluster amplitudes are comparable.</li>
+        <li><b>B2.</b> Where those electrodes sit &mdash; sagittal fsaverage projection,
+          anterior on the left, one shared frame for all eight panels.</li>
+        <li><b>E.</b> Leave-one-patient-out against the size-matched null.</li>
+      </ul>
+      <div class="runid">kmeans/concat_hg_all &middot; K=8 &middot; <code>make_bsf_figures.py</code> &middot; stats in <code>bsf_comparison/part1_*.csv</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/bsf_comparison/C3a_kmeans_K8.png" alt="six-panel decomposition figure for kmeans at K=8 on 2946 electrodes: held-out variance curve, label-confidence histogram, leave-one-patient-out bars, eight cluster mean response profiles and eight sagittal electrode maps"></div>
+    </figure>
+
+    <figure id="c3b"><div class="cap"><div class="fignum">FIG C.3b</div>
+      <h4>The decomposition at K=8 &mdash; Ward</h4>
+      <ul>
+        <li><b>A.</b> Held-out variance vs K, <b>bi-cross-validated</b>. The curve on the
+          rest of the site holds out electrodes only and refits them across the full
+          feature set, which makes it monotone in K by construction; this one holds out a
+          block of rows AND columns, so an extra component has to earn its place.</li>
+        <li><b>C.</b> How confident each label is. <b>Silhouette</b> for k-means and
+          Ward, <b>largest normalised loading</b> for convex NMF &mdash; the same
+          question, but not the same axis, and the panel says so on itself. Only convex
+          NMF has a graded membership to report at all; that is the difference, not a
+          presentational choice.</li>
+        <li><b>B1.</b> Each cluster's mean response in raw dB, audio | picture | reading,
+          on one shared y-axis so cluster amplitudes are comparable.</li>
+        <li><b>B2.</b> Where those electrodes sit &mdash; sagittal fsaverage projection,
+          anterior on the left, one shared frame for all eight panels.</li>
+        <li><b>E.</b> Leave-one-patient-out against the size-matched null.</li>
+      </ul>
+      <div class="runid">hierarchical/concat_hg_all &middot; K=8 &middot; <code>make_bsf_figures.py</code> &middot; stats in <code>bsf_comparison/part1_*.csv</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/bsf_comparison/C3b_hierarchical_K8.png" alt="six-panel decomposition figure for hierarchical at K=8 on 2946 electrodes: held-out variance curve, label-confidence histogram, leave-one-patient-out bars, eight cluster mean response profiles and eight sagittal electrode maps"></div>
+    </figure>
+
+    <figure id="c3c"><div class="cap"><div class="fignum">FIG C.3c</div>
+      <h4>The decomposition at K=8 &mdash; convex NMF</h4>
+      <ul>
+        <li><b>A.</b> Held-out variance vs K, <b>bi-cross-validated</b>. The curve on the
+          rest of the site holds out electrodes only and refits them across the full
+          feature set, which makes it monotone in K by construction; this one holds out a
+          block of rows AND columns, so an extra component has to earn its place.</li>
+        <li><b>C.</b> How confident each label is. <b>Silhouette</b> for k-means and
+          Ward, <b>largest normalised loading</b> for convex NMF &mdash; the same
+          question, but not the same axis, and the panel says so on itself. Only convex
+          NMF has a graded membership to report at all; that is the difference, not a
+          presentational choice.</li>
+        <li><b>B1.</b> Each cluster's mean response in raw dB, audio | picture | reading,
+          on one shared y-axis so cluster amplitudes are comparable.</li>
+        <li><b>B2.</b> Where those electrodes sit &mdash; sagittal fsaverage projection,
+          anterior on the left, one shared frame for all eight panels.</li>
+        <li><b>E.</b> Leave-one-patient-out against the size-matched null.</li>
+      </ul>
+      <div class="runid">cnmf/concat_hg_all &middot; K=8 &middot; <code>make_bsf_figures.py</code> &middot; stats in <code>bsf_comparison/part1_*.csv</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/bsf_comparison/C3c_cnmf_K8.png" alt="six-panel decomposition figure for cnmf at K=8 on 2946 electrodes: held-out variance curve, label-confidence histogram, leave-one-patient-out bars, eight cluster mean response profiles and eight sagittal electrode maps"></div>
+    </figure>
+
+    <h4 id="bsfgate">What the responsiveness gate was removing &mdash; at K=8</h4>
+    <p style="margin:0 0 8px"><code>concat_hg_all</code> IS the ungated set:
+      <b>1266</b> electrodes would pass the responsiveness gate and <b>1680</b> are
+      present only because it was lifted, so <b>57.0% added</b> is the cohort
+      baseline every cluster is read against. A cluster far above that line is partly
+      separating <i>responsive from non-responsive</i> rather than one response type from
+      another &mdash; the failure the gate exists to prevent. Blue and grey are kept from
+      <a href="#gatesplit">FIG C.8</a>.</p>
+    <table class='sum' style='margin:8px 0'><tr><th></th><th>c0</th><th>c1</th><th>c2</th><th>c3</th><th>c4</th><th>c5</th><th>c6</th><th>c7</th><th>clusters over baseline</th></tr><tr><td><b>k-means <b>(BSF)</b></b></td><td style='color:#1b7837'>2%</td><td style='color:#c1121f'>74%</td><td style='color:#1b7837'>39%</td><td style='color:#1b7837'>15%</td><td style='color:#1b7837'>0%</td><td style='color:#1b7837'>49%</td><td style='color:#1b7837'>1%</td><td style='color:#c1121f'>71%</td><td><b>2</b> of 8</td></tr><tr><td><b>Ward</b></td><td style='color:#1b7837'>0%</td><td style='color:#1b7837'>4%</td><td style='color:#1b7837'>0%</td><td style='color:#1b7837'>45%</td><td style='color:#1b7837'>34%</td><td style='color:#1b7837'>9%</td><td style='color:#c1121f'>67%</td><td style='color:#c1121f'>76%</td><td><b>2</b> of 8</td></tr><tr><td><b>convex NMF</b></td><td style='color:#c1121f'>62%</td><td style='color:#1b7837'>34%</td><td style='color:#c1121f'>66%</td><td style='color:#c1121f'>66%</td><td style='color:#c1121f'>66%</td><td style='color:#c1121f'>58%</td><td style='color:#1b7837'>46%</td><td style='color:#c1121f'>60%</td><td><b>6</b> of 8</td></tr></table>
+
+
+    <figure id="c8a"><div class="cap"><div class="fignum">FIG C.8a</div>
+      <h4>Gate composition at K=8 &mdash; k-means (BSF)</h4>
+      <p style='margin:0 0 8px'>Every electrode, sorted within its cluster. <b style='color:#4a6fa5'>Blue</b> = would pass the responsiveness gate, <b style='color:#8e969e'>grey</b> = present only because it was lifted. The lower panel is the same information per cluster against the cohort baseline.</p>
+      <div class="runid">kmeans/concat_hg_all &middot; K=8 &middot; <code>make_bsf_figures.py</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/bsf_comparison/C8a_kmeans_K8.png" alt="per-electrode confidence for kmeans at K=8, grouped by cluster and coloured by whether the electrode passes the responsiveness gate, with a bar chart of percent gate-added per cluster against the cohort baseline"></div>
+    </figure>
+
+    <figure id="c8b"><div class="cap"><div class="fignum">FIG C.8b</div>
+      <h4>Gate composition at K=8 &mdash; Ward</h4>
+      <p style='margin:0 0 8px'>Every electrode, sorted within its cluster. <b style='color:#4a6fa5'>Blue</b> = would pass the responsiveness gate, <b style='color:#8e969e'>grey</b> = present only because it was lifted. The lower panel is the same information per cluster against the cohort baseline.</p>
+      <div class="runid">hierarchical/concat_hg_all &middot; K=8 &middot; <code>make_bsf_figures.py</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/bsf_comparison/C8b_hierarchical_K8.png" alt="per-electrode confidence for hierarchical at K=8, grouped by cluster and coloured by whether the electrode passes the responsiveness gate, with a bar chart of percent gate-added per cluster against the cohort baseline"></div>
+    </figure>
+
+    <figure id="c8c"><div class="cap"><div class="fignum">FIG C.8c</div>
+      <h4>Gate composition at K=8 &mdash; convex NMF</h4>
+      <p style='margin:0 0 8px'>Every electrode, sorted within its cluster. <b style='color:#4a6fa5'>Blue</b> = would pass the responsiveness gate, <b style='color:#8e969e'>grey</b> = present only because it was lifted. The lower panel is the same information per cluster against the cohort baseline.</p>
+      <div class="runid">cnmf/concat_hg_all &middot; K=8 &middot; <code>make_bsf_figures.py</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/bsf_comparison/C8c_cnmf_K8.png" alt="per-electrode confidence for cnmf at K=8, grouped by cluster and coloured by whether the electrode passes the responsiveness gate, with a bar chart of percent gate-added per cluster against the cohort baseline"></div>
+    </figure>
+
+    <h3>Part 2 &mdash; held-out variance over components, on the SBSF cohort</h3>
+    <p><b>A different cohort on purpose.</b> Part 2 is <code>concat_hg</code> &mdash; the
+      SBSF run, 1266 electrodes, gate APPLIED &mdash; and <code>concat_rawds</code>,
+      which is the <b>same 1266 electrodes</b> described by 15 bands &times; 3 conditions
+      &times; 30 bins instead of high gamma alone. So the two feature sets here are one
+      cohort seen two ways, and neither is mixed with Part 1's 2946.</p>
+    
+    <figure id="c13"><div class="cap"><div class="fignum">FIG C.13</div>
+      <h4>Held-out variance explained over components, three algorithms</h4>
+      <p style="margin:0 0 8px"><b>Bi-cross-validation.</b> A block of ROWS and a
+        block of COLUMNS is held out; the method is fitted on the remaining block; each
+        held-out electrode's loadings come from the TRAIN columns only and are scored on
+        the TEST columns. The loadings never see the values they are graded on. The only
+        thing that differs between methods is how those loadings are obtained &mdash;
+        NNLS against the components for convex NMF, nearest centroid for k-means and Ward
+        &mdash; which is exactly what distinguishes them.
+        4&times;4 folds,
+        K = 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20.</p>
+      <p style="margin:0 0 8px"><b>Two panels per feature set, because variance explained
+        is not space-free.</b> The left panel fits and scores each method where it belongs,
+        so the SHAPE of each curve is meaningful but the heights are not comparable. The
+        right panel puts every method in unit-norm, where heights ARE comparable, at the
+        cost of scoring the hard methods somewhere they were not designed to run.</p>
+      <div class="runid"><code>make_heldout_variance.py</code> + <code>make_heldout_figure.py</code> &middot; numbers in <code>bsf_comparison/part2_heldout_variance.csv</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/bsf_comparison/C13_heldout_variance.png" alt="held-out variance explained versus K for k-means, Ward and convex NMF on concat_hg and concat_rawds, in home space and in unit-norm space"></div>
+    </figure>
+    <table class='sum' style='margin:8px 0'><tr><th>feature set</th><th>space</th><th>method</th><th>at K=8</th><th>peak</th><th>turns over?</th></tr><tr><td><code>concat_hg</code></td><td>home</td><td>Ward</td><td><b>0.454</b></td><td>0.571</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_hg</code></td><td>home</td><td>convex NMF</td><td><b>0.568</b></td><td>0.568</td><td><span style='color:#1b7837'>yes, k=8</span></td></tr><tr><td><code>concat_hg</code></td><td>home</td><td>k-means</td><td><b>0.467</b></td><td>0.574</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_hg</code></td><td>unit-norm</td><td>Ward</td><td><b>0.425</b></td><td>0.504</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_hg</code></td><td>unit-norm</td><td>convex NMF</td><td><b>0.568</b></td><td>0.568</td><td><span style='color:#1b7837'>yes, k=8</span></td></tr><tr><td><code>concat_hg</code></td><td>unit-norm</td><td>k-means</td><td><b>0.436</b></td><td>0.507</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_rawds</code></td><td>home</td><td>Ward</td><td><b>0.333</b></td><td>0.419</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_rawds</code></td><td>home</td><td>convex NMF</td><td><b>0.429</b></td><td>0.449</td><td><span style='color:#1b7837'>yes, k=14</span></td></tr><tr><td><code>concat_rawds</code></td><td>home</td><td>k-means</td><td><b>0.341</b></td><td>0.427</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_rawds</code></td><td>unit-norm</td><td>Ward</td><td><b>0.313</b></td><td>0.407</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_rawds</code></td><td>unit-norm</td><td>convex NMF</td><td><b>0.429</b></td><td>0.449</td><td><span style='color:#1b7837'>yes, k=14</span></td></tr><tr><td><code>concat_rawds</code></td><td>unit-norm</td><td>k-means</td><td><b>0.323</b></td><td>0.410</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr></table>
   </section>
   </main>
 </div>

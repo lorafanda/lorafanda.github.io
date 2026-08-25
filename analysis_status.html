@@ -3717,6 +3717,107 @@
       gate and a distance metric end up measuring nearly the same thing (<a href="#gatesplit">FIG
       C.10</a>).</p>
 
+    <h4 id="explainers">The same three methods, on twelve electrodes you can read</h4>
+    <p style="margin:0 0 10px">Everything above is argued on 1266&times;900. These three figures make
+      the identical arguments on a set small enough to check by eye: <b>twelve invented electrodes,
+      forty time points, three planted response shapes</b>, where each electrode is a <b>known</b>
+      mixture of the three plus noise. Because the mixture is known, the recovered loadings can be
+      compared against what the electrode was actually built from &mdash; which no real-data figure
+      can do. All three are fitted with <b>the project's own functions</b>, not re-implementations,
+      so what is drawn is what the analysis runs, and all three share one <code>build()</code> so
+      they cannot drift apart. They are teaching figures; no result on this page depends on them.</p>
+
+    <figure id="cnmfexplained"><div class="cap"><div class="fignum">FIG E.1</div>
+      <h4>How convex NMF clusters</h4>
+      <p style="margin:0 0 8px">Six panels for the three things that need saying about
+        <code>X&nbsp;&asymp;&nbsp;G(W&prime;X)</code>. The recovery is close: e3 planted
+        <code>[0.60, 0.40, 0]</code> comes back <code>[0.57, 0.43, 0]</code>, e5 planted
+        <code>[0.35, 0.55, 0.10]</code> comes back <code>[0.30, 0.63, 0.08]</code>.</p>
+      <ul>
+        <li><b>A component is a weighted average of REAL electrodes</b> (panels B, C). W says which
+          recorded electrodes to average; the result is itself a recordable response profile rather
+          than an abstract axis. This is the property that makes the components anatomically
+          interpretable in <a href="#componentanatomy">FIG C.11</a>.</li>
+        <li><b>A loading is graded</b> (panel D). Each electrode carries a share of every component,
+          and panel E rebuilds e5 by stacking its own shares &mdash; 30/63/8 &mdash; landing on the
+          data at mean |error| 0.021.</li>
+        <li><b>The argmax is imposed afterwards, and that is where the clustering happens</b>
+          (panel F). e3 splits 57/43 and still gets exactly one label. On the real data that
+          discarding costs far more: median top weight 0.43, only 34% of electrodes with a majority,
+          19% within 0.05 of a tie.</li>
+        <li><b>Two notes about our own implementation, found while drawing this and stated on the
+          figure.</b> The component reordering permuted <code>comps</code>, <code>Gn</code> and
+          <code>W</code> but not <code>G</code> &mdash; harmless while G was unused, wrong the moment
+          the reconstruction was drawn, and caught because the error rose sevenfold. And
+          <b>G's rows are not constrained to sum to 1</b>: on this fit they sum to about 1.47, so the
+          raw product sits above the data (0.038 against 0.021). Checked at 300, 1000, 3000 and
+          10&thinsp;000 iterations &mdash; identical, so that is the converged solution, not
+          under-training. Every reported number in this project already uses the row-normalised
+          pair, which is what panels D and E draw. <b>Neither affects any published result.</b></li>
+      </ul>
+      <div class="runid">synthetic data &middot; <code>make_cnmf_explainer.py</code> &middot; fitted
+        with <code>lf_decompose.convex_nmf</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/explainers/E1_cnmf_explained.png" alt="six panels explaining convex NMF on twelve synthetic electrodes: the data, the W matrix, recovered components against planted shapes, the graded loading matrix, one electrode rebuilt from its own loadings, and the argmax that assigns one label"></div>
+    </figure>
+
+    <figure id="kmeansexplained"><div class="cap"><div class="fignum">FIG E.2</div>
+      <h4>How k-means clusters &mdash; and what fitting in dB costs</h4>
+      <p style="margin:0 0 8px">The same twelve electrodes. The difference is the <b>space</b>:
+        convex NMF unit-norms before fitting, k-means does not. The synthetic electrodes vary in
+        loudness as well as in shape, and <b>that alone flips an assignment</b>.</p>
+      <table class="sum" style="margin:8px 0">
+        <tr><th>planted dominant shape</th><td><code>0 0 0 0 1 1 1 1 2 2 2 2</code></td></tr>
+        <tr><td><b>k-means on raw dB</b></td><td><code>0 0 0 0 1 <span style="color:#c1121f"><b>0</b></span> 1 1 2 2 2 2</code> &nbsp;&mdash; e5 in the wrong group</td></tr>
+        <tr><td><b>k-means on unit-norm</b></td><td><code>0 0 0 0 1 1 1 1 2 2 2 2</code> &nbsp;&mdash; correct</td></tr>
+      </table>
+      <ul>
+        <li><b>Panel E prints both cues, and they disagree.</b> e5 is quiet
+          (<code>&#8214;x&#8214;&nbsp;=&nbsp;2.5</code>) and mixed. Its <i>distance</i> in dB is 1.4
+          to the quiet group against 1.9 to its own; its <i>shape correlation</i> is +0.62 against
+          <b>+0.85</b>. The raw fit follows the distance. This is
+          <a href="#separation">FIG C.7</a> on twelve electrodes instead of 1266 &mdash; the same
+          statement, checkable by eye.</li>
+        <li><b>One label, and nothing else.</b> No weight, no runner-up, no measure of how close the
+          call was. Panel D is the closest analogue of convex NMF's loading matrix and it holds
+          <i>distances</i>, not shares &mdash; there is no graded quantity to inspect afterwards.</li>
+        <li><b>Stated on the figure so it is not oversold:</b> in this toy set loudness and shape are
+          correlated by construction (r&nbsp;=&nbsp;0.82), so the raw fit gets most assignments right
+          partly for the wrong reason. e5 is the one case where the two cues disagree, which is
+          exactly why it is the informative one.</li>
+      </ul>
+      <div class="runid">synthetic data &middot; <code>make_hard_clustering_explainers.py</code>
+        &middot; same <code>build()</code> as FIG E.1</div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/explainers/E2_kmeans_explained.png" alt="six panels explaining k-means on the same twelve synthetic electrodes: raw data with vector norms, the Lloyd iteration, centroids against planted shapes, the distance matrix with the argmin boxed, why electrode 5 was misassigned, and the result against the planted truth"></div>
+    </figure>
+
+    <figure id="wardexplained"><div class="cap"><div class="fignum">FIG E.3</div>
+      <h4>How Ward clusters &mdash; the same error, for the same reason</h4>
+      <p style="margin:0 0 8px">Ward makes the <b>identical</b> mistake on e5, which is the point:
+        it is the <b>space</b>, not the algorithm. Panel B shows it directly &mdash; e5 sits inside
+        the <code>{e0,e1,e2,e3}</code> branch of the dendrogram.</p>
+      <ul>
+        <li><b>Deterministic is not the same as right.</b> Ward has no random start, so it returns
+          the same answer every time. That is a property of the algorithm, not evidence about the
+          answer &mdash; which is why <b>notebook 238</b> reports its
+          initialisation-stability score as <i>not applicable</i> rather than as a pass.</li>
+        <li><b>It is greedy.</b> e5 is merged early and no later step can undo it. The dendrogram
+          makes the commitment visible in a way a flat label list cannot.</li>
+        <li><b>The merge costs justify the cut</b> (panel D). The jump at the last merges is why
+          K&nbsp;=&nbsp;3 is a natural cut <i>here</i> &mdash; a clean elbow that the real data
+          conspicuously does not provide, which is why K on <code>concat_hg</code> is chosen by
+          bi-cross-validation rather than by reading a dendrogram.</li>
+      </ul>
+      <div class="runid">synthetic data &middot; <code>make_hard_clustering_explainers.py</code>
+        &middot; same <code>build()</code> as FIG E.1</div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/explainers/E3_ward_explained.png" alt="six panels explaining Ward linkage on the same twelve synthetic electrodes: raw data with vector norms, the dendrogram coloured by cluster with the K=3 cut marked, cluster means against planted shapes, the cost of each merge, why electrode 5 was misassigned, and the result against the planted truth"></div>
+    </figure>
+
+    <p style="margin:0 0 4px"><b>Read together</b>, the three say what C.7 and C.12 say with numbers.
+      Convex NMF returns a graded mixture and then throws most of it away at the argmax; k-means and
+      Ward never had the graded quantity to begin with. And both hard methods misplace the same
+      electrode for the same reason &mdash; it is quiet &mdash; which is the twelve-electrode version
+      of why every method separates in its home space and collapses in the other's.</p>
+
     <figure id="acrossfeatures"><div class="cap"><div class="fignum">FIG C.12</div>
       <h4>The same question, asked of every feature set</h4>
       <p style="margin:0 0 8px">C.7 tests one feature set. This runs the identical test on every

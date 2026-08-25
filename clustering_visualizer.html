@@ -421,6 +421,32 @@ function loadingsForK() {
   return CONTACTS.loadings[RUN.id] || null;
 }
 
+// Show one hemisphere at a time, surface AND contacts.
+//
+// On a lateral view the far hemisphere sits behind the near one, and through a glass
+// surface its contacts read as if they were on this side. VIEWS[0] is the left lateral
+// and VIEWS[1] the right, so each lateral keeps only its own side; dorsal keeps both,
+// because that view is about the two together.
+//
+// Done by assigning a uniform rgba255 with alpha 0 - the same mechanism the page already
+// uses to colour the glass surface - rather than a "visible" mesh property, which this
+// build of Niivue does not appear to honour for meshes. Glass mode only: outside it the
+// surface carries a per-vertex buffer and this would fight the shader path.
+let HEMI_ONLY = null;          // null | "lh" | "rh"; capture-time only
+function showHemis(which) {
+  HEMI_ONLY = (which === "both") ? null : which;
+  for (const h of ["lh", "rh"]) {
+    const H = hemis[h];
+    if (!H || !H.mesh) continue;
+    const on = (which === "both" || which === h);
+    H.mesh.rgba255 = new Uint8Array(on ? GLASS_RGBA : [0, 0, 0, 0]);
+    try { H.mesh.updateMesh(nv.gl); } catch (e) {}
+  }
+  updateElectrodes();          // re-emits the overlay under the new hemisphere filter
+}
+
+const HEMI_FOR_VIEW = ["lh", "rh", "both"];   // matches VIEWS
+
 function cohortMask(cohortId) {
   const mask = new Uint8Array(CONTACTS.xyz.length);
   for (const i of CONTACTS.cohorts[cohortId]) mask[i] = 1;
@@ -944,6 +970,8 @@ function updateElectrodes() {
   let vi = 0;
   for (let i = 0; i < CONTACTS.xyz.length; i++) {
     if (!mine.has(i)) continue;
+    // a lateral view showing the far side's contacts is the thing this prevents
+    if (HEMI_ONLY && CONTACTS.hemi[i] !== HEMI_ONLY) continue;
     // in a cluster map show only that cluster's contacts; in a coverage map show all.
     // an electrode with several labels appears in each of its clusters' maps.
     // byCluster: draw EVERY labelled contact, coloured by its cluster, rather
@@ -1648,15 +1676,6 @@ h2.sec{font-size:17px;margin:0 0 3px}
 .kpick button:hover{background:#f2f5f8}
 .kpick button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
 .kpick button[data-pub]{box-shadow:inset 0 -3px 0 #f0a500}
-.kbrains{display:grid;gap:8px;margin-top:14px}
-.kbrow{display:grid;grid-template-columns:120px 3fr 1.15fr;gap:10px;align-items:center;
-  border:1px solid var(--line);border-radius:9px;padding:7px 9px;background:#fff}
-.kblab{font-size:10.5px;color:var(--muted);line-height:1.35}
-.kbchip{display:inline-block;color:#fff;font-weight:600;border-radius:5px;padding:1px 7px;
-  font-size:11px;margin-bottom:3px}
-.kbviews{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-.kbviews img{width:100%;height:auto;display:block;border-radius:4px}
-.kbcen img{width:100%;height:auto;display:block;border-radius:4px}
 .kchips{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;margin-top:14px}
 .kchips figure{margin:0}
 .kchips img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:6px;background:#fff}
@@ -1923,9 +1942,12 @@ async function exportReport() {
             const one = [];
             for (let v = 0; v < VIEWS.length; v++) {
               const [az, el] = VIEWS[v];
+              showHemis(HEMI_FOR_VIEW[v]);
+              await sleep(40);
               one.push(gBox[v] ? await captureRaw(az, el, CAPW, gBox[v], true)
                                : await captureView(az, el, CAPW, true));
             }
+            showHemis("both");
             shots.push(one);
           }
           KBRAINS[kk] = shots;
@@ -1937,6 +1959,7 @@ async function exportReport() {
       // A failed glass pass must not cost the report the work already captured.
       console.warn("glass pass failed:", e);
     } finally {
+      showHemis("both");   // a pass that failed mid-view must not leave one side off
       state.glass = glassWas.glass; state.elecByCluster = glassWas.byCluster;
       state.showElec = glassWas.elec; state.surf = frozen.surf;
       // Always reload: leaving a uniform-rgba255 mesh behind under a non-glass state
@@ -2232,6 +2255,14 @@ async function exportReport() {
     // ── K panel markup ────────────────────────────────────────────────────
     const num = (v, d) => (v === null || v === undefined || v === "") ? null
                         : Number(v).toFixed(d);
+    // One sample axis for the whole panel, not one per K: the bars are there to be
+    // read against each other, and an axis that rescaled on every button press would
+    // make a cluster look bigger or smaller purely because K changed.
+    let kBarMax = 1;
+    for (const k of KP.ks) {
+      const sz = ((KP.byK[k] || {}).stats || {}).cluster_sizes || {};
+      for (const v of Object.values(sz)) if (v > kBarMax) kBarMax = v;
+    }
     const kPanelHTML = !KP.ks.length ? "" : `<section class="card">
   <h2 class="sec">The same run at other K</h2>
   <p class="sechint">This run publishes <b>K=${KP.pub}</b>${
@@ -2282,25 +2313,34 @@ async function exportReport() {
         : `<p class="sechint">No metrics published for K=${k} yet. sweep_metrics.csv /
            sweep_by_k.csv give the partition quality, sweep_stability.py the stability -
            both are cells in 235.</p>`}
-      ${(B.brains && B.brains.some(Boolean)) ? `<div class="kbrains">${
-        (B.ids || []).map((c, i) => {
+      ${(B.brains && B.brains.some(Boolean)) ? `
+        <div class="cardhead"><div></div><div>centroid</div>
+          ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div></div>
+        <div class="cards">${(B.ids || []).map((c, i) => {
           const g = (B.brains || [])[i];
-          if (!g) return "";
-          return `<div class="kbrow">
-            <div class="kblab"><span class="kbchip" style="background:${clusterCSS(c)}">c${c}</span>
-              <span>${(st.cluster_sizes || {})[String(c)] || 0} samples ·
-              ${(st.cluster_patients || {})[String(c)] || 0} patients</span></div>
-            <div class="kbviews">${g.map((im, v) =>
-              cellImg(im, `c${c} ${VIEWS[v][2]}`)).join("")}</div>
-            ${B.chips[i] && B.chips[i].data
-              ? `<div class="kbcen">${cellImg(B.chips[i], `c${c} centroid`)}</div>` : "<div></div>"}
+          const comp = (st.cluster_patient_counts || {})[String(c)] || {};
+          const tot = Object.values(comp).reduce((x, y) => x + y, 0);
+          const items = Object.keys(comp).sort()
+            .map(q => ({ label: q, value: comp[q], color: pcol[q] || "#888" }));
+          const top = Object.entries(comp).sort((x, y) => y[1] - x[1])[0];
+          return `<div class="cardrow">
+            <div class="kchip" style="background:${clusterCSS(c)}">c${c}</div>
+            ${cellImg(B.chips[i], "centroid")}
+            ${(g || [null, null, null]).map((im, v) => cellImg(im, VIEWS[v][2])).join("")}
+            <div><div class="sbtrack">${stackbar(items, tot, 15, kBarMax)}</div>
+              <div class="sbcap">${tot} samples · ${(st.cluster_patients || {})[String(c)] || 0} patients${
+                top ? " · " + esc(top[0]) + " " + (100 * top[1] / (tot || 1)).toFixed(0) + "%" : ""}</div>
+            </div>
           </div>`;
         }).join("")}</div>
-        <p class="sechint">Every cluster at K=${k}, on the glass brain at the frozen
-          settings, in the same box as every other brain in this report. Stills rather
-          than turns: a 60-frame rotation for each cluster at each K would add about 8600
-          frames and a third of a gigabyte. The rotations further down stay at
-          K=${KSEL}.</p>` : ""}
+        <div class="cardaxis"><div></div><div></div><div></div><div></div><div></div>
+          <div class="baxis"><span>0</span><span>${Math.round(kBarMax / 2)}</span><span>${kBarMax}</span></div>
+        </div>
+        <p class="sechint">Every cluster at K=${k}, on the glass brain at the frozen settings.
+          Each lateral view shows only its own hemisphere &mdash; the far side is hidden, so a
+          contact behind the midline cannot be mistaken for one in front of it. Stills rather
+          than turns: a 60-frame rotation for each of these clusters would add about 8600
+          frames and a third of a gigabyte. The rotations further down stay at K=${KSEL}.</p>` : ""}
       <div class="kchips" hidden>${B.chips.length
         ? B.chips.map((im, i) => `<figure><img ${srcAttr(im.data)} alt="cluster ${ids[i]}">
             <figcaption><i style="background:${clusterCSS(ids[i])}"></i>c${ids[i]} ·

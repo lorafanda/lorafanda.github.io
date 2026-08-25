@@ -2075,7 +2075,17 @@ async function exportReport() {
       </div>`;
     }).join("");
 
-    const cardsHTML = `<section class="card">
+    // ── cluster cards ─────────────────────────────────────────────────────
+    // Dropped where the run has a K sweep: the K panel now draws exactly this row - chip,
+    // centroid, three views, composition, same grid, same shared axis - once per K, and
+    // one of those K IS the exported cut. Keeping both put the same table twice in one
+    // report, differing only in that the cards could not follow the K buttons.
+    //
+    // Still built for a run WITHOUT a sweep. There is no K panel on those, so removing it
+    // unconditionally would take the per-cluster overview away from them entirely rather
+    // than de-duplicate it.
+    const hasSweep = !!(SWEEP && SWEEP.ks && SWEEP.ks.length > 1);
+    const cardsHTML = hasSweep ? "" : `<section class="card">
   <h2 class="sec">Cluster cards</h2>
   <p class="sechint">One row per cluster: its mean response, the same three angles for every
     cluster, and who it is made of. The brains are the contacts themselves on a glass brain,

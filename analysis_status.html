@@ -432,6 +432,173 @@
     <p class="lead">Turn raw clinical recordings (three cohorts, three conditions) into cleaned, trial‑locked
       <b>event‑related spectral perturbation (ERSP)</b> cubes — the shared substrate every later stage consumes —
       plus micro‑electrode spike detection.</p>
+    <div class="method" id="s1pipeline" style="border-left:4px solid var(--s1)">
+      <h3 style="margin:0 0 6px">The preprocessing chain, end to end &mdash; what happens to a signal before it is ever clustered</h3>
+      <p style="margin:0 0 8px">Written 2026-08-26 against the <b>v4 cohort rebuild</b>. Every parameter below was
+        read out of the code that runs &mdash; <code>functions/config.py</code>, <code>lf_ersp.py</code>,
+        <code>lf_trials.py</code>, notebook 140 cell 11, and <code>lf_dataset.py</code> / <code>lf_concat.py</code>
+        in stage 02 &mdash; not from memory or from an older writeup.</p>
+      <p style="margin:0 0 8px"><b>Nine steps.</b> The first seven are notebook 140 and end with one cube per
+        electrode per condition. The last two are 02_FBM_Clustering and end with the matrix that
+        <code>240</code>/<code>241</code>/<code>242</code> read. Nothing after step 7 returns to the raw signal.</p>
+      <table class="sum" style="margin:8px 0">
+        <tr><th>#</th><th>step</th><th>what it changes</th><th>where</th></tr>
+        <tr><td>1</td><td>load signals, channel names, sampling rate</td><td>&mdash;</td><td rowspan="7">notebook <b>140</b></td></tr>
+        <tr><td>2</td><td>drop non-neural, micro and grid channels</td><td>which channels</td></tr>
+        <tr><td>3</td><td><b>re-reference</b> against white matter (or grid CAR)</td><td rowspan="2">the SIGNAL</td></tr>
+        <tr><td>4</td><td><b>notch</b> mains harmonics, adaptively</td></tr>
+        <tr><td>5</td><td>build the trial table and filter it</td><td>which trials</td></tr>
+        <tr><td>6</td><td>spectrogram &rarr; dB re baseline &rarr; time-warp &rarr; average</td><td>the representation</td></tr>
+        <tr><td>7</td><td>save the cube, and the odd/even halves</td><td>&mdash;</td></tr>
+        <tr><td>8</td><td><b>the responsiveness gate</b></td><td>which electrodes</td><td rowspan="2"><b>02_FBM_Clustering</b></td></tr>
+        <tr><td>9</td><td>concatenate the three conditions &rarr; <code>concat_hg</code> / <code>concat_rawds</code></td><td>the feature space</td></tr>
+      </table>
+    </div>
+
+    <figure id="s1p1"><div class="cap"><div class="fignum">FIG P.1</div>
+      <h4>The whole chain, and what survives each narrowing</h4>
+      <ul>
+        <li><b>The gate is by far the largest narrowing.</b> It removes <b>1,266 of 2,959</b>
+          electrodes &mdash; 43% of everything that reaches it. Every other filter is small by
+          comparison: 149 dropped for missing a condition, 192 subdural grid contacts (all PAT_3415),
+          124 rows for the excluded patient EL044.</li>
+        <li><b>9,774 cubes on disk become 1,693 clustered electrodes.</b> The cache holds 9,342 rows
+          = 3,296 contacts &times; 3 conditions (minus the incomplete ones); 2,959 contacts have all
+          three conditions; 1,693 of those pass the gate.</li>
+        <li><b>The gate is per-electrode, not per-condition.</b> An electrode enters on ONE responsive
+          condition and then contributes its full three-condition profile. Of the 1,693 that survive,
+          high-activity holds in one condition for <b>828</b>, two for <b>465</b>, all three for
+          <b>400</b> &mdash; so half the cohort is modality-specific.</li>
+      </ul>
+      <div class="runid"><code>make_preprocessing_figures.py</code> &middot; cohort v4, 2026-08-26</div></div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/preprocessing_docs/P1_pipeline_overview.png" alt="nine-step flow diagram from raw sEEG to the clustering feature matrix, with a table of how many electrodes survive each filtering step in the v4 cohort"></div>
+    </figure>
+    <figure id="s1p2"><div class="cap"><div class="fignum">FIG P.2</div>
+      <h4>Steps 3&ndash;4 &mdash; re-referencing and the notch</h4>
+      <p style="margin:0 0 8px">Two operations that change the <b>signal itself</b>, once per patient,
+        before a single trial is cut.</p>
+      <ul>
+        <li><b>Why white matter is the reference.</b> Every contact on a shaft shares whatever is not
+          local &mdash; drift, movement, mains pickup, the reference's own activity. Subtracting the
+          shared part leaves what is local. WM contacts are used because white matter has no local
+          task response of its own to remove. <b>They are then excluded from the analysis</b>: an
+          electrode cannot be clustered against itself.</li>
+        <li><b>Four schemes, decided in code and not by hand.</b> Depths with usable WM contacts get
+          <code>apply_wm_reref</code>; grid patients listed in <code>GRID_CAR_PATIENTS</code> get each
+          array common-averaged separately; grid patients not listed are left <b>raw</b> rather than
+          referenced against something inappropriate; MicroEPI macros get
+          <code>apply_wm_reref_selective</code> while micros keep their own anchor or stay raw.</li>
+        <li><b>The notch is adaptive, not blanket.</b> <code>notch_mains_harmonics</code> walks 50&nbsp;Hz
+          and its harmonics and only notches one where a real peak is detected
+          (z&nbsp;&gt;&nbsp;3 above the local PSD), with Q set from the peak's sharpness. A harmonic
+          that is not present is left alone &mdash; no signal is removed on the assumption that noise
+          must be there.</li>
+      </ul>
+      <div class="runid"><code>lf_ersp.apply_wm_reference_with_exclusions</code>, <code>notch_mains_harmonics</code>, 140 cell 11</div></div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/preprocessing_docs/P2_signal_conditioning.png" alt="before and after white-matter re-referencing on a simulated contact pair, the power spectrum showing mains harmonics, and a table of which re-referencing scheme each patient type receives"></div>
+    </figure>
+    <figure id="s1p3"><div class="cap"><div class="fignum">FIG P.3</div>
+      <h4>Step 6 &mdash; how one electrode becomes one ERSP</h4>
+      <ul>
+        <li><b>Resampled to 1000&nbsp;Hz first</b> (<code>_to_khz_resampled</code>), so every patient
+          lands on the same frequency grid whatever their recording rate. This is why every cube is
+          129 frequency bins regardless of patient.</li>
+        <li><b>Spectrogram:</b> Hann window, <code>nperseg&nbsp;128</code>,
+          <code>noverlap&nbsp;108</code>, <code>nfft&nbsp;256</code> &rarr; <b>129 bins from 0 to
+          500&nbsp;Hz</b>, a new time bin every <b>20&nbsp;ms</b>. Power &rarr; dB by
+          10&middot;log<sub>10</sub>.</li>
+        <li><b>dB is relative to baseline.</b> The mean over <b>&minus;0.5 to &minus;0.1&nbsp;s</b>
+          before onset is subtracted per frequency (the epoch itself starts at
+          &minus;0.6&nbsp;s). So <b>0&nbsp;dB means "no different from rest"</b>, not "no power" &mdash;
+          which is what makes red/blue readable as increase/decrease.</li>
+        <li><b>Panel D is a real cube</b>, EL033 <code>aH_L11</code> audio, not a mock-up: the
+          post-stimulus half is visibly redder than the stimulus half.</li>
+        <li><b>NaNs from the warp are filled from nearest neighbours</b> in the cube
+          (<code>fill_nans_nearest</code>) but <b>NOT in the halves</b> &mdash; imputing the same bins
+          in both halves from their own neighbours would inflate the split-half correlation for
+          reasons that have nothing to do with the response.</li>
+      </ul>
+      <div class="runid"><code>lf_ersp.compute_ersp</code> &middot; config nperseg 128 / noverlap 108 / nfft 256 / baseline (&minus;0.5, &minus;0.1)</div></div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/preprocessing_docs/P3_one_trial_to_ersp.png" alt="four panels showing one trial's raw signal with the baseline window marked, its spectrogram in raw dB, the same after baseline subtraction, and a real averaged time-normalised cube"></div>
+    </figure>
+    <figure id="s1p4"><div class="cap"><div class="fignum">FIG P.4</div>
+      <h4>Step 6b &mdash; time normalisation, and why a bin is not a millisecond</h4>
+      <ul>
+        <li><b>Trials are not the same length.</b> One picture is answered in 0.8&nbsp;s and the next
+          in 2.4&nbsp;s. Averaging those on a clock axis smears the response, because one second after
+          onset is mid-stimulus in one trial and long past the answer in another.</li>
+        <li><b>So each trial is warped onto a proportional axis</b> before averaging:
+          <code>proportions = (0.0, 0.50, 0.50)</code> and <code>n_time_bins = 300</code>. Stimulus
+          onset&rarr;offset becomes bins 0&ndash;149, offset&rarr;<code>trial_end</code> becomes bins
+          150&ndash;299. <b>Bin 150 is the stimulus offset in every trial of every patient.</b></li>
+        <li><b>The first proportion is zero</b> &mdash; the baseline is used to compute dB but is not
+          kept in the output, so the 300 bins are all post-onset.</li>
+        <li><b>A bin is a proportion, not a latency.</b> Bin 225 is "halfway through the post-stimulus
+          period", which is 0.55&nbsp;s after offset in a fast trial and 0.95&nbsp;s in a slow one. Any
+          statement in milliseconds has to go back to the trial table.</li>
+        <li><b>Anything that moves <code>trial_end</code> rescales the whole second half of every
+          cube.</b> That is exactly what the fixation-cross correction did for EL033 and PAT_3965 &mdash;
+          their post-stimulus window shortened by 25&ndash;49%, so the same bin index now covers less
+          real time.</li>
+      </ul>
+      <div class="runid">config <code>proportions (0, 0.5, 0.5)</code>, <code>n_time_bins 300</code> &middot; <code>compute_ersp</code> mode TN</div></div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/preprocessing_docs/P4_time_normalisation.png" alt="diagram contrasting a fast and a slow trial being warped onto the same 300-bin proportional axis, with the three segment edges named and the consequence for latency spelled out"></div>
+    </figure>
+    <figure id="s1p5"><div class="cap"><div class="fignum">FIG P.5</div>
+      <h4>Steps 5 and 8 &mdash; which trials, and which electrodes</h4>
+      <p style="margin:0 0 8px">Two independent narrowings that are easy to confuse. Step 5 decides
+        which <b>trials</b> enter an average; step 8 decides which <b>electrodes</b> enter the
+        clustering at all.</p>
+      <ul>
+        <li><b>Trial filters, in order:</b> <code>resp_accuracy</code> must be correct/valid/1;
+          stimulus &ge; 0.5&nbsp;s; post-stimulus between 1.0 and 5.0&nbsp;s; then an IQR outlier rule
+          on the post-stimulus duration. Duplicate prep0 tables are dropped by MD5 first, or every
+          trial would be counted twice.</li>
+        <li><b>All three duration filters read <code>trial_end</code></b>, since
+          <code>post_s = trial_end &minus; sample_offsets</code>. That is why the fixation-cross
+          correction changed trial counts as well as timings.</li>
+        <li><b>The gate:</b> <code>prop_above_pos &ge; 0.02</code> <b>OR</b>
+          <code>prop_below_neg &ge; 0.04</code>, computed over the full 0&ndash;500&nbsp;Hz cube
+          (129&times;300 = 38,700 bins, so 2% is 774 bins), and satisfied in at least one condition.</li>
+        <li><b>It is an amplitude test, so it selects loud electrodes rather than reproducible ones</b>
+          &mdash; and amplitude depends on trial count, because fewer trials means a noisier mean and
+          more bins past the threshold. Visible in v4: EL033 and PAT_3965 lost about 30% of their
+          trials and both moved <i>up</i> in gated count. The split-half cubes in
+          <code>ERSP_halves/</code> exist to replace this with a reproducibility test, which does not
+          have that property.</li>
+      </ul>
+      <div class="runid"><code>lf_trials.collect_trials</code> &middot; <code>lf_dataset</code> thr_pos 2.2 / min_prop_pos 0.02, thr_neg &minus;3.0 / min_prop_neg 0.04</div></div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/preprocessing_docs/P5_trial_and_electrode_selection.png" alt="the ordered list of trial filters, a real cube with the supra-threshold region outlined, and the high-activity rule with the v4 counts"></div>
+    </figure>
+    <figure id="s1p6"><div class="cap"><div class="fignum">FIG P.6</div>
+      <h4>Step 9 &mdash; from three cubes to the matrix the algorithms see</h4>
+      <ul>
+        <li><b>Concatenation is along TIME, not frequency.</b> The three condition cubes are laid side
+          by side into one 129&times;900 block, so the frequency axis is untouched and one electrode is
+          one row.</li>
+        <li><b><code>concat_hg</code> &rarr; (n, 900).</b> The mean of the 70&ndash;150&nbsp;Hz rows per
+          time bin. High gamma is the band that tracks local firing; the frequency axis collapses
+          away entirely.</li>
+        <li><b><code>concat_rawds</code> &rarr; (n, 1350).</b> Each condition block reduced to 15
+          frequency bands &times; 30 time bins, then re-stitched: 15&times;3&times;30. Downsampled
+          <b>per block, never across the seam</b>, so no feature mixes two conditions &mdash; and the
+          grid matches the one stage-04 pooling uses.</li>
+        <li><b>v4:</b> <code>concat_hg</code> is <b>(1693, 900)</b> and <code>concat_rawds</code> is
+          <b>(1693, 1350)</b>, on the same 1,693 electrodes across 27 patients. Anything that differs
+          between them is the representation, not the sample.</li>
+        <li><b><code>concat_hg_all</code> is the same construction with the gate lifted</b> &mdash; a
+          different cohort, so it can be read on its own but never compared electrode-for-electrode
+          against the gated pair.</li>
+      </ul>
+      <div class="runid"><code>lf_concat.build_concat_dataset</code>, <code>concat_hg_features</code>, <code>concat_rawds_features</code> &middot; cache <code>concat_source_v4</code></div></div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/preprocessing_docs/P6_cube_to_features.png" alt="three real condition cubes concatenated into a 129 by 900 block, then reduced two ways into the concat_hg and concat_rawds feature matrices with their shapes"></div>
+    </figure>
+    <p style="margin:12px 0 4px"><b>What happens next.</b> Those two matrices are the input to
+      <code>240_cluster_kmeans</code>, <code>241_cluster_hierarchical</code> and
+      <code>242_cluster_cnmf</code>, which run in parallel over K&nbsp;=&nbsp;5&hellip;30, and then to
+      <code>243_cluster_statistics</code>. The order and the reasoning for that stage are in the
+      <a href="#s2runbook">stage-02 runbook</a>.</p>
+
 
     <h3>Method — notebook 140 (the ERSP producer)</h3>
     <div class="method"><ul>

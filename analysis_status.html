@@ -974,6 +974,182 @@ python make_coverage_bundle.py</code></pre>
         notebooks 240&ndash;243 &middot; cohort cache <code>outputs/_dataset/concat_source_v3</code></div>
     </div>
 
+
+    <div class="method" id="s2methods" style="border-left:4px solid var(--s2)">
+      <h3 style="margin:0 0 6px">What this stage does now &mdash; three algorithms, one cohort, K&nbsp;=&nbsp;5&hellip;30</h3>
+      <p style="margin:0 0 8px">Written 2026-08-26 from the files the run produced. The cohort is the
+        <b>v4 rebuild</b>: <b>1693 electrodes across 27 patients</b>, feature set
+        <code>concat_hg</code>. All three methods were verified to read a <b>bit-identical
+        <code>X_train</code> in the identical electrode order</b>, so every difference below is the method.</p>
+      <table class="sum" style="margin:8px 0">
+        <tr><th>method</th><th>what it returns per electrode</th><th>fitted in</th><th>notebook</th></tr>
+        <tr><td><b>k-means</b></td><td>one label</td><td>raw dB</td><td><code>240</code></td></tr>
+        <tr><td><b>Ward</b></td><td>one label</td><td>raw dB</td><td><code>241</code></td></tr>
+        <tr><td><b>convex NMF</b></td><td>a <b>weight on every component</b>, summing to 1</td>
+            <td>unit-normed</td><td><code>242</code></td></tr>
+      </table>
+      <p style="margin:0 0 4px"><b>Each is read in its home space.</b> Silhouette is not space-free:
+        convex NMF unit-norms each electrode before fitting while k-means and Ward use raw dB. Scoring
+        all three in dB is the error that made the first version of <a href="#separation">FIG C.7</a>
+        wrong, and the right-hand column below shows what it would have produced.</p>
+    </div>
+
+    <h4 id="s2choosek">Choosing K &mdash; and why only one of the three can answer it</h4>
+    <p style="margin:0 0 8px">The held-out variance curve that was on this page holds out
+      <b>electrodes only</b>, then refits each held-out electrode its own loadings across the
+      <b>full</b> feature set. Adding a basis vector can only reduce a least-squares residual, so that
+      score is <b>monotone in K by construction</b> &mdash; on <code>concat_hg</code> it climbed 0.389
+      to 0.674 and never turned over. <code>choose_k.py</code> says so in its own docstring. A monotone
+      curve cannot choose K and cannot compare methods.</p>
+    <p style="margin:0 0 8px"><b>Bi-cross-validation fixes it.</b> A block of ROWS <i>and</i> a block of
+      COLUMNS is held out; the method is fitted on the remaining block; each held-out electrode's
+      loadings come from the TRAIN columns only and are scored on the TEST columns. The loadings never
+      see the values they are graded on, so an extra component has to earn its place. The only thing
+      that differs between the three methods is how those loadings are obtained &mdash; NNLS against
+      the components for convex NMF, nearest centroid for k-means and Ward.</p>
+    <table class="sum" style="margin:8px 0">
+      <tr><th>feature set</th><th>convex NMF</th><th>k-means</th><th>Ward</th></tr>
+      <tr><td><code>concat_hg</code></td><td style="color:#1b7837"><b>peaks at K=11</b></td>
+          <td colspan="2" style="color:#c1121f">still rising at the largest K tested</td></tr>
+      <tr><td><code>concat_rawds</code></td><td style="color:#1b7837"><b>peaks at K=12</b></td>
+          <td colspan="2" style="color:#c1121f">still rising at the largest K tested</td></tr>
+    </table>
+    <p style="margin:0 0 8px"><b>Convex NMF is the only method whose curve turns over anywhere in
+      K&nbsp;=&nbsp;5&hellip;30.</b> That is not a quirk: a hard partition does not self-limit here,
+      because more centroids always quantise the space more finely and so always predict a held-out
+      block better. Only the graded model pays for an extra component. So <b>K is read from convex NMF
+      and then applied to all three</b> &mdash; k-means' and Ward's argmax would simply be "the largest
+      K in the sweep".</p>
+    <p style="margin:0 0 8px">K legitimately <b>differs between feature sets</b> (11 vs 12).
+      Same electrodes, different representation; there is no reason for one number to serve both.</p>
+
+    <figure id="s2heldout"><div class="cap"><div class="fignum">FIG C.13</div>
+      <h4>Held-out variance over components, three algorithms, one cohort</h4>
+      <ul>
+        <li>Two panels per feature set: the left fits and scores each method in its <b>home space</b>,
+          so the SHAPE of each curve is meaningful but the heights are not comparable; the right puts
+          every method in <b>unit-norm</b>, where heights ARE comparable.</li>
+        <li>A triangle marks a curve that turns over inside the tested range. Only the convex NMF
+          curves carry one.</li>
+      </ul>
+      <div class="runid"><code>make_heldout_variance.py</code> + <code>make_heldout_figure.py</code> &middot; bi-cross-validated, 4&times;4 folds</div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/bsf_comparison/C13_heldout_variance.png" alt="held-out variance versus K from 5 to 30 for k-means, Ward and convex NMF on concat_hg and concat_rawds, in home space and unit-norm space"></div>
+    </figure>
+    <h4 id="s2stats">The statistics, at K=11 on <code>concat_hg</code></h4>
+    <p style="margin:0 0 8px">Four measures, each answering a different question, all computed at the
+      same K on the same 1693 electrodes. <b>50 matched nulls per cell.</b></p>
+
+    <p style="margin:10px 0 4px"><b>1 &mdash; Does it beat a null?</b> The null is a Gaussian carrying
+      this feature set's own covariance: correlated features, smooth time courses, one blob, no cluster
+      structure, refitted by the same method. White noise would be trivially beatable and would prove
+      nothing.</p>
+    <table class='sum' style='margin:8px 0'><tr><th></th><th>home space</th><th>silhouette</th><th>matched null</th><th>z (home)</th><th>z in the other space</th></tr><tr><td><b>k-means</b></td><td><code>dB</code></td><td>+0.0691</td><td>+0.0659 &plusmn; 0.0020</td><td style='color:#c1121f'><b>+1.7</b></td><td><i>-50.2</i></td></tr><tr><td><b>Ward</b></td><td><code>dB</code></td><td>+0.0613</td><td>+0.0344 &plusmn; 0.0032</td><td style='color:#1b7837'><b>+8.3</b></td><td><i>-25.9</i></td></tr><tr><td><b>convex NMF</b></td><td><code>unit-norm</code></td><td>+0.0466</td><td>+0.0351 &plusmn; 0.0040</td><td style='color:#1b232c'><b>+2.9</b></td><td><i>-4.6</i></td></tr></table>
+    <p style="margin:0 0 8px"><b>Ward separates best here (z&nbsp;=&nbsp;+8.3),
+      k-means barely clears its null at all (z&nbsp;=&nbsp;+1.7).</b>
+      That is a reversal of the earlier K=8 result on the ungated set, where k-means led. It is a
+      reminder that "which method separates best" is not a property of the method &mdash; it moves with
+      the cohort and with K. Every method collapses in the other's space, exactly as C.7 reported.</p>
+
+    <p style="margin:10px 0 4px"><b>2 &mdash; Do they find the same thing?</b> No.</p>
+    <table class='sum' style='margin:8px 0'><tr><th>pair</th><th>ARI</th><th>NMI</th></tr><tr><td>k-means vs Ward</td><td><b>0.293</b></td><td>0.473</td></tr><tr><td>k-means vs convex NMF</td><td><b>0.149</b></td><td>0.306</td></tr><tr><td>Ward vs convex NMF</td><td><b>0.128</b></td><td>0.289</td></tr></table>
+    <p style="margin:0 0 8px">Three defensible methods on identical electrodes agree at ARI 0.13&ndash;0.29.
+      They are describing different structure, not disagreeing about the same structure.</p>
+
+    <p style="margin:10px 0 4px"><b>3 &mdash; Does it track anatomy it was never given?</b> Of an
+      electrode's 10 nearest neighbours in fsaverage space, how many share its label, divided by the
+      same quantity under a label shuffle. The chance correction matters: a solution with one dominant
+      cluster scores high on the raw version for free.</p>
+    <table class='sum' style='margin:8px 0'><tr><th></th><th>neighbours sharing label</th><th>over chance</th><th>largest cluster</th><th>smallest</th></tr><tr><td><b>k-means</b></td><td>0.274</td><td><b>1.75&times;</b></td><td>377</td><td>3</td></tr><tr><td><b>Ward</b></td><td>0.367</td><td><b>1.76&times;</b></td><td>568</td><td>3</td></tr><tr><td><b>convex NMF</b></td><td>0.255</td><td style='color:#1b7837'><b>2.51&times;</b></td><td>213</td><td>88</td></tr></table>
+    <p style="margin:0 0 8px"><b>Convex NMF wins decisively &mdash;
+      2.51&times; chance against
+      1.75&times; and
+      1.76&times; &mdash; while having the LOWEST
+      raw neighbour-sharing.</b> The chance correction is doing the work, and the cluster-size columns
+      show why: Ward puts 568 electrodes in one cluster and
+      3 in another, k-means
+      377 and 3, while
+      convex NMF spans 88&ndash;213.
+      A hard method can look anatomically coherent simply by having one cluster that covers everything.
+      <b>This is the criterion that is about the brain rather than about the fit</b>, and it is the one
+      convex NMF wins.</p>
+
+    <p style="margin:10px 0 4px"><b>4 &mdash; Is one patient carrying it?</b> Each patient removed in
+      turn, refit with the SAME method, compared to the full-cohort solution by ARI, then scored against
+      a null that removes the same NUMBER of electrodes at random.
+      <code>lf_decompose.lopo_stability</code> hard-codes KMeans, which would silently have made this
+      the wrong test for the other two; the version used here delegates the refit to the method.</p>
+    <table class='sum' style='margin:8px 0'><tr><th></th><th>worst fold</th><th>size-matched null</th><th>z</th><th>verdict</th></tr><tr><td><b>k-means</b></td><td>0.336</td><td>0.355 &plusmn; 0.043</td><td>-0.44</td><td style='color:#1b7837'>inside &mdash; no patient carries it</td></tr><tr><td><b>Ward</b></td><td>0.293</td><td>0.305 &plusmn; 0.016</td><td>-0.68</td><td style='color:#1b7837'>inside &mdash; no patient carries it</td></tr><tr><td><b>convex NMF</b></td><td>0.443</td><td>0.466 &plusmn; 0.039</td><td>-0.59</td><td style='color:#1b7837'>inside &mdash; no patient carries it</td></tr></table>
+    <p style="margin:0 0 8px"><b>Sitting inside the null is the pass.</b> It means losing a patient costs
+      no more than losing that many random electrodes. All three do.</p>
+
+    <figure id="s2three"><div class="cap"><div class="fignum">FIG E.6</div>
+      <h4>Three distinctions that are easy to run together</h4>
+      <ul>
+        <li><b>Argmax vs threshold.</b> The same loadings read two ways. Argmax PARTITIONS &mdash; every
+          electrode once, groups mutually exclusive &mdash; which is the only reason ARI, silhouette and
+          a contingency table are computable at all. A threshold does not partition: sizes overrun n and
+          those measures stop applying.</li>
+        <li><b>Convex NMF vs semi-NMF.</b> One constraint apart, from the same paper. <code>W &ge; 0</code>
+          forces each component to be a weighted average of REAL electrodes, so it cannot leave the
+          convex hull &mdash; which is what makes a component plottable in real dB. Semi-NMF's components
+          are free directions and can sit where no electrode is.</li>
+        <li><b>Graded and convex are independent axes.</b> <b>k-means is already convex</b> &mdash; its
+          centroid IS the mean of its members. So convex NMF's advantage over k-means is not convexity,
+          it is <b>gradedness</b>. Semi-NMF, graded without being convex, is the clean test of whether
+          the convex constraint buys anything beyond the graded loadings.</li>
+      </ul>
+      <div class="runid"><code>make_explainer_three.py</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/explainers/E6_three_distinctions.png" alt="three panels: a loading matrix read by argmax and by threshold, a scatter contrasting where semi-NMF and convex NMF components may sit, and a two-by-two of graded versus convex methods"></div>
+    </figure>
+    <h4 id="s2argmaxcost">What the argmax costs, on this data</h4>
+    <p style="margin:0 0 8px">Convex NMF returns a weight on every component and the argmax keeps one.
+      That is a summary imposed afterwards, not the model's output, and on these electrodes it is
+      expensive: <b>median top weight 0.43</b>, only <b>34%</b> of electrodes have a majority, and
+      <b>19%</b> sit within 0.05 of a tie. At K=7 component 2 held <b>97</b> electrodes by argmax and
+      <b>583</b> above a 0.08 loading. Neither number is wrong &mdash; argmax answers "which component
+      leads here", a threshold answers "which components does this electrode carry" &mdash; but a
+      taxonomy reports the first and discards the second.</p>
+
+    <figure id="s2stability"><div class="cap"><div class="fignum">FIG E.5</div>
+      <h4>What sweep_stability measures &mdash; and the caveat on the cnmf runs</h4>
+      <ul>
+        <li>Refit the same K <b>50 times on random 80% subsamples</b>, count how often each pair of
+          electrodes lands together, divide by how often both were drawn. A pair only counts in rounds
+          where neither sat out, otherwise being absent would look like disagreement.</li>
+        <li>Each cluster's score is the mean of its own block of that consensus matrix, diagonal
+          excluded. <b><code>min_jaccard</code> is the one to read</b> &mdash; a run can average well and
+          still carry one cluster that does not survive resampling.</li>
+        <li><b>The caveat, from the script's own docstring:</b> the resampler always refits with
+          <b>k-means</b>. Exact for the k-means and Ward runs. On a convex-NMF run it measures how
+          reproducibly <i>k-means</i> partitions the space the decomposition was fitted in &mdash; not
+          how reproducible the decomposition is. It is kept that way so the published K=7 number stays
+          consistent; a cNMF-native stability belongs in its own column.</li>
+      </ul>
+      <div class="runid"><code>sweep_stability.py</code> &middot; <code>lf_stability.per_cluster_jaccard</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/explainers/E5_sweep_stability.png" alt="four resampling rounds over six electrodes, the resulting consensus matrix, and the per-cluster jaccard computed from its diagonal blocks"></div>
+    </figure>
+    <h4 id="s2where">Where this stands</h4>
+    <table class="sum" style="margin:8px 0">
+      <tr><th></th><th>state</th></tr>
+      <tr><td>cohort cache</td><td><code>concat_source_v4</code> &mdash; 1693 gated
+        electrodes, 27 patients</td></tr>
+      <tr><td>k-means / Ward / convex NMF</td><td>fitted K=5&hellip;30 on both feature sets</td></tr>
+      <tr><td>K chosen</td><td><code>concat_hg</code> K=11 &middot; <code>concat_rawds</code> K=12,
+        both from the convex NMF peak</td></tr>
+      <tr><td>statistics</td><td><code>concat_hg</code> complete &middot; <code>concat_rawds</code>
+        running</td></tr>
+      <tr><td>still to run</td><td><code>sweep_stability.py --new-concat</code>,
+        <code>make_missing_centroids.py --force</code>, <code>make_coverage_bundle.py</code>,
+        then <code>252</code> for the 3-D glassbrains</td></tr>
+    </table>
+    <p style="margin:0 0 4px"><b>Three things worth carrying forward.</b> A cNMF-native stability, to
+      replace a number that currently measures the wrong thing. <b>Loading-weighted anatomy</b> &mdash;
+      weighting each electrode's anatomical contribution by its loading rather than hard-assigning it,
+      which plays directly to the criterion convex NMF already wins. And <b>archetypal analysis</b>,
+      the one genuinely new method worth the time: it keeps convex NMF's interpretability but places
+      components on the convex HULL rather than in the interior, so they are extremes rather than
+      averages.</p>
+
     <div class="callout q" style="border-left:4px solid var(--stale)">
       <h3 style="margin:0 0 8px">Read this before the figures below</h3>
       <p style="margin:0 0 8px">Everything in this tab is the <b>K=5 five-type partition</b> as it was

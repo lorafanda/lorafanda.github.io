@@ -600,7 +600,7 @@
     <p style="margin:12px 0 4px"><b>What happens next.</b> Those two matrices are the input to
       <code>240_cluster_kmeans</code>, <code>241_cluster_hierarchical</code> and
       <code>242_cluster_cnmf</code>, which run in parallel over K&nbsp;=&nbsp;5&hellip;30, and then to
-      <code>243_cluster_statistics</code>. The order and the reasoning for that stage are in the
+      <code>249_cluster_statistics</code>. The order and the reasoning for that stage are in the
       <a href="#s2runbook">stage-02 runbook</a>.</p>
 
 
@@ -936,7 +936,7 @@
 
       <p style="margin:0 0 4px"><b>STEP 2 &mdash; only after all three have finished.</b></p>
       <ul style="margin:0 0 12px">
-        <li><code>243_cluster_statistics</code> merges the three sweeps and takes the K where
+        <li><code>249_cluster_statistics</code> merges the three sweeps and takes the K where
           <b>convex NMF's</b> held-out variance peaks &mdash; separately per feature set, and it warns if
           that peak sits at the edge of the tested range. <b>K is read from convex NMF because it is the
           only method whose bi-cross-validated curve turns over</b>; k-means and Ward rise monotonically,

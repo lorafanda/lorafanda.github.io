@@ -2157,6 +2157,10 @@ async function exportReport() {
       // sweep rows, used at any K - and preferred over the published files when both
       // exist, so the table cannot disagree with the K panel above it
       swMetrics: mK, swCnmf: cK, swStab: sK, atPub,
+      // Written by make_cluster_statistics.py into the run directory. It is valid ONLY
+      // at the K it was computed at, and it carries that K itself - so it is gated on
+      // its own K below rather than on atPub, which tracks the run's PUBLISHED cut.
+      stats: await tryJSON(runBase + "cluster_statistics.json"),
     };
     const rows = [];
     const add = (name, val, how) => {
@@ -2251,6 +2255,61 @@ async function exportReport() {
           "How much more often neighbouring electrodes share a component than they would if " +
           "components were shuffled. Above 1 means the decomposition tracks anatomy it was " +
           "never given.");
+    }
+
+    // ── the statistics battery, appended last ─────────────────────────────
+    // Every number here is K-SPECIFIC: separation is scored against a null refitted at
+    // this K, and the agreement rows compare three partitions all cut at this K. The
+    // file records the K it was computed at, so the rows appear only when the report is
+    // being read at that same cut - quoting them under a re-cut heading would be a
+    // number silently changing meaning.
+    const ST = RES.stats;
+    if (ST && Number(ST.K) === Number(KSEL)) {
+      const sp = ST.separation;
+      if (sp) {
+        add("Separation vs matched null" + AT,
+          `${f3(sp.silhouette)} (null ${f3(sp.null_mean)} \u00b1 ${f3(sp.null_sd)}, z = ${(+sp.z).toFixed(1)})`,
+          `Silhouette in this method's home space (<b>${esc(sp.space)}</b>), against a null ` +
+          `carrying this feature set's own covariance &mdash; correlated features, smooth time ` +
+          `courses, one blob, no cluster structure &mdash; refitted by the same method ` +
+          `${sp.n_null} times. White noise would be trivially beatable and would prove nothing. ` +
+          `z is how many null standard deviations the real partition sits above it.`);
+        if (sp.other_space_z !== null && sp.other_space_z !== undefined)
+          add("Separation in the other space" + AT, `z = ${(+sp.other_space_z).toFixed(1)}`,
+            `The same partition scored in <b>${esc(String(sp.other_space))}</b>. Silhouette is ` +
+            `not space-free: convex NMF unit-norms each electrode before fitting while k-means ` +
+            `and Ward use raw dB. Each method separates at home and collapses in the other's ` +
+            `space, so a negative z here is expected and is not a failure.`);
+      }
+      const ac = ST.anatomical_coherence;
+      if (ac)
+        add("Anatomical coherence" + AT, (+ac.over_chance).toFixed(2) + "\u00d7 chance",
+          `Of an electrode's 10 nearest neighbours in fsaverage space, how many share its label ` +
+          `(${f3(ac.neighbours_sharing_label)}), divided by the same quantity under a label ` +
+          `shuffle. The chance correction matters &mdash; a solution with one dominant cluster ` +
+          `scores high on the raw version for free. This is the only row here that is about the ` +
+          `brain rather than about the fit.`);
+      const lp = ST.lopo;
+      if (lp)
+        add("Leave one patient out" + AT,
+          `worst fold ${f3(lp.real_min)} (null ${f3(lp.null_min_mean)} \u00b1 ${f3(lp.null_min_sd)}, z = ${(+lp.z).toFixed(2)})`,
+          `Each patient removed in turn, refit with the SAME method, compared to the full-cohort ` +
+          `solution by ARI, then scored against a null that removes the same NUMBER of electrodes ` +
+          `at random. Sitting inside that null is the pass: losing a patient costs no more than ` +
+          `losing that many random electrodes. Above it is better still. Only a z below about ` +
+          `&minus;2 means an individual patient is holding the solution together.`);
+      const ag = ST.agreement_with || {};
+      for (const [other, v] of Object.entries(ag))
+        add(`Agreement with ${esc(other)}` + AT, `ARI ${f3(v.ari)} \u00b7 NMI ${f3(v.nmi)}`,
+          `Adjusted Rand and normalised mutual information between this partition and ` +
+          `${esc(other)}'s, both cut at K=${KSEL} on the identical electrodes. Low values mean ` +
+          `the two are describing different structure &mdash; not that either is wrong.`);
+      if (ST.n_electrodes)
+        add("Cohort", `${ST.n_electrodes} electrodes \u00b7 ${ST.n_patients} patients`,
+          `Feature set <code>${esc(String(ST.feature_set))}</code>, cache ` +
+          `<code>${esc(String(ST.cohort_cache || "-"))}</code>. All three methods read a ` +
+          `bit-identical X_train in the identical electrode order, so any difference between ` +
+          `them is the method and nothing else.`);
     }
 
     // ── K panel markup ────────────────────────────────────────────────────

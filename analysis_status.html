@@ -727,6 +727,86 @@
     <p class="lead">Group the trial‑averaged ERSPs into data‑driven response <b>types</b>. Every representation
       clusters the <b>same</b> 2102 high‑activity samples; only the feature space changes. The high‑gamma track
       is the de‑facto canonical result.</p>
+
+    <div class="method" id="s2runbook" style="border-left:4px solid var(--s2)">
+      <h3 style="margin:0 0 6px">How this stage is run &mdash; the order, and what each notebook does</h3>
+      <p style="margin:0 0 10px">Rebuilt 2026-08-26 after the EL033 / PAT_3965 fixation-cross correction.
+        <b>The order matters and one step is strictly serial.</b> Everything downstream of the dataset
+        cache is only as current as that cache.</p>
+
+      <p style="margin:0 0 4px"><b>STEP 0 &mdash; alone, nothing else running.</b></p>
+      <pre style="margin:0 0 10px"><code>python rebuild_concat_cache.py --apply</code></pre>
+      <ul style="margin:0 0 12px">
+        <li><b>Writes a NEW cache directory</b> (<code>concat_source_v3</code>) rather than rebuilding in
+          place. <code>prepare_dataset</code> decides a cache hit on
+          <code>cached_params == params</code>, and <code>params</code> carries the input path, the
+          thresholds and a schema tag &mdash; <b>no patient list, no cube timestamps, no content hash</b>.
+          Rebuilding into the old directory would print <i>cache hit</i> and hand back the previous
+          <code>high_activity</code> flags, so the re-gating would silently not happen.</li>
+        <li><b>Re-gates every electrode</b> from the current cubes:
+          <code>prop_above_pos&nbsp;&ge;&nbsp;0.02 OR prop_below_neg&nbsp;&ge;&nbsp;0.04</code>, in at
+          least one of the three conditions.</li>
+        <li>Prints the new cohort size and a per-patient before/after table.</li>
+      </ul>
+
+      <p style="margin:0 0 4px"><b>STEP 1 &mdash; three kernels, in parallel.</b> They share the cache
+        read-only, write to separate run directories, and each tags its own sweep file, so they cannot
+        collide. Each one asserts the cache exists and refuses to build it.</p>
+      <table class="sum" style="margin:0 0 12px">
+        <tr><th>notebook</th><th>method</th><th>what it does</th></tr>
+        <tr><td><code>240_cluster_kmeans</code></td><td>k-means</td>
+            <td rowspan="3">Both feature sets, <b>K = 5&hellip;30</b>, then its own bi-cross-validated
+              held-out variance sweep in its home space.</td></tr>
+        <tr><td><code>241_cluster_hierarchical</code></td><td>Ward</td></tr>
+        <tr><td><code>242_cluster_cnmf</code></td><td>convex NMF</td></tr>
+      </table>
+      <p style="margin:0 0 12px"><b>242 is much the slowest</b> &mdash; expect it to still be running long
+        after the other two finish. That is the reason they are parallel.</p>
+
+      <p style="margin:0 0 4px"><b>STEP 2 &mdash; only after all three have finished.</b></p>
+      <ul style="margin:0 0 12px">
+        <li><code>243_cluster_statistics</code> merges the three sweeps and takes the K where
+          <b>convex NMF's</b> held-out variance peaks &mdash; separately per feature set, and it warns if
+          that peak sits at the edge of the tested range. <b>K is read from convex NMF because it is the
+          only method whose bi-cross-validated curve turns over</b>; k-means and Ward rise monotonically,
+          so their argmax is just the largest K tested and means nothing. That same K is then applied to
+          all three for the comparison.</li>
+        <li>K will generally <b>differ between <code>concat_hg</code> and <code>concat_rawds</code></b>.
+          That is expected: same electrodes, different representation.</li>
+        <li>Runs separation-vs-matched-null, cross-method agreement, anatomical coherence and
+          leave-one-patient-out, then builds the figures.</li>
+      </ul>
+
+      <p style="margin:0 0 4px"><b>STEP 3 &mdash; refresh what reads the runs.</b></p>
+      <pre style="margin:0 0 6px"><code>python sweep_stability.py --new-concat
+python make_missing_centroids.py --force
+python make_coverage_bundle.py</code></pre>
+      <ul style="margin:0 0 12px">
+        <li>then <code>252_clustering_recon</code> for the <b>3-D per-cluster glassbrains</b>. It
+          discovers runs from <code>index.json</code>, so it must come after the new runs exist.</li>
+        <li><b><code>251_recon_shared_data</code> does NOT need re-running.</b> It builds each patient's
+          electrode coordinates from their anatomy; it does not depend on the clustering or on trial
+          timing. Only re-run it when a patient's reconstruction changes.</li>
+      </ul>
+
+      <p style="margin:0 0 4px"><b>The rest of the notebooks in this folder</b>, for orientation. Only
+        the ones above are part of the current run.</p>
+      <table class="sum" style="margin:0 0 6px">
+        <tr><th>notebook</th><th>what it is</th></tr>
+        <tr><td><code>210</code> / <code>212</code></td><td>raw ERSP clustering, and the band-aware 15&times;30 downsample</td></tr>
+        <tr><td><code>211</code></td><td>post-hoc validation of clustering runs</td></tr>
+        <tr><td><code>213</code> / <code>214</code> / <code>215</code></td><td>cluster ranking and reassignment; response timing and ordering; cross-correlation and lead/lag</td></tr>
+        <tr><td><code>230</code> / <code>231</code> / <code>232</code></td><td>blob, &minus;1/0/+1 segmentation, and high-gamma clustering &mdash; earlier feature spaces</td></tr>
+        <tr><td><code>233</code></td><td>the original condition-concatenated clustering. <b>Superseded by 240&ndash;243</b>, which split it by algorithm so the three can run in parallel.</td></tr>
+        <tr><td><code>234</code> / <code>236</code></td><td>does a discrete taxonomy survive its own assumptions; does the decomposition hold up</td></tr>
+        <tr><td><code>235</code></td><td>graded decomposition (convex NMF) and its K sweep &mdash; the fitting part is now in 242</td></tr>
+        <tr><td><code>237</code></td><td>clustering with the responsiveness gate lifted (<code>concat_hg_all</code>). <b>Not part of the current run</b>: it is a different cohort, so it can never be compared across to the gated pair.</td></tr>
+        <tr><td><code>238</code></td><td>over-factor and filter; reliability-based electrode selection</td></tr>
+      </table>
+      <div class="runid">source of truth: <code>02_FBM_Clustering/rebuild_concat_cache.py</code> and
+        notebooks 240&ndash;243 &middot; cohort cache <code>outputs/_dataset/concat_source_v3</code></div>
+    </div>
+
     <div class="callout q" style="border-left:4px solid var(--stale)">
       <h3 style="margin:0 0 8px">Read this before the figures below</h3>
       <p style="margin:0 0 8px">Everything in this tab is the <b>K=5 five-type partition</b> as it was

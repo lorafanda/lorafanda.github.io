@@ -2121,7 +2121,10 @@ async function exportReport() {
           metrics: pick(sweepMetrics, k) || null,
           cnmf: pick(sweepCnmf, k) || null,
           stability: pick(stabByK, k) || null,
-          chips: chips.filter(x => x && x.data),
+          // NOT filtered: chips[i] is indexed against ids[i] further down, so
+          // dropping the failures would shift every later cluster's centroid up one
+          // row and show it under the wrong label. Keep the holes, count them apart.
+          chips: chips,
           nChips: chips.filter(x => x && x.data).length,
           nClusters: ids.length,
           brains: KBRAINS[k] || null,
@@ -2162,6 +2165,25 @@ async function exportReport() {
       // its own K below rather than on atPub, which tracks the run's PUBLISHED cut.
       stats: await tryJSON(runBase + "cluster_statistics.json"),
     };
+
+    // THE OTHER TWO METHODS AT THE SAME CUT. Every cluster_statistics.json is written
+    // per run and records the K it was computed at; the three for one feature set are
+    // fitted on a bit-identical X_train in the identical electrode order, so they can be
+    // put in one table. Fetched from the manifest rather than guessed, and each one is
+    // kept only if it really was computed at the K being viewed.
+    RES.peers = [];
+    try {
+      const sibs = (M.runs || []).filter(x =>
+        String(x.track || "").split("/")[1] === fset);
+      for (const x of sibs) {
+        const j = await tryJSON(`${CLUST}${x.path}/cluster_statistics.json`);
+        if (j && Number(j.K) === Number(KSEL))
+          RES.peers.push({ ...j, track: x.track, isSelf: x.track === RUN.track });
+      }
+      const ORD = { kmeans: 0, hierarchical: 1, cnmf: 2, archetypes: 3 };
+      RES.peers.sort((a, b) => (ORD[a.track.split("/")[0]] ?? 9)
+                             - (ORD[b.track.split("/")[0]] ?? 9));
+    } catch (e) { console.warn("peer statistics unavailable:", e); }
     const rows = [];
     const add = (name, val, how) => {
       if (val === null || val === undefined || (typeof val === "number" && !isFinite(val))) return;
@@ -2264,6 +2286,16 @@ async function exportReport() {
     // being read at that same cut - quoting them under a re-cut heading would be a
     // number silently changing meaning.
     const ST = RES.stats;
+    // A BATTERY AT ANOTHER K IS NOT SHOWN, but its absence is explained. Silently
+    // dropping the rows leaves no way to tell "not computed" from "computed at K=11".
+    if (ST && Number(ST.K) !== Number(KSEL))
+      add("Statistics battery", `computed at K=${ST.K}, not at this cut`,
+        `Separation, anatomical coherence, leave-one-patient-out and the agreement rows ` +
+        `are all scored against nulls refitted at ONE K, so they are valid only at that ` +
+        `cut and are not shown here. Switch to <b>K=${esc(String(ST.K))}</b> to read them, ` +
+        `or re-run <code>make_cluster_statistics.py --feature-set ` +
+        `${esc(String(ST.feature_set || fset))} --k ${KSEL}</code> to compute them at this ` +
+        `one. The rows above are the ones that genuinely exist per K.`);
     if (ST && Number(ST.K) === Number(KSEL)) {
       const sp = ST.separation;
       if (sp) {
@@ -2370,9 +2402,14 @@ async function exportReport() {
       ${mrow.length ? `<table class="res"><tbody>${mrow.map(
           ([n, v]) => `<tr><td>${esc(n)}</td><td class="rv">${esc(String(v))}</td></tr>`
         ).join("")}</tbody></table>`
-        : `<p class="sechint">No metrics published for K=${k} yet. sweep_metrics.csv /
-           sweep_by_k.csv give the partition quality, sweep_stability.py the stability -
-           both are cells in 235.</p>`}
+        : `<p class="sechint">No metrics published for K=${k}. Partition quality comes
+           from <code>sweep_metrics.csv</code> (k-means and Ward) or
+           <code>sweep_by_k.csv</code> (convex NMF), stability from
+           <code>stability_by_k.csv</code>. Those are written by <b>240 / 241 / 242</b> and
+           by <code>sweep_stability.py --new-concat</code>. If they exist in the run
+           directory but nothing shows here, they have not been COMMITTED - this page
+           fetches them from the repository, so a file that is only on disk reads as
+           absent.</p>`}
       ${(B.brains && B.brains.some(Boolean)) ? `
         <div class="cardhead"><div></div><div>centroid</div>
           ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div></div>
@@ -2401,16 +2438,48 @@ async function exportReport() {
           dot behind the midline cannot be mistaken for one in front of it. Stills rather
           than turns: a 60-frame rotation for each of these clusters would add about 8600
           frames and a third of a gigabyte. The rotations further down stay at K=${KSEL}.</p>` : ""}
-      <div class="kchips" hidden>${B.chips.length
-        ? B.chips.map((im, i) => `<figure><img ${srcAttr(im.data)} alt="cluster ${ids[i]}">
+      <div class="kchips" hidden>${B.nChips
+        ? B.chips.map((im, i) => !(im && im.data) ? "" :
+            `<figure><img ${srcAttr(im.data)} alt="cluster ${ids[i]}">
             <figcaption><i style="background:${clusterCSS(ids[i])}"></i>c${ids[i]} ·
             ${sizes[String(ids[i])] || 0}</figcaption></figure>`).join("")
-        : `<p class="sechint">No centroid chips for K=${k}. make_missing_centroids.py
-           --force draws them from cluster_labels_by_k.csv (cell 6c in 235).</p>`}</div>
+        : `<p class="sechint">No centroid chips for K=${k}.
+           <code>make_missing_centroids.py</code> draws them from
+           <code>cluster_labels_by_k.csv</code>, one set per K, into
+           <code>cluster_centroids/k_${k}/</code>. They must be committed to appear
+           here.</p>`}</div>
     </div>`;
   }).join("")}
   ${note("k-panel")}
 </section>`;
+
+    // ── the same K, the other methods ─────────────────────────────────────
+    const f2 = v => (v === null || v === undefined) ? "\u2014" : (+v).toFixed(2);
+    const peerHTML = (RES.peers || []).length < 2 ? "" : `
+  <h3 class="sec" style="font-size:15px;margin-top:18px">The other methods at K=${KSEL}</h3>
+  <p class="sechint">Every method here was fitted on a <b>bit-identical X_train in the
+    identical electrode order</b>, so a difference between these rows is the method and
+    nothing else. <b>${esc(String((RES.peers.find(p => p.isSelf) || {}).method_label
+      || RUN.track))}</b> is the run this report is for and is highlighted; the others are
+    read from their own runs' <code>cluster_statistics.json</code> at this same cut.
+    Separation is each method's silhouette in ITS OWN home space against a null refitted
+    the same way &mdash; the z is comparable across methods, the raw silhouette is
+    not.</p>
+  <table class="res"><thead><tr><th>Method</th><th>Separation z</th>
+    <th>Anatomy &times; chance</th><th>LOPO z</th><th>Smallest cluster</th></tr></thead>
+    <tbody>${RES.peers.map(p => {
+      const sz = Array.isArray(p.cluster_sizes) && p.cluster_sizes.length
+                 ? Math.min(...p.cluster_sizes) : null;
+      const hi = p.isSelf ? ' style="background:#eef5fb;font-weight:600"' : "";
+      return `<tr${hi}><td>${esc(String(p.method_label || p.method))}${
+          p.isSelf ? " &larr; this run" : ""}</td>
+        <td class="rv">${p.separation ? f2(p.separation.z) : "\u2014"}</td>
+        <td class="rv">${p.anatomical_coherence
+            ? f2(p.anatomical_coherence.over_chance) + "\u00d7" : "\u2014"}</td>
+        <td class="rv">${p.lopo ? f2(p.lopo.z) : "\u2014"}</td>
+        <td class="rv"${sz !== null && sz < 10 ? ' style="color:#c1121f"' : ""}>${
+          sz === null ? "\u2014" : sz}</td></tr>`;
+    }).join("")}</tbody></table>`;
 
     const resultsHTML = `<section class="card">
   <h2 class="sec">Results for this run</h2>
@@ -2421,6 +2490,7 @@ async function exportReport() {
     : "This run publishes no metrics files yet, so there is nothing to report here."}</p>
   ${rows.length ? `<table class="res"><thead><tr><th>Measure</th><th>Value</th>
     <th>How to read it</th></tr></thead><tbody>${rows.join("")}</tbody></table>` : ""}
+  ${peerHTML}
   ${note("results")}
 </section>`;
 

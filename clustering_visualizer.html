@@ -537,8 +537,14 @@ async function loadCoverage(cohortId, radius) {
 }
 
 async function boot() {
-  M = await (await fetch(BUNDLE + "manifest.json")).json();
-  CONTACTS = await (await fetch(BUNDLE + M.contacts_file)).json();
+  // THE MANIFEST IS THE RUN LIST, AND IT CHANGES EVERY TIME THE BUNDLE IS REBUILT.
+  // Fetched plain, the browser serves whatever it cached last - so a newly published
+  // run is invisible until a hard refresh, which looks exactly like the run not having
+  // been published. The payloads underneath are addressed by run id, so a new run is a
+  // new path and cannot be served stale; only this file and the contact table need it.
+  const fresh = { cache: "no-store" };
+  M = await (await fetch(BUNDLE + "manifest.json", fresh)).json();
+  CONTACTS = await (await fetch(BUNDLE + M.contacts_file, fresh)).json();
   state.radius = M.default_radius;
 
   const rs = $("runSel");

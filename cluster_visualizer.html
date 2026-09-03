@@ -49,7 +49,8 @@
   .cohort { font-size:10.5px; color:var(--muted); margin-top:4px; }
 
   /* what the current map actually means — always visible, never a footnote */
-  #readout { bottom:16px; left:14px; width:352px; font-size:11.5px; line-height:1.45; }
+  #readout { bottom:16px; left:14px; width:352px; font-size:11.5px; line-height:1.45;
+             display:none !important; }   /* cluster_visualizer: no readout box */
   #readout h3 { margin:0 0 6px; font-size:12px; font-weight:600; color:var(--fg); }
   #readout .def { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px;
     background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
@@ -1493,11 +1494,18 @@ function stackbar(items, total, h, scaleMax) {
 // stay exactly as they are; only the duplicate bytes go.
 let _srcSeen = new Map(), _srcN = 0;
 function srcAttr(data) {
-  const prev = _srcSeen.get(data);
-  if (prev) return `data-mirror="${prev}"`;
-  const id = "i" + (++_srcN);
-  _srcSeen.set(data, id);
-  return `src="${data}" data-src-id="${id}"`;
+  // full src always; dedupeImages() turns later duplicates into mirrors once the
+  // whole document exists, so a mirror can only ever point at an earlier tag
+  return `src="${data}"`;
+}
+function dedupeImages(doc) {
+  const seen = new Map(); let n = 0;
+  return doc.replace(/<img\b([^>]*?)\ssrc="(data:[^"]+)"([^>]*)>/g, (m, pre, data, post) => {
+    const id = seen.get(data);
+    if (id) return `<img${pre} data-mirror="${id}"${post}>`;
+    const nid = "i" + (++n); seen.set(data, nid);
+    return `<img${pre} src="${data}" data-src-id="${nid}"${post}>`;
+  });
 }
 
 function cellImg(im, alt) {
@@ -2695,7 +2703,7 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
 <script id="baked-notes" type="application/json">{}<\/script>
 </div>${MIRROR_JS}${SPIN_JS}${KPICK_JS}${NOTES_JS}</body></html>`;
 
-    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const blob = new Blob([dedupeImages(html)], { type: "text/html;charset=utf-8" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
     // the ceiling and gate are in the filename: two reports of the same run at

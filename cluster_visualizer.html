@@ -1,0 +1,2797 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cluster Visualizer — the paper's runs, in figure order</title>
+<style>
+  :root { --panel-bg: rgba(18,18,22,.82); --fg:#e8e8ec; --muted:#9aa0aa; --accent:#5ab0ff; }
+  * { box-sizing: border-box; }
+  html, body { margin:0; height:100%; background:#000; color:var(--fg);
+    font:13px/1.4 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif; overflow:hidden; }
+  #brain { position:fixed; inset:0; }
+  #brain canvas { width:100%; height:100%; display:block; }
+
+  .panel { position:fixed; background:var(--panel-bg); backdrop-filter:blur(8px);
+    border:1px solid rgba(255,255,255,.08); border-radius:12px; padding:12px 14px;
+    box-shadow:0 6px 24px rgba(0,0,0,.4); transition:opacity .18s ease; z-index:5; }
+  .panel.hidden { opacity:0; pointer-events:none; }
+
+  #controls { top:14px; left:14px; width:286px; }
+  #controls h2 { cursor:pointer; user-select:none; display:flex; align-items:center; gap:6px;
+    margin:0 0 8px; font-size:13px; font-weight:600; letter-spacing:.3px; }
+  #ctlChevron { margin-left:auto; font-size:11px; opacity:.7; }
+  #ctlBody { overflow:hidden; max-height:88vh; opacity:1; transition:max-height .22s ease, opacity .18s ease; }
+  #controls.collapsed #ctlBody { max-height:0; opacity:0; }
+  #controls.collapsed h2 { margin-bottom:0; }
+  #controls .grp { margin:12px 0 0; }
+  #controls .grp > label.title { display:block; font-size:11px; text-transform:uppercase;
+    letter-spacing:.6px; color:var(--muted); margin-bottom:5px; }
+  select { width:100%; background:#15161b; color:var(--fg); border:1px solid rgba(255,255,255,.16);
+    border-radius:7px; padding:6px 8px; font:inherit; cursor:pointer; }
+  select:focus { outline:1px solid var(--accent); }
+  optgroup { color:var(--muted); font-style:normal; font-size:11px; }
+  option { color:var(--fg); }
+  .row { display:flex; align-items:center; gap:8px; margin-top:6px; }
+  .row label { color:var(--muted); min-width:56px; flex:none; }
+  .row input[type=range] { flex:1; min-width:0; accent-color:var(--accent); }
+  .row .val { width:40px; flex:none; text-align:right; font-variant-numeric:tabular-nums; }
+  .checks label { display:flex; align-items:center; gap:6px; cursor:pointer; padding:2px 0; }
+  .checks input { accent-color:var(--accent); }
+  .segs { display:flex; gap:4px; }
+  .segs button { flex:1; background:#15161b; color:var(--muted); cursor:pointer; font:inherit;
+    border:1px solid rgba(255,255,255,.14); border-radius:7px; padding:5px 0; }
+  .segs button.on { background:var(--accent); color:#001; border-color:var(--accent); font-weight:600; }
+  #pdfBtn { width:100%; margin-top:10px; padding:8px 0; border-radius:8px; cursor:pointer;
+    background:var(--accent); color:#001; border:none; font:inherit; font-weight:600; }
+  #pdfBtn:hover { filter:brightness(1.08); }
+  #pdfBtn[disabled] { opacity:.6; cursor:progress; }
+  .cohort { font-size:10.5px; color:var(--muted); margin-top:4px; }
+
+  /* what the current map actually means — always visible, never a footnote */
+  #readout { bottom:16px; left:14px; width:352px; font-size:11.5px; line-height:1.45; }
+  #readout h3 { margin:0 0 6px; font-size:12px; font-weight:600; color:var(--fg); }
+  #readout .def { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px;
+    background:rgba(255,255,255,.05); border:1px solid rgba(255,255,255,.08);
+    border-radius:6px; padding:5px 7px; margin:0 0 6px; color:#cdd3dc; }
+  #readout .note { color:var(--muted); }
+  #readout b { color:#e8e8ec; }
+
+  #cbar { position:fixed; right:16px; top:50%; transform:translateY(-50%); width:70px;
+    text-align:center; z-index:5; }
+  #cbar .bar { height:210px; width:16px; margin:4px auto; border-radius:4px;
+    border:1px solid rgba(255,255,255,.15); }
+  #cbar .lab { font-size:11px; color:var(--muted); font-variant-numeric:tabular-nums; }
+  #cbar .ttl { font-size:10px; color:var(--muted); text-transform:uppercase; letter-spacing:.5px; }
+
+  #prov { position:fixed; top:14px; right:14px; max-width:280px; font-size:10.5px; color:var(--muted);
+    font-family:ui-monospace,Menlo,Consolas,monospace; line-height:1.5; z-index:5; text-align:right; }
+  #prov b { color:#cdd3dc; font-weight:600; }
+  #hint { position:fixed; bottom:4px; right:14px; color:#5a5f68; font-size:11px; z-index:5; }
+  #status { position:fixed; inset:0; display:grid; place-items:center; text-align:center;
+    color:var(--muted); font-size:15px; padding:24px; z-index:9; pointer-events:none; }
+</style>
+</head>
+<body>
+  <div id="brain"><canvas></canvas></div>
+  <div id="status">Loading brain &amp; coverage…</div>
+
+  <div class="panel" id="controls">
+    <h2 id="ctlHead">Cluster Visualizer<span id="ctlChevron">▾</span></h2>
+    <div id="ctlBody">
+
+      <div class="grp">
+        <label class="title" for="runSel">Run</label>
+        <select id="runSel"></select>
+        <div style="font-size:11px;color:#9aa3ad;margin:5px 0 0;line-height:1.4">Paper runs only, standard first &middot; clusters in <b>figure order</b> (#1 = leftmost block in FIG&nbsp;1; FIG&nbsp;2 row order for the other algorithms) &middot; opens at K&nbsp;=&nbsp;8</div>
+        <div class="cohort" id="cohortNote">—</div>
+        <div id="kRow" style="display:none">
+          <div class="ksub">Clusters (K)</div>
+          <div id="kBtns" class="kbtns"></div>
+          <div class="cohort" id="kNote">—</div>
+        </div>
+      </div>
+
+      <div class="grp">
+        <label class="title" for="mapSel">Visualization</label>
+        <select id="mapSel"></select>
+      </div>
+
+      <div class="grp">
+        <label class="title" for="radSel">Neighbourhood radius</label>
+        <select id="radSel"></select>
+        <div class="cohort" id="radNote">—</div>
+      </div>
+
+      <div class="grp">
+        <label class="title">Surface</label>
+        <div class="segs">
+          <button id="sPial" class="on">pial</button>
+          <button id="sInfl">inflated</button>
+          <button id="sGlass">glass</button>
+        </div>
+      </div>
+
+      <div class="grp">
+        <label class="title">Display</label>
+        <div class="checks">
+          <label><input type="checkbox" id="showElec"> electrode contacts</label>
+          <label><input type="checkbox" id="showGate" checked> hide under-sampled vertices</label>
+        </div>
+        <div class="row" id="minNRow"><label>min n</label>
+          <input type="range" id="minN" min="1" max="12" step="1" value="5">
+          <span class="val" id="minNVal">5</span></div>
+        <div class="row" id="loadRow"><label>min load</label>
+          <input type="range" id="minLoad" min="0" max="90" step="5" value="0">
+          <span class="val" id="minLoadVal">0.00</span></div>
+        <div class="cohort" id="loadNote">graded loading — convex-NMF runs only</div>
+      </div>
+
+      <div class="grp">
+        <label class="title">Probability range</label>
+        <div class="row"><label>max</label>
+          <input type="range" id="clim" min="5" max="100" step="5" value="100">
+          <span class="val" id="climVal">1.00</span></div>
+        <div class="row"><label>contrast</label>
+          <input type="range" id="gamma" min="40" max="200" step="5" value="80">
+          <span class="val" id="gammaVal">0.80</span></div>
+      </div>
+
+      <button id="pdfBtn">Save run report (HTML)</button>
+    </div>
+  </div>
+
+  <div class="panel" id="readout">
+    <h3 id="roTitle">—</h3>
+    <div class="def" id="roDef">—</div>
+    <div class="note" id="roNote">—</div>
+  </div>
+
+  <div id="cbar">
+    <div class="lab" id="cbHi">1.00</div>
+    <div class="bar" id="cbBar"></div>
+    <div class="lab">0.00</div>
+    <div class="ttl" id="cbTtl">probability</div>
+  </div>
+
+  <div id="prov">—</div>
+  <div id="hint">drag rotate · scroll zoom · <b>h</b> panels · <b>c</b> controls</div>
+
+<script type="module">
+// 0.69.0, matching poolv2. The mesh shader changed between 0.45 and 0.69 and this
+// page needs the newer one: on 0.45 a mesh carrying a PER-VERTEX rgba255 buffer
+// ignores mesh-level opacity outright, which is what defeated every attempt to make
+// the glass surface translucent. 0.69 exports NVMesh as an alias of NVMesh2, so the
+// named import below is unchanged, and the API this page uses (loadMeshes, addMesh,
+// removeMesh, meshes, opts, scene, gl, drawScene, setSliceType) is stable across the
+// two versions.
+import { Niivue, NVMesh } from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Data: per-vertex COUNTS within radius_mm of each fsaverage vertex, from
+// 02_FBM_Clustering/make_coverage_bundle.py. Counts, not ratios, are shipped —
+// the ratio depends on the question and a stored ratio hides its denominator.
+//
+// Sampling (n_contacts, n_patients) is identical for every run and is fetched once.
+// Only the per-cluster breakdown is per-run, and it is fetched lazily on selection.
+// ─────────────────────────────────────────────────────────────────────────────
+const REPO   = "https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/main/";
+const FSAVG  = REPO + "02_FBM_Clustering/outputs/250_recon/fsaverage/";
+const BUNDLE = FSAVG + "coverage_viz/";
+const CLUST  = REPO + "02_FBM_Clustering/outputs/clustering/";
+
+// cluster_visualizer.html: the paper's runs only, standard first, and every
+// cluster list passed through figureOrder() - see make_cluster_visualizer.py.
+const PAPER_K = 8;
+const PAPER_RUNS = [
+  "cnmf__concat_bands5z__20260827_095637",
+  "cnmf__concat_hg__20260826_135016",
+  "cnmf__concat_rawds__20260826_135909",
+  "cnmf__concat_bands5__20260827_094931",
+  "kmeans__concat_bands5z__20260827_021738",
+  "kmeans__concat_hg__20260826_144334",
+  "kmeans__concat_rawds__20260826_144504",
+  "kmeans__concat_bands5__20260827_021650",
+  "hierarchical__concat_bands5z__20260827_021703",
+  "hierarchical__concat_hg__20260826_144346",
+  "hierarchical__concat_rawds__20260826_144357",
+  "hierarchical__concat_bands5__20260827_021649",
+  "archetypes__concat_hg__20260826_180756",
+  "archetypes__concat_rawds__20260826_183725"
+];
+let ORDER = { runs: {} };
+function figureOrder(runId, k, ids) {
+  const o = ORDER.runs[runId] && ORDER.runs[runId][String(k)];
+  if (!o || !ids || !ids.length) return ids;
+  const asStr = typeof ids[0] === "string";
+  const have = new Set(ids.map(Number));
+  const out = o.map(Number).filter(c => have.has(c));
+  for (const c of ids.map(Number)) if (!out.includes(c)) out.push(c);
+  return asStr ? out.map(String) : out;
+}
+
+const $ = id => document.getElementById(id);
+// MOBA'S RECIPE, not this page's. moba.js sets meshXRay to 0 outright - "0.3 was
+// breaking the shader on ANGLE Metal" - and gets its transparency from ALPHA:
+// per-mesh opacity 0.18 written through opacity / layerOpacity / meshOpacity, plus
+// rgba255[3]. This page writes rgba255 per vertex itself, so the alpha is set
+// directly in the render loop and the mesh properties are set alongside, exactly as
+// MOBA does, for whichever one the running Niivue honours.
+const GLASS_RGB = [234, 214, 219];      // BRAIN_COLOR #ead6db, matches the pyvista renders
+const GLASS_ALPHA = Math.round(0.18 * 255);   // 46 - MOBA's 0.18
+// poolv2 loads exactly this: bone, translucent, as ONE colour for the whole mesh.
+const GLASS_RGBA = [205, 198, 190, 30];
+const INFLATED_SHIFT = 65;      // mm; inflated hemispheres are each centred at the origin
+const GREY = [140, 140, 140];   // unsampled / gated-out cortex
+
+// REPORT-ONLY LOOK. The saved report renders the brain on white with a lighter
+// cortex, so the afmhot ramp reads against the page rather than against black -
+// its dark end used to sink into the background and take the low probabilities
+// with it. This is switched on only while exportReport is capturing and off again
+// in its finally; the interactive page keeps the dark look it has always had.
+const REPORT_LIGHT = { on: false, grey: [196, 196, 196] };
+const baseGrey = () => (REPORT_LIGHT.on ? REPORT_LIGHT.grey : GREY);
+
+let M = null, CONTACTS = null, COV = { lh:null, rh:null }, CLU = { lh:null, rh:null };
+let RUN = null, nv = null, hemis = {}, elecMesh = null, canvasEl = null;
+const state = { map:"coverage", surf:"pial", glass:false, showElec:false, gate:true,
+                elecByCluster:false,
+                minN:5, minLoad:0, climMax:1.0, gamma:0.80, autoScaled:0, radius:"10" };
+const R = () => state.radius;
+
+// afmhot — sequential, sampled from matplotlib so the page and the figures agree.
+// A probability has no meaningful midpoint, so a diverging map (bwr, as on the
+// activity page) would still be wrong here.
+//
+// Its ends are black and white, which matters twice on this page: the low end is
+// never actually drawn as black because every vertex is blended FROM the anatomy
+// grey toward the map colour (see render), and the high end being white is why the
+// glass backdrop and the colour scale must not be confused - white cortex at the top
+// of the ramp reads as "saturated", not as "no estimate", which stays grey.
+// afmhot, TRUNCATED BEFORE WHITE. The full ramp ends at [255,255,255], and the
+// report now draws the brain on white - so the hottest cortex became the same
+// colour as the background and a peak read as a hole in the brain rather than as
+// the strongest thing on it. Ending at bright yellow keeps the ramp monotonic in
+// luminance and leaves every value below it where it already was, so figures
+// published on the old ramp still line up. The dark end is unchanged: it never
+// shows as pure black, because render() blends it toward the cortex grey.
+const CMAP = [[0,0,0],[46,0,0],[92,0,0],[138,10,0],[186,58,0],[232,104,0],
+              [255,150,23],[255,196,69],[255,244,117],[255,255,163]];
+function cmap(t) {
+  t = t <= 0 ? 0 : t >= 1 ? 1 : t;
+  const x = t * (CMAP.length - 1), i = Math.min(CMAP.length - 2, Math.floor(x)), f = x - i;
+  const a = CMAP[i], b = CMAP[i + 1];
+  return [a[0] + (b[0]-a[0])*f, a[1] + (b[1]-a[1])*f, a[2] + (b[2]-a[2])*f];
+}
+
+async function fetchBin(url, Type) {
+  const r = await fetch(url);
+  if (!r.ok) throw new Error(`${r.status} ${url}`);
+  return new Type(await r.arrayBuffer());
+}
+const TYPE = { uint8: Uint8Array, uint16: Uint16Array };
+
+// ── map definitions. Each returns {num, den} per vertex so the page can always
+//    state the denominator it divided by.
+let DEFS = [], MAXC = 1;
+function mapDefs() {
+  const defs = [{
+    id: "coverage", hidden: true, group: "Sampling", label: "Coverage — P(patient sampled here)",
+    title: "Coverage: how many patients have an electrode here",
+    def: `P = n_patients within ${R()} mm / ${COH.n_patients} patients, counting only `
+       + `the ${RUNCOV ? RUNCOV.nContacts : COH.n_contacts} contacts this run contains`,
+    note: "The honest denominator for every brain figure in this project. Yellow = many " +
+          "independent patients sampled this cortex; purple = one or two. Dark cortex is not " +
+          "\"no language\" — it is <b>no electrodes</b>. Identical for every run.",
+    cbar: "P(sampled)",
+    val: (c) => ({ num: c[1], den: COH.n_patients, gate: c[1] }),
+  }, {
+    // `raw` belongs on the DEFINITION, not on the object val() returns: render() reads
+    // d.raw, so putting it in the return value left it permanently undefined and the
+    // colourbar showed "1.00" under the heading "contacts" instead of the real count.
+    id: "density", hidden: true, group: "Sampling", label: "Coverage — contact density", raw: true,
+    title: `Contact density: how many contacts sit within ${R()} mm`,
+    def: `n_contacts within ${R()} mm  (scaled to the busiest vertex)`,
+    note: "Raw contact count, <b>not</b> patient count — a single dense grid or shaft can light " +
+          "up a region on its own. Compare against the patient map to see where coverage " +
+          "is deep but not broad. Identical for every run.",
+    cbar: "contacts",
+    val: (c) => ({ num: c[0], den: MAXC, gate: c[0] }),
+  }];
+  if (!RUN) return defs;
+  const unitTxt = RUN.unit === "electrode" ? "electrodes"
+                : "electrode×condition samples";
+  for (let i = 0; i < RUN.clusters.length; i++) {
+    const k = RUN.clusters[i], size = RUN.cluster_sizes[String(k)];
+    const share = 100 * size / RUN.n_samples_with_cluster;
+    defs.push({
+      id: "c" + k, group: "Cluster membership", cluster: k, ci: i,
+      label: `#${i + 1} · Cluster ${k} — P(cluster ${k} | electrode here)  ·  n=${size}`,
+      title: `Cluster ${k}: fraction of the labelled ${unitTxt} here that belong to it`,
+      def: `P = n_cluster_${k} / (all labelled ${unitTxt} within ${R()} mm)`,
+      note: `Cluster ${k} holds <b>${size}</b> of ${RUN.n_samples_with_cluster} labelled ` +
+            `${unitTxt} (${share.toFixed(0)}% overall). Yellow means this cortex is ` +
+            `<b>enriched</b> for the cluster relative to that baseline; it does not mean the ` +
+            `cluster lives only here.` +
+            (RUN.unit === "electrode" ? "" :
+             ` This run labels each electrode once <i>per condition</i>, and ` +
+             `<b>${RUN.n_electrodes_multilabel}</b> electrodes fall in different clusters in ` +
+             `different conditions, so they contribute to more than one map.`),
+      cbar: `P(c${k})`,
+      val: (c, cl) => { let d = 0; for (let j = 0; j < RUN.clusters.length; j++) d += cl[j];
+                        return { num: cl[i], den: d, gate: d }; },
+    });
+  }
+  return defs;
+}
+const curDef = () => DEFS.find(d => d.id === state.map) || DEFS[0];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Coverage counts are shared by every run but differ per radius, so they are fetched
+// once per radius rather than once per run.
+let COH = null;                 // the cohort of the selected run
+
+// ── K control ───────────────────────────────────────────────────────────────
+// A run publishes one K, but its sweep holds several. Rather than ship per-vertex counts
+// for every K - K bytes per vertex per radius per hemisphere, about 380 MB across these
+// runs - the bundle ships the NEIGHBOURHOOD: which contacts lie within R mm of each
+// vertex. That is geometry, so one copy covers every K, and the counts for any labelling
+// are one pass over it here. Verified against the precomputed counts: identical.
+let RUN0 = null;      // the run exactly as the manifest publishes it
+let RUNCOV = null;    // this run's own coverage summary, not the cohort's
+let SWEEP = null;     // {labels: {k: [per global contact]}, stats: {k: {...}}}
+let KSEL = null;      // the K currently shown
+const NBRC = {};      // radius -> {lh, rh} CSR, cached; the r=15 index is 29 MB
+
+async function loadNeighbours(radius) {
+  if (NBRC[radius]) return NBRC[radius];
+  const spec = (M.neighbours || {})[radius];
+  if (!spec) return null;
+  const out = {};
+  for (const h of ["lh", "rh"]) {
+    const off = await fetchBin(BUNDLE + spec[h].off, Uint32Array);
+    // split into <=4 MB parts to clear the repo's commit guard; rejoin here
+    const parts = await Promise.all(
+      spec[h].idx_parts.map(f => fetchBin(BUNDLE + f, Uint16Array)));
+    const idx = new Uint16Array(spec[h].nnz);
+    let at = 0;
+    for (const q of parts) { idx.set(q, at); at += q.length; }
+    if (at !== spec[h].nnz) throw new Error(`index ${radius} ${h}: ${at} of ${spec[h].nnz}`);
+    out[h] = { off, idx, nvert: spec[h].n_vertices };
+  }
+  NBRC[radius] = out;
+  return out;
+}
+
+// Rebuild per-vertex cluster counts for an arbitrary labelling. Mirrors exactly what
+// make_coverage_bundle does in numpy, including counting a multi-label electrode once
+// per label it carries rather than once per electrode.
+function countsFor(nbr, labels, K, memberMask) {
+  const out = {};
+  for (const h of ["lh", "rh"]) {
+    const { off, idx, nvert } = nbr[h];
+    const arr = new Uint16Array(nvert * K);
+    for (let v = 0; v < nvert; v++) {
+      const a = off[v], b = off[v + 1], base = v * K;
+      for (let i = a; i < b; i++) {
+        const g = idx[i];
+        if (!memberMask[g]) continue;
+        const L = labels[g];
+        if (!L) continue;
+        for (let j = 0; j < L.length; j++) arr[base + L[j]]++;
+      }
+    }
+    out[h] = arr;
+  }
+  return out;
+}
+
+// Coverage and contact density FOR THIS RUN, not for its patients' whole implantation.
+//
+// The shipped coverage_<cohort>_*.bin counts every contact belonging to the cohort's
+// patients. Cohorts are keyed by patient, so the gated and ungated concat cohorts hold
+// exactly the same 3611 contacts and their coverage maps are byte-identical - a gated
+// run was being shown sampling from 2576 electrodes it does not contain. Since the
+// bundle now ships the neighbourhood, the honest per-run version is one pass over it.
+//
+// Distinct patients per vertex is a set membership problem; with at most a few dozen
+// patients two 32-bit masks hold it exactly and popcount is cheap.
+function coverageForRun(nbr, mask, patIdx) {
+  const out = {};
+  for (const h of ["lh", "rh"]) {
+    const { off, idx, nvert } = nbr[h];
+    const arr = new Uint16Array(nvert * 2);       // [n_contacts, n_patients] per vertex
+    for (let v = 0; v < nvert; v++) {
+      const a = off[v], b = off[v + 1];
+      let c = 0, lo = 0, hi = 0;
+      for (let i = a; i < b; i++) {
+        const g = idx[i];
+        if (!mask[g]) continue;
+        c++;
+        const q = patIdx[g];
+        if (q < 0) continue;
+        if (q < 31) lo |= (1 << q); else hi |= (1 << (q - 31));
+      }
+      let n = 0, m = lo;
+      while (m) { m &= m - 1; n++; }
+      m = hi;
+      while (m) { m &= m - 1; n++; }
+      arr[v * 2] = c > 65535 ? 65535 : c;
+      arr[v * 2 + 1] = n;
+    }
+    out[h] = arr;
+  }
+  return out;
+}
+
+// WHICH CLUSTER EACH CONTACT BELONGS TO, AT THE K ON SCREEN.
+//
+// contacts.json["runs"][id] is the PUBLISHED cut and only knows ids 0..K_pub-1. Reading
+// it at a re-cut K put the wrong partition on every surface - pial, inflated and glass
+// alike, since they all draw through updateElectrodes. On cnmf/concat_hg viewed at K=11:
+// cluster 9 drew 0 contacts because id 9 does not exist in the K=7 vector, and cluster 0
+// drew 118 - the K=7 members - where K=11 has 88.
+function labelsForK() {
+  if (!RUN) return null;
+  if (SWEEP && SWEEP.labels && Number(KSEL) !== Number(RUN0.k)) {
+    const v = SWEEP.labels[String(KSEL)];
+    if (v) return v;
+  }
+  return CONTACTS.runs[RUN.id] || null;
+}
+
+// The graded weights belong to a cut too. Only the published one is in the bundle, so at
+// a re-cut K the loading gate and the size/grey ramp would be driven by another
+// partition's weights; better to have no graded control than a lying one.
+function loadingsForK() {
+  if (!RUN || !CONTACTS.loadings) return null;
+  if (SWEEP && Number(KSEL) !== Number(RUN0.k)) {
+    const v = (SWEEP.loadings || {})[String(KSEL)];
+    return v || null;
+  }
+  return CONTACTS.loadings[RUN.id] || null;
+}
+
+// Drop the far side's CONTACTS on a lateral view, and nothing else.
+//
+// Through a glass surface the opposite hemisphere's dots sit behind the near one and
+// read as if they were on this side, which is worst exactly where it matters - a lateral
+// view of a lateralised cluster. Only the contacts are removed: the surface renders
+// normally, both hemispheres, same colour and same alpha, so the sole difference between
+// a lateral still and the full scene is which dots are in it. VIEWS[0] is the left
+// lateral and VIEWS[1] the right; dorsal keeps both, because that view is about the two
+// together.
+let HEMI_ONLY = null;          // null | "lh" | "rh"; capture-time only
+function contactsHemi(which) {
+  HEMI_ONLY = (which === "both") ? null : which;
+  updateElectrodes();          // re-emits the overlay under the new filter
+}
+
+const HEMI_FOR_VIEW = ["lh", "rh", "both"];   // matches VIEWS
+
+function cohortMask(cohortId) {
+  const mask = new Uint8Array(CONTACTS.xyz.length);
+  for (const i of CONTACTS.cohorts[cohortId]) mask[i] = 1;
+  return mask;
+}
+
+// The contacts this run holds, and each one's patient index within the run.
+function runContactIndex() {
+  const labs = CONTACTS.runs[RUN0.id] || [];   // membership only; K-independent
+  const inCohort = CONTACTS.cohorts[RUN0.cohort_id] || [];
+  const mask = new Uint8Array(CONTACTS.xyz.length);
+  const pats = [];
+  const patOf = new Int16Array(CONTACTS.xyz.length).fill(-1);
+  for (const i of inCohort) {
+    if (!labs[i]) continue;                       // not in this run
+    mask[i] = 1;
+    const p = CONTACTS.patient[i];
+    let q = pats.indexOf(p);
+    if (q < 0) { q = pats.length; pats.push(p); }
+    patOf[i] = q;
+  }
+  return { mask, patOf, nPat: pats.length, nContacts: pats.length ? mask.reduce((a, b) => a + b, 0) : 0 };
+}
+
+async function applyK(k) {
+  if (!RUN0) return;
+  const pub = Number(RUN0.k);
+  KSEL = Number(k);
+  if (KSEL === pub) {
+    // the published cut has counts already built; use them rather than recompute
+    const cf = RUN0.counts[state.radius];
+    const [lh, rh] = await Promise.all(["lh", "rh"].map(h =>
+      fetchBin(`${BUNDLE}${RUN0.dir}/${cf[h].file}`, TYPE[cf[h].dtype])));
+    CLU = { lh, rh };
+    RUN = Object.assign({}, RUN0, { clusters: figureOrder(RUN0.id, KSEL, RUN0.clusters) });
+  } else {
+    const nbr = await loadNeighbours(state.radius);
+    const st = SWEEP.stats[String(KSEL)];
+    CLU = countsFor(nbr, SWEEP.labels[String(KSEL)], KSEL, cohortMask(RUN0.cohort_id));
+    // Rewrite the run's cluster fields so everything downstream - the map list, the
+    // colours, the report - follows K without knowing this control exists. Sizes come
+    // from the bundle, computed over the run's ROWS, because recomputing them here from
+    // localised contacts only would quietly change the denominator.
+    RUN = Object.assign({}, RUN0, {
+      k: KSEL, clusters: figureOrder(RUN0.id, KSEL, st.clusters),
+      cluster_sizes: st.cluster_sizes,
+      cluster_patients: st.cluster_patients,
+      cluster_patient_counts: st.cluster_patient_counts,
+    });
+  }
+  drawKButtons();
+}
+
+function drawKButtons() {
+  const row = $("kRow"), box = $("kBtns");
+  if (!SWEEP || !SWEEP.ks || SWEEP.ks.length < 2) { row.style.display = "none"; return; }
+  row.style.display = "";
+  box.innerHTML = "";
+  const pub = Number(RUN0.k);
+  for (const k of SWEEP.ks) {
+    const b = document.createElement("button");
+    b.type = "button";
+    b.textContent = k;
+    if (k === KSEL) b.classList.add("on");
+    if (k === pub) b.classList.add("pub");
+    b.title = k === pub ? `K=${k} - the cut this run publishes` : `re-cut this run at K=${k}`;
+    b.addEventListener("click", async () => {
+      if (KSEL === k) return;
+      box.querySelectorAll("button").forEach(x => x.disabled = true);
+      try {
+        await applyK(k);
+        // BEFORE render(). DEFS still described the previous K at this point, so
+        // render() read stale definitions - a cluster id past the end of the new counts,
+        // or a map that no longer exists - and the brain kept showing the old cut until
+        // the dropdown was touched. That is the "buttons do not refresh" symptom.
+        refreshMapList();
+        autoScale(); render(); updateElectrodes();
+      } finally { box.querySelectorAll("button").forEach(x => x.disabled = false); }
+    });
+    box.appendChild(b);
+  }
+  const pubIn = SWEEP.ks.includes(pub);
+  $("kNote").innerHTML = pubIn
+    ? (KSEL === pub
+        ? `K=${pub} is this run's published cut.`
+        : `Re-cut at K=${KSEL}. Published cut is <b>K=${pub}</b> (marked).`)
+    : `Re-cut at K=${KSEL}. This run publishes <b>K=${pub}</b>, outside the 5-12 range.`;
+}
+async function loadCoverage(cohortId, radius) {
+  COH = M.cohorts[cohortId];
+  const cv = COH.coverage[radius];
+  const [lh, rh] = await Promise.all(["lh","rh"].map(h =>
+    fetchBin(BUNDLE + cv[h].file, TYPE[cv[h].dtype])));
+  COV = { lh, rh };
+  MAXC = 1;
+  for (const a of [lh, rh]) for (let v = 0; v < a.length; v += 2) if (a[v] > MAXC) MAXC = a[v];
+}
+
+async function boot() {
+  // THE MANIFEST IS THE RUN LIST, AND IT CHANGES EVERY TIME THE BUNDLE IS REBUILT.
+  // Fetched plain, the browser serves whatever it cached last - so a newly published
+  // run is invisible until a hard refresh, which looks exactly like the run not having
+  // been published. The payloads underneath are addressed by run id, so a new run is a
+  // new path and cannot be served stale; only this file and the contact table need it.
+  const fresh = { cache: "no-store" };
+  M = await (await fetch(BUNDLE + "manifest.json", fresh)).json();
+  try { ORDER = await (await fetch("cluster_visualizer_order.json", fresh)).json(); }
+  catch (e) { console.warn("figure order not loaded; natural order", e); }
+  {
+    const keep = PAPER_RUNS.map(id => M.runs.find(r => r.id === id)).filter(Boolean);
+    if (keep.length) M.runs = keep;
+    else console.warn("none of the paper runs is in the manifest; showing all");
+  }
+  CONTACTS = await (await fetch(BUNDLE + M.contacts_file, fresh)).json();
+  state.radius = M.default_radius;
+
+  const rs = $("runSel");
+  let g = null, og = null;
+  for (const r of M.runs) {
+    if (r.cohort !== g) { g = r.cohort; og = document.createElement("optgroup"); og.label = g; rs.appendChild(og); }
+    const o = document.createElement("option");
+    o.value = r.id;
+    o.textContent = `${r.track_label} · ${r.run} · K=${r.k}`;
+    (og || rs).appendChild(o);
+  }
+  const rsel = $("radSel");
+  for (const r of M.radii_mm) {
+    const o = document.createElement("option");
+    o.value = r;
+    o.textContent = `${r} mm` + (r === M.default_radius ? "  (default)" : "");
+    rsel.appendChild(o);
+  }
+  rsel.value = state.radius;
+
+  const want = decodeURIComponent(location.hash.replace(/^#/, ""));
+  const pick = M.runs.find(r => r.id === want || r.run === want) || M.runs[0];
+  rs.value = pick.id;
+
+  canvasEl = $("brain").querySelector("canvas");
+  // useWebGPU like moba.js: the mesh shader honours per-mesh opacity there, and on
+  // WebGL2 it does not - which is why setting alpha alone produced no glass at all.
+  // Best effort; the constructor falls back to WebGL2 if it ignores the flag.
+  nv = new Niivue({ backColor:[0,0,0,1], show3Dcrosshair:false, isColorbar:false,
+                    dragAndDropEnabled:false, isOrientCube:false,
+                    useWebGPU: !!navigator.gpu });
+  nv.attachToCanvas(canvasEl);
+  nv.setSliceType(nv.sliceTypeRender);
+  window.nv = nv;               // exposed for console debugging / camera checks
+  await loadSurface(state.surf);
+
+  wireUI();
+  await selectRun(pick.id);
+  $("status").style.display = "none";
+}
+
+// The per-cluster map list depends on K, so it is rebuilt both when the run changes and
+// when the K buttons re-cut it.
+function refreshMapList() {
+  DEFS = mapDefs();
+  const sel = $("mapSel");
+  const keep = state.map;
+  sel.innerHTML = "";
+  let g = null, og = null;
+  for (const d of DEFS) {
+    if (d.hidden) continue;
+    if (d.group !== g) { g = d.group; og = document.createElement("optgroup"); og.label = g; sel.appendChild(og); }
+    const o = document.createElement("option"); o.value = d.id; o.textContent = d.label; og.appendChild(o);
+  }
+  // A cluster map that no longer exists at this K falls back rather than rendering a
+  // slice past the end of the counts array.
+  const visible = DEFS.filter(d => !d.hidden);
+  if (!visible.some(d => d.id === keep)) state.map = visible.length ? visible[0].id : "coverage";
+  sel.value = state.map;
+}
+
+async function selectRun(id, keepK) {
+  const r = M.runs.find(x => x.id === id);
+  if (!r) return;
+  $("status").style.display = "grid";
+  $("status").textContent = `Loading ${r.track_label} · ${r.run}…`;
+  await loadCoverage(r.cohort_id, state.radius);
+  const prevK = KSEL;
+  RUN0 = r; RUN = r; SWEEP = null; RUNCOV = null;
+
+  // Coverage and density restricted to the electrodes THIS run contains. The shipped
+  // cohort maps count every contact from the run's patients, and cohorts are keyed by
+  // patient - so the gated and ungated concat cohorts share one identical map and a
+  // gated run was shown sampling from electrodes it excludes.
+  try {
+    const RC = runContactIndex();
+    const nbr = await loadNeighbours(state.radius);
+    if (nbr && RC.nPat) {
+      COV = coverageForRun(nbr, RC.mask, RC.patOf);
+      MAXC = 1;
+      let sampled = 0, verts = 0, maxp = 0;
+      for (const a of [COV.lh, COV.rh]) {
+        for (let v = 0; v < a.length; v += 2) {
+          if (a[v] > MAXC) MAXC = a[v];
+          if (a[v + 1] > maxp) maxp = a[v + 1];
+          if (a[v + 1] > 0) sampled++;
+          verts++;
+        }
+      }
+      RUNCOV = { pct: 100 * sampled / Math.max(1, verts), maxPatients: maxp,
+                 nContacts: RC.nContacts, nPatients: RC.nPat };
+    }
+  } catch (e) {
+    console.warn("per-run coverage failed, falling back to the cohort map:", e);
+  }
+  let wantK = Number(r.k);
+  // the paper's cut, where the sweep has it
+  if (!keepK && r.sweep && r.sweep.ks.map(Number).includes(PAPER_K)) wantK = PAPER_K;
+  if (r.sweep) {
+    const base = `${BUNDLE}${r.dir}/`;
+    const [labels, stats, loadings] = await Promise.all([
+      fetch(base + r.sweep.labels).then(x => x.json()),
+      fetch(base + r.sweep.stats).then(x => x.json()),
+      // only the graded runs have these; a hard partition has no weights to gate on
+      r.sweep.loadings
+        ? fetch(base + r.sweep.loadings).then(x => x.json()).catch(() => null)
+        : Promise.resolve(null),
+    ]);
+    SWEEP = { ks: r.sweep.ks.map(Number), labels, stats, loadings };
+    // A run can publish a K outside the control's range (K=4 and K=23 both occur here).
+    // Land on a cut that exists rather than on a button that is not there.
+    if (keepK && SWEEP.ks.includes(prevK)) wantK = prevK;
+    else if (!SWEEP.ks.includes(wantK)) wantK = SWEEP.ks.includes(7) ? 7 : SWEEP.ks[0];
+  }
+  await applyK(wantK);
+  location.hash = r.id;
+
+  refreshMapList();
+
+  $("cohortNote").textContent =
+    `${r.cohort} · ${r.n_electrodes} rows (${r.unit}) · ${r.n_contacts_with_cluster} contacts localised`;
+  const cvr = COH.coverage[state.radius];
+  // quoted from the map actually on screen, so the caption cannot describe a different
+  // set of electrodes from the one being drawn
+  const pct = RUNCOV ? RUNCOV.pct
+    : (cvr.lh.pct_vertices_sampled + cvr.rh.pct_vertices_sampled) / 2;
+  const mxp = RUNCOV ? RUNCOV.maxPatients
+    : Math.max(cvr.lh.max_patients_at_a_vertex, cvr.rh.max_patients_at_a_vertex);
+  $("radNote").textContent =
+    `${pct.toFixed(0)}% of cortex within ${state.radius} mm of one of this run's ` +
+    `electrodes · up to ${mxp} patients at one vertex`;
+  $("prov").innerHTML =
+    `run <b>${r.run}</b><br>${r.track}<br>K=${r.k} · ${r.n_samples_with_cluster} labelled<br>` +
+    `<b>${COH.n_patients}</b> patients · ${RUNCOV ? RUNCOV.nContacts : COH.n_contacts} contacts<br>` +
+    `radius <b>${R()} mm</b> · fsaverage`;
+
+  autoScale(); render(); updateElectrodes();
+  $("status").style.display = "none";
+}
+
+// THE THING THAT WAS ACTUALLY WRONG. poolv2 and MOBA give the mesh a UNIFORM
+// four-element rgba255 - [205,198,190,30], bone - at LOAD TIME, and their alpha
+// works. This page instead assigns mesh.rgba255 a full PER-VERTEX buffer
+// (nvert x 4) to paint the probability map. Those are two different shader paths,
+// and on the per-vertex path the mesh-level opacity is bypassed, so nothing this
+// page set could ever have made the surface translucent.
+//
+// Glass mode has no map to paint, so it can load the uniform colour and take the
+// same path poolv2 does. render() must then leave the buffer alone.
+async function loadSurface(kind, uniformRgba) {
+  const suf = kind === "inflated" ? ".inflated" : "";
+  [...nv.meshes].forEach(m => nv.removeMesh(m));
+  elecMesh = null;
+  const spec = { };
+  if (uniformRgba) spec.rgba255 = uniformRgba;
+  await nv.loadMeshes([{ url: `${FSAVG}meshes/fsaverage_lh${suf}.gii`, ...spec },
+                       { url: `${FSAVG}meshes/fsaverage_rh${suf}.gii`, ...spec }]);
+  ["lh","rh"].forEach((h, i) => {
+    const m = nv.meshes[i], n = m.pts.length / 3;
+    hemis[h] = { mesh:m, nvert:n, rgba:new Uint8Array(n * 4) };
+  });
+  // Niivue's default mesh shader is Phong, and its specular lobe puts a moving
+  // bright spot on the cortex - so the "brightest" cortex partly reports the
+  // camera angle rather than the probability under it, and it is the shine that
+  // reads as gloss when the brain is lightened. Matte keeps the diffuse term and
+  // drops the specular one.
+  //
+  // GLASS KEEPS THE DEFAULT. Its surface is nearly transparent, so the highlight
+  // is part of what makes its edges read at all, and that look is already settled.
+  // The two hemispheres only, reached through hemis rather than nv.meshes: that
+  // list also holds the electrode overlay, and the contacts are not what is glossy.
+  const shader = state.glass ? "Phong" : "Matte";
+  for (const h of ["lh", "rh"]) {
+    const m = hemis[h] && hemis[h].mesh;
+    if (m) { try { nv.setMeshShader(m.id, shader); } catch (e) {} }
+  }
+
+  if (kind === "inflated") {   // each inflated hemi is centred at the origin — pull them apart
+    [[-INFLATED_SHIFT, hemis.lh.mesh], [INFLATED_SHIFT, hemis.rh.mesh]].forEach(([dx, m]) => {
+      const p = m.pts; for (let k = 0; k < p.length; k += 3) p[k] += dx;
+      m.updateMesh(nv.gl);
+    });
+  }
+}
+
+// value at one vertex, for whichever map is selected
+function valAt(d, h, v) {
+  const c = COV[h].subarray(v * 2, v * 2 + 2);
+  if (d.cluster === undefined) return d.val(c);
+  const K = RUN.clusters.length;
+  return d.val(c, CLU[h].subarray(v * K, v * K + K));
+}
+
+// Pick a readable default colour ceiling: the 98th percentile of the values that pass
+// the gate. Without it a single 5-of-5 vertex saturates the bar at 1.00 and a cluster
+// whose overall rate is 7% renders as flat purple with a few yellow specks. The slider
+// visibly moves to the chosen value, so the scale is stated rather than hidden.
+function autoScale() {
+  const d = curDef();
+  const reset = () => { state.climMax = 1.0; state.autoScaled = 0;
+                        $("clim").value = 100; $("climVal").textContent = "1.00"; };
+  // coverage tops out at a real value, not an outlier speck, so it keeps the full 0-1 range
+  if (d.raw || d.cluster === undefined) { reset(); return; }
+  const vals = [];
+  for (const h of ["lh","rh"]) {
+    const H = hemis[h]; if (!H) continue;
+    for (let v = 0; v < H.nvert; v++) {
+      const r = valAt(d, h, v);
+      if (r.den > 0 && r.gate >= state.minN) vals.push(r.num / r.den);
+    }
+  }
+  if (!vals.length) { reset(); return; }
+  vals.sort((a, b) => a - b);
+  const p98 = vals[Math.min(vals.length - 1, Math.floor(0.98 * vals.length))];
+  state.climMax = Math.min(1, Math.max(0.05, Math.ceil(p98 * 20) / 20));   // round to 0.05
+  state.autoScaled = state.climMax;
+  $("clim").value = Math.round(state.climMax * 100);
+  $("climVal").textContent = state.climMax.toFixed(2);
+}
+
+// ── colour every vertex from the counts, then report what got shown
+function render() {
+  if (!DEFS.length) return;
+  // In glass mode the surface carries a uniform rgba255 and its alpha is the whole
+  // point. Writing a per-vertex buffer here would switch the shader back to the
+  // opaque path and undo it.
+  if (state.glass) { nv.drawScene(); return; }
+  const d = curDef(), hi = d.raw ? MAXC * state.climMax : state.climMax;
+  let shown = 0, total = 0, peak = 0, peakDen = 0;
+
+  for (const h of ["lh","rh"]) {
+    const H = hemis[h]; if (!H) continue;
+    const rgba = H.rgba;
+    for (let v = 0; v < H.nvert; v++) {
+      const r = valAt(d, h, v), o = v * 4;
+      total++;
+      // a coverage map needs only 1 patient to be a valid estimate; a cluster FRACTION
+      // computed from 1 or 2 contacts is exactly 0 or 1 and means nothing, hence minN
+      const need = d.cluster !== undefined ? state.minN : 1;
+      if ((state.gate && r.gate < need) || r.den <= 0) {
+        const g = state.glass ? GLASS_RGB : baseGrey();
+        rgba[o] = g[0]; rgba[o+1] = g[1]; rgba[o+2] = g[2];
+        rgba[o+3] = state.glass ? GLASS_ALPHA : 255;
+        continue;
+      }
+      shown++;
+      const p = d.raw ? r.num : r.num / r.den;
+      if (p > peak) { peak = p; peakDen = r.den; }
+      if (state.glass) {          // flat surface; the stats above are still real
+        rgba[o] = GLASS_RGB[0]; rgba[o+1] = GLASS_RGB[1];
+        rgba[o+2] = GLASS_RGB[2]; rgba[o+3] = GLASS_ALPHA;
+        continue;
+      }
+      const t = Math.min(1, Math.max(0, p / hi));
+      const a = 0.15 + 0.85 * Math.pow(t, state.gamma);      // low values stay near anatomy grey
+      const col = cmap(t);
+      const G = baseGrey();
+      rgba[o]   = G[0] + (col[0] - G[0]) * a;
+      rgba[o+1] = G[1] + (col[1] - G[1]) * a;
+      rgba[o+2] = G[2] + (col[2] - G[2]) * a;
+      rgba[o+3] = 255;
+    }
+    H.mesh.rgba255 = rgba;                 // full per-vertex buffer
+    H.mesh.updateMesh(nv.gl);
+  }
+  nv.drawScene();
+
+  const bar = [];
+  for (let i = 0; i <= 20; i++) { const c = cmap(i / 20); bar.push(`rgb(${c[0]|0},${c[1]|0},${c[2]|0}) ${i*5}%`); }
+  $("cbBar").style.background = `linear-gradient(to top,${bar.join(",")})`;
+  $("cbHi").textContent = d.raw ? Math.round(hi) : hi.toFixed(2);
+  $("cbTtl").textContent = d.cbar;
+
+  // A hard partition has no loading to threshold: every contact's membership is 1.0
+  // by construction. Leaving the slider live there would look functional and do
+  // nothing, which is worse than disabling it.
+  const hasLoad = !!loadingsForK();
+  const lr = $("loadRow");
+  lr.style.opacity = hasLoad ? "1" : ".35";
+  $("minLoad").disabled = !hasLoad;
+  $("loadNote").textContent = hasLoad
+    ? `graded: ${RUN.k} components, contacts sized and faded by their top weight`
+    : "graded loading — convex-NMF runs only; this run is a hard partition";
+
+  const mr = $("minNRow"), useN = d.cluster !== undefined && state.gate;
+  mr.style.opacity = useN ? "1" : ".35";
+  $("minN").disabled = !useN;
+
+  const gateTxt = state.gate
+    ? `Grey = no ${d.cluster !== undefined ? state.minN + " labelled contacts" : "electrode"} within ` +
+      `${R()} mm — no estimate, <b>not</b> a zero.`
+    : "Gate off — a fraction taken from one contact is exactly 0 or 1 and means nothing.";
+  const scaleTxt = (!d.raw && Math.abs(state.climMax - state.autoScaled) < 1e-9 && state.climMax < 1)
+    ? ` Colour scale auto-set to the 98th percentile (<b>${state.climMax.toFixed(2)}</b>) — raise "max" to 1.00 for the true range.`
+    : "";
+  // A cluster small enough that none of its contacts survives the gate draws an entirely
+  // grey brain. Say so, otherwise an empty map is indistinguishable from a broken one.
+  let emptyTxt = "";
+  if (d.cluster !== undefined && peak === 0) {
+    const size = RUN.cluster_sizes[String(d.cluster)];
+    emptyTxt = `<br><br><b>Nothing is drawn.</b> Cluster ${d.cluster} has only <b>${size}</b> ` +
+      `labelled sample${size === 1 ? "" : "s"}, and none of them sits where ${state.minN} or more ` +
+      `labelled contacts fall within ${R()} mm — so every vertex is gated out. This is a ` +
+      `real result, not a failure: the cluster is too small to support a local fraction. ` +
+      `Lower <i>min n</i> to see where its contacts are.`;
+  }
+
+  $("roTitle").textContent = d.title;
+  $("roDef").textContent = d.def;
+  $("roNote").innerHTML = `${d.note}<br><br>` +
+    `<b>${(100*shown/total).toFixed(0)}%</b> of cortex passes the gate · peak ` +
+    `<b>${d.raw ? Math.round(peak) : peak.toFixed(2)}</b>` +
+    `${d.raw ? " contacts" : ` (of ${peakDen} there)`}. ${gateTxt}${scaleTxt}${emptyTxt}`;
+  return { shown, total, peak, peakDen };
+}
+
+// Niivue 0.45 stores a mesh `opacity` property but the renderer ignores it — measured
+// byte-identical output at opacity 1.0, 0.3 and 0.0. meshXRay is the lever that actually
+// works, so the control drives that and is labelled for what it does: it makes the
+// surface see-through so contacts and hotspots on the far side show through.
+function applyOpacity() {
+  // meshXRay is gone: measured to do nothing useful here, and moba.js reports it
+  // breaking the mesh shader outright on ANGLE Metal. Transparency is alpha only.
+  try { nv.opts.meshXRay = 0; } catch (e) {}
+  // Glass renders on WHITE, as MOBA does. A translucent brain over black reads as
+  // muddy rather than glassy - the backdrop was most of what looked wrong.
+  try {
+    nv.opts.backColor = (state.glass || REPORT_LIGHT.on) ? [1, 1, 1, 1] : [0, 0, 0, 1];
+  } catch (e) {}
+  applyGlassAlpha();
+  nv.drawScene();
+}
+
+// The same property sweep moba.js uses: Niivue versions disagree about which of these
+// the mesh shader reads, so set all of them and let the running one pick.
+function applyGlassAlpha() {
+  const o = state.glass ? 0.18 : 1.0;
+  try {
+    for (const m of (nv.meshes || [])) {
+      if ("opacity" in m) m.opacity = o;
+      if ("layerOpacity" in m) m.layerOpacity = o;
+      if ("meshOpacity" in m) m.meshOpacity = o;
+    }
+  } catch (e) { console.warn("glass alpha:", e); }
+}
+
+// electrode overlay: one small octahedron per contact, as a single light mesh
+// (a sphere-per-node connectome is far too heavy at 5247 contacts)
+// Same hue ramp the report's cluster chips use, so a contact's colour on the
+// brain and its colour in the legend are the same fact.
+// ONE cluster palette for the whole page - the contacts in the glass view and every
+// chip, donut slice and bar in the report all come from here, so a cluster is the same
+// colour wherever it appears.
+//
+// Hues are spread across THIS run's K. The old table was a fixed 24 steps indexed by
+// cluster id, so a K=7 run only ever reached hue 90 and the entire run was drawn inside
+// one red-to-yellow band - neighbouring clusters were genuinely hard to tell apart on
+// the brain, which is exactly what a by-cluster view is for.
+function clusterRGB(cid) {
+  const ks = (RUN && RUN.clusters) ? RUN.clusters : null;
+  const K = ks && ks.length ? ks.length : 24;
+  const idx = ks ? Math.max(0, ks.indexOf(cid)) : cid;
+  const h = ((360 * idx) / K) / 360, s2 = 0.62, l = 0.52;
+  const k = n => (n + h * 12) % 12;
+  const a = s2 * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
+}
+const clusterCSS = cid => { const c = clusterRGB(cid); return `rgb(${c[0]},${c[1]},${c[2]})`; };
+// A round contact, the same icosphere MOBA draws. The bare octahedron this used to push
+// has six vertices and reads as a faceted diamond at these radii - the silhouette is a
+// hexagon, and at a few hundred contacts that is what the eye picks up. This is MOBA's
+// construction verbatim: a 12-vertex icosahedron, one Loop subdivision, midpoints
+// projected back onto the unit sphere. 42 vertices and 80 faces per contact, so at
+// ~1300 contacts ~55k vertices in one mesh - well inside what a single NVMesh takes,
+// and lighter than subdividing an octahedron to the same roundness.
+const [_OCT, _OCTF] = (() => {
+  const PHI = (1 + Math.sqrt(5)) / 2;
+  const V = [
+    [-1, PHI, 0], [1, PHI, 0], [-1, -PHI, 0], [1, -PHI, 0],
+    [0, -1, PHI], [0, 1, PHI], [0, -1, -PHI], [0, 1, -PHI],
+    [PHI, 0, -1], [PHI, 0, 1], [-PHI, 0, -1], [-PHI, 0, 1],
+  ].map(v => { const L = Math.hypot(v[0], v[1], v[2]); return [v[0]/L, v[1]/L, v[2]/L]; });
+  const F0 = [
+    [0,11,5],[0,5,1],[0,1,7],[0,7,10],[0,10,11],
+    [1,5,9],[5,11,4],[11,10,2],[10,7,6],[7,1,8],
+    [3,9,4],[3,4,2],[3,2,6],[3,6,8],[3,8,9],
+    [4,9,5],[2,4,11],[6,2,10],[8,6,7],[9,8,1],
+  ];
+  const mid = new Map(), F = [];
+  const cut = (x, y) => {
+    const key = x < y ? x + "_" + y : y + "_" + x;
+    if (mid.has(key)) return mid.get(key);
+    const va = V[x], vb = V[y];
+    let mx = (va[0]+vb[0])/2, my = (va[1]+vb[1])/2, mz = (va[2]+vb[2])/2;
+    const L = Math.hypot(mx, my, mz) || 1;
+    V.push([mx/L, my/L, mz/L]);
+    mid.set(key, V.length - 1);
+    return V.length - 1;
+  };
+  for (const [x, y, z] of F0) {
+    const xy = cut(x, y), yz = cut(y, z), zx = cut(z, x);
+    F.push([x, xy, zx], [y, yz, xy], [z, zx, yz], [xy, yz, zx]);
+  }
+  return [V, F];
+})();
+function updateElectrodes() {
+  if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} elecMesh = null; }
+  // contacts are in anatomical space — they do not lie on the inflated surface
+  if (!state.showElec || state.surf === "inflated" || !CONTACTS) { nv.drawScene(); return; }
+  const d = curDef(), pts = [], tris = [], cols = [];
+  const lab = labelsForK();
+  // Graded membership, where the run has it. Radius AND opacity both track the
+  // loading: size alone is a weak perceptual channel - people misjudge area against
+  // radius - so the two are moved together, as the by_loading renders do.
+  const load = loadingsForK();
+  // ONLY THE CONTACTS THIS RUN ACTUALLY CONTAINS.
+  // Cohorts are defined by patient, not by electrode, so cohort1_n27 ("1266-electrode
+  // concat") and cohort2_n27 ("ungated concat") hold the identical 3611 contacts. Drawing
+  // the cohort therefore put 2576 contacts on a gated run's brain that the run had
+  // excluded - the ungated electrodes appearing on a gated map. A contact is in the run
+  // if the run gave it a label.
+  const mine = new Set((CONTACTS.cohorts[RUN.cohort_id] || []).filter(i => lab && lab[i]));
+  let vi = 0;
+  for (let i = 0; i < CONTACTS.xyz.length; i++) {
+    if (!mine.has(i)) continue;
+    // a lateral view showing the far side's contacts is the thing this prevents
+    if (HEMI_ONLY && CONTACTS.hemi[i] !== HEMI_ONLY) continue;
+    // in a cluster map show only that cluster's contacts; in a coverage map show all.
+    // an electrode with several labels appears in each of its clusters' maps.
+    // byCluster: draw EVERY labelled contact, coloured by its cluster, rather
+    // than one cluster's contacts in amber. A multi-label electrode takes its
+    // first label here — the alternative is drawing it several times in one
+    // place, which reads as a single blended colour that means nothing.
+    let colr = [255, 232, 64];
+    if (state.elecByCluster) {
+      const L = lab && lab[i];
+      if (!Array.isArray(L) || !L.length) continue;
+      // A CLUSTER MAP STILL MEANS THAT CLUSTER, even here. Glass mode forces
+      // elecByCluster on, and this branch used to draw every labelled contact
+      // unconditionally - so switching cluster repainted the surface and left the
+      // contacts identical, which read as the selector being dead in glass mode.
+      // Colour by the SELECTED cluster, not by L[0]: on a multi-label electrode
+      // those differ, and the first label would colour a contact for a cluster
+      // the map is not showing.
+      if (d.cluster !== undefined && L.indexOf(d.cluster) < 0) continue;
+      const cid = d.cluster !== undefined ? d.cluster : L[0];
+      colr = clusterRGB(cid) || colr;
+    } else if (d.cluster !== undefined) {
+      const L = lab && lab[i];
+      if (!Array.isArray(L) || L.indexOf(d.cluster) < 0) continue;
+    }
+    // 0.14 is uniform loading at K=7 (1/7); below that a contact is expressing
+    // nothing in particular and is drawn at the floor size rather than vanishing.
+    let w = 1, r = 1.73;
+    if (load) {
+      const lv = load[i];
+      if (lv === null || lv === undefined) continue;
+      if (lv < state.minLoad) continue;
+      w = Math.max(0, Math.min(1, (lv - 0.14) / (0.85 - 0.14)));
+      r = 1.05 + 2.18 * w;
+      // Below 0.5 the contact is not clearly expressing this component, so it fades
+      // toward grey as well as shrinking. Size alone is a weak cue at these radii - two
+      // contacts one step apart differ by a fraction of a millimetre on screen - and
+      // colour carries the same quantity where size cannot.
+      if (lv < 0.5) {
+        const g = Math.max(0, Math.min(1, (lv - 0.14) / (0.5 - 0.14)));
+        const GREY = 148;
+        colr = [Math.round(GREY + (colr[0] - GREY) * g),
+                Math.round(GREY + (colr[1] - GREY) * g),
+                Math.round(GREY + (colr[2] - GREY) * g)];
+      }
+    }
+    const [x, y, z] = CONTACTS.xyz[i];
+    for (const o of _OCT) pts.push(x + o[0]*r, y + o[1]*r, z + o[2]*r);
+    for (const f of _OCTF) tris.push(vi + f[0], vi + f[1], vi + f[2]);
+    const al = load ? Math.round(90 + 165 * w) : 255;
+    for (let j = 0; j < _OCT.length; j++) cols.push(colr[0], colr[1], colr[2], al);
+    vi += _OCT.length;
+  }
+  if (!vi) { nv.drawScene(); return; }
+  try {
+    elecMesh = new NVMesh(new Float32Array(pts), new Uint32Array(tris), "electrodes",
+                          new Uint8Array(cols), 1.0, true, nv.gl);
+    nv.addMesh(elecMesh);
+  } catch (e) { console.error("electrode overlay failed:", e); }
+  nv.drawScene();
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// PDF export
+// ─────────────────────────────────────────────────────────────────────────────
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+const DPI = 150, MM_PER_IN = 25.4, JPEG_Q = 0.86;
+const pxFor = mm => Math.round(mm / MM_PER_IN * DPI);
+
+// The glass-brain renders are mostly white margin — a lateral view fills maybe a fifth
+// of its canvas. Dropped into a PDF tile untrimmed they come out postage-stamp sized,
+// so find the ink bounding box first and keep only that. Same trick make_cluster_cards.py
+// uses on the same PNGs.
+function trimMargin(img) {
+  const probeW = Math.min(img.width, 400);
+  const s = probeW / img.width;
+  const p = document.createElement("canvas");
+  p.width = probeW; p.height = Math.max(1, Math.round(img.height * s));
+  const px = p.getContext("2d");
+  px.fillStyle = "#fff"; px.fillRect(0, 0, p.width, p.height);
+  px.drawImage(img, 0, 0, p.width, p.height);
+  const d = px.getImageData(0, 0, p.width, p.height).data;
+  let x0 = p.width, y0 = p.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < p.height; y++) {
+    for (let x = 0; x < p.width; x++) {
+      const i = (y * p.width + x) * 4;
+      if (d[i] < 244 || d[i+1] < 244 || d[i+2] < 244) {          // not background white
+        if (x < x0) x0 = x; if (x > x1) x1 = x;
+        if (y < y0) y0 = y; if (y > y1) y1 = y;
+      }
+    }
+  }
+  if (x1 < 0 || (x1 - x0) < 8 || (y1 - y0) < 8) return null;      // no ink found — keep whole
+  const pad = 3;
+  const sx = Math.max(0, (x0 - pad) / s), sy = Math.max(0, (y0 - pad) / s);
+  const sw = Math.min(img.width - sx, (x1 - x0 + 2 * pad) / s);
+  const sh = Math.min(img.height - sy, (y1 - y0 + 2 * pad) / s);
+  return { sx, sy, sw, sh };
+}
+
+// ── capture ------------------------------------------------------------------
+// Niivue is not built with preserveDrawingBuffer, so toDataURL() after the frame is
+// presented returns a blank image (measured on this page at 0% ink). Redraw and read the
+// pixels INSIDE the same animation frame, before the buffer is cleared.
+//
+// Camera convention was measured, not assumed: painting LH red and RH blue and sweeping
+// the azimuth gives az 90 -> left hemisphere fills the view, az 270 -> right. MOBA's
+// opposite convention does not carry over to this page's mesh orientation.
+const VIEWS = [[90, 0, "left lateral"], [270, 0, "right lateral"], [0, 90, "dorsal"]];
+
+function captureView(az, el, maxW, onWhite) {
+  return new Promise(resolve => {
+    try { nv.scene.renderAzimuth = az; nv.scene.renderElevation = el; } catch (e) {}
+    requestAnimationFrame(() => {
+      try { nv.drawScene(); } catch (e) {}
+      resolve(trimDark(canvasEl, maxW, onWhite));
+    });
+  });
+}
+
+// ── 360° spin, captured the same way a still is ──────────────────────────────
+// Frames are captured from the LIVE canvas, so a rotation inherits the frozen
+// colour ceiling, gate and gamma exactly as the stills do — no second renderer
+// that could drift from the one on screen.
+//
+// SPIN_W is deliberately small. A 900 px frame is 40-80 kB, so 20 of them is
+// ~1.5 MB PER rotation; at 360 px a whole rotation costs about what one still
+// does, which is what makes a dozen of them affordable in a self-contained file.
+const SPIN_N = 60, SPIN_W = 560;
+// the pre-rendered frames are ~530 px after cropping; fetch at full width so
+// they are not upscaled when shown at just under half the page
+const SPIN_RENDER_W = 560;
+
+// A rotation must NOT use trimDark. That crops every frame to its own bounding
+// box, so each frame comes out a different size and the brain jumps and rescales
+// from frame to frame - which reads as choppiness no matter how many frames there
+// are. Raising 20 to 60 did not help for exactly this reason. Here every frame is
+// the whole canvas at one fixed size, so the brain rotates in place.
+function rawFrame(src, maxW, box, onWhite) {
+  try {
+    const sw = box ? box.w : src.width, sh = box ? box.h : src.height;
+    if (!sw || !sh) return { data: "", w: 0, h: 0 };
+    const sc = sw > maxW ? maxW / sw : 1;
+    const o = document.createElement("canvas");
+    o.width = Math.max(1, Math.round(sw * sc));
+    o.height = Math.max(1, Math.round(sh * sc));
+    const cx = o.getContext("2d");
+    // see the note in trimDark: black, even for glass - the surface lives in alpha
+    cx.fillStyle = "#000"; cx.fillRect(0, 0, o.width, o.height);
+    if (box) cx.drawImage(src, box.x, box.y, box.w, box.h, 0, 0, o.width, o.height);
+    else cx.drawImage(src, 0, 0, o.width, o.height);
+    return { data: o.toDataURL("image/jpeg", JPEG_Q), w: o.width, h: o.height };
+  } catch (e) { console.warn("spin frame failed:", e); return { data: "", w: 0, h: 0 }; }
+}
+
+function captureRaw(az, el, maxW, box, onWhite) {
+  return new Promise(resolve => {
+    try { nv.scene.renderAzimuth = az; nv.scene.renderElevation = el; } catch (e) {}
+    requestAnimationFrame(() => {
+      try { nv.drawScene(); } catch (e) {}
+      resolve(rawFrame(canvasEl, maxW, box, onWhite));
+    });
+  });
+}
+
+// Ink box of the current canvas, in source pixels. Same probe trimDark uses.
+function inkBox(src, onWhite) {
+  const sw = src.width, sh = src.height;
+  if (!sw || !sh) return null;
+  const pw = Math.min(sw, 320), s0 = pw / sw;
+  const c = document.createElement("canvas");
+  c.width = pw; c.height = Math.max(1, Math.round(sh * s0));
+  const cx = c.getContext("2d");
+  cx.drawImage(src, 0, 0, c.width, c.height);
+  const d = cx.getImageData(0, 0, c.width, c.height).data;
+  let x0 = c.width, y0 = c.height, x1 = -1, y1 = -1;
+  for (let y = 0; y < c.height; y++) for (let x = 0; x < c.width; x++) {
+    const i = (y * c.width + x) * 4;
+    // The glass surface lands around 248 on a 255 ground, so the cutoff has to sit
+    // just under pure white. At the 237 used elsewhere the brain reads as background
+    // and the box collapses onto the contacts instead.
+    const ink = onWhite ? (d[i] < 252 || d[i+1] < 252 || d[i+2] < 252)
+                        : (d[i] > 18  || d[i+1] > 18  || d[i+2] > 18);
+    if (ink) {
+      if (x < x0) x0 = x; if (x > x1) x1 = x;
+      if (y < y0) y0 = y; if (y > y1) y1 = y;
+    }
+  }
+  if (x1 < 0) return null;
+  return { x: x0 / s0, y: y0 / s0, w: (x1 - x0 + 1) / s0, h: (y1 - y0 + 1) / s0 };
+}
+
+// ONE box for the whole rotation, from a handful of angles. Per-frame boxes are what
+// made the brain jump; a full 60-frame probe pass would double an already slow export,
+// and the silhouette only changes slowly with azimuth, so 8 samples bound it well.
+async function probeSpinBox(el, nProbe, onWhite) {
+  let x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+  for (let i = 0; i < nProbe; i++) {
+    const b = await new Promise(res => {
+      try { nv.scene.renderAzimuth = (360 * i) / nProbe; nv.scene.renderElevation = el; } catch (e) {}
+      requestAnimationFrame(() => { try { nv.drawScene(); } catch (e) {} res(inkBox(canvasEl, onWhite)); });
+    });
+    if (!b) continue;
+    x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y);
+    x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h);
+  }
+  if (x1 < 0) return null;
+  const pad = 10;
+  return { x: Math.max(0, x0 - pad), y: Math.max(0, y0 - pad),
+           w: Math.min(canvasEl.width, x1 - x0 + 2 * pad),
+           h: Math.min(canvasEl.height, y1 - y0 + 2 * pad) };
+}
+
+async function captureSpin(el, n, maxW, onWhite, box) {
+  // A caller that passes a box gets EVERY spin framed identically. Probing per call
+  // frames each subject to its own extent, which is right for a lone rotation and wrong
+  // for a set meant to be compared - a tight cluster would be drawn larger than a spread
+  // one purely because it occupies less of the canvas.
+  box = box || await probeSpinBox(el, 8, onWhite);
+  const frames = [];
+  for (let i = 0; i < n; i++) {
+    // full 360 so the loop closes; no ping-pong and no visible seam
+    frames.push(await captureRaw((360 * i) / n, el, maxW || SPIN_W, box, onWhite));
+    await sleep(12);
+  }
+  return frames.filter(f => f && f.data);
+}
+
+// Crop the black surround rather than cropping to a fixed aspect: a fixed aspect cut the
+// top and bottom off the dorsal view, which is a different shape from the laterals.
+function trimDark(src, maxW, onWhite) {
+  try {
+    const sw = src.width, sh = src.height;
+    if (!sw || !sh) return { data: "", w: 0, h: 0 };
+    const probeW = Math.min(sw, 320), s0 = probeW / sw;
+    const p = document.createElement("canvas");
+    p.width = probeW; p.height = Math.max(1, Math.round(sh * s0));
+    const pc = p.getContext("2d");
+    pc.drawImage(src, 0, 0, p.width, p.height);
+    const d = pc.getImageData(0, 0, p.width, p.height).data;
+    let x0 = p.width, y0 = p.height, x1 = -1, y1 = -1;
+    for (let y = 0; y < p.height; y++) {
+      for (let x = 0; x < p.width; x++) {
+        const i = (y * p.width + x) * 4;
+        // In glass the BACKGROUND is the opaque white part and the brain is darker,
+        // so "not background" inverts. onWhite drives only this test - the backdrop
+        // fill below stays black either way; see the note there.
+        const ink = onWhite ? (d[i] < 237 || d[i + 1] < 237 || d[i + 2] < 237)
+                            : (d[i] > 18  || d[i + 1] > 18  || d[i + 2] > 18);
+        if (ink) {
+          if (x < x0) x0 = x; if (x > x1) x1 = x;
+          if (y < y0) y0 = y; if (y > y1) y1 = y;
+        }
+      }
+    }
+    if (x1 < 0) return { data: "", w: 0, h: 0 };
+    const pad = 4;
+    const sx = Math.max(0, (x0 - pad) / s0), sy = Math.max(0, (y0 - pad) / s0);
+    const w = Math.min(sw - sx, (x1 - x0 + 2 * pad) / s0);
+    const h = Math.min(sh - sy, (y1 - y0 + 2 * pad) / s0);
+    const sc = w > maxW ? maxW / w : 1;
+    const o = document.createElement("canvas");
+    o.width = Math.max(1, Math.round(w * sc)); o.height = Math.max(1, Math.round(h * sc));
+    const cx = o.getContext("2d");
+    // THE BACKDROP STAYS BLACK, INCLUDING FOR GLASS. Niivue leaves the glass surface
+    // in the ALPHA channel: those pixels read back as RGB (255,255,255) with alpha
+    // 120-220, and the page composites them over its own black background, which is
+    // what turns them into the grey brain you see. Filling white here instead computes
+    // 255*a + 255*(1-a) = 255 for every one of them - the brain is erased and the
+    // capture is a cloud of contacts floating on white. Only the ink test below
+    // inverts for glass, because there the BACKGROUND is the opaque white part.
+    cx.fillStyle = "#000"; cx.fillRect(0, 0, o.width, o.height);
+    cx.drawImage(src, sx, sy, w, h, 0, 0, o.width, o.height);
+    return { data: o.toDataURL("image/jpeg", JPEG_Q), w, h };
+  } catch (e) { console.warn("capture trim failed:", e); return { data: "", w: 0, h: 0 }; }
+}
+
+// ── fetched figures ----------------------------------------------------------
+// These are matplotlib output: text and thin lines, which JPEG smears. They are kept as
+// PNG and only downscaled. The WebGL captures above stay JPEG — they are photographic and
+// would triple the file as PNG.
+function shrinkFetched(blobUrl, maxW, trim) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let box = null;
+        if (trim) { try { box = trimMargin(img); } catch (e) { box = null; } }
+        const sx = box ? box.sx : 0, sy = box ? box.sy : 0;
+        const sw = box ? box.sw : img.width, sh = box ? box.sh : img.height;
+        const s = sw > maxW ? maxW / sw : 1;
+        const c = document.createElement("canvas");
+        c.width = Math.max(1, Math.round(sw * s)); c.height = Math.max(1, Math.round(sh * s));
+        const x = c.getContext("2d");
+        x.fillStyle = "#fff"; x.fillRect(0, 0, c.width, c.height);
+        x.drawImage(img, sx, sy, sw, sh, 0, 0, c.width, c.height);
+        resolve({ data: c.toDataURL("image/png"), w: c.width, h: c.height });
+      } catch (e) { resolve({ data: "", w: 0, h: 0 }); }
+      finally { URL.revokeObjectURL(blobUrl); }
+    };
+    img.onerror = () => { URL.revokeObjectURL(blobUrl); resolve({ data: "", w: 0, h: 0 }); };
+    img.src = blobUrl;
+  });
+}
+
+// Pre-rendered rotations from render_cnmf_glassbrains.py --which spin. These are
+// pyvista renders in the project's own look, NOT captures of this page, so they
+// match every other glass brain in the analysis. Frames are fetched in parallel
+// batches; 60 sequential round trips per cluster would take minutes.
+async function fetchSpin(runBase, cluster, nFrames, maxW) {
+  const urls = Array.from({length: nFrames},
+    (_, i) => `${runBase}recon/spin/cluster_${String(cluster).padStart(2,"0")}/`
+            + `f${String(i).padStart(3,"0")}.jpg`);
+  const out = [];
+  const BATCH = 12;
+  for (let i = 0; i < urls.length; i += BATCH) {
+    const got = await Promise.all(urls.slice(i, i + BATCH).map(u => tryImage(u, maxW, false)));
+    out.push(...got);
+  }
+  const ok = out.filter(f => f && f.data);
+  return ok.length >= nFrames * 0.8 ? ok : [];   // partial set = don't animate a stutter
+}
+
+// never throws: a figure that 404s shrinks the PDF instead of breaking it
+async function tryImage(url, maxW, trim) {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) throw new Error(String(res.status));
+    return await shrinkFetched(URL.createObjectURL(await res.blob()), maxW || 1200, trim);
+  } catch (e) { return { data: "", w: 0, h: 0 }; }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Run report
+//
+// jsPDF was replaced by a self-contained HTML document. jsPDF has no layout engine:
+// every box is positioned by hand in millimetres, which is why the old export looked
+// like a spreadsheet. This builds a real page — CSS grid, proper type, SVG donuts —
+// embeds every image as a data URI so the file works offline, and carries @page rules
+// so the browser's own Print → Save as PDF produces a properly paginated document.
+// ─────────────────────────────────────────────────────────────────────────────
+
+// Patient colours, reproducing MOBA's curated mapping exactly: group a patient by its id
+// prefix, sort that group alphabetically, index into the group's palette. A patient is
+// then the same colour here as in MOBA's patient view.
+function patientGroup(pid) {
+  const s = String(pid).toUpperCase();
+  if (s.startsWith("EL")) return "EL";
+  if (s.startsWith("PAT")) return "PAT";
+  return "MICRO";
+}
+function patientColorMap(patients) {
+  const pal = M.patient_palette || {};
+  const byGroup = {};
+  for (const p of patients) (byGroup[patientGroup(p)] ||= []).push(p);
+  const out = {};
+  for (const g of Object.keys(byGroup)) {
+    const list = byGroup[g].slice().sort();
+    const colors = pal[g] || pal.EL || ["#888"];
+    list.forEach((p, i) => { out[p] = colors[i % colors.length]; });
+  }
+  return out;
+}
+
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// Donut chart as inline SVG. A donut rather than a pie because the hole carries the
+// total, which is the number a reader needs to judge any slice.
+function donut(items, size, centre, sub) {
+  const total = items.reduce((s, i) => s + i.value, 0);
+  const R = size / 2, r = R * 0.62, cx = R, cy = R;
+  let a0 = -Math.PI / 2, paths = "";
+  if (!total) {
+    paths = `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="#e6e8ec" stroke-width="${R - r}"/>`;
+  } else if (items.filter(i => i.value > 0).length === 1) {
+    // a single slice is a full turn, and an arc of exactly 2π is degenerate in SVG
+    const only = items.find(i => i.value > 0);
+    paths = `<circle cx="${cx}" cy="${cy}" r="${(R + r) / 2}" fill="none" stroke="${only.color}" stroke-width="${R - r}"><title>${esc(only.label)}: ${only.value} (100%)</title></circle>`;
+  } else {
+    for (const it of items) {
+      if (it.value <= 0) continue;
+      const a1 = a0 + 2 * Math.PI * it.value / total;
+      const big = (a1 - a0) > Math.PI ? 1 : 0;
+      const P = (rad, ang) => `${(cx + rad * Math.cos(ang)).toFixed(2)} ${(cy + rad * Math.sin(ang)).toFixed(2)}`;
+      paths += `<path d="M${P(R, a0)} A${R} ${R} 0 ${big} 1 ${P(R, a1)} L${P(r, a1)} A${r} ${r} 0 ${big} 0 ${P(r, a0)} Z" `
+             + `fill="${it.color}" stroke="#fff" stroke-width="0.9">`
+             + `<title>${esc(it.label)}: ${it.value} (${(100 * it.value / total).toFixed(1)}%)</title></path>`;
+      a0 = a1;
+    }
+  }
+  const mid = centre ? `<text x="${cx}" y="${cy - 1}" text-anchor="middle" class="dnum">${esc(centre)}</text>` : "";
+  const lab = sub ? `<text x="${cx}" y="${cy + 9}" text-anchor="middle" class="dsub">${esc(sub)}</text>` : "";
+  return `<svg viewBox="0 0 ${size} ${size}" class="donut">${paths}${mid}${lab}</svg>`;
+}
+
+function legend(items, total) {
+  return `<ul class="legend">` + items.filter(i => i.value > 0).map(i =>
+    `<li><i style="background:${i.color}"></i><span class="lname">${esc(i.label)}</span>` +
+    `<span class="lval">${i.value}<em>${total ? (100 * i.value / total).toFixed(0) : 0}%</em></span></li>`
+  ).join("") + `</ul>`;
+}
+
+// Fetch a small JSON, or null. The report must survive a run that has not published a
+// given metrics file - that is a normal state, not an error worth aborting an export for.
+async function tryJSON(url) {
+  try { const r = await fetch(url); return r.ok ? await r.json() : null; }
+  catch (e) { return null; }
+}
+
+// Minimal CSV -> array of objects. The per-K metrics live in CSVs the notebooks already
+// write; parsing them here beats adding another JSON the pipeline has to remember to
+// emit. No quoted-field handling because these files are plain numbers.
+async function tryCSV(url) {
+  try {
+    const r = await fetch(url);
+    if (!r.ok) return null;
+    // built without a literal escape so the source survives being generated
+    const rows = (await r.text()).trim().split(String.fromCharCode(10))
+                   .map(x => x.split(String.fromCharCode(13)).join(""));
+    if (rows.length < 2) return null;
+    const head = rows[0].split(",");
+    return rows.slice(1).map(line => {
+      const c = line.split(",");
+      const o = {};
+      head.forEach((h, i) => { o[h.trim()] = c[i]; });
+      return o;
+    });
+  } catch (e) { return null; }
+}
+
+// An editable notes block. contenteditable rather than <textarea> so it grows with what
+// is typed and prints as ordinary text; the saved file keeps notes in localStorage keyed
+// by run, so reopening the same report in the same browser brings them back. Notes are
+// per browser, not baked into the file - re-saving the report does not carry them.
+function note(key) {
+  return `<div class="noteblk"><div class="notelab">Notes</div>`
+       + `<div class="note empty" contenteditable="true" data-note="${esc(key)}" `
+       + `data-ph="Write what you make of this section — kept in this browser."></div></div>`;
+}
+
+// Composition as a horizontal stacked bar, normalised to the full width.
+// Deliberately NOT width-proportional to cluster size: a card grid exists so the
+// clusters can be read against each other, and a 12-sample cluster drawn 3 px wide
+// says nothing about who is in it. Size is carried in the caption instead.
+function stackbar(items, total, h, scaleMax) {
+  h = h || 13;
+  const t = total || items.reduce((s, i) => s + i.value, 0);
+  // scaleMax puts every cluster on ONE x axis measured in samples, so the length of a
+  // bar is the size of the cluster and the segments are who is in it. Without it the
+  // bar fills the track and only composition is readable.
+  const span = scaleMax ? 100 * t / scaleMax : 100;
+  if (!t) return `<svg viewBox="0 0 100 ${h}" class="compbar" preserveAspectRatio="none"></svg>`;
+  let x = 0, out = "";
+  for (const it of items) {
+    if (it.value <= 0) continue;
+    const w = span * it.value / t;
+    out += `<rect x="${x.toFixed(3)}" y="0" width="${w.toFixed(3)}" height="${h}" fill="${it.color}">`
+         + `<title>${esc(it.label)}: ${it.value} (${(100 * it.value / t).toFixed(1)}%)</title></rect>`;
+    x += w;
+    // a hairline where each patient ends, so the segments are countable rather than a
+    // gradient. vector-effect keeps it 1 px after the viewBox is stretched to the track.
+    if (x < span - 1e-6)
+      out += `<line x1="${x.toFixed(3)}" y1="0" x2="${x.toFixed(3)}" y2="${h}" `
+           + `stroke="#fff" stroke-width="1" vector-effect="non-scaling-stroke"/>`;
+  }
+  return `<svg viewBox="0 0 100 ${h}" class="compbar" preserveAspectRatio="none">${out}</svg>`;
+}
+
+// A bare <img> for the card grid. img() wraps every picture in a <figure> with a
+// visible caption, which is right for a full-width panel and wrong for a row of
+// thumbnails - the captions would be taller than the brains.
+// ── image de-duplication ────────────────────────────────────────────────────
+// The same picture is legitimately shown twice: the glass rotation appears in "Every
+// cluster, a full turn each" AND in that cluster's own section, and the glass stills
+// appear on the cluster card AND in the per-cluster row. Embedding the bytes twice cost
+// 35.7 MB of a 97.5 MB report, 32.1 MB of it rotation frames.
+//
+// Each distinct data URI is now written once. Later uses emit an <img> with no src
+// carrying data-mirror, and a few lines of script copy it across at load. Both sections
+// stay exactly as they are; only the duplicate bytes go.
+let _srcSeen = new Map(), _srcN = 0;
+function srcAttr(data) {
+  const prev = _srcSeen.get(data);
+  if (prev) return `data-mirror="${prev}"`;
+  const id = "i" + (++_srcN);
+  _srcSeen.set(data, id);
+  return `src="${data}" data-src-id="${id}"`;
+}
+
+function cellImg(im, alt) {
+  return (im && im.data)
+    ? `<img class="cellimg" ${srcAttr(im.data)} alt="${esc(alt)}">`
+    : `<div class="cellmiss">${esc(alt)}</div>`;
+}
+
+function img(im, alt, cls) {
+  if (!im || !im.data) return `<div class="missing ${cls || ""}">${esc(alt)} — not published for this run</div>`;
+  return `<figure class="${cls || ""}"><img ${srcAttr(im.data)} alt="${esc(alt)}">`
+       + `<figcaption>${esc(alt)}</figcaption></figure>`;
+}
+
+// A rotation as a stack of stills cycled by script, not an encoded GIF: the page
+// has no external libraries (a strict self-contained file), and stacking the
+// frames it already knows how to capture avoids adding an encoder for one effect.
+// Degrades to a still first frame if scripting is off.
+let _spinId = 0;
+function spin(frames, alt, cls) {
+  if (!frames || !frames.length)
+    return `<div class="missing ${cls || ""}">${esc(alt)} — not captured</div>`;
+  const id = `sp${++_spinId}`;
+  const imgs = frames.map((f, i) =>
+    `<img ${srcAttr(f.data)} alt="${esc(alt)}"${i ? ' class="off"' : ""}>`).join("");
+  return `<figure class="spin ${cls || ""}"><div class="spinbox" id="${id}" `
+       + `data-n="${frames.length}">${imgs}</div>`
+       + `<figcaption>${esc(alt)} · ${frames.length}-frame 360° rotation</figcaption></figure>`;
+}
+
+const NOTES_JS = `
+<script>
+(() => {
+  const KEY = "fbm-notes:" + (document.body.dataset.run || "run");
+  const bakedEl = document.getElementById("baked-notes");
+  let store = {}, baked = {};
+  try { store = JSON.parse(localStorage.getItem(KEY) || "{}"); } catch (e) {}
+  try { baked = JSON.parse((bakedEl && bakedEl.textContent) || "{}"); } catch (e) {}
+  // Notes baked into the file travel with it. The browser's own copy wins only where it
+  // actually holds something for that key, so opening a baked report on a machine that
+  // has never seen it shows what the author wrote rather than an empty box.
+  for (const k in baked) if (!store[k]) store[k] = baked[k];
+  const save = () => { try { localStorage.setItem(KEY, JSON.stringify(store)); } catch (e) {} };
+  document.querySelectorAll(".note").forEach(n => {
+    const k = n.dataset.note;
+    if (store[k]) n.textContent = store[k];
+    const sync = () => {
+      const t = n.textContent.trim();
+      if (t) store[k] = t; else delete store[k];
+      n.classList.toggle("empty", !t);
+      save();
+    };
+    n.classList.toggle("empty", !n.textContent.trim());
+    n.addEventListener("input", sync);
+    n.addEventListener("blur", sync);
+  });
+  save();
+  const btn = document.getElementById("saveNotes");
+  if (btn) btn.addEventListener("click", () => {
+    // Serialise THIS document with the notes written into it, both as the visible text
+    // and as JSON, so the copy renders them without a script and still reloads them if
+    // it is edited further.
+    if (bakedEl) bakedEl.textContent = JSON.stringify(store);
+    document.querySelectorAll(".note").forEach(n => {
+      const t = store[n.dataset.note] || "";
+      n.textContent = t;
+      n.classList.toggle("empty", !t);
+    });
+    // Mirrors are populated in the DOM by now. Serialising them would write every
+    // duplicated picture back into the copy and undo the de-duplication, so strip
+    // the filled-in srcs first and restore them afterwards.
+    const mirrors = [...document.querySelectorAll("img[data-mirror]")];
+    const held = mirrors.map(m => m.getAttribute("src"));
+    mirrors.forEach(m => m.removeAttribute("src"));
+    const out = "<!doctype html>\\n" + document.documentElement.outerHTML;
+    mirrors.forEach((m, i) => { if (held[i]) m.setAttribute("src", held[i]); });
+    const b = new Blob([out], { type: "text/html;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = (document.body.dataset.file || "report").replace(/\\.html$/, "") + "_notes.html";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+    const was = btn.textContent;
+    btn.textContent = "Saved \u2713";
+    setTimeout(() => { btn.textContent = was; }, 2000);
+  });
+})();
+<\/script>`;
+
+const KPICK_JS = `
+<script>
+document.querySelectorAll(".kpick").forEach(bar => {
+  const scope = bar.closest("section");
+  bar.addEventListener("click", ev => {
+    const b = ev.target.closest("button[data-kpick]");
+    if (!b) return;
+    const k = b.dataset.kpick;
+    bar.querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b));
+    scope.querySelectorAll("[data-kblock]").forEach(d => {
+      d.hidden = d.dataset.kblock !== k;
+    });
+  });
+});
+<\/script>`;
+
+const MIRROR_JS = `
+<script>
+// Pictures shown in two places are stored once; fill the second copy from the first.
+document.querySelectorAll("img[data-mirror]").forEach(m => {
+  const src = document.querySelector('img[data-src-id="' + m.dataset.mirror + '"]');
+  if (src) m.src = src.currentSrc || src.src;
+});
+<\/script>`;
+
+const SPIN_JS = `
+<script>
+document.querySelectorAll(".spinbox").forEach(box => {
+  const fr = Array.from(box.querySelectorAll("img"));
+  if (fr.length < 2) return;
+  let i = 0;
+  setInterval(() => {
+    fr[i].classList.add("off");
+    i = (i + 1) % fr.length;
+    fr[i].classList.remove("off");
+  }, 80);
+});
+<\/script>`;
+
+// the same afmhot ramp the brain uses, as a CSS gradient, so the report carries its scale
+function scaleBar(vmax, label) {
+  const stops = [];
+  for (let i = 0; i <= 10; i++) { const c = cmap(i / 10); stops.push(`rgb(${c[0]|0},${c[1]|0},${c[2]|0}) ${i*10}%`); }
+  return `<div class="scale"><div class="sbar" style="background:linear-gradient(to top,${stops.join(",")})"></div>`
+       + `<div class="sticks"><span>${vmax.toFixed(2)}</span><span>0.00</span></div>`
+       + `<div class="sgrey"><i></i>no estimate</div><div class="slab">${esc(label)}</div></div>`;
+}
+
+const REPORT_CSS = `
+:root{--ink:#1b232c;--muted:#68727d;--line:#e3e7eb;--bg:#f7f8fa;--card:#fff;--accent:#1f77b4}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);
+  font:14px/1.55 -apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif}
+.wrap{max-width:1180px;margin:0 auto;padding:28px 22px 60px}
+header.top{border-bottom:2px solid var(--ink);padding-bottom:14px;margin-bottom:22px}
+header.top h1{margin:0 0 4px;font-size:23px;letter-spacing:-.2px}
+header.top .sub{color:var(--muted);font-size:13px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.chip{background:#eef2f6;border:1px solid var(--line);border-radius:20px;padding:3px 11px;font-size:12px}
+.chip b{font-weight:600}
+.ksub{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:#8b949e;margin:9px 0 4px}
+.kbtns{display:flex;flex-wrap:wrap;gap:4px}
+.kbtns button{font:inherit;font-size:11.5px;min-width:27px;padding:3px 0;flex:1 1 0;
+  border:1px solid #3a424c;background:#232a33;color:#c9d3de;border-radius:6px;cursor:pointer}
+.kbtns button:hover{background:#2c3540}
+.kbtns button.on{background:#1f77b4;border-color:#1f77b4;color:#fff;font-weight:600}
+.kbtns button.pub{box-shadow:inset 0 -2px 0 #f0a500}
+.kbtns button:disabled{opacity:.35;cursor:default}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:18px 20px;margin:0 0 20px}
+h2.sec{font-size:17px;margin:0 0 3px}
+.sechint{color:var(--muted);font-size:12.5px;margin:0 0 16px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:26px}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.donutwrap{display:grid;grid-template-columns:150px 1fr;gap:16px;align-items:center}
+.donut{width:150px;height:150px;display:block}
+.dnum{font:600 22px -apple-system,Segoe UI,Arial;fill:var(--ink)}
+.dsub{font:400 9.5px -apple-system,Segoe UI,Arial;fill:var(--muted)}
+.legend{list-style:none;margin:0;padding:0;font-size:11px;columns:2;column-gap:16px}
+.legend li{display:flex;align-items:center;gap:7px;padding:1.5px 0;break-inside:avoid}
+.legend i{width:11px;height:11px;border-radius:3px;flex:none;border:1px solid rgba(0,0,0,.18)}
+.lname{flex:0 0 auto;white-space:nowrap}
+.lval{font-variant-numeric:tabular-nums;color:var(--muted);margin-left:auto;padding-left:8px;white-space:nowrap}
+.lval em{font-style:normal;color:var(--ink);margin-left:5px;min-width:27px;display:inline-block;text-align:right}
+.spin figcaption{color:var(--muted);font-size:11.5px;margin-top:5px;text-align:center}
+.spinbox{position:relative;width:100%;max-width:540px;margin:0 auto;line-height:0}
+/* the per-cluster rotations: just under half the 1180 px page each, two per row */
+.spinpair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.spinpair .spinbox{max-width:100%}
+.spingrid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:16px 14px;margin-top:8px}
+.spin.quad .spinbox{max-width:100%;aspect-ratio:3/2}
+.spin.quad .spinbox img{width:100%;height:100%;object-fit:contain}
+.spin.quad figcaption{font-size:10px;margin-top:3px}
+.spin.big .spinbox{max-width:540px}
+.spintitle{display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted);margin:0 0 6px}
+.spintitle .k{color:#fff;font-weight:600;border-radius:5px;padding:1px 8px;font-size:12px}
+.spinbox img{width:100%;display:block}
+.spinbox img:not(:first-child){position:absolute;inset:0}
+.spinbox img.off{visibility:hidden}
+.cluetop{display:grid;grid-template-columns:1fr 1fr;gap:26px;align-items:start}
+.cards{display:grid;gap:8px}
+/* the two lateral views carry the most anatomy, so they get the width; the cluster
+   chip is a square and the composition track gives up space to them */
+.cardhead,.cardrow,.cardaxis{display:grid;grid-template-columns:30px .95fr 1.6fr 1.6fr 1.05fr 1.15fr;gap:9px;align-items:center}
+.cardhead{padding:0 10px 4px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
+.cardaxis{padding:3px 10px 0}
+.cardrow{padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.cardrow .kchip{color:#fff;font-weight:600;border-radius:6px;font-size:11px;width:30px;height:30px;
+  display:flex;align-items:center;justify-content:center}
+.cellimg{width:100%;height:auto;display:block;border-radius:4px}
+.cellmiss{font-size:10px;color:var(--muted);border:1px dashed var(--line);border-radius:4px;padding:12px 4px;text-align:center}
+.sbtrack{background:#f1f3f6;border-radius:3px;overflow:hidden}
+/* not .sbar - scaleBar already owns that name further down, and it wins on order */
+.compbar{width:100%;height:15px;display:block}
+.sbcap{font-size:10px;color:var(--muted);margin-top:4px;line-height:1.3}
+.baxis{display:flex;justify-content:space-between;font-size:9px;color:var(--muted);
+  border-top:1px solid var(--line);padding-top:2px;font-variant-numeric:tabular-nums}
+/* one row, always: the tiles share the width instead of wrapping */
+.runstats{display:flex;gap:6px;margin:0 0 18px}
+.rs{flex:1 1 0;min-width:0;border:1px solid var(--line);border-radius:8px;padding:6px 7px;background:#fbfcfd}
+.rs b{display:block;font-size:13.5px;line-height:1.2;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.rs span{display:block;font-size:8.5px;color:var(--muted);line-height:1.25}
+.atk{font-weight:400;color:var(--muted);font-size:10.5px;white-space:nowrap}
+.kpick{display:flex;flex-wrap:wrap;gap:5px;margin:0 0 14px}
+.kpick button{font:inherit;font-size:12.5px;min-width:34px;padding:5px 9px;cursor:pointer;
+  border:1px solid var(--line);background:#fff;color:var(--ink);border-radius:7px}
+.kpick button:hover{background:#f2f5f8}
+.kpick button.on{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.kpick button[data-pub]{box-shadow:inset 0 -3px 0 #f0a500}
+.kchips{display:grid;grid-template-columns:repeat(auto-fill,minmax(132px,1fr));gap:10px;margin-top:14px}
+.kchips figure{margin:0}
+.kchips img{width:100%;height:auto;display:block;border:1px solid var(--line);border-radius:6px;background:#fff}
+.kchips figcaption{font-size:10.5px;color:var(--muted);margin-top:4px;display:flex;align-items:center;gap:5px}
+.kchips figcaption i{width:9px;height:9px;border-radius:2px;flex:none}
+@media print{.kpick{display:none}.kblock[hidden]{display:none}}
+/* results table */
+table.res{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:4px}
+table.res th{text-align:left;font-weight:600;color:var(--muted);font-size:10.5px;
+  text-transform:uppercase;letter-spacing:.04em;padding:0 10px 6px 0;border-bottom:1px solid var(--line)}
+table.res td{padding:8px 10px 8px 0;border-bottom:1px solid var(--line);vertical-align:top;line-height:1.5}
+table.res td:first-child{white-space:nowrap;font-weight:600;width:1%}
+table.res td.rv{font-variant-numeric:tabular-nums;white-space:nowrap;width:1%;
+  color:var(--accent);font-weight:600}
+table.res td:last-child{color:var(--muted)}
+/* notes: one editable block per section, kept in localStorage per run */
+.notebar{position:fixed;right:16px;bottom:16px;z-index:50;display:flex;align-items:center;gap:11px;
+  background:var(--card);border:1px solid var(--line);border-radius:11px;padding:9px 13px;
+  box-shadow:0 8px 28px rgba(0,0,0,.13);font-size:10.5px;color:var(--muted);max-width:360px;line-height:1.4}
+.notebar button{font:inherit;font-size:12px;font-weight:600;color:#fff;background:var(--accent);
+  border:0;border-radius:7px;padding:7px 12px;cursor:pointer;white-space:nowrap}
+.notebar button:hover{filter:brightness(1.08)}
+@media print{.notebar{display:none}}
+.noteblk{margin-top:18px;border-top:1px dashed var(--line);padding-top:10px}
+.notelab{font-size:10px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted);margin-bottom:5px}
+.note{min-height:44px;border:1px solid var(--line);border-radius:8px;padding:8px 11px;
+  font-size:12.5px;line-height:1.55;background:#fffdf6;outline:none;white-space:pre-wrap}
+.note:focus{border-color:var(--accent);background:#fff}
+.note.empty::before{content:attr(data-ph);color:#aab2ba}
+/* on paper an empty prompt is noise, so blank notes drop out of the print entirely */
+@media print{
+  .note{background:#fff}
+  .noteblk:has(.note.empty){display:none}
+}
+.cluepair{display:grid;grid-template-columns:1fr 1fr;gap:14px;align-items:start;margin-top:16px}
+.fullrow{margin-top:18px;padding-top:16px;border-top:1px solid var(--line)}
+table.sum{width:100%;border-collapse:collapse;font-size:12.5px;margin-top:6px}
+table.sum th,table.sum td{text-align:right;padding:5px 8px;border-bottom:1px solid var(--line)}
+table.sum th:first-child,table.sum td:first-child{text-align:left}
+table.sum thead th{color:var(--muted);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.4px}
+table.sum td.sw i{width:10px;height:10px;border-radius:3px;display:inline-block;margin-right:6px}
+.clus{page-break-inside:avoid;break-inside:avoid}
+.clus h2{display:flex;align-items:baseline;gap:12px;font-size:18px;margin:0 0 2px}
+.clus h2 .k{background:var(--ink);color:#fff;border-radius:7px;padding:1px 10px;font-size:15px}
+.brains{display:grid;grid-template-columns:repeat(3,1fr) 74px;gap:12px;align-items:start;margin-top:12px}
+.brains.glass{grid-template-columns:repeat(3,1fr) 74px}
+figure{margin:0}
+figure img{width:100%;height:210px;object-fit:contain;display:block;
+  border:1px solid var(--line);border-radius:8px;background:#fff}
+.brains.glass figure img{height:185px}
+.wide img{height:auto;object-fit:initial}
+figure.lite img{background:#fff}
+figcaption{font-size:11px;color:var(--muted);text-align:center;padding-top:4px}
+.missing{border:1px dashed var(--line);border-radius:8px;padding:22px 10px;text-align:center;
+  color:#a08a8a;font-size:11.5px;background:#fbfbfc}
+.scale{display:flex;flex-direction:column;align-items:center;font-size:10px;color:var(--muted)}
+.sbar{width:15px;height:120px;border:1px solid #c9ced4;border-radius:4px}
+.sticks{display:flex;flex-direction:column;justify-content:space-between;height:120px;
+  position:absolute;margin-left:52px;font-variant-numeric:tabular-nums}
+.sgrey{display:flex;align-items:center;gap:4px;margin-top:7px}
+.sgrey i{width:12px;height:9px;background:#8c8c8c;border:1px solid #c9ced4;border-radius:2px}
+.slab{margin-top:3px;font-weight:600;color:var(--ink)}
+.wide img{background:#fff}
+.note{font-size:12px;color:var(--muted);margin:10px 0 0}
+.warn{color:#a8412f;font-size:12.5px;margin-top:10px}
+footer.bot{margin-top:26px;padding-top:14px;border-top:1px solid var(--line);
+  color:var(--muted);font-size:11.5px;line-height:1.7}
+code{font-family:ui-monospace,Menlo,Consolas,monospace;font-size:11.5px;background:#eef2f6;
+  padding:1px 5px;border-radius:4px}
+@media print{
+  @page{size:A4 landscape;margin:11mm}
+  body{background:#fff}
+  .wrap{max-width:none;padding:0}
+  .card{border:1px solid #d8dde2;box-shadow:none;page-break-inside:avoid;break-inside:avoid}
+  .clus{page-break-before:always;break-before:page}
+  .legend{columns:2}
+  a{color:inherit;text-decoration:none}
+}
+`;
+
+async function exportReport() {
+  if (!RUN) return;
+  const btn = $("pdfBtn"), orig = btn.textContent;
+  btn.disabled = true;
+
+  _srcSeen = new Map(); _srcN = 0;     // one image registry per report
+  const saved = { map: state.map, az: nv.scene.renderAzimuth, el: nv.scene.renderElevation,
+                  elec: state.showElec, glass: state.glass };
+
+  // FROZEN SETTINGS. Everything in the report is rendered with the values that were
+  // live when Save was pressed — the colour ceiling above all.
+  //
+  // This used to call autoScale() once per cluster, which re-derived the ceiling from
+  // that cluster's own 98th percentile. A cluster covering a little cortex at low
+  // probability then got a low ceiling and rendered just as bright as a cluster
+  // covering half the brain at high probability. The panels looked comparable and
+  // were not. One ceiling across every panel is what makes them comparable.
+  const frozen = {
+    climMax: state.climMax, autoScaled: state.autoScaled,
+    minN: state.minN, gamma: state.gamma, radius: state.radius,
+    surf: state.surf, map: state.map, glass: state.glass,
+  };
+  // Was the frozen ceiling the auto-derived one or set by hand? The report says which,
+  // because "0.35" means a different thing in the two cases.
+  const climSource = (Math.abs(frozen.climMax - frozen.autoScaled) < 1e-9 && frozen.autoScaled > 0)
+    ? `auto — 98th percentile of the “${frozen.map}” map, frozen at save`
+    : `set by hand`;
+
+  const runBase = `${CLUST}${RUN.path}/`;
+  const CAPW = 900, FIGW = 1500;
+
+  try {
+    REPORT_LIGHT.on = true;          // white backdrop + lighter cortex, capture only
+    applyOpacity();
+    state.showElec = false; updateElectrodes();
+
+    const clusterDefs = DEFS.filter(d => d.cluster !== undefined);
+    // empty at the run's own K, so the published artifacts are used unchanged
+    // lf_centroids writes k_5 .. k_23 with NO zero padding. Padding to k_05 here
+    // silently 404s for every K under 10 - the K panel showed chips at 10, 11 and 12 and
+    // nothing below, which looked like missing data and was a mis-built path.
+    const kDir = (Number(KSEL) === Number(RUN0.k)) ? "" : `k_${KSEL}/`;
+    const pcol = patientColorMap(Object.keys(RUN.patient_totals || {}));
+    // same palette the glass view paints contacts with - not a parallel one
+    const clusterHue = (i) => clusterCSS(RUN.clusters[i]);
+
+    // coverage and contact density are not part of this report
+    state.climMax = frozen.climMax;
+
+    // ── per cluster
+    const blocks = [];
+    for (let i = 0; i < clusterDefs.length; i++) {
+      const d = clusterDefs[i];
+      btn.textContent = `Report: cluster ${i + 1}/${clusterDefs.length}…`;
+      // every cluster is drawn on the SAME frozen ceiling, so the panels compare
+      state.map = d.id; $("mapSel").value = d.id;
+      state.climMax = frozen.climMax; state.minN = frozen.minN; state.gamma = frozen.gamma;
+      const st = render(); await sleep(80);
+      const shots = [];
+      for (const [az, el] of VIEWS) shots.push(await captureView(az, el, CAPW, true));
+      const spinFrames = await captureSpin(0, SPIN_N, SPIN_W, true);
+      const fig = (RUN.figures.per_cluster || {})[String(d.cluster)] || {};
+      // CENTROIDS MUST FOLLOW K. fig.centroid points at cluster_centroids/cluster_NN.png,
+      // which is the PUBLISHED cut. Exporting at any other K used it anyway, so a K=11
+      // report showed K=6's centroids for clusters 0-5 under K=11 headings and "not
+      // published" for 6-10 - wrong rather than merely missing, and the k_11/ chips were
+      // sitting there unused. At a re-cut K the k_NN/ folder is the only correct source
+      // and there is deliberately NO fallback to the flat chips.
+      const cc = String(d.cluster).padStart(2, "0");
+      const centroid = kDir
+        ? await tryImage(`${runBase}cluster_centroids/${kDir}cluster_${cc}.png`, FIGW, false)
+        : (fig.centroid ? await tryImage(runBase + fig.centroid, FIGW, false)
+                        : { data: "", w: 0, h: 0 });
+      // make_centroid_rasters only writes the published cut. Rather than show that cut's
+      // raster beside another cut's centroid, try a per-K folder and otherwise show none.
+      const raster = kDir
+        ? await tryImage(`${runBase}cluster_rasters/${kDir}cluster_${cc}.png`, FIGW, false)
+        : await tryImage(`${runBase}cluster_rasters/cluster_${cc}.png`, FIGW, false);
+      blocks.push({ d, st, shots, centroid, raster, spinFrames,
+                    climMax: frozen.climMax });
+    }
+
+    // ── per-cluster glass stills, captured from this page
+    // ONE surface swap for the whole set. Entering glass mode reloads the pial mesh
+    // with a uniform rgba255, so doing it per cluster would add K reloads to an
+    // already slow export. Only the map changes inside the loop - which is precisely
+    // what now makes each still show its own cluster, rather than all of them.
+    let glassCovSpin = null;
+    const KBRAINS = {};   // k -> [ [3 glass stills] per cluster ]
+    const glassWas = { glass: state.glass, byCluster: state.elecByCluster,
+                       elec: state.showElec };
+    try {
+      if (!state.glass) {
+        btn.textContent = "Report: glass surface…";
+        state.glass = true; state.surf = "pial";
+        await loadSurface("pial", GLASS_RGBA);
+        applyOpacity();
+      }
+      state.showElec = true; state.elecByCluster = true;
+      // ONE CROP BOX PER VIEW, measured once and reused for every cluster. Cropping
+      // each still to its own ink would frame each cluster differently - a tight
+      // cluster would fill its panel and a spread one would shrink - and the panels
+      // would stop being comparable, which is the entire point of freezing the
+      // settings. The brain silhouette is identical across clusters, so one box is
+      // the correct box. Measured on the coverage map, where every contact is drawn.
+      state.map = "coverage"; $("mapSel").value = "coverage";
+      render(); updateElectrodes(); await sleep(60);
+      // Measured here, on coverage, where every contact in the cohort is drawn - so the
+      // box bounds the whole set and no cluster can fall outside it.
+      btn.textContent = "Report: glass rotation box...";
+      const gSpinBox = await probeSpinBox(0, 8, true);
+      btn.textContent = "Report: glass coverage rotation...";
+      glassCovSpin = await captureSpin(0, SPIN_N, SPIN_W, true, gSpinBox);
+      const gBox = [];
+      for (const [az, el] of VIEWS) {
+        gBox.push(await new Promise(r => {
+          try { nv.scene.renderAzimuth = az; nv.scene.renderElevation = el; } catch (e) {}
+          requestAnimationFrame(() => {
+            try { nv.drawScene(); } catch (e) {}
+            const b = inkBox(canvasEl, true);
+            const pad = 10;
+            r(b ? { x: Math.max(0, b.x - pad), y: Math.max(0, b.y - pad),
+                    w: Math.min(canvasEl.width,  b.w + 2 * pad),
+                    h: Math.min(canvasEl.height, b.h + 2 * pad) } : null);
+          });
+        }));
+      }
+      for (let i = 0; i < blocks.length; i++) {
+        btn.textContent = `Report: glass ${i + 1}/${blocks.length}…`;
+        state.map = blocks[i].d.id; $("mapSel").value = blocks[i].d.id;
+        render(); updateElectrodes(); await sleep(60);
+        const gs = [];
+        // onWhite: the glass backdrop is white, so both the crop and the fill invert
+        for (let v = 0; v < VIEWS.length; v++) {
+          const [az, el] = VIEWS[v];
+          gs.push(gBox[v] ? await captureRaw(az, el, CAPW, gBox[v], true)
+                          : await captureView(az, el, CAPW, true));
+        }
+        blocks[i].glassShots = gs;
+        // The 360 comes from here too, rather than being fetched from the repo. It costs
+        // no extra frames - it replaces the offline rotation the report used to pull -
+        // and it means a run that was never rendered offline still turns.
+        btn.textContent = `Report: glass rotation ${i + 1}/${blocks.length}...`;
+        blocks[i].glassSpin = await captureSpin(0, SPIN_N, SPIN_W, true, gSpinBox);
+      }
+
+      // ── EVERY CLUSTER AT EVERY K, captured while the glass surface is already up.
+      // The K panel could switch its numbers and centroid chips but not its brains, so
+      // pressing a button changed the table and left the cortex showing another cut.
+      // Done here rather than in its own pass because entering glass mode reloads the
+      // pial mesh: one swap for all of it instead of one per K.
+      //
+      // Stills only. A 60-frame turn for each of these clusters would be roughly 8600
+      // more frames and a third of a gigabyte, which no browser will open.
+      if (SWEEP && SWEEP.ks && SWEEP.ks.length > 1) {
+        const kWas = KSEL;
+        for (const kk of SWEEP.ks) {
+          btn.textContent = `Report: K=${kk} brains…`;
+          await applyK(kk);
+          refreshMapList();
+          const ids = figureOrder(RUN0.id, kk, (SWEEP.stats[String(kk)] || {}).clusters || []);
+          const shots = [];
+          for (const c of ids) {
+            state.map = `c${c}`;
+            if (!DEFS.some(d => d.id === state.map)) { shots.push(null); continue; }
+            state.climMax = frozen.climMax; state.minN = frozen.minN; state.gamma = frozen.gamma;
+            render(); updateElectrodes(); await sleep(60);
+            const one = [];
+            for (let v = 0; v < VIEWS.length; v++) {
+              const [az, el] = VIEWS[v];
+              contactsHemi(HEMI_FOR_VIEW[v]);
+              await sleep(40);
+              one.push(gBox[v] ? await captureRaw(az, el, CAPW, gBox[v], true)
+                               : await captureView(az, el, CAPW, true));
+            }
+            contactsHemi("both");
+            shots.push(one);
+          }
+          KBRAINS[kk] = shots;
+        }
+        await applyK(kWas);
+        refreshMapList();
+      }
+    } catch (e) {
+      // A failed glass pass must not cost the report the work already captured.
+      console.warn("glass pass failed:", e);
+    } finally {
+      contactsHemi("both");  // a pass that failed mid-view must not leave dots missing
+      state.glass = glassWas.glass; state.elecByCluster = glassWas.byCluster;
+      state.showElec = glassWas.elec; state.surf = frozen.surf;
+      // Always reload: leaving a uniform-rgba255 mesh behind under a non-glass state
+      // is the one way this pass could damage what the user sees afterwards.
+      await loadSurface(frozen.surf, glassWas.glass ? GLASS_RGBA : undefined);
+      applyOpacity();
+    }
+
+    // ── whole-run figures
+    // cluster_cards.png is the offline version of the section built above: same idea,
+    // the superseded layout, and 252's renders rather than this viewer's. Carrying both
+    // put two different answers to one question in one report.
+    const ov = (RUN.figures.overview || [])
+      .filter(f => !/(^|\/)cluster_cards\.png$/.test(String(f.path || "")));
+    const ovImgs = [];
+    for (let i = 0; i < ov.length; i++) {
+      btn.textContent = `Report: figure ${i + 1}/${ov.length}…`;
+      ovImgs.push(await tryImage(runBase + ov[i].path, FIGW, false));
+    }
+
+    // ── assemble -------------------------------------------------------------
+    btn.textContent = "Report: writing…";
+    // named once: the report's own download and the notes copy must agree
+    const reportName = `report_${RUN.track.replace(/\//g, "_")}_${RUN.run}`
+                     + `_K${KSEL}_r${frozen.radius}mm_n${frozen.minN}`
+                     + `_max${frozen.climMax.toFixed(2)}.html`;
+    const K = RUN.clusters.length;
+    const sizeItems = RUN.clusters.map((k, i) => ({
+      label: `Cluster ${k}`, value: RUN.cluster_sizes[String(k)], color: clusterHue(i) }));
+    const patTotals = RUN.patient_totals || {};
+    const patItems = Object.keys(patTotals).sort()
+      .map(p => ({ label: p, value: patTotals[p], color: pcol[p] || "#888" }));
+    const nSamples = RUN.n_samples_with_cluster;
+
+    const summary = `<table class="sum"><thead><tr><th>Cluster</th><th>samples</th><th>share</th>` +
+      `<th>patients</th><th>of cohort</th><th>top patient</th></tr></thead><tbody>` +
+      RUN.clusters.map((k, i) => {
+        const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
+        const tot = Object.values(comp).reduce((s, v) => s + v, 0) || 1;
+        const top = Object.entries(comp).sort((a, b) => b[1] - a[1])[0];
+        const np = RUN.cluster_patients[String(k)];
+        return `<tr><td class="sw"><i style="background:${clusterHue(i)}"></i>Cluster ${k}</td>` +
+               `<td>${RUN.cluster_sizes[String(k)]}</td><td>${(100 * RUN.cluster_sizes[String(k)] / nSamples).toFixed(1)}%</td>` +
+               `<td>${np}</td><td>${(100 * np / COH.n_patients).toFixed(0)}%</td>` +
+               `<td>${top ? esc(top[0]) + " (" + (100 * top[1] / tot).toFixed(0) + "%)" : "—"}</td></tr>`;
+      }).join("") + `</tbody></table>`;
+
+    // ── overall run statistics -------------------------------------------
+    const szVals = RUN.clusters.map(k => RUN.cluster_sizes[String(k)]);
+    const npVals = RUN.clusters.map(k => RUN.cluster_patients[String(k)]);
+    const maxI = szVals.indexOf(Math.max(...szVals));
+    const minI = szVals.indexOf(Math.min(...szVals));
+    const med = a => { const b = [...a].sort((x, y) => x - y), m = b.length >> 1;
+                       return b.length % 2 ? b[m] : (b[m - 1] + b[m]) / 2; };
+    // The single most patient-concentrated cluster in the run. This is the number
+    // that decides whether a cluster can be read as a population effect at all, so
+    // it belongs at the top rather than buried in the per-cluster sections.
+    let conc = { k: null, share: 0 };
+    for (const k of RUN.clusters) {
+      const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
+      const tot = Object.values(comp).reduce((a, v) => a + v, 0) || 1;
+      const top = Object.values(comp).length ? Math.max(...Object.values(comp)) : 0;
+      if (top / tot > conc.share) conc = { k, share: top / tot };
+    }
+    const tile = (v, lab) => `<div class="rs"><b>${v}</b><span>${lab}</span></div>`;
+    const runStats = `<div class="runstats">
+      ${tile(K, "clusters")}
+      ${tile(nSamples, "labelled samples")}
+      ${tile(RUN.n_electrodes, esc(RUN.unit) + " rows")}
+      ${tile(RUN.n_contacts_with_cluster, "contacts localised")}
+      ${tile(patItems.length + " / " + COH.n_patients, "patients contributing")}
+      ${RUN.n_electrodes_multilabel ? tile(RUN.n_electrodes_multilabel, "multi-label rows") : ""}
+      ${tile((100 * szVals[maxI] / nSamples).toFixed(0) + "%", "largest cluster (c" + RUN.clusters[maxI] + ")")}
+      ${tile((100 * szVals[minI] / nSamples).toFixed(0) + "%", "smallest cluster (c" + RUN.clusters[minI] + ")")}
+      ${tile(med(npVals), "median patients per cluster")}
+      ${conc.k !== null ? tile((100 * conc.share).toFixed(0) + "%",
+          "most one-patient-heavy (c" + conc.k + ")") : ""}
+    </div>`;
+
+    // ── cluster cards ------------------------------------------------------
+    // Built here, from what this viewer captured a moment ago - not fetched. Every
+    // brain in this grid is the live glass scene at the frozen settings, so a run
+    // that 252 never rendered still gets a full set of cards.
+    let cardFallback = false;
+    // One x axis in samples for every composition bar. Taken from the same quantity the
+    // bars are built from (the per-patient counts), not cluster_sizes - the two can
+    // differ by unlabelled rows, and an axis that does not match its bars is worse than
+    // no axis.
+    const compTot = k => Object.values((RUN.cluster_patient_counts || {})[String(k)] || {})
+                               .reduce((a, v) => a + v, 0);
+    const barMax = Math.max(1, ...RUN.clusters.map(compTot));
+    const cardsRows = blocks.map(({ d, shots, glassShots, centroid }, i) => {
+      const k = d.cluster;
+      const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
+      const tot = Object.values(comp).reduce((a, v) => a + v, 0);
+      const items = Object.keys(comp).sort()
+        .map(q => ({ label: q, value: comp[q], color: pcol[q] || "#888" }));
+      const top = Object.entries(comp).sort((a, b) => b[1] - a[1])[0];
+      const cells = VIEWS.map((v, j) => {
+        const g = (glassShots || [])[j];
+        const use = (g && g.data) ? g : shots[j];
+        if (!(g && g.data)) cardFallback = true;
+        return cellImg(use, v[2]);
+      }).join("");
+      return `<div class="cardrow">
+        <div class="kchip" style="background:${clusterHue(i)}">c${k}</div>
+        ${cellImg(centroid, "centroid")}
+        ${cells}
+        <div><div class="sbtrack">${stackbar(items, tot, 15, barMax)}</div>
+          <div class="sbcap">${tot} samples · ${RUN.cluster_patients[String(k)]} patients${
+            top ? " · " + esc(top[0]) + " " + (100 * top[1] / (tot || 1)).toFixed(0) + "%" : ""}</div>
+        </div>
+      </div>`;
+    }).join("");
+
+    // ── cluster cards ─────────────────────────────────────────────────────
+    // Dropped where the run has a K sweep: the K panel now draws exactly this row - chip,
+    // centroid, three views, composition, same grid, same shared axis - once per K, and
+    // one of those K IS the exported cut. Keeping both put the same table twice in one
+    // report, differing only in that the cards could not follow the K buttons.
+    //
+    // Still built for a run WITHOUT a sweep. There is no K panel on those, so removing it
+    // unconditionally would take the per-cluster overview away from them entirely rather
+    // than de-duplicate it.
+    const hasSweep = !!(SWEEP && SWEEP.ks && SWEEP.ks.length > 1);
+    const cardsHTML = hasSweep ? "" : `<section class="card">
+  <h2 class="sec">Cluster cards</h2>
+  <p class="sechint">One row per cluster: its mean response, the same three angles for every
+    cluster, and who it is made of. The brains are the contacts themselves on a glass brain,
+    captured from this viewer at the frozen settings${cardFallback
+      ? " &mdash; except where the glass pass did not complete, which falls back to the probability map"
+      : ""}, so nothing here depends on a run having been rendered offline.
+    The composition bars share one x axis in samples, so a longer bar is a bigger
+    cluster and the segments inside it are the patients it came from &mdash; length and
+    composition are readable in the same glance.</p>
+  <div class="cardhead"><div></div><div>centroid</div>
+    ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div></div>
+  <div class="cards">${cardsRows}</div>
+  <div class="cardaxis"><div></div><div></div><div></div><div></div><div></div>
+    <div class="baxis"><span>0</span><span>${Math.round(barMax / 2)}</span><span>${barMax}</span></div>
+  </div>
+</section>`;
+
+    // ── the K panel -----------------------------------------------------------
+    // Everything here was computed by the notebooks and is only READ. A saved report
+    // cannot refit, so each K shows what already exists on disk for that cut and says so
+    // plainly when something has not been produced yet. The brains are NOT switched:
+    // they are captures of one cut, and per-K renders do not exist.
+    btn.textContent = "Report: K panel…";
+    const KP = { ks: [], byK: {}, pub: Number(RUN0.k) };
+    if (SWEEP && SWEEP.ks && SWEEP.ks.length > 1) {
+      KP.ks = SWEEP.ks.slice();
+      const sweepMetrics = await tryCSV(runBase + "sweep_metrics.csv");   // k-means / Ward
+      const sweepCnmf    = await tryCSV(runBase + "sweep_by_k.csv");      // convex NMF
+      const stabByK      = await tryCSV(runBase + "stability_by_k.csv");
+      const pick = (rows, k) => (rows || []).find(r => Number(r.k) === k);
+
+      for (const k of KP.ks) {
+        btn.textContent = `Report: K panel ${k}…`;
+        const st = SWEEP.stats[String(k)] || {};
+        const ids = figureOrder(RUN0.id, k, st.clusters || []);
+        // centroid chips for this cut, if make_missing_centroids has drawn them
+        const chips = await Promise.all(ids.map(c =>
+          tryImage(`${runBase}cluster_centroids/k_${k}/`
+                   + `cluster_${String(c).padStart(2, "0")}.png`, 320, false)));
+        KP.byK[k] = {
+          stats: st,
+          metrics: pick(sweepMetrics, k) || null,
+          cnmf: pick(sweepCnmf, k) || null,
+          stability: pick(stabByK, k) || null,
+          // NOT filtered: chips[i] is indexed against ids[i] further down, so
+          // dropping the failures would shift every later cluster's centroid up one
+          // row and show it under the wrong label. Keep the holes, count them apart.
+          chips: chips,
+          nChips: chips.filter(x => x && x.data).length,
+          nClusters: ids.length,
+          brains: KBRAINS[k] || null,
+          ids,
+        };
+      }
+    }
+
+    // ── results ------------------------------------------------------------
+    // Read from the run's own files rather than restated, so a number here cannot drift
+    // from the analysis that produced it. Each row carries how to read it, because a
+    // silhouette of 0.16 means something quite different on iEEG responses than the
+    // textbook reading of "weak structure" suggests.
+    btn.textContent = "Report: results…";
+    const method = String(RUN.track || "").split("/")[0];
+    const fset   = String(RUN.track || "").split("/")[1] || "";
+    // AT THE K THIS REPORT WAS EXPORTED AT, not at the run's published K. metrics.json
+    // and stability_summary.json describe the published cut only; quoting them under a
+    // re-cut heading is a number silently changing meaning, which is the whole reason
+    // the per-K files exist. At a re-cut K they are ignored and the sweep files are read
+    // instead; where a sweep file is absent the row is simply not shown.
+    const atPub = Number(KSEL) === Number(RUN0.k);
+    const swM = await tryCSV(runBase + "sweep_metrics.csv");
+    const swC = await tryCSV(runBase + "sweep_by_k.csv");
+    const swS = await tryCSV(runBase + "stability_by_k.csv");
+    const atK = rows => (rows || []).find(x => Number(x.k) === Number(KSEL)) || null;
+    const mK = atK(swM), cK = atK(swC), sK = atK(swS);
+    const RES = {
+      metrics:   atPub ? await tryJSON(runBase + "metrics.json") : null,
+      stability: atPub ? await tryJSON(runBase + "stability_summary.json") : null,
+      decomp:    (atPub && method === "cnmf")
+                 ? await tryJSON(`${CLUST}decomposition/${fset}/meta.json`) : null,
+      // sweep rows, used at any K - and preferred over the published files when both
+      // exist, so the table cannot disagree with the K panel above it
+      swMetrics: mK, swCnmf: cK, swStab: sK, atPub,
+      // Written by make_cluster_statistics.py into the run directory. It is valid ONLY
+      // at the K it was computed at, and it carries that K itself - so it is gated on
+      // its own K below rather than on atPub, which tracks the run's PUBLISHED cut.
+      stats: await tryJSON(runBase + "cluster_statistics.json"),
+    };
+
+    // THE OTHER TWO METHODS AT THE SAME CUT. Every cluster_statistics.json is written
+    // per run and records the K it was computed at; the three for one feature set are
+    // fitted on a bit-identical X_train in the identical electrode order, so they can be
+    // put in one table. Fetched from the manifest rather than guessed, and each one is
+    // kept only if it really was computed at the K being viewed.
+    RES.peers = [];
+    try {
+      const sibs = (M.runs || []).filter(x =>
+        String(x.track || "").split("/")[1] === fset);
+      for (const x of sibs) {
+        const j = await tryJSON(`${CLUST}${x.path}/cluster_statistics.json`);
+        if (j && Number(j.K) === Number(KSEL))
+          RES.peers.push({ ...j, track: x.track, isSelf: x.track === RUN.track });
+      }
+      const ORD = { kmeans: 0, hierarchical: 1, cnmf: 2, archetypes: 3 };
+      RES.peers.sort((a, b) => (ORD[a.track.split("/")[0]] ?? 9)
+                             - (ORD[b.track.split("/")[0]] ?? 9));
+    } catch (e) { console.warn("peer statistics unavailable:", e); }
+    const rows = [];
+    const add = (name, val, how) => {
+      if (val === null || val === undefined || (typeof val === "number" && !isFinite(val))) return;
+      // The "at K=" tag is markup and the label is not, so escape the label and append
+      // the tag afterwards rather than escaping the two together.
+      let lab = String(name), tag = "";
+      if (lab.endsWith("␟ATK")) {
+        lab = lab.slice(0, -4);
+        tag = ` <span class="atk">at K=${KSEL}</span>`;
+      }
+      rows.push(`<tr><td>${esc(lab)}${tag}</td><td class="rv">${esc(String(val))}</td>`
+              + `<td>${how}</td></tr>`);
+    };
+    const f3 = v => (v === null || v === undefined) ? null : (+v).toFixed(3);
+    const pc = v => (v === null || v === undefined) ? null : (100 * v).toFixed(1) + "%";
+
+    const AT = "␟ATK";   // marker, expanded inside add() - the label is escaped
+    if (RES.swMetrics) {
+      add("Silhouette, overall" + AT, f3(RES.swMetrics.silhouette),
+        "&minus;1 to +1: how much closer a sample sits to its own cluster than to the next one. " +
+        "On iEEG responses 0.1–0.2 is the normal range and means broad, overlapping " +
+        "populations rather than crisp types &mdash; it is not a failed fit.");
+      add("Calinski–Harabasz" + AT,
+        RES.swMetrics.calinski_harabasz === undefined ? null
+          : (+RES.swMetrics.calinski_harabasz).toFixed(1),
+        "Between-cluster spread divided by within-cluster spread. Higher is tighter, but it " +
+        "climbs with K on its own, so only compare runs fitted at the same K.");
+      add("Davies–Bouldin" + AT, f3(RES.swMetrics.davies_bouldin),
+        "How similar each cluster is to whichever one most resembles it, averaged. Lower is " +
+        "better; below about 1 counts as well separated.");
+    } else if (RES.metrics) {
+      add("Silhouette, overall", f3(RES.metrics.silhouette_overall),
+        "−1 to +1: how much closer a sample sits to its own cluster than to the next one. " +
+        "On iEEG responses 0.1–0.2 is the normal range and means broad, overlapping " +
+        "populations rather than crisp types &mdash; it is not a failed fit.");
+      add("Calinski–Harabasz", RES.metrics.calinski_harabasz === undefined ? null
+            : (+RES.metrics.calinski_harabasz).toFixed(1),
+        "Between-cluster spread divided by within-cluster spread. Higher is tighter, but it " +
+        "climbs with K on its own, so only compare runs fitted at the same K.");
+      add("Davies–Bouldin", f3(RES.metrics.davies_bouldin),
+        "How similar each cluster is to whichever one most resembles it, averaged. Lower is " +
+        "better; below about 1 counts as well separated.");
+    }
+    if (RES.swStab) {
+      add("Stability, mean" + AT, f3(RES.swStab.mean_jaccard),
+        `Refit ${RES.swStab.n_runs} times on ${pc(RES.swStab.subsample_frac)} of the samples ` +
+        "and matched back. 1.0 is an identical partition every time; around " +
+        "0.3–0.4 means it moves substantially when the sample changes.");
+      add("Stability, worst cluster" + AT, f3(RES.swStab.min_jaccard),
+        "The least reproducible single cluster at this K.");
+    } else if (RES.stability) {
+      add("Stability, mean", f3(RES.stability.mean_jaccard),
+        `Refit ${RES.stability.n_runs} times on ${pc(RES.stability.subsample_frac)} of the samples ` +
+        "and matched back to the full fit. 1.0 is an identical partition every time; around " +
+        "0.3–0.4 means it moves substantially when the sample changes.");
+      add("Stability, worst cluster", f3(RES.stability.min_jaccard),
+        "The least reproducible single cluster. A run can be stable on average and still carry " +
+        "one cluster that does not survive resampling, so check this before quoting a cluster " +
+        "on its own.");
+    }
+    if (RES.swCnmf) {
+      add("Variance explained" + AT, f3(RES.swCnmf.var_explained),
+        "How much of the dB response matrix the components rebuild at this K. In sample, " +
+        "so it can only rise with a better fit &mdash; and on this run it does not rise " +
+        "monotonically, which says the higher cuts land in poorer optima.");
+      add("No majority component" + AT,
+        RES.swCnmf.frac_no_majority === undefined ? null
+          : (100 * Number(RES.swCnmf.frac_no_majority)).toFixed(1) + "%",
+        "Electrodes whose weight is spread across components with none above half.");
+      add("Median top weight" + AT, f3(RES.swCnmf.median_top_weight),
+        "The typical electrode's strongest component weight.");
+    }
+    if (RES.decomp) {
+      const mx = RES.decomp.mixture || {};
+      add("Variance explained", f3(RES.decomp.in_sample_var_explained),
+        "How much of the dB response matrix the components rebuild. In sample, so it can only " +
+        "rise with K — useful as a description, not as a way to choose K.");
+      add("One dominant component", pc(mx.frac_dominant),
+        "Electrodes where a single component carries most of the weight. Low is expected here: " +
+        "a graded model is not trying to assign each electrode to one type.");
+      add("No majority component", pc(mx.frac_no_majority),
+        "Electrodes whose weight is spread across components with none above half. This is the " +
+        "result the graded model exists to express, and the reason a hard partition of the same " +
+        "data is a summary rather than a description.");
+      add("Median top weight", f3(mx.median_top_weight),
+        "The typical electrode's strongest component weight. Near 1/K would mean components are " +
+        "not differentiating electrodes at all.");
+      const asc = RES.decomp.argmax_spatial_coherence;
+      if (Array.isArray(asc) && asc.length > 1)
+        add("Anatomical coherence", (+asc[1]).toFixed(2) + "× chance",
+          "How much more often neighbouring electrodes share a component than they would if " +
+          "components were shuffled. Above 1 means the decomposition tracks anatomy it was " +
+          "never given.");
+    }
+
+    // ── the statistics battery, appended last ─────────────────────────────
+    // Every number here is K-SPECIFIC: separation is scored against a null refitted at
+    // this K, and the agreement rows compare three partitions all cut at this K. The
+    // file records the K it was computed at, so the rows appear only when the report is
+    // being read at that same cut - quoting them under a re-cut heading would be a
+    // number silently changing meaning.
+    const ST = RES.stats;
+    // A BATTERY AT ANOTHER K IS NOT SHOWN, but its absence is explained. Silently
+    // dropping the rows leaves no way to tell "not computed" from "computed at K=11".
+    if (ST && Number(ST.K) !== Number(KSEL))
+      add("Statistics battery", `computed at K=${ST.K}, not at this cut`,
+        `Separation, anatomical coherence, leave-one-patient-out and the agreement rows ` +
+        `are all scored against nulls refitted at ONE K, so they are valid only at that ` +
+        `cut and are not shown here. Switch to <b>K=${esc(String(ST.K))}</b> to read them, ` +
+        `or re-run <code>make_cluster_statistics.py --feature-set ` +
+        `${esc(String(ST.feature_set || fset))} --k ${KSEL}</code> to compute them at this ` +
+        `one. The rows above are the ones that genuinely exist per K.`);
+    if (ST && Number(ST.K) === Number(KSEL)) {
+      const sp = ST.separation;
+      if (sp) {
+        add("Separation vs matched null" + AT,
+          `${f3(sp.silhouette)} (null ${f3(sp.null_mean)} \u00b1 ${f3(sp.null_sd)}, z = ${(+sp.z).toFixed(1)})`,
+          `Silhouette in this method's home space (<b>${esc(sp.space)}</b>), against a null ` +
+          `carrying this feature set's own covariance &mdash; correlated features, smooth time ` +
+          `courses, one blob, no cluster structure &mdash; refitted by the same method ` +
+          `${sp.n_null} times. White noise would be trivially beatable and would prove nothing. ` +
+          `z is how many null standard deviations the real partition sits above it.`);
+        if (sp.other_space_z !== null && sp.other_space_z !== undefined)
+          add("Separation in the other space" + AT, `z = ${(+sp.other_space_z).toFixed(1)}`,
+            `The same partition scored in <b>${esc(String(sp.other_space))}</b>. Silhouette is ` +
+            `not space-free: convex NMF unit-norms each electrode before fitting while k-means ` +
+            `and Ward use raw dB. Each method separates at home and collapses in the other's ` +
+            `space, so a negative z here is expected and is not a failure.`);
+      }
+      const ac = ST.anatomical_coherence;
+      if (ac)
+        add("Anatomical coherence" + AT, (+ac.over_chance).toFixed(2) + "\u00d7 chance",
+          `Of an electrode's 10 nearest neighbours in fsaverage space, how many share its label ` +
+          `(${f3(ac.neighbours_sharing_label)}), divided by the same quantity under a label ` +
+          `shuffle. The chance correction matters &mdash; a solution with one dominant cluster ` +
+          `scores high on the raw version for free. This is the only row here that is about the ` +
+          `brain rather than about the fit.`);
+      const lp = ST.lopo;
+      if (lp)
+        add("Leave one patient out" + AT,
+          `worst fold ${f3(lp.real_min)} (null ${f3(lp.null_min_mean)} \u00b1 ${f3(lp.null_min_sd)}, z = ${(+lp.z).toFixed(2)})`,
+          `Each patient removed in turn, refit with the SAME method, compared to the full-cohort ` +
+          `solution by ARI, then scored against a null that removes the same NUMBER of electrodes ` +
+          `at random. Sitting inside that null is the pass: losing a patient costs no more than ` +
+          `losing that many random electrodes. Above it is better still. Only a z below about ` +
+          `&minus;2 means an individual patient is holding the solution together.`);
+      const ag = ST.agreement_with || {};
+      for (const [other, v] of Object.entries(ag))
+        add(`Agreement with ${esc(other)}` + AT, `ARI ${f3(v.ari)} \u00b7 NMI ${f3(v.nmi)}`,
+          `Adjusted Rand and normalised mutual information between this partition and ` +
+          `${esc(other)}'s, both cut at K=${KSEL} on the identical electrodes. Low values mean ` +
+          `the two are describing different structure &mdash; not that either is wrong.`);
+      if (ST.n_electrodes)
+        add("Cohort", `${ST.n_electrodes} electrodes \u00b7 ${ST.n_patients} patients`,
+          `Feature set <code>${esc(String(ST.feature_set))}</code>, cache ` +
+          `<code>${esc(String(ST.cohort_cache || "-"))}</code>. All three methods read a ` +
+          `bit-identical X_train in the identical electrode order, so any difference between ` +
+          `them is the method and nothing else.`);
+    }
+
+    // ── K panel markup ────────────────────────────────────────────────────
+    const num = (v, d) => (v === null || v === undefined || v === "") ? null
+                        : Number(v).toFixed(d);
+    // One sample axis for the whole panel, not one per K: the bars are there to be
+    // read against each other, and an axis that rescaled on every button press would
+    // make a cluster look bigger or smaller purely because K changed.
+    let kBarMax = 1;
+    for (const k of KP.ks) {
+      const sz = ((KP.byK[k] || {}).stats || {}).cluster_sizes || {};
+      for (const v of Object.values(sz)) if (v > kBarMax) kBarMax = v;
+    }
+    const kPanelHTML = !KP.ks.length ? "" : `<section class="card">
+  <h2 class="sec">The same run at other K</h2>
+  <p class="sechint">This run publishes <b>K=${KP.pub}</b>${
+      KP.ks.includes(KP.pub) ? "" : " (outside the range below)"}. Its sweep also holds the
+    cuts below, so the same electrodes can be grouped a different number of ways without
+    refitting anything. Everything here is read from what the notebooks already wrote -
+    nothing is recomputed when you press a button, and a cut that has not been produced
+    yet says so rather than showing a blank.
+    <b>The brains elsewhere in this report are not affected</b>: they are captures of
+    K=${KSEL}, and per-K renders do not exist.</p>
+  <div class="kpick">${KP.ks.map(k =>
+      `<button type="button" data-kpick="${k}"${k === KSEL ? ' class="on"' : ""}
+        ${k === KP.pub ? 'data-pub="1"' : ""}>${k}</button>`).join("")}</div>
+  ${KP.ks.map(k => {
+    const B = KP.byK[k], st = B.stats || {}, ids = figureOrder(RUN0.id, k, st.clusters || []);
+    const sizes = st.cluster_sizes || {}, pats = st.cluster_patients || {};
+    const tot = ids.reduce((a, c) => a + (sizes[String(c)] || 0), 0);
+    const mrow = [];
+    if (B.metrics) {
+      const q = (f, d) => num(B.metrics[f], d);
+      if (q("silhouette", 3)) mrow.push(["Silhouette", q("silhouette", 3)]);
+      if (q("calinski_harabasz", 1)) mrow.push(["Calinski–Harabasz", q("calinski_harabasz", 1)]);
+      if (q("davies_bouldin", 3)) mrow.push(["Davies–Bouldin", q("davies_bouldin", 3)]);
+    }
+    if (B.cnmf) {
+      const q = (f, d) => num(B.cnmf[f], d);
+      if (q("var_explained", 3)) mrow.push(["Variance explained", q("var_explained", 3)]);
+      if (q("frac_no_majority", 3))
+        mrow.push(["No majority component", (100 * Number(B.cnmf.frac_no_majority)).toFixed(1) + "%"]);
+      if (q("median_top_weight", 3)) mrow.push(["Median top weight", q("median_top_weight", 3)]);
+    }
+    if (B.stability) {
+      const q = (f, d) => num(B.stability[f], d);
+      if (q("mean_jaccard", 3)) mrow.push(["Stability, mean", q("mean_jaccard", 3)]);
+      if (q("min_jaccard", 3)) mrow.push(["Stability, worst cluster", q("min_jaccard", 3)]);
+    }
+    return `<div class="kblock" data-kblock="${k}"${k === KSEL ? "" : ' hidden'}>
+      <div class="runstats">
+        ${tile(k, "clusters")}
+        ${tile(tot, "labelled rows")}
+        ${tile(Math.max(...ids.map(c => sizes[String(c)] || 0)) || 0, "largest cluster")}
+        ${tile(Math.min(...ids.map(c => sizes[String(c)] || 0)) || 0, "smallest cluster")}
+        ${tile(Math.max(...ids.map(c => pats[String(c)] || 0)) || 0, "widest cluster (patients)")}
+      </div>
+      ${mrow.length ? `<table class="res"><tbody>${mrow.map(
+          ([n, v]) => `<tr><td>${esc(n)}</td><td class="rv">${esc(String(v))}</td></tr>`
+        ).join("")}</tbody></table>`
+        : `<p class="sechint">No metrics published for K=${k}. Partition quality comes
+           from <code>sweep_metrics.csv</code> (k-means and Ward) or
+           <code>sweep_by_k.csv</code> (convex NMF), stability from
+           <code>stability_by_k.csv</code>. Those are written by <b>240 / 241 / 242</b> and
+           by <code>sweep_stability.py --new-concat</code>. If they exist in the run
+           directory but nothing shows here, they have not been COMMITTED - this page
+           fetches them from the repository, so a file that is only on disk reads as
+           absent.</p>`}
+      ${(B.brains && B.brains.some(Boolean)) ? `
+        <div class="cardhead"><div></div><div>centroid</div>
+          ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div></div>
+        <div class="cards">${(B.ids || []).map((c, i) => {
+          const g = (B.brains || [])[i];
+          const comp = (st.cluster_patient_counts || {})[String(c)] || {};
+          const tot = Object.values(comp).reduce((x, y) => x + y, 0);
+          const items = Object.keys(comp).sort()
+            .map(q => ({ label: q, value: comp[q], color: pcol[q] || "#888" }));
+          const top = Object.entries(comp).sort((x, y) => y[1] - x[1])[0];
+          return `<div class="cardrow">
+            <div class="kchip" style="background:${clusterCSS(c)}">c${c}</div>
+            ${cellImg(B.chips[i], "centroid")}
+            ${(g || [null, null, null]).map((im, v) => cellImg(im, VIEWS[v][2])).join("")}
+            <div><div class="sbtrack">${stackbar(items, tot, 15, kBarMax)}</div>
+              <div class="sbcap">${tot} samples · ${(st.cluster_patients || {})[String(c)] || 0} patients${
+                top ? " · " + esc(top[0]) + " " + (100 * top[1] / (tot || 1)).toFixed(0) + "%" : ""}</div>
+            </div>
+          </div>`;
+        }).join("")}</div>
+        <div class="cardaxis"><div></div><div></div><div></div><div></div><div></div>
+          <div class="baxis"><span>0</span><span>${Math.round(kBarMax / 2)}</span><span>${kBarMax}</span></div>
+        </div>
+        <p class="sechint">Every cluster at K=${k}, on the glass brain at the frozen settings.
+          Each lateral view drops the far side's contacts &mdash; the surface is untouched, so a
+          dot behind the midline cannot be mistaken for one in front of it. Stills rather
+          than turns: a 60-frame rotation for each of these clusters would add about 8600
+          frames and a third of a gigabyte. The rotations further down stay at K=${KSEL}.</p>` : ""}
+      <div class="kchips" hidden>${B.nChips
+        ? B.chips.map((im, i) => !(im && im.data) ? "" :
+            `<figure><img ${srcAttr(im.data)} alt="cluster ${ids[i]}">
+            <figcaption><i style="background:${clusterCSS(ids[i])}"></i>c${ids[i]} ·
+            ${sizes[String(ids[i])] || 0}</figcaption></figure>`).join("")
+        : `<p class="sechint">No centroid chips for K=${k}.
+           <code>make_missing_centroids.py</code> draws them from
+           <code>cluster_labels_by_k.csv</code>, one set per K, into
+           <code>cluster_centroids/k_${k}/</code>. They must be committed to appear
+           here.</p>`}</div>
+    </div>`;
+  }).join("")}
+  ${note("k-panel")}
+</section>`;
+
+    // ── the same K, the other methods ─────────────────────────────────────
+    const f2 = v => (v === null || v === undefined) ? "\u2014" : (+v).toFixed(2);
+    const peerHTML = (RES.peers || []).length < 2 ? "" : `
+  <h3 class="sec" style="font-size:15px;margin-top:18px">The other methods at K=${KSEL}</h3>
+  <p class="sechint">Every method here was fitted on a <b>bit-identical X_train in the
+    identical electrode order</b>, so a difference between these rows is the method and
+    nothing else. <b>${esc(String((RES.peers.find(p => p.isSelf) || {}).method_label
+      || RUN.track))}</b> is the run this report is for and is highlighted; the others are
+    read from their own runs' <code>cluster_statistics.json</code> at this same cut.
+    Separation is each method's silhouette in ITS OWN home space against a null refitted
+    the same way &mdash; the z is comparable across methods, the raw silhouette is
+    not.</p>
+  <table class="res"><thead><tr><th>Method</th><th>Separation z</th>
+    <th>Anatomy &times; chance</th><th>LOPO z</th><th>Smallest cluster</th></tr></thead>
+    <tbody>${RES.peers.map(p => {
+      const sz = Array.isArray(p.cluster_sizes) && p.cluster_sizes.length
+                 ? Math.min(...p.cluster_sizes) : null;
+      const hi = p.isSelf ? ' style="background:#eef5fb;font-weight:600"' : "";
+      return `<tr${hi}><td>${esc(String(p.method_label || p.method))}${
+          p.isSelf ? " &larr; this run" : ""}</td>
+        <td class="rv">${p.separation ? f2(p.separation.z) : "\u2014"}</td>
+        <td class="rv">${p.anatomical_coherence
+            ? f2(p.anatomical_coherence.over_chance) + "\u00d7" : "\u2014"}</td>
+        <td class="rv">${p.lopo ? f2(p.lopo.z) : "\u2014"}</td>
+        <td class="rv"${sz !== null && sz < 10 ? ' style="color:#c1121f"' : ""}>${
+          sz === null ? "\u2014" : sz}</td></tr>`;
+    }).join("")}</tbody></table>`;
+
+    const resultsHTML = `<section class="card">
+  <h2 class="sec">Results for this run</h2>
+  <p class="sechint">${rows.length
+    ? "Read from this run's own files at save time, so nothing here can drift from the analysis "
+      + "that produced it. The right-hand column is what each number means and what counts as a "
+      + "good value for it."
+    : "This run publishes no metrics files yet, so there is nothing to report here."}</p>
+  ${rows.length ? `<table class="res"><thead><tr><th>Measure</th><th>Value</th>
+    <th>How to read it</th></tr></thead><tbody>${rows.join("")}</tbody></table>` : ""}
+  ${peerHTML}
+  ${note("results")}
+</section>`;
+
+    // The two feature sets carry a different second panel, so the caption has to
+    // follow the run rather than be fixed.
+    // On the feature set, not the whole track: "kmeans/hg" does not end in "_hg"
+    // and would take the rawds caption while carrying an hg raster.
+    const isHG = String(RUN.track || "").split("/").pop().endsWith("hg");
+    const rasterCap = isHG
+      ? "every electrode in this cluster, sorted by membership — strongest at top"
+      : "the same centroid, with a dot where the cluster's electrodes disagree";
+    const clusterHTML = blocks.map(({ d, st, shots, glassShots, centroid,
+                                 raster, spinFrames, glassSpin, climMax }, i) => {
+      const k = d.cluster;
+      const comp = (RUN.cluster_patient_counts || {})[String(k)] || {};
+      const tot = Object.values(comp).reduce((s, v) => s + v, 0);
+      const items = Object.keys(comp).sort().map(p => ({ label: p, value: comp[p], color: pcol[p] || "#888" }));
+      const topShare = items.length ? Math.max(...items.map(x => x.value)) / (tot || 1) : 0;
+      const np = RUN.cluster_patients[String(k)];
+      return `
+<section class="card clus">
+  <h2><span class="k" style="background:${clusterHue(i)}">Cluster ${k}</span>
+      <span>${RUN.cluster_sizes[String(k)]} samples · ${np} of ${COH.n_patients} patients</span></h2>
+  <p class="sechint">P(cluster ${k} | labelled electrode within ${frozen.radius} mm), gated at ${frozen.minN} labelled contacts.
+     Colour scale <b>0–${climMax.toFixed(2)}</b>, the same on every cluster in this report, so the
+     panels are directly comparable. Grey is <b>no estimate</b>, not zero.</p>
+  <div class="brains">
+    ${shots.map((s, j) => img(s, `probability — ${VIEWS[j][2]}`)).join("")}
+    ${scaleBar(climMax, `P(c${k})`)}
+  </div>
+  ${st && st.peak === 0 ? `<p class="warn">No vertex passes the gate — this cluster has ${RUN.cluster_sizes[String(k)]} labelled sample(s)
+     and none sits where ${frozen.minN}+ fall within ${frozen.radius} mm. Nothing to draw, and that is the result.</p>` : ""}
+  <div class="brains glass">
+    ${(glassShots || []).map((g, j) => img(g, `contacts — ${VIEWS[j][2]}`, "lite")).join("")}
+    <div></div>
+  </div>
+  <p class="sechint">The contacts themselves on a glass brain, captured from the viewer at
+    the same three angles as the probability maps above and with no ${frozen.radius}&nbsp;mm
+    smoothing &mdash; so this is where the electrodes are, and the maps above are what was
+    estimated from them.</p>
+  <div style="margin-top:16px">
+    <div class="${raster && raster.data ? "cluepair" : ""}" style="margin-top:0">
+      <div>${img(centroid, "cluster centroid — the mean response this cluster is defined by", "wide lite")}</div>
+      ${raster && raster.data ? `<div>${img(raster, rasterCap, "wide lite")}</div>` : ""}
+    </div>
+    <div style="margin-top:14px">
+      <h2 class="sec">Seen from every angle</h2>
+      <p class="sechint">Two full turns of the same cluster. <b>Left:</b> the probability
+        map from the stills above &mdash; a cluster that looks focal from one side and
+        diffuse from another is worth knowing about before it is called focal.
+        <b>Right:</b> the contacts themselves, captured from this viewer's glass brain, with no
+        ${frozen.radius}&nbsp;mm smoothing. The probability field is an estimate built from
+        those contacts, so the two answer different questions and disagreement between them
+        is informative rather than a fault.</p>
+      <div class="spinpair">
+        ${spin(spinFrames, `Cluster ${k} probability`)}
+        ${spin(glassSpin, `Cluster ${k} contacts`)}
+      </div>
+    </div>
+  </div>
+
+  <div class="fullrow">
+    <h2 class="sec">Which patients is it made of?</h2>
+    <p class="sechint">${np} of ${COH.n_patients} patients contribute. Largest single patient:
+      <b>${(100 * topShare).toFixed(0)}%</b> of the cluster —
+      ${topShare > 0.5 ? "this cluster is dominated by one patient and should not be read as general."
+                       : "no single patient dominates it."}</p>
+    <div class="donutwrap">
+      ${donut(items, 150, String(np), `of ${COH.n_patients} patients`)}
+      ${legend(items, tot)}
+    </div>
+    ${note("cluster-" + k)}
+  </div>
+</section>`;
+    }).join("");
+
+    const html = `<!doctype html><html lang="en"><head><meta charset="utf-8">
+<title>${esc(RUN.track_label)} · ${esc(RUN.run)} — run report</title>
+<style>${REPORT_CSS}</style></head>
+<body data-run="${esc(RUN.id)}" data-file="${esc(reportName)}"><div class="wrap">
+<header class="top">
+  <h1>Electrode sampling and cluster probability</h1>
+  <div class="sub">${esc(RUN.track_label)} · run <code>${esc(RUN.run)}</code> · ${esc(RUN.cohort)}</div>
+  <div class="chips">
+    <span class="chip"><b>K=${RUN.k}</b> clusters</span>
+    <span class="chip"><b>${COH.n_patients}</b> patients</span>
+    <span class="chip"><b>${RUN.n_electrodes}</b> rows (${esc(RUN.unit)})</span>
+    <span class="chip"><b>${RUN.n_contacts_with_cluster}</b> contacts localised</span>
+    <span class="chip">radius <b>${frozen.radius} mm</b></span>
+    <span class="chip">gate <b>n ≥ ${frozen.minN}</b></span>
+    <span class="chip">${esc(frozen.surf)} surface</span>
+    <span class="chip">colour max <b>${frozen.climMax.toFixed(2)}</b></span>
+    <span class="chip">gamma <b>${frozen.gamma.toFixed(2)}</b></span>
+  </div>
+  <div class="sub" style="margin-top:8px">Every map below is drawn on one fixed colour ceiling of
+    <b>${frozen.climMax.toFixed(2)}</b> (${esc(climSource)}), together with the gate and gamma above,
+    exactly as they stood when this report was saved. Clusters and components are therefore comparable
+    with each other; two reports saved at different ceilings are not comparable with each other.</div>
+</header>
+
+${kPanelHTML}
+
+<section class="card">
+  <h2 class="sec">Overall run statistics</h2>
+  <p class="sechint">What this run is, before any map is drawn. Every count is the run's own,
+    read from the bundle rather than restated from a caption.</p>
+  ${runStats}
+  <h2 class="sec" style="margin-top:6px">What is the run made of?</h2>
+  <p class="sechint">Left: how the ${nSamples} labelled samples split across clusters. Right: how they split
+    across patients. A cluster that mirrors the patient distribution generalises; one that does not is
+    carried by a few people. The patient colours here are the key for every composition bar below.</p>
+  <div class="two">
+    <div class="donutwrap">${donut(sizeItems, 150, String(K), "clusters")}${legend(sizeItems, nSamples)}</div>
+    <div class="donutwrap">${donut(patItems, 150, String(patItems.length), "patients")}${legend(patItems, nSamples)}</div>
+  </div>
+  ${summary}
+  ${note("overview")}
+</section>
+
+${cardsHTML}
+
+<section class="card">
+  <div class="three">
+    <div>
+      <h2 class="sec">The same cohort, glass</h2>
+      <p class="sechint">Every contact again, on the glass brain and coloured by cluster,
+        framed in the same box as every other turn in this report. It answers "which
+        cluster is where", on one brain rather than ${K} apart.</p>
+      ${spin(glassCovSpin, "all contacts, by cluster")}
+    </div>
+  </div>
+  ${note("coverage")}
+</section>
+
+<section class="card">
+  <h2 class="sec">Every cluster, a full turn each</h2>
+  <p class="sechint">One 360&deg; rotation per cluster, ${K} in total, captured from this
+    viewer's glass brain at the frozen settings. These are the raw contact positions of each
+    cluster with no ${frozen.radius}&nbsp;mm smoothing, so a cluster that looks compact as a
+    probability field can look scattered here. Each turn takes about 5&nbsp;s.</p>
+  <div class="spingrid">
+    ${blocks.map(({ d, glassSpin }, i) => `<div>
+      <div class="spintitle"><span class="k" style="background:${clusterHue(i)}">Cluster ${d.cluster}</span>
+        <span>${RUN.cluster_sizes[String(d.cluster)]} samples</span></div>
+      ${spin(glassSpin, `cluster ${d.cluster}`, "quad")}
+    </div>`).join("")}
+  </div>
+  ${note("turns")}
+</section>
+
+${resultsHTML}
+
+${clusterHTML}
+
+${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title)}</h2>
+  <p class="sechint"><code>${esc(ov[i].path)}</code></p>${img(im, ov[i].title, "wide lite")}${note('figure-' + i)}</section>`).join("")}
+
+<footer class="bot">
+  Generated from <code>cluster_visualizer.html</code> · counts from
+  <code>make_coverage_bundle.py</code> · run <code>${esc(RUN.path)}</code> ·
+  cohort <code>${esc(RUN.cohort_id)}</code> (${COH.n_patients} patients, ${COH.n_contacts} contacts) ·
+  radius ${frozen.radius} mm · gate n ≥ ${frozen.minN} · ${esc(frozen.surf)} surface ·
+  colour ceiling ${frozen.climMax.toFixed(2)} (${esc(climSource)}) · gamma ${frozen.gamma.toFixed(2)}.<br>
+  Patient colours match the MOBA patient view. Print this page (A4 landscape) to get a PDF.
+</footer>
+<div class="notebar">
+  <button id="saveNotes" type="button">Download copy with notes</button>
+  <span>Typing is kept in this browser only. Use this to write the notes into a file you can send.</span>
+</div>
+<script id="baked-notes" type="application/json">{}<\/script>
+</div>${MIRROR_JS}${SPIN_JS}${KPICK_JS}${NOTES_JS}</body></html>`;
+
+    const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    // the ceiling and gate are in the filename: two reports of the same run at
+    // different settings are different documents and must not overwrite each other
+    a.download = reportName;
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(a.href), 20000);
+  } catch (e) {
+    console.error(e);
+    alert("Report export failed: " + e.message);
+  } finally {
+    REPORT_LIGHT.on = false;         // the page goes back to its dark look
+    state.map = saved.map; $("mapSel").value = saved.map;
+    state.showElec = saved.elec; state.glass = saved.glass;
+    try { nv.scene.renderAzimuth = saved.az; nv.scene.renderElevation = saved.el; } catch (e) {}
+    // Put the ceiling back where the user left it rather than re-deriving it: they
+    // chose that number, and a report run should not silently move their slider.
+    state.climMax = frozen.climMax; state.autoScaled = frozen.autoScaled;
+    state.minN = frozen.minN; state.gamma = frozen.gamma;
+    $("clim").value = Math.round(frozen.climMax * 100);
+    $("climVal").textContent = frozen.climMax.toFixed(2);
+    render(); applyOpacity(); updateElectrodes();
+    btn.textContent = orig; btn.disabled = false;
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+function wireUI() {
+  $("runSel").onchange = e => selectRun(e.target.value);
+  $("mapSel").onchange = e => { state.map = e.target.value; autoScale(); render(); updateElectrodes(); };
+
+  const setSurfBtns = () => {
+    $("sPial").classList.toggle("on", state.surf === "pial" && !state.glass);
+    $("sInfl").classList.toggle("on", state.surf === "inflated" && !state.glass);
+    $("sGlass").classList.toggle("on", state.glass);
+  };
+  const surfBtn2 = (kind) => async () => {
+    if (state.surf === kind && !state.glass) return;
+    const wasGlass = state.glass;
+    state.glass = false; state.surf = kind; setSurfBtns();
+    if (wasGlass) { state.elecByCluster = false; state.showElec = $("showElec").checked; }
+    $("status").style.display = "grid"; $("status").textContent = "Loading surface…";
+    await loadSurface(kind);        // no uniform colour: render() repaints per vertex
+    $("status").style.display = "none";
+    render(); applyOpacity(); updateElectrodes();
+  };
+  $("sPial").onclick = surfBtn2("pial");
+  $("sInfl").onclick = surfBtn2("inflated");
+
+  // GLASS = pial + alpha 0.18 + white backdrop + one flat surface colour + contacts
+  // coloured by cluster. Not a third mesh: a way of DRAWING the pial one, so that a
+  // screenshot from this page can stand in for a rendered glass brain.
+  $("sGlass").onclick = async () => {
+    if (state.glass) return;
+    state.glass = true; setSurfBtns();
+    $("status").style.display = "grid"; $("status").textContent = "Loading surface…";
+    state.surf = "pial";
+    // always reload: the mesh has to come back with a UNIFORM rgba255 rather than the
+    // per-vertex buffer render() leaves behind, or the alpha is ignored
+    await loadSurface("pial", GLASS_RGBA);
+    $("status").style.display = "none";
+    state.showElec = true; state.elecByCluster = true;
+    $("showElec").checked = true;      // the mode forces it; say so in the UI
+    render(); applyOpacity(); updateElectrodes();
+  };
+
+  $("showElec").onchange = e => { state.showElec = e.target.checked; updateElectrodes(); };
+  $("showGate").onchange = e => { state.gate = e.target.checked; render(); };
+  $("minN").oninput  = e => { state.minN = +e.target.value; $("minNVal").textContent = state.minN; render(); };
+  $("minLoad").oninput = e => {
+    state.minLoad = +e.target.value / 100;
+    $("minLoadVal").textContent = state.minLoad.toFixed(2);
+    updateElectrodes();
+  };
+  $("radSel").onchange = async e => {
+    state.radius = e.target.value;
+    $("status").style.display = "grid"; $("status").textContent = `Recomputing at ${state.radius} mm…`;
+    await selectRun(RUN.id, true);      // reloads at the new radius, keeping K
+  };
+  $("clim").oninput  = e => { state.climMax = +e.target.value / 100; $("climVal").textContent = state.climMax.toFixed(2); render(); };
+  $("gamma").oninput = e => { state.gamma = +e.target.value / 100; $("gammaVal").textContent = state.gamma.toFixed(2); render(); };
+  $("pdfBtn").onclick = exportReport;
+
+  const toggleCtl = () => {
+    const c = $("controls"); c.classList.toggle("collapsed");
+    $("ctlChevron").textContent = c.classList.contains("collapsed") ? "▸" : "▾";
+  };
+  $("ctlHead").onclick = toggleCtl;
+  window.addEventListener("keydown", e => {
+    if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+    if (e.key === "h") document.querySelectorAll(".panel").forEach(p => p.classList.toggle("hidden"));
+    else if (e.key === "c") toggleCtl();
+  });
+}
+
+boot().catch(e => { $("status").textContent = "Failed to load: " + e.message; console.error(e); });
+</script>
+</body>
+</html>

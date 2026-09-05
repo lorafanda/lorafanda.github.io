@@ -407,7 +407,7 @@
     <h4>Runs &amp; canonical dataset</h4>
     <p>Each run is a <em>method × feature_set</em> combination. Four feature sets are available:
        <strong>raw</strong> (full 129×300 ERSP), <strong>blob</strong> (valley-segmented blob feature vectors),
-       <strong>−101</strong> (full-res painted ±1/0 segmentation maps), and <strong>hg</strong> (high-gamma
+       <strong>−101</strong> (full-res painted ±1/0 segmentation maps), and <strong>hg</strong> (high-frequency activity
        70–150 Hz time series). Two methods: <strong>K-Means</strong> and <strong>Hierarchical (Ward / average)</strong>.
        All four feature sets cluster on the <strong>same canonical sample set</strong> (high-activity-gated,
        built once by <code>lf_dataset.prepare_dataset</code>) so cross-feature and cross-method
@@ -428,7 +428,7 @@
       <li><strong>ERSP</strong> — trial-averaged ERSP heatmap, −6 to +6 dB</li>
       <li><strong>Blob</strong> — same ERSP at low alpha + thick blob overlays (vertical = freq spread, horizontal = time spread, dashed verticals at blob time edges, red ○ for positive, blue ▪ for negative)</li>
       <li><strong>−101</strong> — painted segmentation (red = positive blob, blue = negative blob, white = no blob)</li>
-      <li><strong>HG</strong> — high-gamma (70–150 Hz) band-mean time series sparkline</li>
+      <li><strong>HFA</strong> — high-frequency activity (70–150 Hz) band-mean time series sparkline</li>
     </ul>
     <p>Top-right badge on each card = per-sample silhouette (green ≥ 0, red &lt; 0).</p>
 
@@ -527,7 +527,7 @@
           <button class="sample-view-btn"        data-view="rawds" onclick="setSampleView('rawds')" title="Band-aware downsampled ERSP (15&times;30) &mdash; the representation 212 clusters on">DS</button>
           <button class="sample-view-btn"        data-view="blob"  onclick="setSampleView('blob')"  title="ERSP + blob-feature overlay">Blob</button>
           <button class="sample-view-btn"        data-view="m101"  onclick="setSampleView('m101')"  title="Painted &minus;1 / 0 / +1 segmentation">&minus;101</button>
-          <button class="sample-view-btn"        data-view="hg"    onclick="setSampleView('hg')"    title="High-gamma (70&ndash;150 Hz) time series">HG</button>
+          <button class="sample-view-btn"        data-view="hg"    onclick="setSampleView('hg')"    title="High-gamma (70&ndash;150 Hz) time series">HFA</button>
         </span>
         <span class="stat" id="samplesStat"></span>
       </div>

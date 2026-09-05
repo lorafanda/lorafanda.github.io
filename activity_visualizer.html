@@ -653,7 +653,7 @@ function addDownloadButtons() {
   for (const cond of BRAIN_CONDS) {
     const B = BR[cond]; if (!B || B.cell.querySelector(".dlBtn")) continue;
     const btn = document.createElement("button");
-    btn.className = "dlBtn"; btn.title = `Download high-gamma video (${cond})`;
+    btn.className = "dlBtn"; btn.title = `Download high-frequency activity video (${cond})`;
     btn.innerHTML = DL_ICON; btn.onclick = () => recordCondition(cond);
     B.cell.appendChild(btn);
   }

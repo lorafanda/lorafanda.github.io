@@ -57,6 +57,11 @@
     border-radius:6px; padding:5px 7px; margin:0 0 6px; color:#cdd3dc; }
   #readout .note { color:var(--muted); }
   #readout b { color:#e8e8ec; }
+  #centroidPanel { bottom:16px; left:14px; width:380px; font-size:11.5px; line-height:1.45; }
+  #centroidPanel #cpTitle { font-size:12px; font-weight:600; color:var(--fg); margin:0 0 6px; }
+  #centroidPanel canvas { display:block; width:352px; height:150px; border-radius:6px; background:#0f1014; }
+  #centroidPanel #cpNote { color:var(--muted); margin:6px 0 0; }
+  #centroidPanel label { display:block; color:var(--muted); margin:6px 0 0; cursor:pointer; }
 
   #cbar { position:fixed; right:16px; top:50%; transform:translateY(-50%); width:70px;
     text-align:center; z-index:5; }
@@ -147,6 +152,12 @@
     <div class="def" id="roDef">—</div>
     <div class="note" id="roNote">—</div>
   </div>
+  <div class="panel hidden" id="centroidPanel">
+    <div id="cpTitle">centroid</div>
+    <canvas id="cpCanvas" width="352" height="150"></canvas>
+    <div id="cpNote">—</div>
+    <label id="cpPaperRow"><input type="checkbox" id="cpPaper"> paper definition: argmax members, unweighted, minimum ignored (as FIG 1)</label>
+  </div>
 
   <div id="cbar">
     <div class="lab" id="cbHi">1.00</div>
@@ -201,6 +212,138 @@ const PAPER_RUNS = [
   "archetypes__concat_rawds__20260826_183725"
 ];
 let ORDER = { runs: {} };
+// ---- the live centroid (cluster_visualizer) ---------------------------------------
+const CENTROIDS = REPO + "02_FBM_Clustering/outputs/clustering/paper_web/centroids/";
+let CEN = null;                 // {meta, X: Int16Array, W: Uint16Array|null} for RUN0
+const _cenX = new Map();        // feature-set matrix, shared by every run on that set
+const _cenLim = new Map();      // FIG 1's colour limits per run and K
+async function loadCentroids(runId) {
+  CEN = null;
+  try {
+    const meta = await (await fetch(CENTROIDS + runId + ".json", { cache: "no-store" })).json();
+    let X = _cenX.get(meta.x_file);
+    if (!X) { X = new Int16Array(await (await fetch(CENTROIDS + meta.x_file)).arrayBuffer()); _cenX.set(meta.x_file, X); }
+    if (X.length !== meta.n * meta.ncond * meta.nband * meta.nt) throw new Error("matrix size does not match its json");
+    const W = meta.w_file ? new Uint16Array(await (await fetch(CENTROIDS + meta.w_file)).arrayBuffer()) : null;
+    CEN = { meta, X, W };
+  } catch (e) { console.warn("no live centroid for", runId, e); }
+  drawCentroid();
+}
+// weights per electrode for cluster j at K: the loading (graded) or membership (hard)
+function cenWeights(k, j, useMin, paper) {
+  const m = CEN.meta, n = m.n, w = new Float32Array(n), lab = m.labels[String(k)];
+  let nMembers = 0, nPass = 0;
+  if (paper || !CEN.W || m.w_offsets[String(k)] === undefined) {
+    if (!lab) return null;
+    for (let i = 0; i < n; i++) if (lab[i] === j) { w[i] = 1; nMembers++; nPass++; }
+    return { w, nMembers, nPass, weighted: false };
+  }
+  const off = m.w_offsets[String(k)], min = useMin ? state.minLoad : 0;
+  for (let i = 0; i < n; i++) {
+    const v = CEN.W[off + i * k + j] * m.w_scale;
+    if (lab && lab[i] === j) nMembers++;
+    if (v > 0 && v >= min) { w[i] = v; nPass++; }
+  }
+  return { w, nMembers, nPass, weighted: true };
+}
+function cenStats(k, j, useMin, paper) {
+  const m = CEN.meta, F = m.ncond * m.nband * m.nt, n = m.n, s = m.x_scale, X = CEN.X;
+  const r = cenWeights(k, j, useMin, paper); if (!r) return null;
+  const mean = new Float32Array(F), sd = new Float32Array(F);
+  let sw = 0; for (let i = 0; i < n; i++) sw += r.w[i];
+  if (sw <= 0) return Object.assign(r, { mean, sd, empty: true });
+  for (let i = 0; i < n; i++) { const wi = r.w[i]; if (!wi) continue; const b = i * F; for (let f = 0; f < F; f++) mean[f] += wi * X[b + f]; }
+  for (let f = 0; f < F; f++) mean[f] = mean[f] * s / sw;
+  for (let i = 0; i < n; i++) { const wi = r.w[i]; if (!wi) continue; const b = i * F; for (let f = 0; f < F; f++) { const d = X[b + f] * s - mean[f]; sd[f] += wi * d * d; } }
+  for (let f = 0; f < F; f++) sd[f] = Math.sqrt(sd[f] / sw);
+  return Object.assign(r, { mean, sd, empty: false });
+}
+// FIG 1's scale: colour limit = 99th percentile of |argmax mean| over all clusters at
+// this K; the line's y range spans every cluster's mean +/- SD. Cached per run and K.
+function cenLimits(k) {
+  const key = CEN.meta.id + ":" + k; if (_cenLim.has(key)) return _cenLim.get(key);
+  const vals = []; let lo = 0, hi = 0;
+  if (CEN.meta.labels[String(k)]) for (let j = 0; j < k; j++) {
+    const st = cenStats(k, j, false, true); if (!st || st.empty) continue;
+    for (let f = 0; f < st.mean.length; f++) { vals.push(Math.abs(st.mean[f])); lo = Math.min(lo, st.mean[f] - st.sd[f]); hi = Math.max(hi, st.mean[f] + st.sd[f]); }
+  }
+  vals.sort((a, b) => a - b);
+  const v = vals.length ? vals[Math.min(vals.length - 1, Math.floor(0.99 * vals.length))] : 1;
+  const lim = { vlim: v || 1, ylo: lo * 1.06, yhi: hi * 1.06 }; _cenLim.set(key, lim); return lim;
+}
+// matplotlib RdBu, red to blue; the figures use RdBu_r, so t is flipped
+const RDBU = [[103,0,31],[178,24,43],[214,96,77],[244,165,130],[253,219,199],[247,247,247],[209,229,240],[146,197,222],[67,147,195],[33,102,172],[5,48,97]];
+function rdbu_r(t) {
+  t = Math.max(0, Math.min(1, 1 - t));
+  const x = t * (RDBU.length - 1), i = Math.min(RDBU.length - 2, Math.floor(x)), f = x - i, a = RDBU[i], b = RDBU[i + 1];
+  return [a[0] + (b[0]-a[0])*f, a[1] + (b[1]-a[1])*f, a[2] + (b[2]-a[2])*f];
+}
+function drawCentroid() {
+  const P = $("centroidPanel"); if (!P) return;
+  const d = curDef();
+  if (!CEN || !d || d.cluster === undefined) { P.classList.add("hidden"); return; }
+  const m = CEN.meta, k = Number(KSEL), j = Number(d.cluster);
+  if (!m.ks.includes(k)) { P.classList.add("hidden"); return; }
+  const paper = !!$("cpPaper").checked;
+  const st = cenStats(k, j, true, paper);
+  if (!st) { P.classList.add("hidden"); return; }
+  P.classList.remove("hidden");
+  const pos = (RUN && RUN.clusters) ? RUN.clusters.map(Number).indexOf(j) + 1 : 0;
+  $("cpTitle").textContent = `#${pos || "?"} · Cluster ${j} · ` + (st.weighted
+    ? `n = ${st.nPass} of ${st.nMembers} members ≥ ${state.minLoad.toFixed(2)}`
+    : `n = ${st.nMembers} members`);
+  $("cpNote").textContent = paper
+    ? "paper definition: mean over argmax members, unweighted, ±1 SD — FIG 1's centroid"
+    : CEN.W ? "loading-weighted mean over every electrode with loading ≥ the minimum, ±1 SD (weighted)"
+            : "hard partition: mean over members; the minimum does not apply";
+  $("cpPaperRow").style.display = CEN.W ? "" : "none";
+  const cv = $("cpCanvas"), ctx = cv.getContext("2d"), Wd = cv.width, Hd = cv.height;
+  ctx.setLineDash([]); ctx.fillStyle = "#0f1014"; ctx.fillRect(0, 0, Wd, Hd);
+  const lim = cenLimits(k), nc = m.ncond, nb = m.nband, nt = m.nt, ncol = nc * nt, col = clusterCSS(j);
+  const padL = 6, padR = 6, padT = 6, padB = 16, w = Wd - padL - padR, h = Hd - padT - padB;
+  if (st.empty) { ctx.fillStyle = "#9aa3ad"; ctx.font = "11px sans-serif"; ctx.textAlign = "left"; ctx.fillText("no electrode passes the minimum", padL + 8, Hd / 2); return; }
+  if (nb > 1) {
+    const img = ctx.createImageData(ncol, nb);
+    for (let b = 0; b < nb; b++) for (let c = 0; c < nc; c++) for (let t = 0; t < nt; t++) {
+      const f = (c * nb + b) * nt + t, rgb = rdbu_r((st.mean[f] + lim.vlim) / (2 * lim.vlim));
+      const o = ((nb - 1 - b) * ncol + c * nt + t) * 4;           // origin lower, as imshow
+      img.data[o] = rgb[0]; img.data[o+1] = rgb[1]; img.data[o+2] = rgb[2]; img.data[o+3] = 255;
+    }
+    const off = document.createElement("canvas"); off.width = ncol; off.height = nb;
+    off.getContext("2d").putImageData(img, 0, 0);
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(off, padL, padT, w, h);
+    ctx.strokeStyle = "#111"; ctx.lineWidth = 1;                  // FIG 1's agreement outline
+    const cw = w / ncol, ch = h / nb;
+    for (let b = 0; b < nb; b++) for (let c = 0; c < nc; c++) for (let t = 0; t < nt; t++) {
+      const f = (c * nb + b) * nt + t;
+      if (st.sd[f] > 0 && Math.abs(st.mean[f]) > st.sd[f]) ctx.strokeRect(padL + (c * nt + t) * cw + 0.5, padT + (nb - 1 - b) * ch + 0.5, cw - 1, ch - 1);
+    }
+  } else {
+    const lo = lim.ylo, hi = lim.yhi, sy = v => padT + h * (1 - (v - lo) / (hi - lo));
+    ctx.strokeStyle = "#555"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(padL, sy(0)); ctx.lineTo(padL + w, sy(0)); ctx.stroke();
+    for (let c = 0; c < nc; c++) {
+      const x0 = padL + w * c / nc, xw = w / nc, xt = t => x0 + xw * t / (nt - 1);
+      ctx.fillStyle = col; ctx.globalAlpha = 0.22; ctx.beginPath();
+      for (let t = 0; t < nt; t++) { const f = c * nt + t; if (!t) ctx.moveTo(xt(t), sy(st.mean[f] + st.sd[f])); else ctx.lineTo(xt(t), sy(st.mean[f] + st.sd[f])); }
+      for (let t = nt - 1; t >= 0; t--) { const f = c * nt + t; ctx.lineTo(xt(t), sy(st.mean[f] - st.sd[f])); }
+      ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
+      ctx.strokeStyle = col; ctx.lineWidth = 1.4; ctx.beginPath();
+      for (let t = 0; t < nt; t++) { const f = c * nt + t; if (!t) ctx.moveTo(xt(t), sy(st.mean[f])); else ctx.lineTo(xt(t), sy(st.mean[f])); }
+      ctx.stroke();
+    }
+  }
+  for (let c = 0; c < nc; c++) {                                  // blocks and the GO cue at 50%
+    const x0 = padL + w * c / nc, xm = x0 + w / nc / 2;
+    if (c) { ctx.strokeStyle = "#e8e8ec"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x0, padT); ctx.lineTo(x0, padT + h); ctx.stroke(); }
+    ctx.strokeStyle = "#c9ced4"; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(xm, padT); ctx.lineTo(xm, padT + h); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = "#9aa3ad"; ctx.font = "10px sans-serif"; ctx.textAlign = "center"; ctx.fillText(m.conds[c], xm, Hd - 4);
+  }
+  ctx.textAlign = "right"; ctx.fillStyle = "#9aa3ad"; ctx.font = "9px sans-serif";
+  ctx.fillText(nb > 1 ? `±${lim.vlim.toFixed(1)} dB` : `${lim.ylo.toFixed(1)}..${lim.yhi.toFixed(1)} dB`, Wd - padR, padT + 9);
+}
+// NOTHING RUNS HERE AT LOAD: this block sits above the line that defines $, and a call
+// at module evaluation threw before boot() could start. The checkbox is wired in wireUI.
+
 function figureOrder(runId, k, ids) {
   const o = ORDER.runs[runId] && ORDER.runs[runId][String(k)];
   if (!o || !ids || !ids.length) return ids;
@@ -546,7 +689,7 @@ function drawKButtons() {
         // or a map that no longer exists - and the brain kept showing the old cut until
         // the dropdown was touched. That is the "buttons do not refresh" symptom.
         refreshMapList();
-        autoScale(); render(); updateElectrodes();
+        autoScale(); render(); updateElectrodes(); drawCentroid();
       } finally { box.querySelectorAll("button").forEach(x => x.disabled = false); }
     });
     box.appendChild(b);
@@ -722,6 +865,7 @@ async function selectRun(id, keepK) {
 
   autoScale(); render(); updateElectrodes();
   $("status").style.display = "none";
+  loadCentroids(r.id);                 // the panel follows; it draws when its data lands
 }
 
 // THE THING THAT WAS ACTUALLY WRONG. poolv2 and MOBA give the mesh a UNIFORM
@@ -2733,7 +2877,8 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
 // ─────────────────────────────────────────────────────────────────────────────
 function wireUI() {
   $("runSel").onchange = e => selectRun(e.target.value);
-  $("mapSel").onchange = e => { state.map = e.target.value; autoScale(); render(); updateElectrodes(); };
+  $("mapSel").onchange = e => { state.map = e.target.value; autoScale(); render(); updateElectrodes(); drawCentroid(); };
+  $("cpPaper").onchange = drawCentroid;   // the centroid panel's "paper definition" toggle
 
   const setSurfBtns = () => {
     $("sPial").classList.toggle("on", state.surf === "pial" && !state.glass);
@@ -2776,7 +2921,7 @@ function wireUI() {
   $("minLoad").oninput = e => {
     state.minLoad = +e.target.value / 100;
     $("minLoadVal").textContent = state.minLoad.toFixed(2);
-    updateElectrodes();
+    updateElectrodes(); drawCentroid();
   };
   $("radSel").onchange = async e => {
     state.radius = e.target.value;

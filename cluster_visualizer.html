@@ -107,15 +107,18 @@
   body[data-u2mode="overlay"] #prov { display:none !important; }
   #u2cens { position:fixed; inset:0; z-index:6; display:none; pointer-events:none; }
   #u2cens.on { display:block; }
-  #u2cens .u2cen { position:absolute; width:208px; padding:5px 6px 6px; cursor:pointer;
+  /* the width and the canvas size must match U2_CW / U2_CANH in UI2_JS */
+  #u2cens .u2cen { position:absolute; width:276px; padding:5px 6px 6px; cursor:grab;
                    background:var(--panel-bg); backdrop-filter:blur(8px); border-radius:9px;
                    border:1px solid rgba(255,255,255,.10); border-left:3px solid var(--c);
-                   box-shadow:0 6px 24px rgba(0,0,0,.45); pointer-events:auto; }
+                   box-shadow:0 6px 24px rgba(0,0,0,.45); pointer-events:auto;
+                   touch-action:none; user-select:none; }
   #u2cens .u2cen:hover { border-color:var(--accent); border-left-color:var(--c); }
+  #u2cens .u2cen.drag { cursor:grabbing; border-color:var(--accent); }
   #u2cens .u2cen .h { display:flex; align-items:center; gap:5px; font-size:10.5px; margin:0 0 4px; }
   #u2cens .u2cen .h .sw { width:9px; height:9px; border-radius:2px; background:var(--c); flex:none; }
   #u2cens .u2cen .h i { font-style:normal; font-size:9.5px; color:var(--muted); margin-left:auto; }
-  #u2cens .u2cen canvas { display:block; width:208px; height:94px; border-radius:5px;
+  #u2cens .u2cen canvas { display:block; width:276px; height:122px; border-radius:5px;
                           background:#ffffff; }
   #u2gh { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:0 0 9px;
           border-bottom:1px solid rgba(255,255,255,.08); }
@@ -3231,7 +3234,8 @@ function wireUI() {
 // view shows at that angle.
 // ─────────────────────────────────────────────────────────────────────────────
 const UI2 = { on:false, mode:"single", sel:new Set(), gridBy:"clusters",
-              busy:false, gridOpen:false, seq:0 };
+              busy:false, gridOpen:false, seq:0,
+              cenPos:new Map() };   // cluster -> where its overlay card was dragged
 const U2_METHODS = [["cnmf", "cNMF"], ["kmeans", "k-means"], ["hierarchical", "Ward"]];
 const U2_MLABEL  = { cnmf:"cNMF", kmeans:"k-means", hierarchical:"Ward" };
 const U2_FSETS   = [["concat_bands5z", "5 bands z"], ["concat_hg", "HFA"],
@@ -3336,7 +3340,13 @@ updateElectrodes = function () {
 // the strip and the matrix follow every re-cut and every run change, and this is the one
 // call both paths already make
 const u2RefreshMapList = refreshMapList;
-refreshMapList = function () { u2RefreshMapList(); if (UI2.on) u2Sync(); };
+refreshMapList = function () {
+  u2RefreshMapList();
+  // a new run or a new cut is a new set of clusters, so where their cards were dragged
+  // means nothing any more; the ring lays itself out again
+  UI2.cenPos.clear();
+  if (UI2.on) u2Sync();
+};
 
 // ── another run's labels at a K, for the cross-run grids ─────────────────────
 // The published cut is already in memory (CONTACTS.runs / CONTACTS.loadings); any other
@@ -3499,7 +3509,11 @@ function u2Preview(cid) {
 // window so the brain in the middle stays visible. Slots are filled edge by edge -
 // right, bottom, top, then the left below the control panel - taking roughly an equal
 // share of each, so three cards sit on three sides rather than stacking in a column.
-const U2_CW = 208, U2_CH = 94 + 21;          // card width, canvas + its one-line header
+// card width and canvas height; the CSS above repeats them and must agree. Wide enough
+// that the centroid's right-hand gutter - the colour bar or the y axis, the scale every
+// cluster of the run shares - is drawn at a readable size next to the heatmap.
+const U2_CW = 276, U2_CANH = 122, U2_CH = U2_CANH + 21;
+const u2Clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
 function u2Slots(n) {
   const W = window.innerWidth, H = window.innerHeight, m = 14, gap = 8;
   const ctl = $("controls").getBoundingClientRect();
@@ -3533,24 +3547,66 @@ function u2Cens() {
   if (!show) { box.innerHTML = ""; return; }
   const defs = u2Defs(), K = defs.length;
   const items = defs.map((d, i) => ({ d, i })).filter(x => UI2.sel.has(x.d.cluster));
-  const slots = u2Slots(items.length);
-  box.innerHTML = items.map((x, q) => {
-    const s = slots[q] || { x: 14, y: 14 };
+  // a card the user has dragged keeps where it was put; the ring is laid out around the
+  // ones that have not been moved, so dragging one does not shuffle the rest
+  const slots = u2Slots(items.filter(x => !UI2.cenPos.has(x.d.cluster)).length);
+  let q = 0;
+  box.innerHTML = items.map(x => {
+    const put = UI2.cenPos.get(x.d.cluster);
+    const s = put ? { x: u2Clamp(put.x, 0, window.innerWidth - U2_CW - 4),
+                      y: u2Clamp(put.y, 0, window.innerHeight - U2_CH - 4) }
+                  : (slots[q++] || { x: 14, y: 14 });
     const dom = u2DomOf(x.d.cluster);
     return `<div class="u2cen" style="left:${s.x}px;top:${s.y}px;--c:${u2CSS(u2Hue(x.i, K))}" `
-         + `title="cluster ${x.d.cluster} · n=${u2Size(x.d.cluster)}${u2esc(u2DomText(dom))}">`
+         + `title="cluster ${x.d.cluster} · n=${u2Size(x.d.cluster)}${u2esc(u2DomText(dom))}`
+         + ` — drag to move, click to drop it from the overlay">`
          + `<div class="h"><span class="sw"></span><b>#${x.i + 1}</b>${u2DomMark(dom)}`
          + `<i>${u2Size(x.d.cluster)}</i></div>`
-         + `<canvas width="${U2_CW}" height="94"></canvas></div>`;
+         + `<canvas width="${U2_CW}" height="${U2_CANH}"></canvas></div>`;
   }).join("");
-  box.querySelectorAll(".u2cen").forEach((el, q) => {
+  box.querySelectorAll(".u2cen").forEach((el, i) => {
     const cv = el.querySelector("canvas");
     try {
       renderCentroid(cv.getContext("2d"), cv.width, cv.height, Number(KSEL),
-                     Number(items[q].d.cluster), CEN_REP, state.minLoad, false, cv.width / 380);
+                     Number(items[i].d.cluster), CEN_REP, state.minLoad, false, cv.width / 380);
     } catch (e) { console.warn("overlay centroid:", e); }
-    el.onclick = () => u2ClickChip(items[q].d.id, Number(items[q].d.cluster));
+    u2Drag(el, items[i].d);
   });
+}
+
+// Drag a card anywhere, click it to drop the cluster from the overlay: one pointer
+// gesture, told apart by whether it moved. The pointer is captured, so a fast drag does
+// not escape the card, and the brain underneath never sees the gesture.
+function u2Drag(el, d) {
+  const cid = Number(d.cluster);
+  let sx = 0, sy = 0, ox = 0, oy = 0, moved = false, live = false;
+  el.addEventListener("pointerdown", e => {
+    if (e.button !== 0) return;
+    live = true; moved = false;
+    sx = e.clientX; sy = e.clientY;
+    ox = el.offsetLeft; oy = el.offsetTop;
+    try { el.setPointerCapture(e.pointerId); } catch (err) {}
+    e.preventDefault();
+  });
+  el.addEventListener("pointermove", e => {
+    if (!live) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+    if (!moved) { moved = true; el.classList.add("drag"); }
+    const x = u2Clamp(ox + dx, 0, window.innerWidth - el.offsetWidth);
+    const y = u2Clamp(oy + dy, 0, window.innerHeight - el.offsetHeight);
+    el.style.left = x + "px"; el.style.top = y + "px";
+    UI2.cenPos.set(cid, { x, y });
+  });
+  const end = e => {
+    if (!live) return;
+    live = false;
+    el.classList.remove("drag");
+    try { el.releasePointerCapture(e.pointerId); } catch (err) {}
+    if (!moved) u2ClickChip(d.id, cid);
+  };
+  el.addEventListener("pointerup", end);
+  el.addEventListener("pointercancel", end);
 }
 
 // every path that redraws the single centroid - the map select, the minimum-loading

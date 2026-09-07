@@ -32,6 +32,75 @@
   select:focus { outline:1px solid var(--accent); }
   optgroup { color:var(--muted); font-style:normal; font-size:11px; }
   option { color:var(--fg); }
+
+  /* ── compare UI — make_cluster_visualizer.py ──────────────────────────── */
+  #controls { width:304px; }
+  /* the panel is taller than the one it replaces; on a short window it scrolls rather
+     than clipping the report button. Collapsed it keeps overflow:hidden, so the
+     max-height animation still works. */
+  #controls:not(.collapsed) #ctlBody { overflow-y:auto; }
+  #cbar { display:none !important; }      /* glass paints no vertex map to put a scale on */
+  #ui2 .u2g { margin:12px 0 0; }
+  #ui2 .u2t { font-size:11px; text-transform:uppercase; letter-spacing:.6px;
+              color:var(--muted); margin-bottom:5px; }
+  #ui2 .u2t .u2sub { text-transform:none; letter-spacing:0; opacity:.75; }
+  #ui2 .u2mx { display:grid; grid-template-columns:68px repeat(3, 1fr); gap:3px; }
+  #ui2 .u2hd { font-size:10px; color:var(--muted); text-align:center; padding-bottom:2px; }
+  #ui2 .u2rl { font-size:10.5px; color:var(--muted); display:flex; align-items:center;
+               white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #ui2 .u2rl.on { color:var(--fg); }
+  #ui2 .u2c { height:22px; border-radius:5px; background:#15161b; cursor:pointer; padding:0;
+              border:1px solid rgba(255,255,255,.14); color:var(--muted);
+              font:inherit; font-size:11px; line-height:1; }
+  #ui2 .u2c:hover { border-color:var(--accent); color:var(--fg); }
+  #ui2 .u2c.on { background:var(--accent); border-color:var(--accent); color:#001; font-weight:700; }
+  #ui2 .u2c.off { cursor:default; opacity:.28; border-style:dashed; }
+  #ui2 .u2chips { display:grid; grid-template-columns:repeat(4, 1fr); gap:4px; }
+  #ui2 .u2ch { display:flex; align-items:center; justify-content:center; gap:4px; height:24px;
+               border-radius:6px; background:#15161b; cursor:pointer; padding:0 4px;
+               border:1px solid rgba(255,255,255,.14); color:var(--fg); font:inherit; font-size:11px; }
+  #ui2 .u2ch .sw { width:9px; height:9px; border-radius:2px; background:var(--c); flex:none; }
+  #ui2 .u2ch i { font-style:normal; font-size:9.5px; color:var(--muted); }
+  #ui2 .u2ch:hover { border-color:var(--accent); }
+  #ui2 .u2ch.on { background:#1d2029; border-color:var(--c); box-shadow:inset 0 0 0 1px var(--c); }
+  #ui2 .u2ch.on i { color:#cdd3dc; }
+  #ui2 .segs button { padding:4px 0; font-size:11.5px; }
+  #ui2 #u2gridby button { font-size:10.5px; }
+  #ui2 .cohort { margin-top:5px; }
+  #ui2 #kRow .ksub { display:none; }      /* the group already carries the heading */
+  #ui2.u2busy { opacity:.55; pointer-events:none; }
+
+  /* The grid of small multiples, over the canvas. The controls stay on top of it and
+     usable - changing run, K or cluster re-captures it - so the panels start clear of
+     them; the centroid and the provenance box are about the single selected cluster and
+     step aside while the grid is up. */
+  #u2grid { position:fixed; inset:0; z-index:4; background:rgba(0,0,0,.94);
+            display:none; grid-template-rows:auto 1fr; padding:12px 14px 14px 332px; }
+  #u2grid.on { display:grid; }
+  body.u2gridon #centroidPanel, body.u2gridon #prov { display:none !important; }
+  #u2gh { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:0 0 9px;
+          border-bottom:1px solid rgba(255,255,255,.08); }
+  #u2gh .t { font-size:13px; font-weight:600; }
+  #u2gh .s { font-size:11px; color:var(--muted); }
+  #u2gh .sp { margin-left:auto; }
+  #u2gh button { background:#15161b; color:var(--muted); font:inherit; font-size:11px;
+                 border:1px solid rgba(255,255,255,.14); border-radius:6px;
+                 padding:4px 9px; cursor:pointer; }
+  #u2gh button:hover { color:var(--fg); border-color:var(--accent); }
+  #u2gg { overflow:auto; display:grid; gap:10px; padding-top:10px; align-content:start;
+          grid-template-columns:repeat(auto-fill, minmax(212px, 1fr)); }
+  #u2gg figure { margin:0; cursor:pointer; border-radius:9px; overflow:hidden; background:#000;
+                 border:1px solid rgba(255,255,255,.10); }
+  #u2gg figure:hover { border-color:var(--accent); }
+  #u2gg figure.on { border-color:var(--c); box-shadow:inset 0 0 0 1px var(--c); }
+  #u2gg img { display:block; width:100%; height:auto; }
+  #u2gg .cap { display:flex; align-items:center; gap:6px; padding:5px 7px 6px; font-size:11px;
+               border-top:1px solid rgba(255,255,255,.07); }
+  #u2gg .cap .sw { width:9px; height:9px; border-radius:2px; background:var(--c); flex:none; }
+  #u2gg .cap .lab { color:var(--muted); font-size:10px; margin-left:auto;
+                    font-variant-numeric:tabular-nums; }
+  #u2gg .miss { display:grid; place-items:center; height:118px; color:var(--muted);
+                font-size:11px; text-align:center; padding:8px; }
   .row { display:flex; align-items:center; gap:8px; margin-top:6px; }
   .row label { color:var(--muted); min-width:56px; flex:none; }
   .row input[type=range] { flex:1; min-width:0; accent-color:var(--accent); }
@@ -88,6 +157,7 @@
   <div class="panel" id="controls">
     <h2 id="ctlHead">Cluster Visualizer<span id="ctlChevron">▾</span></h2>
     <div id="ctlBody">
+      <div id="ui2"></div>
 
       <div class="grp">
         <label class="title" for="runSel">Run</label>
@@ -171,7 +241,7 @@
   </div>
 
   <div id="prov">—</div>
-  <div id="hint">drag rotate · scroll zoom · <b>h</b> panels · <b>c</b> controls</div>
+  <div id="hint">drag rotate · scroll zoom · <b>←&nbsp;→</b> cluster · <b>↑&nbsp;↓</b> feature set · <b>1 2 3</b> algorithm · <b>g</b> grid · <b>o</b> overlay · <b>h</b> panels · <b>c</b> controls</div>
 
 <script type="module">
 // 0.69.0, matching poolv2. The mesh shader changed between 0.45 and 0.69 and this
@@ -199,6 +269,8 @@ const CLUST  = REPO + "02_FBM_Clustering/outputs/clustering/";
 // cluster_visualizer.html: the paper's runs only, standard first, and every
 // cluster list passed through figureOrder() - see make_cluster_visualizer.py.
 const PAPER_K = 8;
+// the viewer's brain captures in the saved report; REPORT_3D in make_cluster_visualizer.py
+const REPORT_3D = false;
 const PAPER_RUNS = [
   "cnmf__concat_bands5z__20260827_095637",
   "cnmf__concat_hg__20260826_135016",
@@ -870,6 +942,7 @@ async function boot() {
 
   wireUI();
   await selectRun(pick.id);
+  await ui2Init();
   $("status").style.display = "none";
 }
 
@@ -2116,10 +2189,14 @@ async function exportReport() {
       // every cluster is drawn on the SAME frozen ceiling, so the panels compare
       state.map = d.id; $("mapSel").value = d.id;
       state.climMax = frozen.climMax; state.minN = frozen.minN; state.gamma = frozen.gamma;
-      const st = render(); await sleep(80);
+      const st = render();          // the stats are read either way
       const shots = [];
-      for (const [az, el] of VIEWS) shots.push(await captureView(az, el, CAPW, true));
-      const spinFrames = await captureSpin(0, SPIN_N, SPIN_W, true);
+      let spinFrames = [];
+      if (REPORT_3D) {
+        await sleep(80);
+        for (const [az, el] of VIEWS) shots.push(await captureView(az, el, CAPW, true));
+        spinFrames = await captureSpin(0, SPIN_N, SPIN_W, true);
+      }
       const fig = (RUN.figures.per_cluster || {})[String(d.cluster)] || {};
       // CENTROIDS MUST FOLLOW K. fig.centroid points at cluster_centroids/cluster_NN.png,
       // which is the PUBLISHED cut. Exporting at any other K used it anyway, so a K=11
@@ -2157,6 +2234,7 @@ async function exportReport() {
     // what now makes each still show its own cluster, rather than all of them.
     let glassCovSpin = null;
     const KBRAINS = {};   // k -> [ [3 glass stills] per cluster ]
+    if (REPORT_3D) {
     const glassWas = { glass: state.glass, byCluster: state.elecByCluster,
                        elec: state.showElec };
     try {
@@ -2262,6 +2340,7 @@ async function exportReport() {
       // is the one way this pass could damage what the user sees afterwards.
       await loadSurface(frozen.surf, glassWas.glass ? GLASS_RGBA : undefined);
       applyOpacity();
+    }
     }
 
     // ── whole-run figures
@@ -2827,7 +2906,7 @@ async function exportReport() {
 <section class="card clus">
   <h2><span class="k" style="background:${clusterHue(i)}">Cluster ${k}</span>
       <span>${RUN.cluster_sizes[String(k)]} samples · ${np} of ${COH.n_patients} patients</span></h2>
-  <p class="sechint">P(cluster ${k} | labelled electrode within ${frozen.radius} mm), gated at ${frozen.minN} labelled contacts.
+  ${!REPORT_3D ? "" : `  <p class="sechint">P(cluster ${k} | labelled electrode within ${frozen.radius} mm), gated at ${frozen.minN} labelled contacts.
      Colour scale <b>0–${climMax.toFixed(2)}</b>, the same on every cluster in this report, so the
      panels are directly comparable. Grey is <b>no estimate</b>, not zero.</p>
   <div class="brains">
@@ -2843,7 +2922,7 @@ async function exportReport() {
   <p class="sechint">The contacts themselves on a glass brain, captured from the viewer at
     the same three angles as the probability maps above and with no ${frozen.radius}&nbsp;mm
     smoothing &mdash; so this is where the electrodes are, and the maps above are what was
-    estimated from them.</p>
+    estimated from them.</p>`}
   <div style="margin-top:16px">
     <div class="${raster && raster.data ? "cluepair" : ""}" style="margin-top:0">
       <div>${img(centroid, centroid.members !== undefined
@@ -2855,7 +2934,7 @@ async function exportReport() {
           : ""}</div>
       ${raster && raster.data ? `<div>${img(raster, rasterCap, "wide lite")}</div>` : ""}
     </div>
-    <div style="margin-top:14px">
+    ${!REPORT_3D ? "" : `<div style="margin-top:14px">
       <h2 class="sec">Seen from every angle</h2>
       <p class="sechint">Two full turns of the same cluster. <b>Left:</b> the probability
         map from the stills above &mdash; a cluster that looks focal from one side and
@@ -2868,7 +2947,8 @@ async function exportReport() {
         ${spin(spinFrames, `Cluster ${k} probability`)}
         ${spin(glassSpin, `Cluster ${k} contacts`)}
       </div>
-    </div>
+    </div>`}
+
   </div>
 
   <div class="fullrow">
@@ -2932,7 +3012,7 @@ ${kPanelHTML}
 
 ${cardsHTML}
 
-<section class="card">
+${!REPORT_3D ? "" : `<section class="card">
   <div class="three">
     <div>
       <h2 class="sec">The same cohort, glass</h2>
@@ -2959,7 +3039,7 @@ ${cardsHTML}
     </div>`).join("")}
   </div>
   ${note("turns")}
-</section>
+</section>`}
 
 ${resultsHTML}
 
@@ -3079,6 +3159,540 @@ function wireUI() {
     if (e.key === "h") document.querySelectorAll(".panel").forEach(p => p.classList.toggle("hidden"));
     else if (e.key === "c") toggleCtl();
   });
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPARE UI — cluster_visualizer.html only; built by make_cluster_visualizer.py.
+//
+// WHAT CHANGED AND WHY. The Run dropdown held twelve runs and the Visualization
+// dropdown held K clusters, so "what do the other two algorithms do with this
+// cluster" meant opening two menus and remembering what the last one looked like.
+// Both are permanent now: the runs as a feature-set × algorithm MATRIX (along a row
+// to change algorithm, down a column to change feature set) and the clusters as a
+// STRIP of chips in figure order. Two views do the comparing — OVERLAY draws several
+// clusters on one brain, GRID draws small multiples from this same canvas at one
+// camera angle, across the clusters of a run or across the algorithms / feature sets
+// at one position.
+//
+// POSITION, NOT CLUSTER ID, travels between runs. "#3" is the third block in FIG 1,
+// and figureOrder() gives every run the order its clusters were matched into (FIG 2's
+// row order). Switching algorithm keeps the position, so what appears is that
+// cluster's counterpart rather than cluster id 3 of an unrelated numbering.
+//
+// GLASS ONLY. render() returns before painting a vertex when state.glass is set, so
+// the surface buttons, the neighbourhood radius, the colour ceiling, the contrast and
+// the min-n vertex gate changed nothing that was on screen. They stay in the DOM —
+// render(), autoScale() and the report all write into them — and are hidden.
+//
+// Nothing here recomputes a clustering. Every dot is the page's own contact geometry
+// and every panel is a capture of this canvas, so a grid cell is exactly what the big
+// view shows at that angle.
+// ─────────────────────────────────────────────────────────────────────────────
+const UI2 = { on:false, mode:"single", sel:new Set(), gridBy:"clusters",
+              busy:false, gridOpen:false, seq:0 };
+const U2_METHODS = [["cnmf", "cNMF"], ["kmeans", "k-means"], ["hierarchical", "Ward"]];
+const U2_MLABEL  = { cnmf:"cNMF", kmeans:"k-means", hierarchical:"Ward" };
+const U2_FSETS   = [["concat_bands5z", "5 bands z"], ["concat_hg", "HFA"],
+                    ["concat_rawds", "15 bands"], ["concat_bands5", "5 bands"]];
+const u2esc = t => String(t == null ? "" : t)
+  .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+const u2Split = id => { const p = String(id).split("__"); return { method:p[0], fset:p[1] }; };
+const u2Run   = (m, f) => ((M && M.runs) || []).find(r => r.id.indexOf(m + "__" + f + "__") === 0);
+const u2Defs  = () => DEFS.filter(d => d.cluster !== undefined && !d.hidden);
+const u2Pos   = () => { const i = u2Defs().findIndex(d => d.id === state.map); return i < 0 ? 0 : i; };
+const u2Size  = c => (RUN && RUN.cluster_sizes && RUN.cluster_sizes[String(c)]) || 0;
+
+// clusterRGB() indexed by POSITION rather than by cluster id, so #3 is the same colour
+// in every run of the matrix — which is what makes a cross-run grid readable. For the
+// current run the two agree exactly: DEFS iterates RUN.clusters, already in figure order.
+function u2Hue(pos, K) {
+  const h = ((360 * pos) / (K || 1)) / 360, s2 = 0.62, l = 0.52;
+  const k = n => (n + h * 12) % 12, a = s2 * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
+}
+const u2CSS = c => `rgb(${c[0]},${c[1]},${c[2]})`;
+
+// ── the contact geometry, with the cluster set as an argument ────────────────
+// updateElectrodes() draws ONE cluster of the current run. The overlay and every grid
+// cell need the same dots for an arbitrary (labels, loadings, set of clusters), so the
+// loop lives here once: the same icosphere, the same loading gate, the same size and
+// grey ramp. A contact in more than one SELECTED cluster is drawn white and larger —
+// the overlap is what the overlay exists to show.
+function u2Mesh(lab, load, want, colourOf, minLoad, cohortId) {
+  if (!CONTACTS || !lab || !want || !want.size) return null;
+  const pts = [], tris = [], cols = [];
+  let vi = 0;
+  for (const i of (CONTACTS.cohorts[cohortId] || [])) {
+    const L = lab[i];
+    if (!Array.isArray(L) || !L.length) continue;
+    if (HEMI_ONLY && CONTACTS.hemi[i] !== HEMI_ONLY) continue;
+    const hit = L.filter(c => want.has(c));
+    if (!hit.length) continue;
+    let colr = colourOf(hit) || [255, 232, 64];
+    let w = 1, r = 1.73;
+    if (load) {
+      const lv = load[i];
+      if (lv === null || lv === undefined) continue;
+      if (lv < minLoad) continue;
+      w = Math.max(0, Math.min(1, (lv - 0.14) / (0.85 - 0.14)));
+      r = 1.05 + 2.18 * w;
+      if (lv < 0.5) {
+        const g = Math.max(0, Math.min(1, (lv - 0.14) / (0.5 - 0.14))), G = 148;
+        colr = [Math.round(G + (colr[0] - G) * g), Math.round(G + (colr[1] - G) * g),
+                Math.round(G + (colr[2] - G) * g)];
+      }
+    }
+    if (hit.length > 1) { colr = [255, 255, 255]; r = Math.max(r, 2.5); }
+    const [x, y, z] = CONTACTS.xyz[i];
+    for (const o of _OCT) pts.push(x + o[0] * r, y + o[1] * r, z + o[2] * r);
+    for (const f of _OCTF) tris.push(vi + f[0], vi + f[1], vi + f[2]);
+    const al = load ? Math.round(90 + 165 * w) : 255;
+    for (let j = 0; j < _OCT.length; j++) cols.push(colr[0], colr[1], colr[2], al);
+    vi += _OCT.length;
+  }
+  if (!vi) return null;
+  try {
+    return new NVMesh(new Float32Array(pts), new Uint32Array(tris), "electrodes",
+                      new Uint8Array(cols), 1.0, true, nv.gl);
+  } catch (e) { console.error("contact overlay failed:", e); return null; }
+}
+
+// OVERLAY. updateElectrodes() is called from a dozen places, so the mode is read here
+// rather than at every call site; single mode falls straight through to the page's own.
+const u2SingleElectrodes = updateElectrodes;
+updateElectrodes = function () {
+  if (!UI2.on || UI2.mode !== "overlay" || !UI2.sel.size) return u2SingleElectrodes();
+  if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} elecMesh = null; }
+  const defs = u2Defs(), K = defs.length;
+  const pos = new Map(defs.map((d, i) => [d.cluster, i]));
+  const m = u2Mesh(labelsForK(), loadingsForK(), UI2.sel,
+                   hit => u2Hue(pos.has(hit[0]) ? pos.get(hit[0]) : 0, K),
+                   state.minLoad, RUN.cohort_id);
+  if (m) { elecMesh = m; nv.addMesh(m); }
+  nv.drawScene();
+};
+
+// the strip and the matrix follow every re-cut and every run change, and this is the one
+// call both paths already make
+const u2RefreshMapList = refreshMapList;
+refreshMapList = function () { u2RefreshMapList(); if (UI2.on) u2Sync(); };
+
+// ── another run's labels at a K, for the cross-run grids ─────────────────────
+// The published cut is already in memory (CONTACTS.runs / CONTACTS.loadings); any other
+// K comes from that run's own sweep, fetched once and kept. No coverage, no neighbour
+// index: a glass panel is contacts only.
+const u2RD = new Map();
+async function u2Data(runId, k) {
+  if (RUN0 && runId === RUN0.id && Number(k) === Number(KSEL))
+    return { lab: labelsForK(), load: loadingsForK(), clusters: (RUN.clusters || []).slice(),
+             sizes: RUN.cluster_sizes || {}, cohort: RUN.cohort_id };
+  const key = runId + "|" + k;
+  if (u2RD.has(key)) return u2RD.get(key);
+  const r = ((M && M.runs) || []).find(x => x.id === runId);
+  let out = null;
+  try {
+    if (r && Number(r.k) === Number(k)) {
+      out = { lab: CONTACTS.runs[runId] || null,
+              load: (CONTACTS.loadings || {})[runId] || null,
+              clusters: figureOrder(runId, k, (r.clusters || []).slice()),
+              sizes: r.cluster_sizes || {}, cohort: r.cohort_id };
+    } else if (r && r.sweep) {
+      const base = `${BUNDLE}${r.dir}/`;
+      const [labels, stats, loadings] = await Promise.all([
+        fetch(base + r.sweep.labels).then(x => x.json()),
+        fetch(base + r.sweep.stats).then(x => x.json()),
+        r.sweep.loadings ? fetch(base + r.sweep.loadings).then(x => x.json()).catch(() => null)
+                         : Promise.resolve(null),
+      ]);
+      const st = stats[String(k)] || {};
+      out = { lab: labels[String(k)] || null,
+              load: (loadings || {})[String(k)] || null,
+              clusters: figureOrder(runId, k, (st.clusters || []).slice()),
+              sizes: st.cluster_sizes || {}, cohort: r.cohort_id };
+    }
+  } catch (e) { console.warn("compare grid: cannot read", runId, "at K =", k, e); out = null; }
+  u2RD.set(key, out);
+  return out;
+}
+
+// ── the panel ────────────────────────────────────────────────────────────────
+function u2Build() {
+  $("ui2").innerHTML = `
+    <div class="u2g">
+      <div class="u2t">Run <span class="u2sub">feature set × algorithm</span></div>
+      <div id="u2runs" class="u2mx"></div>
+      <div class="cohort" id="u2runnote">—</div>
+    </div>
+    <div class="u2g" id="u2kwrap"><div class="u2t">Clusters (K)</div></div>
+    <div class="u2g">
+      <div class="u2t">Cluster <span class="u2sub" id="u2selnote"></span></div>
+      <div id="u2chips" class="u2chips"></div>
+    </div>
+    <div class="u2g">
+      <div class="u2t">View</div>
+      <div class="segs" id="u2mode">
+        <button type="button" data-m="single" class="on">one</button>
+        <button type="button" data-m="overlay">overlay</button>
+        <button type="button" data-m="grid">grid</button>
+      </div>
+      <div class="segs" id="u2gridby" style="display:none;margin-top:4px">
+        <button type="button" data-g="clusters" class="on">clusters</button>
+        <button type="button" data-g="algorithms">algorithms</button>
+        <button type="button" data-g="fsets">feature sets</button>
+      </div>
+      <div class="cohort" id="u2modenote">—</div>
+    </div>
+    <div class="u2g" id="u2loadwrap"><div class="u2t">Minimum loading</div></div>
+    <div class="u2g" id="u2btns"></div>`;
+  // MOVED, not rebuilt: these carry the handlers wireUI() bound to them, and the K
+  // buttons carry their own display toggling.
+  $("u2kwrap").appendChild($("kRow"));
+  $("u2loadwrap").appendChild($("loadRow"));
+  $("u2loadwrap").appendChild($("loadNote"));
+  $("u2btns").appendChild($("pdfBtn"));
+  // the surface / radius / ceiling / contrast / vertex-gate controls: hidden, kept
+  document.querySelectorAll("#ctlBody .grp").forEach(g => { g.style.display = "none"; });
+  const g = document.createElement("div");
+  g.id = "u2grid";
+  g.innerHTML = `<div id="u2gh"></div><div id="u2gg"></div>`;
+  document.body.appendChild(g);
+}
+
+function u2Runs() {
+  const box = $("u2runs");
+  if (!box || !RUN0) return;
+  const cur = u2Split(RUN0.id);
+  let h = `<div class="u2hd"></div>`
+        + U2_METHODS.map(m => `<div class="u2hd">${u2esc(m[1])}</div>`).join("");
+  for (const [f, short] of U2_FSETS) {
+    h += `<div class="u2rl${f === cur.fset ? " on" : ""}" `
+       + `title="${u2esc(REP_LABEL[f] || f)}">${u2esc(short)}</div>`;
+    for (const [m, mlab] of U2_METHODS) {
+      const r = u2Run(m, f), on = (m === cur.method && f === cur.fset);
+      h += r
+        ? `<button type="button" class="u2c${on ? " on" : ""}" data-run="${u2esc(r.id)}" `
+          + `title="${u2esc(mlab + " · " + (REP_LABEL[f] || f) + " · " + r.run)}">`
+          + `${on ? "✓" : ""}</button>`
+        : `<div class="u2c off" title="not published"></div>`;
+    }
+  }
+  box.innerHTML = h;
+  box.querySelectorAll("button[data-run]").forEach(b => { b.onclick = () => u2GoRun(b.dataset.run); });
+  $("u2runnote").innerHTML = `<b>${u2esc(U2_MLABEL[cur.method] || cur.method)}</b> · `
+    + `${u2esc(REP_LABEL[cur.fset] || cur.fset)} — switching keeps K and the position, so `
+    + `you land on the matched cluster`;
+}
+
+function u2Chips() {
+  const box = $("u2chips");
+  if (!box || !RUN) return;
+  const defs = u2Defs(), K = defs.length;
+  box.innerHTML = defs.map((d, i) => {
+    const on = UI2.mode === "overlay" ? UI2.sel.has(d.cluster) : (state.map === d.id);
+    return `<button type="button" class="u2ch${on ? " on" : ""}" data-map="${u2esc(d.id)}" `
+         + `data-c="${d.cluster}" style="--c:${u2CSS(u2Hue(i, K))}" `
+         + `title="position #${i + 1} in figure order · cluster ${d.cluster} · n=${u2Size(d.cluster)}">`
+         + `<span class="sw"></span><b>#${i + 1}</b><i>${u2Size(d.cluster)}</i></button>`;
+  }).join("");
+  box.querySelectorAll("button[data-map]").forEach(b => {
+    b.onclick = () => u2ClickChip(b.dataset.map, Number(b.dataset.c));
+  });
+  const pos = u2Pos(), d = defs[pos];
+  $("u2selnote").textContent = UI2.mode === "overlay"
+    ? `${UI2.sel.size} selected`
+    : (d ? `#${pos + 1} · cluster ${d.cluster} · n=${u2Size(d.cluster)}` : "");
+}
+
+function u2Note() {
+  const n = $("u2modenote");
+  if (!n) return;
+  n.innerHTML = UI2.mode === "single"
+    ? "One cluster on the glass brain."
+    : UI2.mode === "overlay"
+      ? "Click chips to add or drop clusters. A contact in more than one selected cluster "
+        + "is drawn <b>white and larger</b>."
+      : (UI2.gridBy === "clusters"
+          ? "Every cluster of this run at one camera angle. Click a panel to open it."
+          : UI2.gridBy === "algorithms"
+            ? "This position under each algorithm, same feature set and K."
+            : "This position on each feature set, same algorithm and K.");
+}
+
+function u2Sync() {
+  u2Runs(); u2Chips(); u2Note();
+  $("u2gridby").style.display = UI2.mode === "grid" ? "" : "none";
+  $("u2mode").querySelectorAll("button").forEach(b =>
+    b.classList.toggle("on", b.dataset.m === UI2.mode));
+  $("u2gridby").querySelectorAll("button").forEach(b =>
+    b.classList.toggle("on", b.dataset.g === UI2.gridBy));
+}
+
+function u2Lock(on) { UI2.busy = on; $("ui2").classList.toggle("u2busy", on); }
+
+// Selecting a cluster goes through the (hidden) map select, so everything wired to it —
+// the render, the contacts, the centroid panel — happens exactly as it always did.
+function u2Pick(mapId) {
+  const sel = $("mapSel");
+  if (!sel) return;
+  state.map = mapId;
+  sel.value = mapId;
+  sel.dispatchEvent(new Event("change"));
+  u2Sync();
+}
+
+function u2ClickChip(mapId, cid) {
+  if (UI2.busy) return;
+  if (UI2.mode === "overlay") {
+    if (UI2.sel.has(cid)) { if (UI2.sel.size > 1) UI2.sel.delete(cid); }
+    else UI2.sel.add(cid);
+    state.map = mapId;
+    const sel = $("mapSel"); if (sel) sel.value = mapId;
+    updateElectrodes();
+    if (typeof drawCentroid === "function") drawCentroid();
+    u2Sync();
+    return;
+  }
+  u2Pick(mapId);
+  if (UI2.mode === "grid" && UI2.gridOpen) u2Grid();
+}
+
+async function u2GoRun(id) {
+  if (!id || UI2.busy || (RUN0 && RUN0.id === id)) return;
+  const pos = u2Pos();
+  u2Lock(true);
+  try {
+    await selectRun(id, true);            // keepK: the same cut under the other algorithm
+    const defs = u2Defs(), d = defs[Math.min(pos, defs.length - 1)];
+    if (d) { UI2.sel = new Set([d.cluster]); u2Pick(d.id); }
+  } catch (e) {
+    console.error("run switch failed:", e);
+  } finally {
+    u2Lock(false);
+    u2Sync();
+    if (UI2.mode === "grid" && UI2.gridOpen) u2Grid();
+  }
+}
+
+function u2SetMode(m) {
+  UI2.mode = m;
+  if (m === "overlay" && !UI2.sel.size) {
+    const d = u2Defs()[u2Pos()];
+    if (d) UI2.sel.add(d.cluster);
+  }
+  if (m === "grid") { u2Sync(); u2Grid(); }
+  else { u2CloseGrid(); updateElectrodes(); u2Sync(); }
+}
+
+// ── the grid of small multiples ──────────────────────────────────────────────
+function u2Panels() {
+  const defs = u2Defs(), K = defs.length, pos = u2Pos(), cur = u2Split(RUN0.id);
+  if (UI2.gridBy === "clusters")
+    return defs.map((d, i) => ({ runId: RUN0.id, k: KSEL, cluster: d.cluster, pos: i, K,
+                                 title: `#${i + 1}`, sub: `cluster ${d.cluster}` }));
+  if (UI2.gridBy === "algorithms")
+    return U2_METHODS.map(([m, lab]) => {
+      const r = u2Run(m, cur.fset);
+      return r ? { runId: r.id, k: KSEL, pos, K, title: lab,
+                   sub: REP_LABEL[cur.fset] || cur.fset } : null;
+    }).filter(Boolean);
+  return U2_FSETS.map(([f]) => {
+    const r = u2Run(cur.method, f);
+    return r ? { runId: r.id, k: KSEL, pos, K, title: REP_LABEL[f] || f,
+                 sub: U2_MLABEL[cur.method] || cur.method } : null;
+  }).filter(Boolean);
+}
+
+// ONE crop box for the whole grid, measured with every contact of the run drawn, the way
+// the report measures its own. Without it each panel is trimmed to its own dots, so a
+// tight cluster fills its cell and a spread one shrinks — the panels would stop being
+// comparable, which is the entire point of a grid.
+async function u2Box() {
+  if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} elecMesh = null; }
+  const m = u2Mesh(labelsForK(), loadingsForK(), new Set(RUN.clusters || []),
+                   () => [255, 232, 64], 0, RUN.cohort_id);
+  if (m) { elecMesh = m; nv.addMesh(m); }
+  const b = await new Promise(res => {
+    requestAnimationFrame(() => {
+      try { nv.drawScene(); } catch (e) {}
+      const box = inkBox(canvasEl, true), pad = 10;
+      res(box ? { x: Math.max(0, box.x - pad), y: Math.max(0, box.y - pad),
+                  w: Math.min(canvasEl.width, box.w + 2 * pad),
+                  h: Math.min(canvasEl.height, box.h + 2 * pad) } : null);
+    });
+  });
+  if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} }
+  elecMesh = null;
+  return b;
+}
+
+async function u2Snap(p, box, w) {
+  const D = await u2Data(p.runId, p.k);
+  if (!D || !D.lab) return null;
+  const cid = (p.cluster !== undefined) ? p.cluster : (D.clusters || [])[p.pos];
+  if (cid === undefined) return null;
+  const az = nv.scene.renderAzimuth, el = nv.scene.renderElevation;
+  if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} elecMesh = null; }
+  const m = u2Mesh(D.lab, D.load, new Set([cid]), () => u2Hue(p.pos, p.K),
+                   state.minLoad, D.cohort);
+  if (m) { elecMesh = m; nv.addMesh(m); }
+  const im = box ? await captureRaw(az, el, w, box, true)
+                 : await captureView(az, el, w, true);
+  if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} }
+  elecMesh = null;
+  return { im, cid, n: (D.sizes || {})[String(cid)] };
+}
+
+function u2Head(txt, sub, prog) {
+  $("u2gh").innerHTML = `<div class="t">${u2esc(txt)}</div><div class="s">${u2esc(sub)}</div>
+    <div class="sp"></div>
+    <button type="button" data-v="left">left</button>
+    <button type="button" data-v="right">right</button>
+    <button type="button" data-v="top">top</button>
+    <button type="button" data-v="front">front</button>
+    <button type="button" data-v="live">live angle</button>
+    <button type="button" data-v="close">close ✕</button>
+    <div class="s" id="u2prog">${u2esc(prog || "")}</div>`;
+  $("u2gh").querySelectorAll("button[data-v]").forEach(b => {
+    b.onclick = () => {
+      const v = b.dataset.v;
+      if (v === "close") return u2SetMode("single");
+      const A = { left:[90, 0], right:[270, 0], top:[0, 90], front:[180, 0] }[v];
+      if (A) { nv.scene.renderAzimuth = A[0]; nv.scene.renderElevation = A[1]; }
+      u2Grid();
+    };
+  });
+}
+
+function u2CloseGrid() {
+  UI2.gridOpen = false;
+  const g = $("u2grid"); if (g) g.classList.remove("on");
+  document.body.classList.remove("u2gridon");
+}
+
+async function u2Grid() {
+  if (UI2.busy || !RUN) return;
+  const seq = ++UI2.seq;
+  UI2.gridOpen = true;
+  $("u2grid").classList.add("on");
+  document.body.classList.add("u2gridon");
+  const panels = u2Panels(), cur = u2Split(RUN0.id);
+  const what = UI2.gridBy === "clusters"
+    ? `${U2_MLABEL[cur.method] || cur.method} · ${REP_LABEL[cur.fset] || cur.fset} · K=${KSEL}`
+    : UI2.gridBy === "algorithms"
+      ? `position #${u2Pos() + 1} · ${REP_LABEL[cur.fset] || cur.fset} · K=${KSEL}`
+      : `position #${u2Pos() + 1} · ${U2_MLABEL[cur.method] || cur.method} · K=${KSEL}`;
+  u2Head(UI2.gridBy === "clusters" ? "Every cluster, one angle"
+       : UI2.gridBy === "algorithms" ? "The same position, three algorithms"
+       : "The same position, four feature sets", what, "capturing…");
+  const gg = $("u2gg");
+  gg.innerHTML = panels.map((p, i) =>
+    `<figure data-i="${i}" style="--c:${u2CSS(u2Hue(p.pos, p.K))}">
+       <div class="miss">…</div>
+       <div class="cap"><span class="sw"></span><b>${u2esc(p.title)}</b>
+         <span class="lab">${u2esc(p.sub)}</span></div>
+     </figure>`).join("");
+  u2Lock(true);
+  const W = Math.max(220, Math.min(520, Math.round(canvasEl.width / 3)));
+  try {
+    const box = await u2Box();
+    for (let i = 0; i < panels.length; i++) {
+      if (seq !== UI2.seq) return;                       // superseded by a newer grid
+      const r = await u2Snap(panels[i], box, W);
+      const fig = gg.querySelector(`figure[data-i="${i}"]`);
+      if (!fig) continue;
+      const slot = fig.querySelector(".miss, img");
+      if (r && r.im && r.im.data) {
+        const im = document.createElement("img");
+        im.src = r.im.data;
+        im.alt = `${panels[i].title} — ${panels[i].sub}`;
+        slot.replaceWith(im);
+        fig.dataset.cluster = r.cid;
+        fig.dataset.run = panels[i].runId;
+        if (r.n !== undefined)
+          fig.querySelector(".cap .lab").textContent = `${panels[i].sub} · n=${r.n}`;
+      } else {
+        slot.textContent = "not published at this K";
+      }
+      const pr = $("u2prog"); if (pr) pr.textContent = `${i + 1} / ${panels.length}`;
+    }
+    const pr = $("u2prog");
+    if (pr) pr.textContent = `${panels.length} panels · click one to open it`;
+    const here = (u2Defs()[u2Pos()] || {}).cluster;
+    gg.querySelectorAll("figure").forEach(f => {
+      f.classList.toggle("on", f.dataset.run === RUN0.id
+                               && Number(f.dataset.cluster) === Number(here));
+      f.onclick = async () => {
+        const runId = f.dataset.run, cid = Number(f.dataset.cluster);
+        if (!runId) return;
+        UI2.mode = "single"; u2CloseGrid();
+        if (runId !== RUN0.id) await u2GoRun(runId);
+        else {
+          const d = u2Defs().find(x => Number(x.cluster) === cid);
+          if (d) { UI2.sel = new Set([cid]); u2Pick(d.id); }
+        }
+        updateElectrodes(); u2Sync();
+      };
+    });
+  } catch (e) {
+    console.error("compare grid failed:", e);
+    const pr = $("u2prog"); if (pr) pr.textContent = "failed — see the console";
+  } finally {
+    u2Lock(false);
+    updateElectrodes();                 // the live view comes back exactly as it was
+  }
+}
+
+// ── keys ─────────────────────────────────────────────────────────────────────
+function u2Keys(e) {
+  if (!UI2.on || UI2.busy) return;
+  if (e.target && (e.target.tagName === "SELECT" || e.target.tagName === "INPUT")) return;
+  const defs = u2Defs(), pos = u2Pos(), cur = u2Split(RUN0.id);
+  const step = (arr, val, d) => {
+    const i = arr.findIndex(x => x[0] === val);
+    return arr[(Math.max(0, i) + d + arr.length) % arr.length][0];
+  };
+  if (e.key === "ArrowRight" || e.key === "ArrowLeft") {
+    const d = defs[(pos + (e.key === "ArrowRight" ? 1 : defs.length - 1)) % defs.length];
+    if (d) {
+      UI2.sel = new Set([d.cluster]);
+      u2Pick(d.id);
+      if (UI2.mode === "grid" && UI2.gridOpen) u2Grid();
+    }
+  } else if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+    const r = u2Run(cur.method, step(U2_FSETS, cur.fset, e.key === "ArrowDown" ? 1 : -1));
+    if (r) u2GoRun(r.id);
+  } else if (e.key === "1" || e.key === "2" || e.key === "3") {
+    const m = U2_METHODS[Number(e.key) - 1], r = m && u2Run(m[0], cur.fset);
+    if (r) u2GoRun(r.id);
+  } else if (e.key === "g") {
+    u2SetMode(UI2.mode === "grid" ? "single" : "grid");
+  } else if (e.key === "o") {
+    u2SetMode(UI2.mode === "overlay" ? "single" : "overlay");
+  } else { return; }
+  e.preventDefault();
+}
+
+// ── init, after boot has a run on screen ─────────────────────────────────────
+async function ui2Init() {
+  u2Build();
+  // glass is the only surface here; entering it through the page's own handler keeps the
+  // mesh reload, the white backdrop and the by-cluster contacts in one place
+  try { await $("sGlass").onclick(); } catch (e) { console.warn("glass mode:", e); }
+  UI2.on = true;
+  const d0 = u2Defs()[u2Pos()];
+  if (d0) UI2.sel = new Set([d0.cluster]);
+  $("u2mode").querySelectorAll("button").forEach(b => {
+    b.onclick = () => { if (!UI2.busy) u2SetMode(b.dataset.m); };
+  });
+  $("u2gridby").querySelectorAll("button").forEach(b => {
+    b.onclick = () => { if (UI2.busy) return; UI2.gridBy = b.dataset.g; u2Sync(); u2Grid(); };
+  });
+  // the report is built one cluster at a time, never from a grid or an overlay
+  $("pdfBtn").onclick = async () => { u2SetMode("single"); await exportReport(); u2Sync(); };
+  window.addEventListener("keydown", u2Keys);
+  u2Sync();
 }
 
 boot().catch(e => { $("status").textContent = "Failed to load: " + e.message; console.error(e); });

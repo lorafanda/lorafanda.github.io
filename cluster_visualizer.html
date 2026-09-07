@@ -64,6 +64,20 @@
   #ui2 .u2ch:hover { border-color:var(--accent); }
   #ui2 .u2ch.on { background:#1d2029; border-color:var(--c); box-shadow:inset 0 0 0 1px var(--c); }
   #ui2 .u2ch.on i { color:#cdd3dc; }
+  /* one patient holds more than half the cluster */
+  .dom { color:#ff5a5f; font-weight:700; margin-left:1px; }
+  /* the feature set the centroid is drawn on; green = the run's own features */
+  #ui2 .u2rp { height:24px; border-radius:6px; background:#15161b; cursor:pointer; padding:0 4px;
+               border:1px solid rgba(255,255,255,.14); color:var(--fg); font:inherit;
+               font-size:10.5px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  #ui2 .u2rp:hover { border-color:var(--accent); }
+  #ui2 .u2rp.own { border-color:#3fb950; }
+  #ui2 .u2rp.on { background:var(--accent); color:#001; font-weight:700; }
+  #ui2 .u2rp.on.own { box-shadow:inset 0 0 0 2px #3fb950; }
+  #ui2 #cpPaperRow { display:block; color:var(--muted); font-size:10.5px; margin-top:6px;
+                     cursor:pointer; line-height:1.35; }
+  #ui2 #cpPaperRow input { accent-color:var(--accent); margin-right:4px; }
+  #ui2 .u2t .ownkey { color:#3fb950; }
   #ui2 .segs button { padding:4px 0; font-size:11.5px; }
   #ui2 #u2gridby button { font-size:10.5px; }
   #ui2 .cohort { margin-top:5px; }
@@ -77,7 +91,32 @@
   #u2grid { position:fixed; inset:0; z-index:4; background:rgba(0,0,0,.94);
             display:none; grid-template-rows:auto 1fr; padding:12px 14px 14px 332px; }
   #u2grid.on { display:grid; }
-  body.u2gridon #centroidPanel, body.u2gridon #prov { display:none !important; }
+  body.u2gridon #prov { display:none !important; }
+
+  /* THE CENTROID, PER VIEW. One cluster: bottom right, as before. Grid: bottom left,
+     the width of the control panel, under it, and hovering a panel previews that
+     cluster. Overlay: the single panel gives way to one small centroid per selected
+     cluster, laid out around the edges so the brain stays visible. The writing that
+     used to sit under it is gone - the feature set is chosen on the left panel. */
+  #centroidPanel { z-index:6; }
+  #centroidPanel #cpNote, #centroidPanel #cpRepRow { display:none !important; }
+  body[data-u2mode="grid"] #centroidPanel { left:14px; right:auto; bottom:14px; width:304px; }
+  body[data-u2mode="grid"] #centroidPanel canvas { width:276px; height:124px; }
+  body[data-u2mode="grid"] #ctlBody { max-height:calc(100vh - 320px); }
+  body[data-u2mode="overlay"] #centroidPanel { display:none !important; }
+  body[data-u2mode="overlay"] #prov { display:none !important; }
+  #u2cens { position:fixed; inset:0; z-index:6; display:none; pointer-events:none; }
+  #u2cens.on { display:block; }
+  #u2cens .u2cen { position:absolute; width:208px; padding:5px 6px 6px; cursor:pointer;
+                   background:var(--panel-bg); backdrop-filter:blur(8px); border-radius:9px;
+                   border:1px solid rgba(255,255,255,.10); border-left:3px solid var(--c);
+                   box-shadow:0 6px 24px rgba(0,0,0,.45); pointer-events:auto; }
+  #u2cens .u2cen:hover { border-color:var(--accent); border-left-color:var(--c); }
+  #u2cens .u2cen .h { display:flex; align-items:center; gap:5px; font-size:10.5px; margin:0 0 4px; }
+  #u2cens .u2cen .h .sw { width:9px; height:9px; border-radius:2px; background:var(--c); flex:none; }
+  #u2cens .u2cen .h i { font-style:normal; font-size:9.5px; color:var(--muted); margin-left:auto; }
+  #u2cens .u2cen canvas { display:block; width:208px; height:94px; border-radius:5px;
+                          background:#ffffff; }
   #u2gh { display:flex; align-items:center; gap:8px; flex-wrap:wrap; padding:0 0 9px;
           border-bottom:1px solid rgba(255,255,255,.08); }
   #u2gh .t { font-size:13px; font-weight:600; }
@@ -230,7 +269,7 @@
     <canvas id="cpCanvas" width="380" height="170"></canvas>
     <div id="cpNote">—</div>
     <label id="cpRepRow">shown on <select id="cpRep"></select> <span class="hint">— the same clusters, averaged over another representation of the same electrodes</span></label>
-    <label id="cpPaperRow"><input type="checkbox" id="cpPaper"> paper definition: argmax members, unweighted, minimum ignored (as FIG 1)</label>
+    <label id="cpPaperRow"><input type="checkbox" id="cpPaper"> paper definition <span class="hint">(FIG 1: argmax members, unweighted)</span></label>
   </div>
 
   <div id="cbar">
@@ -501,7 +540,9 @@ function drawCentroid() {
   const m = CEN.meta, k = Number(KSEL), j = Number(d.cluster);
   if (!m.ks.includes(k)) { P.classList.add("hidden"); return; }
   const paper = !!$("cpPaper").checked, cv = $("cpCanvas");
-  const st = renderCentroid(cv.getContext("2d"), cv.width, cv.height, k, j, CEN_REP, state.minLoad, paper, 1);
+  // scale from the canvas, not 1: the compare UI resizes this canvas per view
+  const st = renderCentroid(cv.getContext("2d"), cv.width, cv.height, k, j, CEN_REP,
+                            state.minLoad, paper, cv.width / 380);
   if (!st) { P.classList.add("hidden"); return; }
   P.classList.remove("hidden");
   const g = st.g, own = m.feature_set, cross = CEN_REP !== own;
@@ -3203,6 +3244,24 @@ const u2Defs  = () => DEFS.filter(d => d.cluster !== undefined && !d.hidden);
 const u2Pos   = () => { const i = u2Defs().findIndex(d => d.id === state.map); return i < 0 ? 0 : i; };
 const u2Size  = c => (RUN && RUN.cluster_sizes && RUN.cluster_sizes[String(c)]) || 0;
 
+// ── one patient, more than half the cluster ──────────────────────────────────
+// A cluster that is mostly one patient is that patient's cortex, not a response type
+// shared across the cohort, and it is the first thing to know before reading anything
+// into it. cluster_patient_counts is per run AND per K, so the mark follows the K
+// buttons and the matrix rather than being a property of a cluster id.
+function u2Dom(counts) {
+  if (!counts) return null;
+  let tot = 0, pid = null, top = 0;
+  for (const p in counts) { tot += counts[p]; if (counts[p] > top) { top = counts[p]; pid = p; } }
+  if (!tot || !pid) return null;
+  return { pid, n: top, tot, frac: top / tot };
+}
+const u2DomOf = (cid, run) => u2Dom((((run || RUN) || {}).cluster_patient_counts || {})[String(cid)]);
+const u2DomMark = d => (d && d.frac > 0.5) ? '<b class="dom" title="one patient holds more '
+  + `than half of this cluster">*</b>` : "";
+const u2DomText = d => (d && d.frac > 0.5)
+  ? ` · ${d.pid} alone is ${Math.round(100 * d.frac)}% of it` : "";
+
 // clusterRGB() indexed by POSITION rather than by cluster id, so #3 is the same colour
 // in every run of the matrix — which is what makes a cross-run grid readable. For the
 // current run the two agree exactly: DEFS iterates RUN.clusters, already in figure order.
@@ -3287,7 +3346,8 @@ const u2RD = new Map();
 async function u2Data(runId, k) {
   if (RUN0 && runId === RUN0.id && Number(k) === Number(KSEL))
     return { lab: labelsForK(), load: loadingsForK(), clusters: (RUN.clusters || []).slice(),
-             sizes: RUN.cluster_sizes || {}, cohort: RUN.cohort_id };
+             sizes: RUN.cluster_sizes || {}, pat: RUN.cluster_patient_counts || {},
+             cohort: RUN.cohort_id };
   const key = runId + "|" + k;
   if (u2RD.has(key)) return u2RD.get(key);
   const r = ((M && M.runs) || []).find(x => x.id === runId);
@@ -3297,7 +3357,8 @@ async function u2Data(runId, k) {
       out = { lab: CONTACTS.runs[runId] || null,
               load: (CONTACTS.loadings || {})[runId] || null,
               clusters: figureOrder(runId, k, (r.clusters || []).slice()),
-              sizes: r.cluster_sizes || {}, cohort: r.cohort_id };
+              sizes: r.cluster_sizes || {}, pat: r.cluster_patient_counts || {},
+              cohort: r.cohort_id };
     } else if (r && r.sweep) {
       const base = `${BUNDLE}${r.dir}/`;
       const [labels, stats, loadings] = await Promise.all([
@@ -3310,7 +3371,8 @@ async function u2Data(runId, k) {
       out = { lab: labels[String(k)] || null,
               load: (loadings || {})[String(k)] || null,
               clusters: figureOrder(runId, k, (st.clusters || []).slice()),
-              sizes: st.cluster_sizes || {}, cohort: r.cohort_id };
+              sizes: st.cluster_sizes || {}, pat: st.cluster_patient_counts || {},
+              cohort: r.cohort_id };
     }
   } catch (e) { console.warn("compare grid: cannot read", runId, "at K =", k, e); out = null; }
   u2RD.set(key, out);
@@ -3344,6 +3406,10 @@ function u2Build() {
       </div>
       <div class="cohort" id="u2modenote">—</div>
     </div>
+    <div class="u2g" id="u2cenwrap">
+      <div class="u2t">Centroid on <span class="u2sub" id="u2cennote"></span></div>
+      <div id="u2reps" class="u2chips"></div>
+    </div>
     <div class="u2g" id="u2loadwrap"><div class="u2t">Minimum loading</div></div>
     <div class="u2g" id="u2btns"></div>`;
   // MOVED, not rebuilt: these carry the handlers wireUI() bound to them, and the K
@@ -3352,13 +3418,151 @@ function u2Build() {
   $("u2loadwrap").appendChild($("loadRow"));
   $("u2loadwrap").appendChild($("loadNote"));
   $("u2btns").appendChild($("pdfBtn"));
+  // the centroid's "paper definition" toggle belongs with the other centroid controls
+  // now that nothing is written under the centroid itself
+  $("u2cenwrap").appendChild($("cpPaperRow"));
   // the surface / radius / ceiling / contrast / vertex-gate controls: hidden, kept
   document.querySelectorAll("#ctlBody .grp").forEach(g => { g.style.display = "none"; });
   const g = document.createElement("div");
   g.id = "u2grid";
   g.innerHTML = `<div id="u2gh"></div><div id="u2gg"></div>`;
   document.body.appendChild(g);
+  const c = document.createElement("div");
+  c.id = "u2cens";
+  document.body.appendChild(c);
+  window.addEventListener("resize", () => { if (UI2.mode === "overlay") u2Cens(); });
 }
+
+// ── which feature set the centroid is drawn on ───────────────────────────────
+// The same clusters, averaged over another representation of the same electrodes -
+// the bundle ships the proof that the rows line up. The run's OWN features carry a
+// green outline, so a centroid drawn on anything else is visibly a cross-representation
+// view rather than the thing the clustering was fitted to.
+function u2Reps() {
+  const box = $("u2reps");
+  if (!box) return;
+  if (!CEN || !CEN_INDEX) { box.innerHTML = ""; $("u2cennote").textContent = ""; return; }
+  const own = CEN.meta.feature_set;
+  const have = Object.keys(CEN_INDEX.feature_sets).filter(f => f === own || CEN_INDEX.rows_aligned);
+  const order = U2_FSETS.map(x => x[0]).filter(f => have.includes(f))
+    .concat(have.filter(f => !U2_FSETS.some(x => x[0] === f)));
+  box.innerHTML = order.map(f => {
+    const short = (U2_FSETS.find(x => x[0] === f) || [f, f])[1];
+    return `<button type="button" class="u2rp${f === CEN_REP ? " on" : ""}`
+         + `${f === own ? " own" : ""}" data-rep="${u2esc(f)}" `
+         + `title="${u2esc(REP_LABEL[f] || f)}${f === own ? " — this run's own features" : ""}">`
+         + `${u2esc(short)}</button>`;
+  }).join("");
+  box.querySelectorAll("button[data-rep]").forEach(b => { b.onclick = () => u2SetRep(b.dataset.rep); });
+  $("u2cennote").innerHTML = order.length > 1
+    ? `<span class="ownkey">green</span> = this run's own`
+    : "";
+}
+
+async function u2SetRep(rep) {
+  if (UI2.busy || rep === CEN_REP) return;
+  u2Lock(true);
+  try {
+    CEN_REP = rep;
+    const sel = $("cpRep"); if (sel) sel.value = rep;    // the hidden select stays in step
+    await cenX(rep);
+  } catch (e) {
+    console.warn("centroid representation:", e);
+  } finally {
+    u2Lock(false); u2Reps(); drawCentroid();
+  }
+}
+
+// ── the centroid, per view ───────────────────────────────────────────────────
+function u2SizeCP() {
+  const cv = $("cpCanvas");
+  if (!cv) return;
+  const w = UI2.mode === "grid" ? 276 : 380;
+  if (cv.width !== w) { cv.width = w; cv.height = Math.round(w * 170 / 380); }
+}
+
+// hovering a panel in the by-cluster grid previews that cluster without selecting it
+function u2Preview(cid) {
+  const cv = $("cpCanvas");
+  if (!cv || !CEN || !CEN_INDEX || cid === undefined || Number.isNaN(cid)) return;
+  try {
+    const st = renderCentroid(cv.getContext("2d"), cv.width, cv.height, Number(KSEL),
+                              Number(cid), CEN_REP, state.minLoad, false, cv.width / 380);
+    if (!st) return;
+  } catch (e) { return; }
+  const pos = u2Defs().findIndex(d => Number(d.cluster) === Number(cid));
+  $("cpTitle").textContent = `#${pos + 1} · Cluster ${cid} · n = ${u2Size(cid)}`;
+  $("centroidPanel").classList.remove("hidden");
+}
+
+// OVERLAY: one small centroid per selected cluster, laid out around the edges of the
+// window so the brain in the middle stays visible. Slots are filled edge by edge -
+// right, bottom, top, then the left below the control panel - taking roughly an equal
+// share of each, so three cards sit on three sides rather than stacking in a column.
+const U2_CW = 208, U2_CH = 94 + 21;          // card width, canvas + its one-line header
+function u2Slots(n) {
+  const W = window.innerWidth, H = window.innerHeight, m = 14, gap = 8;
+  const ctl = $("controls").getBoundingClientRect();
+  const x0 = Math.max(m, ctl.right + gap);                 // rows must clear the panel
+  const rightX = W - m - U2_CW, bottomY = H - m - 18 - U2_CH, topY = m;
+  const colCap = Math.max(1, Math.floor((H - 2 * m + gap) / (U2_CH + gap)));
+  const rowCap = Math.max(0, Math.floor((rightX - gap - x0 + gap) / (U2_CW + gap)));
+  const leftCap = Math.max(0, Math.floor((H - m - (ctl.bottom + gap) + gap) / (U2_CH + gap)));
+  const edges = [
+    { cap: colCap,  at: i => ({ x: rightX, y: m + i * (U2_CH + gap) }) },
+    { cap: rowCap,  at: i => ({ x: rightX - (i + 1) * (U2_CW + gap), y: bottomY }) },
+    { cap: rowCap,  at: i => ({ x: rightX - (i + 1) * (U2_CW + gap), y: topY }) },
+    { cap: leftCap, at: i => ({ x: m, y: ctl.bottom + gap + i * (U2_CH + gap) }) },
+  ];
+  const out = [];
+  let rem = n;
+  for (let e = 0; e < edges.length && rem > 0; e++) {
+    const take = Math.min(edges[e].cap, Math.ceil(rem / (edges.length - e)));
+    for (let i = 0; i < take; i++) out.push(edges[e].at(i));
+    rem -= take;
+  }
+  return out;
+}
+
+function u2Cens() {
+  const box = $("u2cens");
+  if (!box) return;
+  const show = UI2.on && UI2.mode === "overlay" && CEN && CEN_INDEX && UI2.sel.size > 0
+               && CEN.meta.ks.includes(Number(KSEL));
+  box.classList.toggle("on", !!show);
+  if (!show) { box.innerHTML = ""; return; }
+  const defs = u2Defs(), K = defs.length;
+  const items = defs.map((d, i) => ({ d, i })).filter(x => UI2.sel.has(x.d.cluster));
+  const slots = u2Slots(items.length);
+  box.innerHTML = items.map((x, q) => {
+    const s = slots[q] || { x: 14, y: 14 };
+    const dom = u2DomOf(x.d.cluster);
+    return `<div class="u2cen" style="left:${s.x}px;top:${s.y}px;--c:${u2CSS(u2Hue(x.i, K))}" `
+         + `title="cluster ${x.d.cluster} · n=${u2Size(x.d.cluster)}${u2esc(u2DomText(dom))}">`
+         + `<div class="h"><span class="sw"></span><b>#${x.i + 1}</b>${u2DomMark(dom)}`
+         + `<i>${u2Size(x.d.cluster)}</i></div>`
+         + `<canvas width="${U2_CW}" height="94"></canvas></div>`;
+  }).join("");
+  box.querySelectorAll(".u2cen").forEach((el, q) => {
+    const cv = el.querySelector("canvas");
+    try {
+      renderCentroid(cv.getContext("2d"), cv.width, cv.height, Number(KSEL),
+                     Number(items[q].d.cluster), CEN_REP, state.minLoad, false, cv.width / 380);
+    } catch (e) { console.warn("overlay centroid:", e); }
+    el.onclick = () => u2ClickChip(items[q].d.id, Number(items[q].d.cluster));
+  });
+}
+
+// every path that redraws the single centroid - the map select, the minimum-loading
+// slider, a new run's bundle - also sizes it for the current view and refreshes the
+// overlay ring, so there is one place this can go out of step and it is here
+const u2DrawCentroid1 = drawCentroid;
+drawCentroid = function () {
+  u2SizeCP();
+  u2DrawCentroid1();
+  if (UI2.on) u2Reps();     // loadCentroids ends here, and only then is CEN_INDEX known
+  u2Cens();
+};
 
 function u2Runs() {
   const box = $("u2runs");
@@ -3391,10 +3595,13 @@ function u2Chips() {
   const defs = u2Defs(), K = defs.length;
   box.innerHTML = defs.map((d, i) => {
     const on = UI2.mode === "overlay" ? UI2.sel.has(d.cluster) : (state.map === d.id);
+    const dom = u2DomOf(d.cluster);
     return `<button type="button" class="u2ch${on ? " on" : ""}" data-map="${u2esc(d.id)}" `
          + `data-c="${d.cluster}" style="--c:${u2CSS(u2Hue(i, K))}" `
-         + `title="position #${i + 1} in figure order · cluster ${d.cluster} · n=${u2Size(d.cluster)}">`
-         + `<span class="sw"></span><b>#${i + 1}</b><i>${u2Size(d.cluster)}</i></button>`;
+         + `title="position #${i + 1} in figure order · cluster ${d.cluster} · `
+         + `n=${u2Size(d.cluster)}${u2esc(u2DomText(dom))}">`
+         + `<span class="sw"></span><b>#${i + 1}</b>${u2DomMark(dom)}`
+         + `<i>${u2Size(d.cluster)}</i></button>`;
   }).join("");
   box.querySelectorAll("button[data-map]").forEach(b => {
     b.onclick = () => u2ClickChip(b.dataset.map, Number(b.dataset.c));
@@ -3421,7 +3628,8 @@ function u2Note() {
 }
 
 function u2Sync() {
-  u2Runs(); u2Chips(); u2Note();
+  document.body.dataset.u2mode = UI2.mode;      // the centroid's place is a CSS matter
+  u2Runs(); u2Chips(); u2Note(); u2Reps();
   $("u2gridby").style.display = UI2.mode === "grid" ? "" : "none";
   $("u2mode").querySelectorAll("button").forEach(b =>
     b.classList.toggle("on", b.dataset.m === UI2.mode));
@@ -3481,8 +3689,8 @@ function u2SetMode(m) {
     const d = u2Defs()[u2Pos()];
     if (d) UI2.sel.add(d.cluster);
   }
-  if (m === "grid") { u2Sync(); u2Grid(); }
-  else { u2CloseGrid(); updateElectrodes(); u2Sync(); }
+  if (m === "grid") { u2Sync(); drawCentroid(); u2Grid(); }
+  else { u2CloseGrid(); updateElectrodes(); u2Sync(); drawCentroid(); }
 }
 
 // ── the grid of small multiples ──────────────────────────────────────────────
@@ -3541,7 +3749,7 @@ async function u2Snap(p, box, w) {
                  : await captureView(az, el, w, true);
   if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} }
   elecMesh = null;
-  return { im, cid, n: (D.sizes || {})[String(cid)] };
+  return { im, cid, n: (D.sizes || {})[String(cid)], dom: u2Dom((D.pat || {})[String(cid)]) };
 }
 
 function u2Head(txt, sub, prog) {
@@ -3610,8 +3818,12 @@ async function u2Grid() {
         slot.replaceWith(im);
         fig.dataset.cluster = r.cid;
         fig.dataset.run = panels[i].runId;
-        if (r.n !== undefined)
-          fig.querySelector(".cap .lab").textContent = `${panels[i].sub} · n=${r.n}`;
+        fig.querySelector(".cap").innerHTML =
+          `<span class="sw"></span><b>${u2esc(panels[i].title)}</b>${u2DomMark(r.dom)}`
+          + `<span class="lab">${u2esc(panels[i].sub)}`
+          + `${r.n !== undefined ? " · n=" + r.n : ""}</span>`;
+        fig.title = `cluster ${r.cid}${r.n !== undefined ? " · n=" + r.n : ""}`
+                  + u2DomText(r.dom);
       } else {
         slot.textContent = "not published at this K";
       }
@@ -3623,6 +3835,12 @@ async function u2Grid() {
     gg.querySelectorAll("figure").forEach(f => {
       f.classList.toggle("on", f.dataset.run === RUN0.id
                                && Number(f.dataset.cluster) === Number(here));
+      // hovering previews that cluster's centroid in the panel at the bottom left;
+      // only within one run, since the centroid bundle is loaded per run
+      if (UI2.gridBy === "clusters") {
+        f.onmouseenter = () => u2Preview(Number(f.dataset.cluster));
+        f.onmouseleave = () => drawCentroid();
+      }
       f.onclick = async () => {
         const runId = f.dataset.run, cid = Number(f.dataset.cluster);
         if (!runId) return;
@@ -3693,6 +3911,7 @@ async function ui2Init() {
   $("pdfBtn").onclick = async () => { u2SetMode("single"); await exportReport(); u2Sync(); };
   window.addEventListener("keydown", u2Keys);
   u2Sync();
+  drawCentroid();          // sizes the canvas for the view and draws the ring if needed
 }
 
 boot().catch(e => { $("status").textContent = "Failed to load: " + e.message; console.error(e); });

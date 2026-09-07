@@ -3183,6 +3183,7 @@ function wireUI() {
     state.minLoad = +e.target.value / 100;
     $("minLoadVal").textContent = state.minLoad.toFixed(2);
     updateElectrodes(); drawCentroid();
+    if (typeof u2MinLoad === "function") u2MinLoad();   // counts follow the gate
   };
   $("radSel").onchange = async e => {
     state.radius = e.target.value;
@@ -3246,13 +3247,49 @@ const u2Split = id => { const p = String(id).split("__"); return { method:p[0], 
 const u2Run   = (m, f) => ((M && M.runs) || []).find(r => r.id.indexOf(m + "__" + f + "__") === 0);
 const u2Defs  = () => DEFS.filter(d => d.cluster !== undefined && !d.hidden);
 const u2Pos   = () => { const i = u2Defs().findIndex(d => d.id === state.map); return i < 0 ? 0 : i; };
-const u2Size  = c => (RUN && RUN.cluster_sizes && RUN.cluster_sizes[String(c)]) || 0;
+// the run's own row count for a cluster, at no gate: the number the manifest publishes
+// and the report prints, kept for the tooltips
+const u2Rows  = c => (RUN && RUN.cluster_sizes && RUN.cluster_sizes[String(c)]) || 0;
+
+// ── what is actually on the brain, and whose it is ───────────────────────────
+// cluster_sizes and cluster_patient_counts in the bundle are computed over the run's
+// ROWS with no loading gate, so they cannot follow the minimum-loading slider. These
+// count the CONTACTS the slider leaves drawn - the same test updateElectrodes applies -
+// so the number on a chip is the number of dots on the brain and the composition is the
+// composition of those dots. Counted over localised contacts, which is fewer than the
+// run's rows: the tooltips carry both.
+const u2TallyCache = new Map();
+function u2TallyOf(key, lab, load, cohortId) {
+  const ck = `${key}|${state.minLoad}`;
+  if (u2TallyCache.has(ck)) return u2TallyCache.get(ck);
+  const n = {}, pat = {};
+  if (lab && CONTACTS) {
+    for (const i of (CONTACTS.cohorts[cohortId] || [])) {
+      const L = lab[i];
+      if (!Array.isArray(L) || !L.length) continue;
+      if (load) { const lv = load[i]; if (lv == null || lv < state.minLoad) continue; }
+      const p = CONTACTS.patient[i];
+      for (const c of L) {
+        n[c] = (n[c] || 0) + 1;
+        const m = pat[c] || (pat[c] = {});
+        m[p] = (m[p] || 0) + 1;
+      }
+    }
+  }
+  const out = { n, pat };
+  if (u2TallyCache.size > 80) u2TallyCache.clear();
+  u2TallyCache.set(ck, out);
+  return out;
+}
+const u2Now   = () => u2TallyOf(`${RUN0 ? RUN0.id : "?"}|${KSEL}`, labelsForK(), loadingsForK(),
+                                RUN ? RUN.cohort_id : "");
+const u2Size  = c => u2Now().n[c] || 0;          // contacts drawn at the current minimum
 
 // ── one patient, more than half the cluster ──────────────────────────────────
 // A cluster that is mostly one patient is that patient's cortex, not a response type
 // shared across the cohort, and it is the first thing to know before reading anything
-// into it. cluster_patient_counts is per run AND per K, so the mark follows the K
-// buttons and the matrix rather than being a property of a cluster id.
+// into it. Recomputed with the counts above, so raising the minimum can make the mark
+// appear or go away - which is itself worth seeing.
 function u2Dom(counts) {
   if (!counts) return null;
   let tot = 0, pid = null, top = 0;
@@ -3260,11 +3297,12 @@ function u2Dom(counts) {
   if (!tot || !pid) return null;
   return { pid, n: top, tot, frac: top / tot };
 }
-const u2DomOf = (cid, run) => u2Dom((((run || RUN) || {}).cluster_patient_counts || {})[String(cid)]);
+const u2DomOf = cid => u2Dom(u2Now().pat[cid]);
+const u2DomPct = d => d ? Math.round(100 * d.frac) : 0;
 const u2DomMark = d => (d && d.frac > 0.5) ? '<b class="dom" title="one patient holds more '
   + `than half of this cluster">*</b>` : "";
-const u2DomText = d => (d && d.frac > 0.5)
-  ? ` · ${d.pid} alone is ${Math.round(100 * d.frac)}% of it` : "";
+const u2DomText = d => d
+  ? ` · biggest patient ${d.pid}, ${u2DomPct(d)}%${d.frac > 0.5 ? " — over half" : ""}` : "";
 
 // clusterRGB() indexed by POSITION rather than by cluster id, so #3 is the same colour
 // in every run of the matrix — which is what makes a cross-run grid readable. For the
@@ -3501,7 +3539,9 @@ function u2Preview(cid) {
     if (!st) return;
   } catch (e) { return; }
   const pos = u2Defs().findIndex(d => Number(d.cluster) === Number(cid));
-  $("cpTitle").textContent = `#${pos + 1} · Cluster ${cid} · n = ${u2Size(cid)}`;
+  const dm = u2DomOf(Number(cid));
+  $("cpTitle").textContent = `#${pos + 1} · Cluster ${cid} · n = ${u2Size(cid)}`
+    + (dm ? ` (${dm.pid} ${u2DomPct(dm)}%)` : "");
   $("centroidPanel").classList.remove("hidden");
 }
 
@@ -3558,10 +3598,12 @@ function u2Cens() {
                   : (slots[q++] || { x: 14, y: 14 });
     const dom = u2DomOf(x.d.cluster);
     return `<div class="u2cen" style="left:${s.x}px;top:${s.y}px;--c:${u2CSS(u2Hue(x.i, K))}" `
-         + `title="cluster ${x.d.cluster} · n=${u2Size(x.d.cluster)}${u2esc(u2DomText(dom))}`
+         + `title="cluster ${x.d.cluster} · ${u2Size(x.d.cluster)} contacts drawn of `
+         + `${u2Rows(x.d.cluster)} in the run${u2esc(u2DomText(dom))}`
          + ` — drag to move, click to drop it from the overlay">`
          + `<div class="h"><span class="sw"></span><b>#${x.i + 1}</b>${u2DomMark(dom)}`
-         + `<i>${u2Size(x.d.cluster)}</i></div>`
+         + `<i>${u2Size(x.d.cluster)}`
+         + `${dom ? ` (${u2esc(dom.pid)} ${u2DomPct(dom)}%)` : ""}</i></div>`
          + `<canvas width="${U2_CW}" height="${U2_CANH}"></canvas></div>`;
   }).join("");
   box.querySelectorAll(".u2cen").forEach((el, i) => {
@@ -3655,7 +3697,8 @@ function u2Chips() {
     return `<button type="button" class="u2ch${on ? " on" : ""}" data-map="${u2esc(d.id)}" `
          + `data-c="${d.cluster}" style="--c:${u2CSS(u2Hue(i, K))}" `
          + `title="position #${i + 1} in figure order · cluster ${d.cluster} · `
-         + `n=${u2Size(d.cluster)}${u2esc(u2DomText(dom))}">`
+         + `${u2Size(d.cluster)} contacts drawn of ${u2Rows(d.cluster)} in the run`
+         + `${u2esc(u2DomText(dom))}">`
          + `<span class="sw"></span><b>#${i + 1}</b>${u2DomMark(dom)}`
          + `<i>${u2Size(d.cluster)}</i></button>`;
   }).join("");
@@ -3663,9 +3706,11 @@ function u2Chips() {
     b.onclick = () => u2ClickChip(b.dataset.map, Number(b.dataset.c));
   });
   const pos = u2Pos(), d = defs[pos];
+  const dm = d ? u2DomOf(d.cluster) : null;
   $("u2selnote").textContent = UI2.mode === "overlay"
     ? `${UI2.sel.size} selected`
-    : (d ? `#${pos + 1} · cluster ${d.cluster} · n=${u2Size(d.cluster)}` : "");
+    : (d ? `#${pos + 1} · cluster ${d.cluster} · n=${u2Size(d.cluster)}`
+         + (dm ? ` (${dm.pid} ${u2DomPct(dm)}%)` : "") : "");
 }
 
 function u2Note() {
@@ -3805,7 +3850,10 @@ async function u2Snap(p, box, w) {
                  : await captureView(az, el, w, true);
   if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} }
   elecMesh = null;
-  return { im, cid, n: (D.sizes || {})[String(cid)], dom: u2Dom((D.pat || {})[String(cid)]) };
+  // counted the same way as the chips: the contacts this panel actually drew
+  const T = u2TallyOf(`${p.runId}|${p.k}`, D.lab, D.load, D.cohort);
+  return { im, cid, n: T.n[cid] || 0, rows: (D.sizes || {})[String(cid)],
+           dom: u2Dom(T.pat[cid]) };
 }
 
 function u2Head(txt, sub, prog) {
@@ -3827,6 +3875,21 @@ function u2Head(txt, sub, prog) {
       u2Grid();
     };
   });
+}
+
+// The minimum-loading slider moved. It changes which contacts are drawn, so the counts
+// and the composition on every chip and card change with it - and an open grid is now
+// showing the wrong dots, so it re-captures once the slider settles rather than on every
+// pixel of the drag.
+let u2GridTimer = null;
+function u2GridSoon() {
+  if (!UI2.gridOpen) return;
+  clearTimeout(u2GridTimer);
+  u2GridTimer = setTimeout(() => { if (UI2.busy) return u2GridSoon(); u2Grid(); }, 450);
+}
+function u2MinLoad() {
+  if (!UI2.on) return;
+  u2Chips(); u2Cens(); u2GridSoon();
 }
 
 function u2CloseGrid() {
@@ -3876,9 +3939,10 @@ async function u2Grid() {
         fig.dataset.run = panels[i].runId;
         fig.querySelector(".cap").innerHTML =
           `<span class="sw"></span><b>${u2esc(panels[i].title)}</b>${u2DomMark(r.dom)}`
-          + `<span class="lab">${u2esc(panels[i].sub)}`
-          + `${r.n !== undefined ? " · n=" + r.n : ""}</span>`;
-        fig.title = `cluster ${r.cid}${r.n !== undefined ? " · n=" + r.n : ""}`
+          + `<span class="lab">${u2esc(panels[i].sub)} · n=${r.n}`
+          + `${r.dom ? ` (${u2esc(r.dom.pid)} ${u2DomPct(r.dom)}%)` : ""}</span>`;
+        fig.title = `cluster ${r.cid} · ${r.n} contacts drawn`
+                  + `${r.rows !== undefined ? " of " + r.rows + " in the run" : ""}`
                   + u2DomText(r.dom);
       } else {
         slot.textContent = "not published at this K";

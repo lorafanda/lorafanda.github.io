@@ -358,24 +358,32 @@
   <section id="overview" class="on">
 
     <div class="callout warn" style="margin:0 0 22px;border-left-width:5px">
-      <h3 style="margin:0 0 8px">Cohort migration in progress &mdash; most figures on this site are one
-        cohort behind (audited 2026-08-18)</h3>
-      <p style="margin:0 0 10px">The electrode set moved twice this week: the dash-rule fix recovered all
-        <b>58 of EL034's</b> contacts, EL046 was re-run, and PAT_6953 was added on a temporary manual
-        white-matter reference. The concatenated clustering cohort went <b>1027 electrodes / 24 patients
-        &rarr; 1266 / 27</b>. <b>Stage 02 and Stage 05 followed. Stages 03 and 04 did not.</b></p>
-      <p style="margin:0 0 10px">A figure-by-figure audit of all <b>102</b> images on this page found
-        <b>83 stale</b>, 4 needing checks and 15 current. The current ones are the four Stage-05
-        response-timing figures, the two real-time sample panels and the hand-drawn meeting scans.
-        Everything else was drawn on a cohort that is up to three patients short.</p>
+      <h3 style="margin:0 0 8px">The cohort is now <b>v7</b> &mdash; 1719 electrodes / 27 patients,
+        built 2026-09-08</h3>
+      <p style="margin:0 0 10px">The gate keeps <b>1719 of 2999</b> contacts across <b>27 patients</b>
+        (<code>02_FBM_Clustering/outputs/_dataset/concat_source_v7</code>). History: v4 <b>1693/27</b>
+        &rarr; v5 <b>1675/26</b> &rarr; v6 <b>1688/27</b> &rarr; v7 <b>1719/27</b>.
+        <b>v6 &rarr; v7 is two patients and nothing else</b>, both with their ERSP cubes recomputed on
+        2026-09-08: <code>PAT_6684</code> (G-05, MicroEPI) went <b>77 &rarr; 111</b> gated &mdash;
+        <b>62.6% &rarr; 90.2%</b> of its own contacts passing &mdash; and <code>PAT_6854</code> went
+        <b>146 &rarr; 143</b>. G-05 moved because notebook 140 gained <b>per-patient trial
+        rejection</b>: it had trials with runaway dB that were dominating its ERSP averages, and taking
+        them out of the averages let more of its electrodes clear the responsiveness gate. Rejection is
+        configured for G-05 alone; every other patient has none and reproduces bit-identically.</p>
+      <p style="margin:0 0 10px"><b>What follows v7 and what does not.</b> The twelve clustering runs
+        (cNMF / k-means / Ward &times; four feature sets, all dated <b>20260908</b>, all n=1719) and the
+        Paper&nbsp;2 figure block are on v7. <b>The five headline figures below are not</b> &mdash; their
+        own source lines still name <code>kmeans/concat_hg 20260803_175417</code>, the 1027-electrode
+        fit &mdash; and neither are the stage-02/03/04 tabs. Read every figure against the run id
+        printed under it; that line, not this page's prose, is what says which cohort drew it.</p>
       <table style="margin:6px 0 12px">
         <thead><tr><th>Cache</th><th>Cohort it holds</th><th>Status</th></tr></thead>
         <tbody>
-          <tr><td><code>02_FBM_Clustering/.../concat_source_v2</code></td>
-              <td>29 patients &rarr; <b>1266 el / 27 pat</b> after the gate</td>
-              <td class="good">current</td></tr>
+          <tr><td><code>02_FBM_Clustering/.../concat_source_v7</code></td>
+              <td>2999 ungated contacts &rarr; <b>1719 el / 27 pat</b> after the gate</td>
+              <td class="good">current &middot; built 2026-09-08</td></tr>
           <tr><td><code>04_FBM_Pooling/.../_raw_ungated</code></td>
-              <td>26 patients / 2961 contacts, gated to 24</td>
+              <td>26 patients / 2961 contacts, gated to 24 &mdash; files dated 2026-08-03, four rebuilds behind v7</td>
               <td class="bad">missing EL034, EL046, PAT_6953</td></tr>
           <tr><td>Stage 03 classification matrices</td>
               <td>24 patients / 1941 samples (all 131 run manifests)</td>
@@ -398,10 +406,12 @@
           <code>atlas_corr/corr_&lt;term&gt;.png</code> maps, and both <code>attribution_matrix.png</code>.
           They cannot be regenerated until someone writes the script.</li>
       </ul>
-      <p style="margin:0"><b>K also changed: the shipped k-means partition is now K=6, not K=5.</b> Cluster
-        ids do not correspond between the two runs, so any sentence naming a specific cluster number is
-        suspect until re-checked. Numeric claims in the text have been corrected to the 1266-electrode fit
-        where the value could be recomputed; the <i>images</i> have not been regenerated.</p>
+      <p style="margin:0"><b>K moved again on v7.</b> The held-out peak is now <code>concat_hg</code>
+        <b>9</b> (was 11), <code>concat_rawds</code> <b>13</b> (was 12), <code>concat_bands5</code>
+        <b>14</b> (unchanged) and <code>concat_bands5z</code> <b>14</b> (was 13); the cross-method
+        comparison is read at a fixed <b>K=8</b>. Cluster ids do not correspond between runs, so any
+        sentence naming a specific cluster number is suspect until re-checked against the run it came
+        from.</p>
     </div>
 
     <div class="eyebrow">Overview</div>
@@ -413,7 +423,7 @@
       stages connect and compare; the specific numbers live in each stage's own tab.</p>
 
     <div class="kpis">
-      <div class="kpi"><div class="v">~29</div><div class="l">patients (EL · PAT · Micro)</div></div>
+      <div class="kpi"><div class="v">1719</div><div class="l">gated electrodes · 27 of ~29 patients</div></div>
       <div class="kpi"><div class="v">3</div><div class="l">conditions · one task (LM)</div></div>
       <div class="kpi"><div class="v">129×300</div><div class="l">warped ERSP substrate</div></div>
       <div class="kpi"><div class="v">3</div><div class="l">analysis lenses on it</div></div>
@@ -571,17 +581,17 @@
     <div class="method"><ul>
       <li><b>Same data, three questions.</b> All three read the identical ERSP substrate; they differ only in <i>who supplies the structure</i> — the data (clustering), the labels (decoding), or prior theory (pooling).</li>
       <li><b>They cross‑check each other.</b> What the unsupervised clustering surfaces on its own should be the same axis the supervised decoder can exploit, and the a‑priori roles should land where both put their signal. Agreement across lenses is the evidence; disagreement flags where the story is fragile.</li>
-      <li><b>Different sample units, and the canonical track changed.</b> The clustering run every figure here uses (<code>kmeans/concat_hg 20260803_175417</code>) <i>concatenates</i> the three conditions into one 900‑bin per‑electrode profile — 1027 electrodes — exactly as decoding‑parcellation and pooling do. The older per‑condition track, which kept each electrode × condition as its own sample (2102 samples, K=9), is retained only for comparison. The sample unit still sets what each lens can ask; it is no longer what distinguishes them.</li>
+      <li><b>Different sample units, and the canonical track changed.</b> The clustering run every figure here uses (<code>kmeans/concat_hg 20260803_175417</code>) <i>concatenates</i> the three conditions into one 900‑bin per‑electrode profile — 1027 electrodes — exactly as decoding‑parcellation and pooling do. The older per‑condition track, which kept each electrode × condition as its own sample (2102 samples, K=9), is retained only for comparison. The sample unit still sets what each lens can ask; it is no longer what distinguishes them. <b>The substrate underneath has moved on:</b> the same concatenation on cohort v7 is <b>1719</b> electrodes, and the twelve runs dated <b>20260908</b> are fitted on that; the five figures above still show the 1027-electrode fit.</li>
     </ul></div>
 
     <h3>Status at a glance</h3>
     <table>
       <tr><th>Stage</th><th>Status</th><th>What it establishes</th><th>Watch‑outs</th></tr>
-      <tr><td><b>01 ERSP</b></td><td><span class="pill ok">reran 08‑16</span></td>
+      <tr><td><b>01 ERSP</b></td><td><span class="pill ok">reran 09‑08</span></td>
         <td>The shared, cleaned, time‑warped ERSP substrate, plus a second <b>non‑warped, GO‑locked</b> tree (<a href="#realtime">&sect;1.9</a>).</td>
-        <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only. EL048 and PAT_6953 still incomplete.</td></tr>
-      <tr><td><b>02 Clustering</b></td><td><span class="pill ok">reran 08‑08</span></td>
-        <td>Structure does emerge — and it is the condition/modality axis; not noise, but not a clean "language" type either.</td>
+        <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only. Only <code>PAT_6684</code> and <code>PAT_6854</code> were recomputed on 09-08; the rest of the tree is the 08-16 run. <b><code>pd_blocks</code> is read only by <code>lf_trials_qc.extract_trials_with_qc</code></b>, which notebook 13 calls &mdash; notebook 140 calls <code>lf_micromacro.extract_events_from_photodiode</code> directly and never sees it, so per-block photodiode equalisation does not reach the notebook that makes the cubes. EL048 and PAT_6953 still incomplete in the non-warped tree.</td></tr>
+      <tr><td><b>02 Clustering</b></td><td><span class="pill ok">reran 09‑08</span></td>
+        <td>Structure does emerge — and it is the condition/modality axis; not noise, but not a clean "language" type either. On v7, <b>the algorithm barely matters and the representation decides</b>: at K=8 the matched-diagonal share is <b>0.62&ndash;0.69</b> between cNMF, k-means and Ward, against <b>0.36&ndash;0.39</b> between feature sets, with random pairings at ~0.12.</td>
         <td><code>NOTEBOOKS.md</code> still names the 212 track — <b>pick your headline</b>. Superseded by the graded decomposition — see <a href="#gradedvspartition">the ledger</a>.</td></tr>
       <tr><td><b>03 Decoding</b></td><td><span class="pill ok">reran 07‑19</span></td>
         <td>Condition is decodable and driven by the early sensory response; network membership much less so.</td>
@@ -774,15 +784,24 @@
     <div class="method"><ul>
       <li><b>Load & clean.</b> Format‑agnostic (TRC/EDF/H5); drop aux; <b>white‑matter re‑reference</b> (subtract mean of ≥3 good WM contacts, macros only).</li>
       <li><b>Adaptive mains notch.</b> 50 Hz + harmonics, but a harmonic is notched <b>only if its spectral peak z ≥ 3</b> over local background; zero‑phase.</li>
-      <li><b>Trial QC.</b> Hard filters (min stim 0.5 s, max post 10 s) then IQR outlier trim (k=1.5).</li>
+      <li><b>Trial QC.</b> Hard filters — <code>resp_accuracy</code> must be correct/valid/1, stimulus ≥ 0.5 s, post‑stimulus 1–10 s — then an IQR outlier trim (k=1.5) on the post‑stimulus duration. <code>collect_trials</code> now records <b>why</b> each dropped trial went and returns the <b>whole</b> table rather than the survivors alone, which is what lets FIG 1.4 draw the trials that never reached the ERSP.</li>
       <li><b>ERSP.</b> Resample 1 kHz → STFT (Hann, <code>nperseg=128</code>, <code>nfft=256</code>, ~85% overlap) → dB. <b>Time‑warped "TN"</b>: baseline/stim/post onto a 300‑bin axis, stimulus and response each 50% (bin 150 = GO‑cue). Baseline window (−0.6, −0.1) s; display ±6 dB, 0–500 Hz.</li>
+      <li><b>Per‑trial rejection, inside the average.</b> A trial scores the <b>99th percentile of |dB|</b> over its own time–frequency map, and is dropped if that clears <b>median + k·1.4826·MAD</b> or the ordinary <b>mean + k·SD</b>. A <b>second arm scores 70–150 Hz alone</b> (<code>trial_reject_band</code>): the broadband percentile is set by the low frequencies, where the power is, so a trial wild only in high‑gamma barely moves it. The two arms are OR‑ed, so enabling the band arm can only reject more. <b>MAD for the band arm and z for the broadband one, deliberately</b> — z takes its mean and SD from the sample it is judging, so several bad trials inflate the yardstick and mask each other; on a synthetic channel with 1/f power and three high‑gamma runaways in thirty trials, broadband z=3 rejects nothing, band z=3 rejects nothing, and band MAD=3.5 rejects exactly the three. <b>Never more than 34%</b> of a channel's trials go; past that it is a bad channel, not a few bad trials. Dropped trials leave the average <b>and</b> the odd/even split halves. <b>It is configured for G‑05 only</b> — <code>ersp_trial_reject_z = {"G-05": 3.0}</code>, <code>ersp_trial_reject_hg_mad = {"G-05": 3.5}</code> — so every other patient has no rejection at all and reproduces bit‑identically. On G‑05 the band arm added rejections on <b>35 of 138</b> audio channels; removing those runaway trials from the averages is why PAT_6684 went from 77 to 111 gated electrodes.</li>
       <li><b>High‑gamma.</b> 70–150 Hz Butterworth → Hilbert envelope → 25 ms smoothing → baseline z.</li>
       <li><b>Output.</b> Per‑channel ERSP <code>.npy</code> (in <code>04_ersp_LM_RAWONLY/…/ERSP_matrix/</code>) — the cube 02/03/04 read.</li>
     </ul></div>
 
+    <div class="callout"><b>Photodiode extraction — two fixes, and one of them does not reach notebook 140.</b>
+      <ul style="margin:8px 0 0">
+        <li><b>The flip was applied where it could not be seen.</b> <code>_pd_detect_deriv_core</code> flips internally (<code>x = -x</code>) while the QC figure is drawn from the original, unflipped trace — so setting <code>flip</code> moved the detected onsets and left the picture identical, which is indistinguishable from the setting being ignored. The flip is now applied to the array <b>before</b> both, in <code>lf_micromacro.extract_events_from_photodiode</code> and in <code>lf_trials_qc</code>; it is the same arithmetic, since the driver flips immediately after slicing and before any filtering.</li>
+        <li><b>Per‑block equalisation, for a photodiode that fades across a session.</b> The detection threshold is a fraction of the sharpest edge in the analysed window, so one number cannot serve a drifting trace — a dim third of the file is judged against a threshold set by a bright third. <code>pd_blocks</code> (<code>"auto"</code>, or explicit windows) equalises each block first so that one number means the same thing from start to end.</li>
+        <li><b>The caveat: <code>pd_blocks</code> is read by notebook 13, not by notebook 140.</b> Only <code>lf_trials_qc.extract_trials_with_qc</code> reads it, and that is the path notebook 13 calls. Notebook 140 calls <code>lf_micromacro.extract_events_from_photodiode</code> directly and never sees <code>pd_blocks</code>, so <b>per‑block equalisation does not currently change any ERSP cube</b>. The flip fix is in both paths.</li>
+      </ul>
+    </div>
+
     <h3>Results</h3>
     <figure>
-      <div class="cap"><div class="fignum">FIG 1.1<div class="runid">source: stage-01 examples</div></div><h4>Example time‑warped ERSP (one contact, audio)</h4>
+      <div class="cap"><div class="fignum">FIG 1.1<div class="runid">source: <code>_status_png/example_ersp.png</code>, dated 2026-07-19 — illustrative, not a current run: it predates the 2026-09-07 notch audit and the 2026-09-09 trial rejection</div></div><h4>Example time‑warped ERSP (one contact, audio)</h4>
         <ul>
           <li>x = normalised trial time (0–100 %); the black line at 50 % is the <b>GO‑cue</b> (stimulus | response).</li>
           <li>y = 0–500 Hz; colour = dB vs the pre‑stimulus baseline (±6).</li>
@@ -794,7 +813,7 @@
     </figure>
 
     <figure>
-      <div class="cap"><div class="fignum">FIG 1.2<div class="runid">source: stage-01 examples</div></div><h4>Single‑trial high‑gamma (70–150 Hz), same contact</h4>
+      <div class="cap"><div class="fignum">FIG 1.2<div class="runid">source: <code>_status_png/example_hg.png</code>, dated 2026-07-19 — the OLD figure: drawn before <code>plot_hg_trials</code> was rewritten on 2026-09-09, so its rows are positions in the surviving set and the trials removed upstream are simply absent. FIG 1.4 is the current one.</div></div><h4>Single‑trial high‑gamma (70–150 Hz), same contact</h4>
         <ul>
           <li>Rows = individual trials (sorted by stimulus duration), colour = baseline‑normalised HFA.</li>
           <li>Shows the response is consistent across trials, not driven by a few outliers.</li>
@@ -805,7 +824,7 @@
     </figure>
 
     <figure>
-      <div class="cap"><div class="fignum">FIG 1.3</div><h4>PSD before vs after cleaning (WM‑ref + adaptive notch)</h4>
+      <div class="cap"><div class="fignum">FIG 1.3<div class="runid">source: <code>_status_png/psd_before.png</code> / <code>psd_after.png</code>, both dated 2026-07-19 — one patient, and from before the 2026-09-07 per-block notch audit; the notch behaviour it illustrates still holds, the run it came from is not current</div></div><h4>PSD before vs after cleaning (WM‑ref + adaptive notch)</h4>
         <ul>
           <li>Power spectral density across channels, <b>before</b> (top) and <b>after</b> (bottom) preprocessing.</li>
           <li>The sharp 50 Hz line‑noise harmonics (dashed) are removed while the broadband signal is preserved.</li>
@@ -816,6 +835,19 @@
         <img data-fig="01_FBM_Analysis/outputs/_status_png/psd_before.png" alt="PSD before" style="margin-bottom:8px">
         <img data-fig="01_FBM_Analysis/outputs/_status_png/psd_after.png" alt="PSD after">
       </div>
+    </figure>
+
+    <figure>
+      <div class="cap"><div class="fignum">FIG 1.4<div class="runid">source: <code>lf_ersp.plot_hg_trials</code>, rewritten 2026-09-09 · counts from G‑05 (PAT_6684)</div></div><h4>Every excluded trial, and the filter that took it</h4>
+        <ul>
+          <li><b>The figure used to show only the power rejections.</b> Three filters remove trials <b>before</b> the ERSP power rule ever runs — wrong answer, stimulus/response duration, duration outlier — and all three live in <code>collect_trials</code>, which returned survivors only. Those trials were not on the figure at all, not even as a gap. <code>collect_trials</code> now returns the whole table with a reason per trial, and <b>every excluded trial is drawn at the end</b>, numbered in red with a cross.</li>
+          <li><b>Four reasons, and each row is tagged with the one that took it:</b> wrong answer; stimulus or response duration outside the hard limits; duration outlier (IQR, k=1.5); and power (dropped from the ERSP average). First failing test wins, so a trial removed upstream is tagged upstream rather than being attributed to the power rule.</li>
+          <li><b>Row numbers are rows of the trial file</b>, not positions in the surviving set — so a row on the figure can be traced back to the TSV. Trials removed for being too long are clipped to the longest kept trial, so one over-long row cannot squash the picture.</li>
+          <li><b>G‑05: 44 of 154 trials were removed before the power rule ever ran</b>, with nothing on the old figure to say so. Audio kept 30 of 50, picture 30 of 54, reading 45 of 50.</li>
+          <li>This is the figure that shows whether the new per-trial rejection did the right thing, which is why it had to stop hiding the trials it never saw.</li>
+        </ul>
+      </div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/_status_png/trials_excluded_example.png" alt="high-gamma trials with every excluded trial drawn at the end, each tagged with the filter that removed it"></div>
     </figure>
 
     <div class="callout"><b>In progress (no saved figures yet):</b>
@@ -1062,43 +1094,57 @@
     <div class="eyebrow" style="color:var(--s2)">Stage 02</div>
     <h2 class="title">Clustering — functional response types</h2>
     <p class="lead">Group the trial‑averaged ERSPs into data‑driven response <b>types</b>. Every representation
-      clusters the <b>same</b> 2102 high‑activity samples; only the feature space changes. The high‑gamma track
-      is the de‑facto canonical result.</p>
+      clusters the <b>same</b> 1719 gated electrodes of the v7 cohort; only the feature space changes. The
+      high‑gamma track is the de‑facto canonical result.</p>
 
     <div class="method" id="s2runbook" style="border-left:4px solid var(--s2)">
       <h3 style="margin:0 0 6px">How this stage is run &mdash; the order, and what each notebook does</h3>
-      <p style="margin:0 0 10px">Rebuilt 2026-08-26 after the EL033 / PAT_3965 fixation-cross correction.
-        <b>The order matters and one step is strictly serial.</b> Everything downstream of the dataset
-        cache is only as current as that cache.</p>
+      <p style="margin:0 0 10px">Rebuilt 2026-09-08 after PAT_6684 and PAT_6854 had their ERSP cubes
+        recomputed &mdash; PAT_6684 with the per-patient trial rejection notebook 140 gained that day, which
+        took it from 77 to 111 gated contacts. <b>The order matters and two steps are strictly serial.</b>
+        Everything downstream of the dataset cache is only as current as that cache.</p>
 
       <p style="margin:0 0 4px"><b>STEP 0 &mdash; alone, nothing else running.</b></p>
-      <pre style="margin:0 0 10px"><code>python rebuild_concat_cache.py --apply</code></pre>
+      <pre style="margin:0 0 10px"><code>python rebuild_concat_cache.py --apply --version 7</code></pre>
       <ul style="margin:0 0 12px">
-        <li><b>Writes a NEW cache directory</b> (<code>concat_source_v3</code>) rather than rebuilding in
+        <li><b><code>--version</code> is not optional in practice.</b> It defaults to <b>5</b>, so leaving it
+          off aims the rebuild at a cache that already exists and hands back the cohort from two rebuilds
+          ago. Pass the next unused number; <code>outputs/_dataset/</code> currently holds v4 through v7.</li>
+        <li><b>Writes a NEW cache directory</b> (<code>concat_source_v7</code>) rather than rebuilding in
           place. <code>prepare_dataset</code> decides a cache hit on
           <code>cached_params == params</code>, and <code>params</code> carries the input path, the
           thresholds and a schema tag &mdash; <b>no patient list, no cube timestamps, no content hash</b>.
-          Rebuilding into the old directory would print <i>cache hit</i> and hand back the previous
-          <code>high_activity</code> flags, so the re-gating would silently not happen.</li>
+          A patient whose cubes were recomputed changes none of those, so rebuilding into the old directory
+          would print <i>cache hit</i> and hand back the previous <code>high_activity</code> flags, and the
+          re-gating would silently not happen.</li>
         <li><b>Re-gates every electrode</b> from the current cubes:
           <code>prop_above_pos&nbsp;&ge;&nbsp;0.02 OR prop_below_neg&nbsp;&ge;&nbsp;0.04</code>, in at
           least one of the three conditions.</li>
-        <li>Prints the new cohort size and a per-patient before/after table.</li>
+        <li>Prints the new cohort size and a per-patient before/after table. <b>v7: 1719 gated of 2999
+          ungated, 27 patients</b> (v6 1688/27, v5 1675/26, v4 1693/27). Read that table &mdash; on v7 only
+          two patients moved at all: PAT_6684 77&nbsp;&rarr;&nbsp;111 and PAT_6854 146&nbsp;&rarr;&nbsp;143.
+          Everyone else is unchanged, which is the check that the rebuild did what it was supposed to and
+          nothing more.</li>
       </ul>
 
-      <p style="margin:0 0 4px"><b>STEP 1 &mdash; three kernels, in parallel.</b> They share the cache
+      <p style="margin:0 0 4px"><b>STEP 1 &mdash; 240 and 241 together, then 242.</b> They share the cache
         read-only, write to separate run directories, and each tags its own sweep file, so they cannot
         collide. Each one asserts the cache exists and refuses to build it.</p>
       <table class="sum" style="margin:0 0 12px">
         <tr><th>notebook</th><th>method</th><th>what it does</th></tr>
         <tr><td><code>240_cluster_kmeans</code></td><td>k-means</td>
-            <td rowspan="3">Both feature sets, <b>K = 5&hellip;30</b>, then its own bi-cross-validated
-              held-out variance sweep in its home space.</td></tr>
+            <td rowspan="3">All <b>four</b> feature sets &mdash; <code>concat_hg</code>,
+              <code>concat_rawds</code>, <code>concat_bands5</code>, <code>concat_bands5z</code> &mdash; at
+              <b>K = 5&hellip;30</b>, then its own bi-cross-validated held-out variance sweep in its home
+              space.</td></tr>
         <tr><td><code>241_cluster_hierarchical</code></td><td>Ward</td></tr>
         <tr><td><code>242_cluster_cnmf</code></td><td>convex NMF</td></tr>
       </table>
-      <p style="margin:0 0 12px"><b>242 is much the slowest</b> &mdash; expect it to still be running long
-        after the other two finish. That is the reason they are parallel.</p>
+      <p style="margin:0 0 12px"><b>242 must follow 240.</b> It takes its <code>X</code> from the newest
+        k-means run on each feature set, and checks its own row count and patient|electrode keys against
+        it &mdash; so started before 240 has written the new runs it fits the previous cohort and says so in
+        its own log. 240 and 241 have no such dependency and run together. <b>242 is also much the
+        slowest</b>, so expect it to still be running long after 241 finishes.</p>
 
       <p style="margin:0 0 4px"><b>STEP 2 &mdash; only after all three have finished.</b></p>
       <ul style="margin:0 0 12px">
@@ -1108,22 +1154,48 @@
           only method whose bi-cross-validated curve turns over</b>; k-means and Ward rise monotonically,
           so their argmax is just the largest K tested and means nothing. That same K is then applied to
           all three for the comparison.</li>
-        <li>K will generally <b>differ between <code>concat_hg</code> and <code>concat_rawds</code></b>.
-          That is expected: same electrodes, different representation.</li>
+        <li>K will generally <b>differ between the four feature sets</b>. That is expected: same electrodes,
+          different representation. On v7 the convex-NMF held-out peaks are <code>concat_hg</code>&nbsp;9,
+          <code>concat_rawds</code>&nbsp;13, <code>concat_bands5</code>&nbsp;14 and
+          <code>concat_bands5z</code>&nbsp;14.</li>
         <li>Runs separation-vs-matched-null, cross-method agreement, anatomical coherence and
           leave-one-patient-out, then builds the figures.</li>
       </ul>
 
       <p style="margin:0 0 4px"><b>STEP 3 &mdash; refresh what reads the runs.</b></p>
       <pre style="margin:0 0 6px"><code>python sweep_stability.py --new-concat
-python make_missing_centroids.py --force
-python make_coverage_bundle.py</code></pre>
+python make_missing_centroids.py --force</code></pre>
       <ul style="margin:0 0 12px">
         <li>then <code>252_clustering_recon</code> for the <b>3-D per-cluster glassbrains</b>. It
           discovers runs from <code>index.json</code>, so it must come after the new runs exist.</li>
         <li><b><code>251_recon_shared_data</code> does NOT need re-running.</b> It builds each patient's
           electrode coordinates from their anatomy; it does not depend on the clustering or on trial
           timing. Only re-run it when a patient's reconstruction changes.</li>
+      </ul>
+
+      <p style="margin:0 0 4px"><b>STEP 4 &mdash; the paper figures.</b>
+        <code>000_Paper2_figures.ipynb</code> drives them and explains each one:
+        <code>00_paper2_figure0_coverage.py</code>, <code>00_Paper2_Figures.py</code>,
+        <code>00_paper2_figures2_2.py</code>, <code>00_paper2_figure3_lana.py</code>, then
+        <code>00_paper2_figure4_correspondence.py</code>. Every figure writes a
+        <code>_caption.txt</code> naming the runs it was drawn from, so one that was not rebuilt says so
+        itself rather than looking current.</p>
+
+      <p style="margin:0 0 4px"><b>STEP 5 &mdash; the three bundles, in this order.</b></p>
+      <pre style="margin:0 0 6px"><code>python make_coverage_bundle.py
+python make_centroid_bundle.py
+python make_cluster_visualizer.py</code></pre>
+      <ul style="margin:0 0 12px">
+        <li><b>Coverage first, and not as a convention.</b> It writes
+          <code>outputs/250_recon/fsaverage/coverage_viz/manifest.json</code>, and <b>both</b>
+          <code>make_centroid_bundle.py</code> and <code>make_cluster_visualizer.py</code> resolve which run
+          belongs to which feature set and algorithm by reading that manifest. Run either against a manifest
+          left over from the previous cohort and they build cleanly, from the old runs. Nothing fails; the
+          page just serves the wrong cohort.</li>
+        <li>Then the page blocks: <code>python make_cluster_webblock.py --insert</code> for the statistics
+          section of this tab, plus <code>make_s2_gallery.py</code> and
+          <code>make_paper_figures_webblock.py</code>. Until those run the tab keeps showing the previous
+          cohort's numbers with nothing on the page to say so.</li>
       </ul>
 
       <p style="margin:0 0 4px"><b>The rest of the notebooks in this folder</b>, for orientation. Only
@@ -1134,23 +1206,28 @@ python make_coverage_bundle.py</code></pre>
         <tr><td><code>211</code></td><td>post-hoc validation of clustering runs</td></tr>
         <tr><td><code>213</code> / <code>214</code> / <code>215</code></td><td>cluster ranking and reassignment; response timing and ordering; cross-correlation and lead/lag</td></tr>
         <tr><td><code>230</code> / <code>231</code> / <code>232</code></td><td>blob, &minus;1/0/+1 segmentation, and high-frequency activity clustering &mdash; earlier feature spaces</td></tr>
-        <tr><td><code>233</code></td><td>the original condition-concatenated clustering. <b>Superseded by 240&ndash;243</b>, which split it by algorithm so the three can run in parallel.</td></tr>
+        <tr><td><code>233</code></td><td>the original condition-concatenated clustering. <b>Superseded by 240&ndash;242</b>, which split it by algorithm so k-means and Ward can run in parallel. <b>There is no 243.</b></td></tr>
         <tr><td><code>234</code> / <code>236</code></td><td>does a discrete taxonomy survive its own assumptions; does the decomposition hold up</td></tr>
         <tr><td><code>235</code></td><td>graded decomposition (convex NMF) and its K sweep &mdash; the fitting part is now in 242</td></tr>
         <tr><td><code>237</code></td><td>clustering with the responsiveness gate lifted (<code>concat_hg_all</code>). <b>Not part of the current run</b>: it is a different cohort, so it can never be compared across to the gated pair.</td></tr>
         <tr><td><code>238</code></td><td>over-factor and filter; reliability-based electrode selection</td></tr>
       </table>
       <div class="runid">source of truth: <code>02_FBM_Clustering/rebuild_concat_cache.py</code> and
-        notebooks 240&ndash;243 &middot; cohort cache <code>outputs/_dataset/concat_source_v3</code></div>
+        notebooks 240 / 241 / 242 / 249 &middot; cohort cache
+        <code>outputs/_dataset/concat_source_v7</code>, built 2026-09-08</div>
     </div>
 
 
     <div class="method" id="s2methods" style="border-left:4px solid var(--s2)">
       <h3 style="margin:0 0 6px">What this stage does now &mdash; three algorithms, one cohort, K&nbsp;=&nbsp;5&hellip;30</h3>
-      <p style="margin:0 0 8px">Written 2026-08-26 from the files the run produced. The cohort is the
-        <b>v4 rebuild</b>: <b>1693 electrodes across 27 patients</b>, feature set
-        <code>concat_hg</code>. All three methods were verified to read a <b>bit-identical
-        <code>X_train</code> in the identical electrode order</b>, so every difference below is the method.</p>
+      <p style="margin:0 0 8px">Written 2026-09-09 from the files the run produced. The cohort is the
+        <b>v7 rebuild</b>: <b>1719 gated electrodes across 27 patients</b>, and there are now <b>four</b>
+        feature sets rather than two &mdash; <code>concat_hg</code> (the 70&ndash;150&nbsp;Hz line,
+        1&nbsp;&times;&nbsp;900), <code>concat_rawds</code> (15 canonical bands
+        &times;&nbsp;30 bins, 1350), <code>concat_bands5</code> (the same grid coarsened to 5
+        bandwidth-weighted bands, 450) and <code>concat_bands5z</code> (those five bands each z-scored to
+        equal weight). All three methods were verified to read a <b>bit-identical <code>X_train</code> in
+        the identical electrode order</b>, so every difference below is the method.</p>
       <table class="sum" style="margin:8px 0">
         <tr><th>method</th><th>what it returns per electrode</th><th>fitted in</th><th>notebook</th></tr>
         <tr><td><b>k-means</b></td><td>one label</td><td>raw dB</td><td><code>240</code></td></tr>
@@ -1162,6 +1239,14 @@ python make_coverage_bundle.py</code></pre>
         convex NMF unit-norms each electrode before fitting while k-means and Ward use raw dB. Scoring
         all three in dB is the error that made the first version of <a href="#separation">FIG C.7</a>
         wrong, and the right-hand column below shows what it would have produced.</p>
+      <p style="margin:8px 0 0"><b>A latent defect, fixed 2026-09-08.</b> 241 and 242 passed
+        <code>fmax=400</code> to the feature builders while 240 passed <b>500</b>. <code>fmax</code> is not
+        a filter, it is a <i>description</i> of the data: the extractors rebuild the frequency axis as
+        <code>linspace(0, fmax, n_freq)</code> and then select bins by Hz. The cubes are 129 bins spanning
+        <b>0&ndash;500&nbsp;Hz</b>, so 400 would have made "70&ndash;150&nbsp;Hz" select bins truly covering
+        <b>89.8&ndash;187.5&nbsp;Hz</b>. It never reached disk &mdash; all twelve <code>X_train.npy</code>
+        are byte-identical and match <code>fmax=500</code> to float32 &mdash; so it was latent rather than
+        historical, and no published run has to be redone.</p>
     </div>
 
     <h4 id="s2choosek">Choosing K &mdash; and why only one of the three can answer it</h4>
@@ -1179,9 +1264,13 @@ python make_coverage_bundle.py</code></pre>
       the components for convex NMF, nearest centroid for k-means and Ward.</p>
     <table class="sum" style="margin:8px 0">
       <tr><th>feature set</th><th>convex NMF</th><th>k-means</th><th>Ward</th></tr>
-      <tr><td><code>concat_hg</code></td><td style="color:#1b7837"><b>peaks at K=11</b></td>
+      <tr><td><code>concat_hg</code></td><td style="color:#1b7837"><b>peaks at K=9</b> <span style="color:var(--muted)">(v6: 11)</span></td>
           <td colspan="2" style="color:#c1121f">still rising at the largest K tested</td></tr>
-      <tr><td><code>concat_rawds</code></td><td style="color:#1b7837"><b>peaks at K=12</b></td>
+      <tr><td><code>concat_rawds</code></td><td style="color:#1b7837"><b>peaks at K=13</b> <span style="color:var(--muted)">(v6: 12)</span></td>
+          <td colspan="2" style="color:#c1121f">still rising at the largest K tested</td></tr>
+      <tr><td><code>concat_bands5</code></td><td style="color:#1b7837"><b>peaks at K=14</b> <span style="color:var(--muted)">(unchanged)</span></td>
+          <td colspan="2" style="color:#c1121f">still rising at the largest K tested</td></tr>
+      <tr><td><code>concat_bands5z</code></td><td style="color:#1b7837"><b>peaks at K=14</b> <span style="color:var(--muted)">(v6: 13)</span></td>
           <td colspan="2" style="color:#c1121f">still rising at the largest K tested</td></tr>
     </table>
     <p style="margin:0 0 8px"><b>Convex NMF is the only method whose curve turns over anywhere in
@@ -1190,8 +1279,35 @@ python make_coverage_bundle.py</code></pre>
       block better. Only the graded model pays for an extra component. So <b>K is read from convex NMF
       and then applied to all three</b> &mdash; k-means' and Ward's argmax would simply be "the largest
       K in the sweep".</p>
-    <p style="margin:0 0 8px">K legitimately <b>differs between feature sets</b> (11 vs 12).
-      Same electrodes, different representation; there is no reason for one number to serve both.</p>
+    <p style="margin:0 0 8px">K legitimately <b>differs between feature sets</b> (9 / 13 / 14 / 14). Same
+      electrodes, different representation; there is no reason for one number to serve all four. It also
+      <b>moves with the cohort</b>: the two patients that changed between v6 and v7 took
+      <code>concat_hg</code> from 11 to 9 and <code>concat_rawds</code> from 12 to 13, which is the honest
+      measure of how firmly this criterion holds K.</p>
+
+    <div class="callout warn" style="margin:14px 0 0">
+      <b>A late broadband lift that <code>concat_hg</code> cannot tell from a response.</b>
+      PAT_6684's time-warped ERSPs carry a band that rises from the GO cue and plateaus from about
+      <b>80% of normalised time</b> to the end. It is broadband above ~50&nbsp;Hz, flat to 500&nbsp;Hz, and
+      <b>suppressed below 30&nbsp;Hz</b>; it is present in <b>137 of 138 channels</b>, on every shaft, in
+      both split halves. That frequency shape and that spatial spread are <b>muscle, not an epileptic
+      discharge</b> &mdash; a spike lifts the low frequencies, this suppresses them. And it is not one
+      patient's problem: measured on audio across all 29 patients, EL030 <b>+1.66&nbsp;dB</b>, EL045 +0.97,
+      EL033 +0.86, PAT_6684 +0.80, PAT_3415 +0.77, while nine patients show none of it. Most consistent
+      with speech and jaw muscle during the spoken response. <b>It sits inside 70&ndash;150&nbsp;Hz</b>,
+      which is the whole of <code>concat_hg</code>, and it lifts nearly every electrode of an affected
+      patient by a similar late-rising amount &mdash; so on those patients some of what the HFA clustering
+      is grouping on is jaw rather than cortex.
+    </div>
+    <figure><div class="cap"><div class="fignum">FIG 2.1<div class="runid">source: <code>01_FBM_Analysis/make_late_band_figure.py</code> &middot; PAT_6684, cohort v7</div></div><h4>The late band, measured three ways</h4>
+        <ul>
+          <li><b>A</b> when: the mean over all 138 channels rises at the GO cue and plateaus from ~80% of normalised time.</li>
+          <li><b>B</b> what shape: the late window minus an early one, by frequency. Positive from ~50&nbsp;Hz flat to 500, negative below 30 &mdash; the opposite of a spike.</li>
+          <li><b>C</b> where: every shaft, graded rather than focal, which is what an extracranial source looks like.</li>
+        </ul>
+      </div>
+      <div class="imgwrap"><img data-fig="01_FBM_Analysis/outputs/_status_png/late_broadband_band.png" alt="three panels measuring a late broadband band in one patient: its time course, its frequency profile, and its distribution across shafts"></div>
+    </figure>
 
     <!-- BEGIN paper2 figures, generated by make_paper_figures_webblock.py - do not hand-edit -->
     <h3 id="paper2figs">Paper 2 figures</h3>
@@ -1612,17 +1728,29 @@ python make_coverage_bundle.py</code></pre>
     <h4 id="s2where">Where this stands</h4>
     <table class="sum" style="margin:8px 0">
       <tr><th></th><th>state</th></tr>
-      <tr><td>cohort cache</td><td><code>concat_source_v6</code> &mdash; 1688 gated
-        electrodes, 27 patients</td></tr>
-      <tr><td>k-means / Ward / convex NMF</td><td>fitted K=5&hellip;30 on both feature sets</td></tr>
-      <tr><td>K chosen</td><td><code>concat_hg</code> K=11 &middot; <code>concat_rawds</code> K=12,
-        both from the convex NMF peak</td></tr>
-      <tr><td>statistics</td><td><code>concat_hg</code> complete &middot; <code>concat_rawds</code>
-        running</td></tr>
-      <tr><td>still to run</td><td><code>sweep_stability.py --new-concat</code>,
-        <code>make_missing_centroids.py --force</code>, <code>make_coverage_bundle.py</code>,
-        then <code>252</code> for the 3-D glassbrains</td></tr>
+      <tr><td>cohort cache</td><td><code>concat_source_v7</code> &mdash; 1719 gated
+        electrodes of 2999 ungated, 27 patients</td></tr>
+      <tr><td>k-means / Ward / convex NMF</td><td>fitted K=5&hellip;30 on all <b>four</b> feature sets
+        &mdash; twelve runs, all dated <code>20260908</code>, all n=1719</td></tr>
+      <tr><td>K chosen</td><td><code>concat_hg</code> K=9 &middot; <code>concat_rawds</code> K=13,
+        both from the held-out convex NMF peak on v7; the paper figures cut at K=8</td></tr>
+      <tr><td>statistics</td><td>249 run on all four feature sets at the held-out peak</td></tr>
+      <tr><td>figures and site</td><td>FIG&nbsp;0&ndash;4 regenerated on v7; the coverage and centroid
+        bundles, the cluster visualizer, the figure block, the Paper&nbsp;2 tab and the stage-02 gallery
+        all rebuilt. <code>check_site_ready.py --k 8</code> passes 67 of 67.</td></tr>
+      <tr><td>still to run</td><td>nothing for v7. The next refit needs the cache built to a
+        <b>new version directory</b> &mdash; see the runbook above for why a rebuild in place
+        silently keeps the old gating.</td></tr>
     </table>
+    <p style="margin:0 0 8px"><b>What the twelve runs agree about.</b> FIG&nbsp;4 pairs two solutions
+      cluster by cluster and reports the <b>diagonal share</b> &mdash; the fraction of electrodes sitting
+      on the 1:1 matched diagonal &mdash; against random pairings of the same two solutions, which land at
+      about <b>0.12</b>. At K=8 on v7: <b>cNMF vs k-means 0.69, k-means vs Ward 0.69, cNMF vs Ward
+      0.62</b>, against <b>HFA vs 5 bands 0.39, HFA vs 5 bands z 0.38, HFA vs 15 bands 0.36</b>. All three
+      algorithm comparisons now have <b>8 of 8 matched pairs</b> clearing both permutation nulls, where v6
+      had 7. The conclusion is the same one three ways: <b>the algorithm barely matters, the
+      representation does</b> &mdash; which is why the four feature sets, not the three kernels, are the
+      axis this stage now sweeps.</p>
     <p style="margin:0 0 4px"><b>Three things worth carrying forward.</b> A cNMF-native stability, to
       replace a number that currently measures the wrong thing. <b>Loading-weighted anatomy</b> &mdash;
       weighting each electrode's anatomical contribution by its loading rather than hard-assigning it,
@@ -2592,7 +2720,9 @@ python make_coverage_bundle.py</code></pre>
     <p>A single label only appears where a tool demands one. MOBA and the clustering visualizer need a hard
       colour per contact, so <code>publish_decomposition.py</code> writes
       <code>argmax<sub>j</sub> G&#770;[i, j]</code> into the cluster column &mdash; and that number is a
-      <b>lossy summary of the thing it summarises</b>. On the current 1266-electrode fit:</p>
+      <b>lossy summary of the thing it summarises</b>. On the 1266-electrode fit these came from
+      &mdash; the cache is now <code>concat_source_v7</code> at 1719 and they have not been
+      recomputed:</p>
     <table>
       <thead><tr><th>on <code>concat_hg</code>, K = 7, n = 1266</th><th>value</th><th>what it means</th></tr></thead>
       <tbody>
@@ -4447,6 +4577,58 @@ RETIRED-END integrity -->
     <div class="eyebrow" style="color:var(--warn)">Caveats & next steps</div>
     <h2 class="title">Open decisions and loose ends</h2>
 
+    <!-- ============ LATE BROADBAND BAND ============ -->
+    <h3 id="latebroadband">A late broadband band in the warped ERSPs &mdash; most likely muscle, and it sits inside the HFA band</h3>
+
+    <p class="lead">Found on 2026-09-08 while checking <code>PAT_6684</code>. Its time-warped ERSPs
+      carry a band that <b>rises from the GO cue and plateaus from roughly 80% of normalised time to
+      the end of the trial</b>. It is in the average over all <b>138</b> of that patient's audio
+      channels, not only in a few of them.</p>
+
+    <div class="method">
+      <b>Why the reading is muscle rather than epilepsy.</b> Two properties, and they point the same
+      way:
+      <ul>
+        <li><b>The frequency shape.</b> Broadband above <b>~50 Hz</b>, flat all the way to
+          <b>500 Hz</b>, and <b>suppressed below 30 Hz</b>. An epileptic discharge does the opposite
+          &mdash; a spike lifts the low frequencies. A flat high-frequency lift with a low-frequency
+          decrease is what EMG looks like on a spectrogram.</li>
+        <li><b>The spatial spread.</b> Present in <b>137 of 138</b> channels, on <b>every shaft</b>,
+          and in <b>both odd/even split halves</b>. Nothing that uniform across an implant is a focal
+          discharge.</li>
+        <li><b>It is not one patient's peculiarity.</b> Measured on the audio condition across all
+          <b>29</b> patients: EL030 <b>+1.66 dB</b>, EL045 +0.97, EL033 +0.86, PAT_6684 +0.80,
+          PAT_3415 +0.77 &mdash; and <b>nine patients show none of it at all</b>. PAT_6684 is fourth on
+          that list, not first, which is what rules out reading it as this implant's pathology.</li>
+        <li><b>The timing fits the spoken response.</b> It starts at the GO cue and is at its plateau
+          through the production half, which is when the patient is speaking. Speech and jaw muscle is
+          the most consistent account of all four observations together.</li>
+      </ul>
+      <b>Stated as what it is.</b> This is an <i>interpretation</i> supported by the frequency shape
+      and the spatial spread &mdash; not a proven attribution. No EMG was recorded, so nothing here
+      measures muscle directly, and no test has been run that would exclude another broadband
+      generator. What can be said without hedging is the measurement: a late, flat, &gt;50 Hz lift with
+      low-frequency suppression, everywhere on the implant, in both halves, in five patients strongly
+      and in nine not at all.
+    </div>
+
+    <p><b>Why it matters, and it matters for <code>concat_hg</code> in particular.</b> The band sits
+      inside <b>70&ndash;150 Hz</b>, which is the whole of what <code>concat_hg</code> is built from,
+      and on an affected patient it lifts <i>nearly every</i> electrode by a similar late-rising
+      amount. So it does not enter the feature matrix as noise on a few contacts &mdash; it enters as a
+      patient-wide late component, shared by every electrode of that patient. That is precisely the
+      shape a clustering can pick up as structure: a "late response" cluster could be reading the
+      speaking rather than the cortex, and electrodes would share it because they share a patient.
+      Nothing on this page is corrected for it, and no published number here has been adjusted.</p>
+
+    <p><b>What would settle it.</b> The per-patient magnitudes are the handle &mdash; the effect is
+      measurable per patient on the audio condition and nine patients have none, so a patient-level
+      covariate, or a refit with the strongest patients held out, would show whether any cluster
+      depends on it. <code>concat_rawds</code> and <code>concat_bands5</code> keep the frequency axis
+      and would show the flat-to-500-Hz shape directly, which <code>concat_hg</code> averages away.
+      Note also that this interacts with <a href="#gatesplit">the responsiveness gate</a>: a lift on
+      nearly every electrode of a patient is a lift on the quantity the gate thresholds.</p>
+
     <!-- ============ CLUSTERING DIAGNOSTIC PASS ============ -->
     <h3 id="clusterdiag">Clustering — a diagnostic pass, and the four claims it destroyed</h3>
 
@@ -5278,8 +5460,9 @@ RETIRED-END integrity -->
           criterion &mdash; does the electrode's response reproduce across trial halves &mdash; would
           separate a quiet-but-real response from a quiet-and-random one, which an amplitude threshold
           cannot. Norman-Haignere et al. (2019) select their 271 electrodes exactly this way, at
-          split-half r&nbsp;&gt;&nbsp;0.2. Notebook <b>238</b> has that analysis written; it needs
-          stage 01 to save odd/even-trial ERSP cubes first, which it currently does not.</li>
+          split-half r&nbsp;&gt;&nbsp;0.2. Notebook <b>238</b> has that analysis written, and as of
+          2026-09-09 its input exists: stage 01 now writes odd/even halves beside every cube, in
+          <code>ERSP_halves/</code>. Nothing has been run against them yet.</li>
         <li><b>One caveat on the low end.</b> Ward c2 is the weakest agreement at r = 0.75 and is only
           28% added, so it is not the diluted cluster you would predict from the composition alone.
           Agreement and composition are separate axes and this figure is not a ranking.</li>
@@ -5498,10 +5681,13 @@ RETIRED-END integrity -->
         <i>explainable</i> variance rather than of total variance &mdash; which turns the K
         choice from a relative comparison into an absolute one.</li>
 
-      <li><b>Status: pending a re-run of 140 (or 150).</b> The machinery is committed and
-        tested; no cubes have been regenerated. <code>make_reliability_gate.py</code> reports
-        what is missing and exits cleanly until the halves exist. <b>No result is claimed
-        here.</b></li>
+      <li><b>Status 2026-09-09: the halves are on disk.</b> All <b>30</b> patients in
+        <code>04_ersp_LM_RAWONLY</code> carry an <code>ERSP_halves/</code> folder beside their
+        cubes &mdash; 28 with all three conditions, EL044 and PAT_3301 with one. Trials removed
+        by the new per-patient rejection are excluded from the halves as well as from the
+        average, so the two cannot disagree. <code>make_reliability_gate.py</code> has its input
+        now; the shipped gate is still the amplitude one and <b>no reliability number is claimed
+        here yet.</b></li>
     </ul>
 
         <h4>Opening the story &mdash; two candidates</h4>
@@ -5569,7 +5755,17 @@ RETIRED-END integrity -->
 
     <h3>Still to run</h3>
     <div class="method"><ul>
-      <li><b>460 / 465 pooling on the 1027 cohort.</b> Pooling still runs on the older electrode set,
+      <li><b>Decide what to do about the late broadband band</b> (<a href="#latebroadband">above</a>).
+        It is inside 70&ndash;150 Hz, so it is inside <code>concat_hg</code>; five patients carry a
+        clear one and nine carry none, which is enough spread to matter to any cross-patient
+        clustering. Cheapest first step is the per-patient magnitude as a covariate.</li>
+      <li><b>Wire <code>pd_blocks</code> into notebook 140.</b> Per-block photodiode equalisation is
+        reachable only through <code>lf_trials_qc.extract_trials_with_qc</code>, which notebook 13
+        calls; 140 calls <code>lf_micromacro.extract_events_from_photodiode</code> directly, so a
+        patient whose photodiode fades across the session is still detected with one global threshold
+        in the notebook that actually makes the cubes.</li>
+      <li><b>460 / 465 pooling on the 1027 cohort, four rebuilds behind v7</b> &mdash; its
+        <code>_raw_ungated</code> cache is dated 2026-08-03. Pooling still runs on the older electrode set,
         so <b>S1's role side and cluster side come from slightly different samples</b>. Re-running 460
         then <code>make_role_onsets.py</code> closes that gap and is the last thing between S1 and a
         clean like-for-like comparison.</li>
@@ -5584,6 +5780,63 @@ RETIRED-END integrity -->
         (contains only <code>Thumbs.db</code>) that is still registered in <code>index.json</code>.</li>
       <li><b>Two decoding runs</b> — re‑run <code>full_300/logreg</code> for condition + Yeo‑7 in 320/330; they crashed mid‑experiment.</li>
       <li><b>Micro/macro (nb 11)</b> hasn't been run to a saved output yet.</li>
+    </ul></div>
+
+    <h3>Done 2026-09-08 &rarr; 09</h3>
+    <div class="method"><ul>
+      <li><b>Per-patient trial rejection in 140.</b> A trial's score is the <b>99th percentile of
+        |dB|</b> over its time&ndash;frequency map; two rules, <b>MAD</b> (median + k&middot;1.4826&middot;MAD)
+        and the ordinary <b>z</b> (mean + k&middot;SD), OR-ed. A <b>second arm scores the 70&ndash;150 Hz
+        band alone</b> (<code>trial_reject_band</code>), because the broadband percentile is set by the
+        low frequencies where the power is, so a trial wild only in high gamma barely moves it; the band
+        arm is OR-ed with the broadband one and can therefore only reject more. Never more than
+        <b>34%</b> of a channel's trials can go. Configured for <b>G-05 only</b>
+        (<code>ersp_trial_reject_z</code> 3.0, <code>ersp_trial_reject_hg_mad</code> 3.5) &mdash; every
+        other patient has no rejection and reproduces bit-identically. Dropped trials leave the average
+        <i>and</i> the odd/even halves. On G-05 the band arm added rejections on <b>35 of 138</b> audio
+        channels.</li>
+      <li><b>MAD for the band arm, z for the broadband one, on purpose.</b> z takes its mean and SD from
+        the sample it is judging, so several bad trials inflate the yardstick and mask each other.
+        Synthetic channel, 1/f power, three high-gamma runaways in thirty trials: broadband z=3 rejects
+        nothing, band z=3 rejects nothing, <b>band MAD=3.5 rejects exactly the three</b>.</li>
+      <li><b>The HG trials figure was hiding most of what it should show.</b> <code>plot_hg_trials</code>
+        marked only the trials the ERSP power rule dropped. Three filters run <i>before</i> that rule
+        &mdash; wrong answer, stimulus/response duration, duration outlier &mdash; and all three live in
+        <code>collect_trials</code>, which returned survivors only, so those trials were never on the
+        figure at all. <code>collect_trials</code> now records <b>why</b> each trial went and returns the
+        whole table; every excluded trial is drawn at the end, numbered in red with a cross and
+        <b>tagged with the filter that took it</b>. Row numbers are now rows of the trial file rather
+        than positions in the surviving set, and over-long trials are clipped to the longest kept trial
+        so one row cannot squash the picture. For G-05 that is <b>44 of 154</b> trials that used to
+        vanish with nothing on the figure to say so &mdash; audio kept 30 of 50, picture 30 of 54,
+        reading 45 of 50.</li>
+      <li><b>Photodiode: the flip was applied where the figure could not see it.</b> The flip happened
+        inside the detector while the QC figure drew the unflipped trace, so the setting looked ignored;
+        it is now applied to the array before both. <b>Per-block equalisation</b> was added for a
+        photodiode that fades across a session (<code>pd_blocks</code>: <code>"auto"</code> or explicit
+        windows), because the detection threshold is a fraction of the sharpest edge in the analysed
+        window and so cannot serve a drifting trace. The caveat is in
+        <a href="#overview">the stage table</a>: only notebook 13 reaches it.</li>
+      <li><b>A latent <code>fmax</code> bug, fixed.</b> Notebooks <b>241</b> and <b>242</b> passed
+        <code>fmax=400</code> to the feature builders while <b>240</b> passed 500. <code>fmax</code> is
+        not a filter, it is a <i>description</i> of the data: the extractors rebuild the frequency axis
+        as <code>linspace(0, fmax, n_freq)</code> and select bins by Hz. The cubes are 129 bins spanning
+        0&ndash;500 Hz, so 400 would have made &ldquo;70&ndash;150 Hz&rdquo; select bins truly covering
+        <b>89.8&ndash;187.5 Hz</b>. The runs on disk were unaffected &mdash; all twelve
+        <code>X_train.npy</code> are byte-identical and match <code>fmax=500</code> to float32 &mdash;
+        so it was latent, not historical.</li>
+      <li><b>Twelve clustering runs on v7</b>, all dated <b>20260908</b>, all n=1719: cNMF
+        201639 / 202514 / 203247 / 203917, k-means 220052 / 220120 / 220155 / 220217, hierarchical
+        220244 / 220254 / 220305 / 220313, for <code>concat_hg</code> / <code>concat_rawds</code> /
+        <code>concat_bands5</code> / <code>concat_bands5z</code>. Held-out peak K moved:
+        <code>concat_hg</code> 11 &rarr; 9, <code>concat_rawds</code> 12 &rarr; 13,
+        <code>concat_bands5</code> 14 (unchanged), <code>concat_bands5z</code> 13 &rarr; 14.</li>
+      <li><b>FIG 4 on v7, and the answer got cleaner.</b> Diagonal share at K=8 &mdash; the fraction of
+        electrodes on the 1:1 matched diagonal &mdash; against ~0.12 for random pairings of the same two
+        solutions: <b>cNMF vs k-means 0.69</b>, k-means vs Ward 0.69, cNMF vs Ward 0.62; against
+        <b>HFA vs 5 bands 0.39</b>, HFA vs 5 bands z 0.38, HFA vs 15 bands 0.36. All three algorithm
+        comparisons now have <b>8 of 8</b> matched pairs clearing both permutation nulls (v6 had 7).
+        <b>The algorithm barely matters; the representation does.</b></li>
     </ul></div>
 
     <h3>Done 2026‑08‑01 (evening)</h3>

@@ -69,12 +69,59 @@
   #prov b { color:#cdd3dc; font-weight:600; }
   #hint { position:fixed; bottom:4px; right:14px; color:#5a5f68; font-size:11px; z-index:5; }
   #status { position:fixed; inset:0; display:grid; place-items:center; text-align:center;
-    color:var(--muted); font-size:15px; padding:24px; z-index:9; pointer-events:none; }
+    color:var(--muted); font-size:15px; padding:24px; z-index:9; pointer-events:none;
+    transition:opacity .45s ease, background-color .45s ease; }
+  /* STAGE 2: the brain is up, the run is still coming. The overlay stops covering the
+     page and becomes a line at the bottom, so the remaining wait happens over something
+     to look at rather than over nothing. */
+  #status.staged { align-content:end; background:transparent; }
+  #status.staged .ring { width:34px; }
+  #status.staged .statusText { font-size:12.5px; opacity:.85; }
+  #status.gone { opacity:0; }
+  #brain > canvas { opacity:0; transition:opacity .6s ease; }
+  #brain.up > canvas { opacity:1; }
+  .statusWrap { display:grid; justify-items:center; gap:14px; }
+  .ring { width:104px; aspect-ratio:1; color:#7f8fa6; transition:width .45s ease; }
+  .ring g.spin { transform-origin:50px 50px; animation:ringTurn 9s linear infinite; }
+  .ring use { transform-box:fill-box; transform-origin:center;
+    animation:brainPulse 1.5s ease-in-out infinite; }
+  @keyframes ringTurn  { to { transform:rotate(360deg); } }
+  @keyframes brainPulse{ 0%,72%,100% { opacity:.16; transform:scale(.72); }
+                         36%          { opacity:1;   transform:scale(1); } }
+  /* A spinner that keeps spinning while the tab is hidden is just heat. */
+  @media (prefers-reduced-motion: reduce) {
+    .ring g.spin { animation:none; }
+    .ring use { animation-duration:3s; }
+  }
 </style>
 </head>
 <body>
   <div id="brain"><canvas></canvas></div>
-  <div id="status">Loading brain &amp; coverage…</div>
+  <div id="status">
+    <div class="statusWrap">
+      <svg class="ring" viewBox="0 0 100 100" aria-hidden="true">
+        <defs>
+          <symbol id="brainGlyph" viewBox="0 0 24 24">
+            <path fill="currentColor" d="M12 2.4c-1.9 0-3.5.9-4.2 2.3-1.8-.2-3.4 1-3.7 2.6-1.4.4-2.3 1.8-2.1 3.2.1 1 .7 1.9 1.6 2.3-.2 1.6.7 3 2.1 3.5.4 1.5 1.9 2.6 3.5 2.6.8 1.1 2 1.7 3.4 1.7l.8-.1v-18l-.7-.1z"/>
+            <path fill="currentColor" d="M12 2.4c1.9 0 3.5.9 4.2 2.3 1.8-.2 3.4 1 3.7 2.6 1.4.4 2.3 1.8 2.1 3.2-.1 1-.7 1.9-1.6 2.3.2 1.6-.7 3-2.1 3.5-.4 1.5-1.9 2.6-3.5 2.6-.8 1.1-2 1.7-3.4 1.7l-.8-.1v-18l.7-.1z" opacity=".82"/>
+            <path fill="none" stroke="#0d1117" stroke-width="1.05" stroke-linecap="round" opacity=".45"
+                  d="M12 3.4v16.4M8.6 7.6c1.3.4 1.9 1.4 1.9 2.7M15.4 7.6c-1.3.4-1.9 1.4-1.9 2.7M8.2 13.2c1.5 0 2.4.8 2.4 2.1M15.8 13.2c-1.5 0-2.4.8-2.4 2.1"/>
+          </symbol>
+        </defs>
+        <g class="spin">
+        <use href="#brainGlyph" x="68.00" y="34.00" width="16" height="16" style="animation-delay:0.000s"/>
+        <use href="#brainGlyph" x="58.04" y="58.04" width="16" height="16" style="animation-delay:-0.155s"/>
+        <use href="#brainGlyph" x="34.00" y="68.00" width="16" height="16" style="animation-delay:-0.310s"/>
+        <use href="#brainGlyph" x="9.96" y="58.04" width="16" height="16" style="animation-delay:-0.465s"/>
+        <use href="#brainGlyph" x="0.00" y="34.00" width="16" height="16" style="animation-delay:-0.620s"/>
+        <use href="#brainGlyph" x="9.96" y="9.96" width="16" height="16" style="animation-delay:-0.775s"/>
+        <use href="#brainGlyph" x="34.00" y="0.00" width="16" height="16" style="animation-delay:-0.930s"/>
+        <use href="#brainGlyph" x="58.04" y="9.96" width="16" height="16" style="animation-delay:-1.085s"/>
+        </g>
+      </svg>
+      <div class="statusText" id="statusText">Loading the brain…</div>
+    </div>
+  </div>
 
   <div class="panel" id="controls">
     <h2 id="ctlHead">Clustering Visualizer<span id="ctlChevron">▾</span></h2>
@@ -233,10 +280,47 @@ function cmap(t) {
   return [a[0] + (b[0]-a[0])*f, a[1] + (b[1]-a[1])*f, a[2] + (b[2]-a[2])*f];
 }
 
+// The status line, and the three states it has. Kept together so the transitions are
+// readable in one place rather than scattered through boot().
+function setStatus(t) { const e = $("statusText"); if (e) e.textContent = t; }
+function showStatus(t, staged) {
+  const e = $("status"); if (!e) return;
+  e.style.display = "grid";
+  e.classList.remove("gone");
+  e.classList.toggle("staged", staged !== false);
+  setStatus(t);
+}
+function stageStatus(t) { showStatus(t, true); }
+function hideStatus() {
+  const e = $("status"); if (!e) return;
+  e.classList.add("gone");
+  setTimeout(() => { e.style.display = "none"; }, 500);   // after the fade, not instead of it
+}
+
+// A progress hook rather than a parameter: fetchBin has half a dozen call sites and only
+// the run bins are big enough to be worth reporting, so the ones that do not care are
+// left untouched and keep the arrayBuffer() fast path.
+let PROGRESS = null;
+
 async function fetchBin(url, Type) {
   const r = await fetch(url);
   if (!r.ok) throw new Error(`${r.status} ${url}`);
-  return new Type(await r.arrayBuffer());
+  const total = Number(r.headers.get("content-length") || 0);
+  // no hook, no length, or no streaming body: nothing to report, so do not pay for it
+  if (!PROGRESS || !total || !r.body || !r.body.getReader) return new Type(await r.arrayBuffer());
+  const reader = r.body.getReader();
+  const chunks = [];
+  let got = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    chunks.push(value); got += value.length;
+    PROGRESS(got, total);
+  }
+  const buf = new Uint8Array(got);
+  let off = 0;
+  for (const c of chunks) { buf.set(c, off); off += c.length; }
+  return new Type(buf.buffer);
 }
 const TYPE = { uint8: Uint8Array, uint16: Uint16Array };
 
@@ -542,6 +626,19 @@ async function boot() {
   // run is invisible until a hard refresh, which looks exactly like the run not having
   // been published. The payloads underneath are addressed by run id, so a new run is a
   // new path and cannot be served stale; only this file and the contact table need it.
+  // THE MESH IS THE BIGGEST ASSET AND DEPENDS ON NOTHING, so it goes first and in
+  // parallel: 6.2 MB of geometry used to sit behind two fetches it never needed. Niivue
+  // has to exist before loadSurface can be called, so it is constructed here rather than
+  // further down; the promise is awaited only where the geometry is actually required.
+  canvasEl = $("brain").querySelector("canvas");
+  nv = new Niivue({ backColor:[0,0,0,1], show3Dcrosshair:false, isColorbar:false,
+                    dragAndDropEnabled:false, isOrientCube:false,
+                    useWebGPU: !!navigator.gpu });
+  nv.attachToCanvas(canvasEl);
+  nv.setSliceType(nv.sliceTypeRender);
+  window.nv = nv;               // exposed for console debugging / camera checks
+  const meshReady = loadSurface(state.surf);
+
   const fresh = { cache: "no-store" };
   M = await (await fetch(BUNDLE + "manifest.json", fresh)).json();
   CONTACTS = await (await fetch(BUNDLE + M.contacts_file, fresh)).json();
@@ -569,21 +666,18 @@ async function boot() {
   const pick = M.runs.find(r => r.id === want || r.run === want) || M.runs[0];
   rs.value = pick.id;
 
-  canvasEl = $("brain").querySelector("canvas");
   // useWebGPU like moba.js: the mesh shader honours per-mesh opacity there, and on
   // WebGL2 it does not - which is why setting alpha alone produced no glass at all.
   // Best effort; the constructor falls back to WebGL2 if it ignores the flag.
-  nv = new Niivue({ backColor:[0,0,0,1], show3Dcrosshair:false, isColorbar:false,
-                    dragAndDropEnabled:false, isOrientCube:false,
-                    useWebGPU: !!navigator.gpu });
-  nv.attachToCanvas(canvasEl);
-  nv.setSliceType(nv.sliceTypeRender);
-  window.nv = nv;               // exposed for console debugging / camera checks
-  await loadSurface(state.surf);
+  await meshReady;
+  $("brain").classList.add("up");
+  stageStatus("Loading coverage…");
 
   wireUI();
-  await selectRun(pick.id);
-  $("status").style.display = "none";
+  PROGRESS = (got, total) =>
+    setStatus(`Loading coverage… ${(got / 1048576).toFixed(1)} / ${(total / 1048576).toFixed(1)} MB`);
+  try { await selectRun(pick.id); } finally { PROGRESS = null; }
+  hideStatus();
 }
 
 // The per-cluster map list depends on K, so it is rebuilt both when the run changes and
@@ -607,8 +701,7 @@ function refreshMapList() {
 async function selectRun(id, keepK) {
   const r = M.runs.find(x => x.id === id);
   if (!r) return;
-  $("status").style.display = "grid";
-  $("status").textContent = `Loading ${r.track_label} · ${r.run}…`;
+  stageStatus(`Loading ${r.track_label} · ${r.run}…`);
   await loadCoverage(r.cohort_id, state.radius);
   const prevK = KSEL;
   RUN0 = r; RUN = r; SWEEP = null; RUNCOV = null;
@@ -678,7 +771,7 @@ async function selectRun(id, keepK) {
     `radius <b>${R()} mm</b> · fsaverage`;
 
   autoScale(); render(); updateElectrodes();
-  $("status").style.display = "none";
+  hideStatus();
 }
 
 // THE THING THAT WAS ACTUALLY WRONG. poolv2 and MOBA give the mesh a UNIFORM
@@ -696,8 +789,10 @@ async function loadSurface(kind, uniformRgba) {
   elecMesh = null;
   const spec = { };
   if (uniformRgba) spec.rgba255 = uniformRgba;
-  await nv.loadMeshes([{ url: `${FSAVG}meshes/fsaverage_lh${suf}.gii`, ...spec },
-                       { url: `${FSAVG}meshes/fsaverage_rh${suf}.gii`, ...spec }]);
+  // .mz3, not .gii: Niivue's own binary mesh format, 3.1 MB against 4.1 MB per hemisphere
+  // and a binary parse instead of GIfTI XML. Both variants are already in the repository.
+  await nv.loadMeshes([{ url: `${FSAVG}meshes/fsaverage_lh${suf}.mz3`, ...spec },
+                       { url: `${FSAVG}meshes/fsaverage_rh${suf}.mz3`, ...spec }]);
   ["lh","rh"].forEach((h, i) => {
     const m = nv.meshes[i], n = m.pts.length / 3;
     hemis[h] = { mesh:m, nvert:n, rgba:new Uint8Array(n * 4) };
@@ -2739,9 +2834,9 @@ function wireUI() {
     const wasGlass = state.glass;
     state.glass = false; state.surf = kind; setSurfBtns();
     if (wasGlass) { state.elecByCluster = false; state.showElec = $("showElec").checked; }
-    $("status").style.display = "grid"; $("status").textContent = "Loading surface…";
+    stageStatus("Loading surface…");
     await loadSurface(kind);        // no uniform colour: render() repaints per vertex
-    $("status").style.display = "none";
+    hideStatus();
     render(); applyOpacity(); updateElectrodes();
   };
   $("sPial").onclick = surfBtn2("pial");
@@ -2753,12 +2848,12 @@ function wireUI() {
   $("sGlass").onclick = async () => {
     if (state.glass) return;
     state.glass = true; setSurfBtns();
-    $("status").style.display = "grid"; $("status").textContent = "Loading surface…";
+    stageStatus("Loading surface…");
     state.surf = "pial";
     // always reload: the mesh has to come back with a UNIFORM rgba255 rather than the
     // per-vertex buffer render() leaves behind, or the alpha is ignored
     await loadSurface("pial", GLASS_RGBA);
-    $("status").style.display = "none";
+    hideStatus();
     state.showElec = true; state.elecByCluster = true;
     $("showElec").checked = true;      // the mode forces it; say so in the UI
     render(); applyOpacity(); updateElectrodes();
@@ -2774,7 +2869,7 @@ function wireUI() {
   };
   $("radSel").onchange = async e => {
     state.radius = e.target.value;
-    $("status").style.display = "grid"; $("status").textContent = `Recomputing at ${state.radius} mm…`;
+    stageStatus(`Recomputing at ${state.radius} mm…`);
     await selectRun(RUN.id, true);      // reloads at the new radius, keeping K
   };
   $("clim").oninput  = e => { state.climMax = +e.target.value / 100; $("climVal").textContent = state.climMax.toFixed(2); render(); };
@@ -2793,7 +2888,7 @@ function wireUI() {
   });
 }
 
-boot().catch(e => { $("status").textContent = "Failed to load: " + e.message; console.error(e); });
+boot().catch(e => { showStatus("Failed to load: " + e.message, false); console.error(e); });
 </script>
 </body>
 </html>

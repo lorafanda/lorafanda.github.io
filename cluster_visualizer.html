@@ -4192,7 +4192,12 @@ function u2SyncColour() {
   const byPat = state.elecColour === "patient";
   $("u2colour").querySelectorAll("button").forEach(b =>
     b.classList.toggle("on", (b.dataset.c === "patient") === byPat));
-  const n = (typeof patientIndex === "function") ? patientIndex().size : 0;
+  // THE COHORT'S PATIENTS, NOT THE TABLE'S. patientIndex() spans every contact the
+  // coordinate file holds - 68 of them - so quoting its size here claimed a cohort more
+  // than twice the real one. The index stays global on purpose, because that is what
+  // keeps a patient's hue the same across runs; only the COUNT has to be the drawn one.
+  const ids = (CONTACTS && RUN && CONTACTS.cohorts[RUN.cohort_id]) || [];
+  const n = new Set(ids.map(i => CONTACTS.patient[i])).size;
   $("u2colnote").textContent = byPat
     ? `${n} patients \u00b7 hue is stable across runs and K, and arbitrary`
     : "the cluster palette, matching the figures";

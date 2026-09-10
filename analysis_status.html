@@ -1819,11 +1819,45 @@ python make_cluster_visualizer.py</code></pre>
           <b>k-means</b>. Exact for the k-means and Ward runs. On a convex-NMF run it measures how
           reproducibly <i>k-means</i> partitions the space the decomposition was fitted in &mdash; not
           how reproducible the decomposition is. It is kept that way so the published K=7 number stays
-          consistent; a cNMF-native stability belongs in its own column.</li>
+          consistent &mdash; and <b>the native column now exists beside it</b>, written by
+          <code>sweep_stability.py --native</code> into <code>stability_by_k_native/</code>. Both are
+          kept: the old one is what was published, and a number that quietly changes meaning is worse
+          than a wrong one sitting next to a right one.</li>
       </ul>
       <div class="runid"><code>sweep_stability.py</code> &middot; <code>lf_stability.per_cluster_jaccard</code></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/explainers/E5_sweep_stability.png" alt="four resampling rounds over six electrodes, the resulting consensus matrix, and the per-cluster jaccard computed from its diagonal blocks"></div>
     </figure>
+    <div class="callout" style="margin:14px 0">
+      <b>What the native resampler found &mdash; the convex-NMF stability was being understated by
+      roughly half.</b> Run for the first time on any cohort, 2026-09-10: 96 (run, K) fits across all
+      twelve v7 tracks. Mean Jaccard on <code>cnmf/concat_hg</code>, refitting with convex NMF in its
+      own space against the k-means resampler that produced every stability number published so far:
+      <table class="sum" style="margin:8px 0">
+        <tr><th>K</th><th>native</th><th>k-means resampler</th><th>gain</th>
+            <th>K</th><th>native</th><th>k-means resampler</th><th>gain</th></tr>
+        <tr><td>5</td><td><b>0.868</b></td><td>0.469</td><td>+0.399</td>
+            <td>9</td><td><b>0.586</b></td><td>0.373</td><td>+0.213</td></tr>
+        <tr><td>6</td><td><b>0.859</b></td><td>0.454</td><td>+0.405</td>
+            <td>10</td><td><b>0.579</b></td><td>0.360</td><td>+0.219</td></tr>
+        <tr><td>7</td><td><b>0.676</b></td><td>0.424</td><td>+0.252</td>
+            <td>11</td><td><b>0.592</b></td><td>0.337</td><td>+0.255</td></tr>
+        <tr><td>8</td><td><b>0.680</b></td><td>0.397</td><td>+0.283</td>
+            <td>12</td><td><b>0.661</b></td><td>0.342</td><td>+0.319</td></tr>
+      </table>
+      <p style="margin:0 0 8px">The gap is present at <b>every</b> K and largest at the low K where the
+      old figure was most damning. The Ward tracks move the same way, <b>+0.08 to +0.20</b>, so this is
+      not a convex-NMF quirk &mdash; it is what happens when a run is resampled by a method that did not
+      produce it.</p>
+      <p style="margin:0 0 8px"><b>The control that makes it a correction rather than a second opinion:</b>
+      on a k-means run the native refit <i>is</i> the old refit, so the two must agree exactly &mdash; and
+      they come out bit-identical at every K on both feature sets. Whatever the native column is doing, it
+      is not a different implementation of the same thing.</p>
+      <p style="margin:0"><b>What it does not do is rescue a K.</b> At the held-out peak of 9 the corrected
+      number is 0.586: a gain of +0.213 that still lands just under Hennig&rsquo;s 0.60 rule of thumb. The
+      correction is large and the verdict at that K is unchanged, which are two separate claims and are
+      now reported separately on <a href="#g-consensus-native">FIG&nbsp;S.14</a>.</p>
+    </div>
+
     <h4 id="s2where">Where this stands</h4>
     <table class="sum" style="margin:8px 0">
       <tr><th></th><th>state</th></tr>
@@ -3769,6 +3803,7 @@ RETIRED-END s5 -->
 <li><b>A latent fmax bug, caught before it bit.</b> Notebooks 241 and 242 passed <code>fmax=400</code> where 240 passed 500. fmax is not a filter, it describes the data: the extractors rebuild the frequency axis as <code>linspace(0, fmax, n_freq)</code>, so 400 would have made &ldquo;70&ndash;150&nbsp;Hz&rdquo; select bins truly covering <b>89.8&ndash;187.5&nbsp;Hz</b>. The runs on disk were unaffected &mdash; all twelve <code>X_train.npy</code> are byte-identical and match fmax=500 to float32 &mdash; so it was latent, not historical, and would have hit Ward and cNMF only, while every caption said the three methods see the same matrix.</li>
 <li><b>One cohort in the repository.</b> 2,322 files and 866 MB untracked &mdash; the fits before 20260908, their coverage overlays, and the figures rendered on v4, v5 and v6. Nothing is deleted: <code>git rm --cached</code> only, so every published figure is still reachable by the commit that made it. Nineteen figure blocks came off this page with them; they had been rendering as empty boxes under captions describing cohorts of 1027 and 1266 electrodes.</li>
 <li><b>The visualizer opens fluidly, and colours by patient.</b> Its boot was a serial chain with the 8.2&nbsp;MB mesh queued behind two fetches it never needed; the mesh now starts first and in parallel, the brain is revealed as soon as it exists rather than when everything finishes, the run bins report real progress, and a ring of brains spins while it waits. A <b>Contact colour</b> switch re-encodes the same contacts by patient instead of by cluster &mdash; which is how a cluster that is one patient&rsquo;s electrode strip stops being invisible.</li>
+<li><b>The convex-NMF stability was being understated by roughly half.</b> <code>sweep_stability.py --native</code> run for the first time on any cohort &mdash; 96 (run, K) fits across the twelve v7 tracks. On <code>cnmf/concat_hg</code> the mean Jaccard goes from <b>0.397 to 0.680 at K=8</b>, and the gap holds at every K from +0.21 to +0.41; the Ward tracks move +0.08 to +0.20. The published figure refits with k-means, which on a convex-NMF run measures how reproducibly <i>k-means</i> partitions the space the decomposition was fitted in. The control: on a k-means run the native refit is the old refit and the two come out bit-identical. It does not rescue a K &mdash; at the peak of 9 the corrected 0.586 still sits under Hennig&rsquo;s 0.60.</li>
 <li><b>The cluster bins were never being published.</b> A blanket <code>coverage_viz/**/*.bin</code> ignore rule left bins committed before it tracked and ignored every run fitted after, so v6 worked and v7 404ed &mdash; and the page still listed the run, so it only failed when you clicked one. 72 files, 153&nbsp;MB, now tracked.</li>
 </ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div>
 

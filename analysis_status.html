@@ -1524,8 +1524,92 @@ python make_cluster_visualizer.py</code></pre>
       <b>Every figure below is a real file from a real run</b>, named under it, and the paths are checked when this section is generated &mdash; a figure that has not been produced is listed as missing rather than rendered as a broken box.
       <p style='margin:8px 0 0'><b>Each feature set gets TWO views of every cluster, and they answer different questions.</b> The centroid says what the average member does. The second view says <i>whether the average is describing anyone at all</i> &mdash; as a per-electrode raster for <code>concat_hg</code>, and as per-bin disagreement dots for <code>concat_rawds</code>, which has no single time axis to make rows from.</p>
     </div>
-    <div class="method" style="border-left:4px solid #c1121f"><b>Not generated yet:</b> <code>g-consensus: stability_by_k/k_9/consensus_heatmap.png</code>, <code>g-consensus-native: stability_by_k_native/k_9/consensus_heatmap.png</code></div>
-    <div class="method" style="border-left:4px solid #c1121f"><b>Generated but not committed</b>, so the page cannot fetch them: <code>S.1</code>, <code>S.2</code>, <code>S.3</code>, <code>S.4</code>, <code>S.5</code>, <code>S.6</code>, <code>S.7</code>, <code>S.8</code>, <code>S.9</code>, <code>S.10</code>, <code>S.11</code>, <code>S.12</code></div>
+
+    <figure id="g-hg-centroid"><div class="cap"><div class="fignum">FIG S.1</div>
+      <h4><code>concat_hg</code> &mdash; the centroid, mean dB with &plusmn;1 SD</h4>
+      <ul><li>The cluster's <b>mean high-frequency activity time course</b> in raw dB, audio | picture | reading laid end to end, on a y range fitted once across the whole run so the clusters are comparable to each other.</li><li>The band is <b>&plusmn;1 standard deviation ACROSS ELECTRODES</b>, not the SEM. With 90&ndash;300 electrodes per cluster the SEM is a hairline and says only that the mean is well estimated, which was never in doubt. SD answers the question the plot is for: <b>is this cluster a tight family or a loose one</b>.</li><li>Dashed = the GO cue, at 50% of each condition. Solid = the condition boundary. A singleton cluster has no SD, so only the line shows &mdash; a statement about n, not a rendering failure.</li><li>This is the chip the <a href='clustering_visualizer.html'>visualizer</a> embeds in each cluster card, one set per K from 5 to 30.</li></ul>
+      <div class="runid"><code>cnmf/concat_hg/runs/20260908_201639</code> &middot; <code>cluster_centroids/k_9/cluster_00.png</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/cnmf/concat_hg/runs/20260908_201639/cluster_centroids/k_9/cluster_00.png" alt="cluster centroid for concat high-frequency activity: mean time course in dB with a plus or minus one standard deviation band, three conditions side by side"></div>
+    </figure>
+
+    <figure id="g-hg-raster"><div class="cap"><div class="fignum">FIG S.2</div>
+      <h4><code>concat_hg</code> &mdash; the raster, every electrode in the cluster</h4>
+      <ul><li><b>The centroid above is a mean, and a mean cannot say how much its members agreed.</b> Here every electrode in the cluster gets its own row.</li><li>Rows are <b>sorted by how strongly the electrode belongs</b>, strongest at the top &mdash; the loading on its own component for convex NMF, the silhouette for k-means and Ward. Those are different measurements, so the y-axis names which one it is and two runs should not be read as directly comparable.</li><li><b>What to look for:</b> a cluster that is one thing degrades smoothly downwards. A cluster that is secretly two things <b>breaks visibly</b> &mdash; a band of rows doing something the rows above them do not.</li><li>The colour limit is the run's own 99th percentile rather than a fixed range: |dB| reaches 13 here but the 99th percentile is near 3, and a fixed &plusmn;6.5 would wash every raster out to pale blue.</li></ul>
+      <div class="runid"><code>cnmf/concat_hg/runs/20260908_201639</code> &middot; <code>cluster_rasters/cluster_00.png</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/cnmf/concat_hg/runs/20260908_201639/cluster_rasters/cluster_00.png" alt="per-sample raster for a concat high-frequency activity cluster: every electrode as one row of a heatmap, sorted by membership strength with the strongest at the top"></div>
+    </figure>
+
+    <figure id="g-rawds-centroid"><div class="cap"><div class="fignum">FIG S.3</div>
+      <h4><code>concat_rawds</code> &mdash; the centroid, averaged ERSP with SD dots</h4>
+      <ul><li>A <code>concat_rawds</code> sample is 1350 features &mdash; <b>15 frequency bands &times; 3 conditions &times; 30 time bins</b> &mdash; so its centroid is a <b>time-frequency plane</b>, not a line. The grid is read from the run's own <code>feature_schema.json</code>; assuming it is the bug that once reshaped an ERSP as if it were a time course.</li><li>Every bin carries a <b>dot whose area is that bin's SD across the cluster's electrodes</b>, so it reads in the same direction as the band in S.1: <b>bigger means the electrodes disagree more</b>.</li><li>The SD scale is computed <b>once per run</b>, not per chip. Normalising each chip to its own worst bin would make a tight cluster and a loose one look identical, which is the opposite of what the dots are for.</li><li>This is the thumbnail in the visualizer card. <b>For the readable version with a scale bar and a dot legend, see S.4</b>, which is the one to quote.</li></ul>
+      <div class="runid"><code>cnmf/concat_rawds/runs/20260908_202514</code> &middot; <code>cluster_centroids/k_13/cluster_00.png</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/cnmf/concat_rawds/runs/20260908_202514/cluster_centroids/k_13/cluster_00.png" alt="cluster centroid for concat rawds: the averaged event-related spectral perturbation as 15 frequency bands by three conditions, with a dot on each time-frequency bin sized by the standard deviation across electrodes"></div>
+    </figure>
+
+    <figure id="g-rawds-raster"><div class="cap"><div class="fignum">FIG S.4</div>
+      <h4><code>concat_rawds</code> &mdash; the same plane, with the SD legend</h4>
+      <ul><li><b>Why there is no per-electrode raster here.</b> A <code>concat_hg</code> sample IS one time course, so it can be a row. A <code>concat_rawds</code> sample is a whole time-frequency plane and has no single time axis, so it cannot be flattened into a row without inventing an ordering. The disagreement is annotated onto the mean instead.</li><li><b>What the dots buy over a plain mean.</b> A plain average cannot separate <i>the whole cluster sits near zero here</i> from <i>the cluster is split here and the average cancels</i> &mdash; both come out white. The first keeps a clear bin; the second gets a dark dot.</li><li>The dot sits <b>on</b> the mean rather than tinting it, so the colour read off the scale bar is still the value.</li><li><b>This dot scale is pooled over EVERY run of the feature set</b>, not per cluster and not per run. <code>X_train</code> is the same matrix whichever method partitioned it, so a dot means the same disagreement on convex NMF, k-means and Ward &mdash; which is the comparison anyone will actually make. Frequency axis, colour bar and the dot-size legend are all on the figure.</li></ul>
+      <div class="runid"><code>cnmf/concat_rawds/runs/20260908_202514</code> &middot; <code>cluster_rasters/cluster_00.png</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/cnmf/concat_rawds/runs/20260908_202514/cluster_rasters/cluster_00.png" alt="concat rawds cluster centroid with a frequency axis, colour bar and a legend mapping dot darkness to the within-cluster standard deviation in dB"></div>
+    </figure>
+
+    <figure id="g-recon-cond"><div class="cap"><div class="fignum">FIG S.5</div>
+      <h4>Where the cluster sits &mdash; glassbrain by condition</h4>
+      <ul><li>Every electrode assigned to the cluster, rendered on the fsaverage surface and coloured by the condition it responds to. Four views per cluster (lateral L/R, dorsal, frontal) plus a legend.</li><li><b>Anatomy is never given to any of the algorithms.</b> All of them cluster on response shape alone, so any spatial structure here was found rather than imposed &mdash; which is what makes the anatomical-coherence statistic below worth reporting.</li></ul>
+      <div class="runid"><code>kmeans/concat_hg/runs/20260908_220052</code> &middot; <code>recon/cluster_00/by_condition/lateral_L.png</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260908_220052/recon/cluster_00/by_condition/lateral_L.png" alt="left lateral fsaverage glassbrain showing the electrodes of one cluster coloured by condition"></div>
+    </figure>
+
+    <figure id="g-recon-pat"><div class="cap"><div class="fignum">FIG S.6</div>
+      <h4>The same cluster, coloured by patient</h4>
+      <ul><li>The identical electrodes, recoloured by <b>which patient contributed them</b>. This is the sanity check that a cluster is not one patient's electrode strip wearing a response type.</li><li>It is the per-cluster counterpart of the leave-one-patient-out statistic below: that one asks whether removing a patient changes the solution, this one shows at a glance whether a single colour dominates.</li></ul>
+      <div class="runid"><code>kmeans/concat_hg/runs/20260908_220052</code> &middot; <code>recon/cluster_00/by_patient/lateral_L.png</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260908_220052/recon/cluster_00/by_patient/lateral_L.png" alt="the same cluster's electrodes on a left lateral glassbrain, coloured by patient instead of by condition"></div>
+    </figure>
+
+    <figure id="g-centroids"><div class="cap"><div class="fignum">FIG S.7</div>
+      <h4>Every cluster of a run at once</h4>
+      <ul><li>All K centroids tiled on one shared y range, which is the quickest read on <b>whether the run found distinct shapes or K variations on one shape</b>.</li><li>Written by <code>fit_and_save</code>, so k-means and Ward have it. The convex-NMF runs go through <code>run_decomposition.py</code> instead and do not, which is why this example is a k-means run.</li></ul>
+      <div class="runid"><code>kmeans/concat_hg/runs/20260908_220052</code> &middot; <code>centroids.png</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260908_220052/centroids.png" alt="all cluster centroids of one run tiled together on a shared y axis"></div>
+    </figure>
+
+    <figure id="g-sweep"><div class="cap"><div class="fignum">FIG S.8</div>
+      <h4>The K sweep &mdash; every K scored, not just the winner</h4>
+      <ul><li>Silhouette, inertia and the other fit metrics across K = 5..30, so the published K can be seen in the context of the ones that were not chosen.</li><li><b>Read this next to <a href='#s2heldout'>FIG C.13</a>, not instead of it.</b> These metrics are computed on the data the model was fitted to, so they cannot say whether an extra cluster earned its place. Only the bi-cross-validated curve can, and it is the one that picks K.</li></ul>
+      <div class="runid"><code>kmeans/concat_hg/runs/20260908_220052</code> &middot; <code>sweep_metrics.png</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260908_220052/sweep_metrics.png" alt="sweep metrics across K from 5 to 30 for one clustering run"></div>
+    </figure>
+
+    <figure id="g-sil-k"><div class="cap"><div class="fignum">FIG S.9</div>
+      <h4>Silhouette across K</h4>
+      <ul><li>How well separated the partition is at each K, in the space the method fits in. <b>Silhouette is not space-free</b> &mdash; scoring every method in dB is the error that made the first version of the separation figure wrong &mdash; so this is comparable across K within a run, and not across methods.</li></ul>
+      <div class="runid"><code>kmeans/concat_hg/runs/20260908_220052</code> &middot; <code>silhouette_by_k.png</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260908_220052/silhouette_by_k.png" alt="silhouette score as a function of K for one run"></div>
+    </figure>
+
+    <figure id="g-sil-cluster"><div class="cap"><div class="fignum">FIG S.10</div>
+      <h4>Silhouette per cluster, at the published K</h4>
+      <ul><li>The same score broken out per cluster. <b>The mean hides the finding</b>: a run can have a respectable overall silhouette and still contain one cluster that is not a real object, and this is where that shows.</li></ul>
+      <div class="runid"><code>kmeans/concat_hg/runs/20260908_220052</code> &middot; <code>silhouette_per_cluster.png</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260908_220052/silhouette_per_cluster.png" alt="per-cluster silhouette scores at the published K"></div>
+    </figure>
+
+    <figure id="g-similarity"><div class="cap"><div class="fignum">FIG S.11</div>
+      <h4>Cluster similarity</h4>
+      <ul><li>Correlation between every pair of centroids. Bright off-diagonal blocks mean two clusters are describing nearly the same response and K may be too high.</li></ul>
+      <div class="runid"><code>kmeans/concat_hg/runs/20260908_220052</code> &middot; <code>similarity_heatmap.png</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260908_220052/similarity_heatmap.png" alt="heatmap of correlations between every pair of cluster centroids"></div>
+    </figure>
+
+    <figure id="g-distance"><div class="cap"><div class="fignum">FIG S.12</div>
+      <h4>Centroid distances</h4>
+      <ul><li>The same question in the metric the method actually minimises. Similarity and distance disagree when two centroids have the same SHAPE at different AMPLITUDE, and that disagreement is informative rather than a fault.</li></ul>
+      <div class="runid"><code>kmeans/concat_hg/runs/20260908_220052</code> &middot; <code>centroid_distance_heatmap.png</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260908_220052/centroid_distance_heatmap.png" alt="heatmap of pairwise distances between cluster centroids"></div>
+    </figure>
+    <div class="method" style="border-left:4px solid #c1121f"><b>Not generated yet:</b> <code>g-consensus-native: stability_by_k_native/k_09/consensus_heatmap.png</code></div>
+    <div class="method" style="border-left:4px solid #c1121f"><b>Generated but not committed</b>, so the page cannot fetch them: <code>S.13</code></div>
 <!-- END s2 gallery -->
 
     <!-- BEGIN generated by make_cluster_webblock.py - do not hand-edit -->
@@ -2084,6 +2168,11 @@ python make_cluster_visualizer.py</code></pre>
       order</b> (#1 is the leftmost block in FIG&nbsp;1) and glass as the only surface. It is built for
       comparison rather than for browsing: a feature&nbsp;set&nbsp;&times;&nbsp;algorithm matrix, a
       cluster strip, an overlay of several clusters on one brain, and a grid of small multiples.
+      A <b>Contact colour</b> switch re-encodes the same contacts <b>by patient</b> instead of by
+      cluster &mdash; the filters deciding which contacts are drawn are untouched, so the picture does
+      not move, only its meaning does. It is the fastest way to see whether a cluster is a response
+      type or one patient&rsquo;s electrode strip, which on this cohort is a live question:
+      <code>PAT_6684</code> alone contributes 111 of 1719 electrodes.
       Regenerated by <code>make_cluster_visualizer.py</code>.</p>
 
     <div class="method">
@@ -3656,6 +3745,20 @@ RETIRED-END s5 -->
       output.</li>
   </ul>
 </div>
+
+<div class="nb-day"><div class="nb-date"><span>2026-09-10</span><span class="tag">cohort v7: two patients move the gate, and one cohort in the repository</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><ul>
+<li><b>Every excluded trial is drawn now, tagged with the filter that took it.</b> Three filters remove trials before the ERSP power rule runs &mdash; wrong answer, stimulus/response duration, duration outlier &mdash; and all three live in <code>collect_trials</code>, which returns survivors only. Those trials were not in the HG figure at all: for G-05 that is <b>44 of 154</b> removed with nothing on the picture to say so (audio kept 30 of 50, picture 30 of 54, reading 45 of 50). <code>collect_trials</code> now records why each trial went and hands back the whole table.</li>
+<li><b>A high-gamma arm on the trial rejection.</b> The score was the 99th percentile of |dB| over the whole map, which the low frequencies set, so a trial wild only in 70&ndash;150&nbsp;Hz barely moved it &mdash; the rule and the figure were never scoring the same thing. A second arm scores the band alone and is OR-ed with the first. MAD there and z on the broadband, deliberately: z takes its mean and SD from the sample it is judging, so several bad trials mask each other. On a synthetic channel with three high-gamma runaways in thirty trials, broadband z=3 and band z=3 both reject nothing and band MAD=3.5 rejects exactly the three. On G-05 it added rejections on <b>35 of 138</b> audio channels. Configured for G-05 alone; everyone else reproduces bit-identically.</li>
+<li><b>The photodiode flip now reaches the figure.</b> It was applied inside the detector while the QC plot drew the unflipped trace, which is indistinguishable from the setting being ignored. Per-block equalisation added for a photodiode that fades across a session &mdash; but note <code>pd_blocks</code> is read by <code>extract_trials_with_qc</code>, which notebook 13 calls, and <b>not</b> by notebook 140.</li>
+</ul></div></div><div class="nb-row"><div class="nb-stage">02 &middot; Clustering</div><div class="nb-body"><ul>
+<li><b>Cohort v7: 1719 of 2999 contacts, 27 patients.</b> Two patients and nothing else moved it. <code>PAT_6684</code> went <b>77 &rarr; 111</b> gated, 62.6% to 90.2% of its own contacts passing, once the runaway trials were kept out of its averages; <code>PAT_6854</code> went 146 &rarr; 143. The cache had to be built to a <b>new version directory</b>: <code>prepare_dataset</code>&rsquo;s key holds no patient list, no cube timestamps and no content hash, so a rebuild in place reports a cache hit and hands back the old gating.</li>
+<li><b>The held-out peak K moved with the cohort</b> &mdash; <code>concat_hg</code> 11 &rarr; <b>9</b>, <code>concat_rawds</code> 12 &rarr; <b>13</b>, <code>concat_bands5z</code> 13 &rarr; <b>14</b>. Both the Paper&nbsp;2 tab and the figure block read that from <code>peak_k.json</code> now instead of carrying it as a literal, which is why it had been wrong.</li>
+<li><b>The v7 story is the v6 story, sharper.</b> FIG&nbsp;4 diagonal share at K=8: cNMF vs k-means <b>0.69</b>, k-means vs Ward <b>0.69</b>, cNMF vs Ward <b>0.62</b>, against ~0.12 for random pairings; feature sets 0.36&ndash;0.39. All three algorithm comparisons now have <b>8 of 8</b> matched pairs clearing both permutation nulls, where v6 had 7. The algorithm barely matters; the representation does.</li>
+<li><b>A latent fmax bug, caught before it bit.</b> Notebooks 241 and 242 passed <code>fmax=400</code> where 240 passed 500. fmax is not a filter, it describes the data: the extractors rebuild the frequency axis as <code>linspace(0, fmax, n_freq)</code>, so 400 would have made &ldquo;70&ndash;150&nbsp;Hz&rdquo; select bins truly covering <b>89.8&ndash;187.5&nbsp;Hz</b>. The runs on disk were unaffected &mdash; all twelve <code>X_train.npy</code> are byte-identical and match fmax=500 to float32 &mdash; so it was latent, not historical, and would have hit Ward and cNMF only, while every caption said the three methods see the same matrix.</li>
+<li><b>One cohort in the repository.</b> 2,322 files and 866 MB untracked &mdash; the fits before 20260908, their coverage overlays, and the figures rendered on v4, v5 and v6. Nothing is deleted: <code>git rm --cached</code> only, so every published figure is still reachable by the commit that made it. Nineteen figure blocks came off this page with them; they had been rendering as empty boxes under captions describing cohorts of 1027 and 1266 electrodes.</li>
+<li><b>The visualizer opens fluidly, and colours by patient.</b> Its boot was a serial chain with the 8.2&nbsp;MB mesh queued behind two fetches it never needed; the mesh now starts first and in parallel, the brain is revealed as soon as it exists rather than when everything finishes, the run bins report real progress, and a ring of brains spins while it waits. A <b>Contact colour</b> switch re-encodes the same contacts by patient instead of by cluster &mdash; which is how a cluster that is one patient&rsquo;s electrode strip stops being invisible.</li>
+<li><b>The cluster bins were never being published.</b> A blanket <code>coverage_viz/**/*.bin</code> ignore rule left bins committed before it tracked and ignored every run fitted after, so v6 worked and v7 404ed &mdash; and the page still listed the run, so it only failed when you clicked one. 72 files, 153&nbsp;MB, now tracked.</li>
+</ul></div></div><div class="nb-row"><div class="nb-stage">03 &middot; Decoding</div><div class="nb-body"><span class="nb-na">N/A</span></div></div><div class="nb-row"><div class="nb-stage">04 &middot; Pooling</div><div class="nb-body"><span class="nb-na">N/A</span></div></div></div>
 
 <div class="nb-day"><div class="nb-date"><span>2026-09-07</span><span class="tag">the cluster visualizer: comparison without menus, and every electrode drawable again</span></div><div class="nb-row"><div class="nb-stage">01 &middot; ERSP</div><div class="nb-body"><ul>
 <li><b>Why a stripe survives a notch that removed the line</b> &mdash; a worked exemplar on the <a href="#kiss-stripe">KISS tab</a>. The stripe is the line's <i>time course</i>, which lives in the phases the published interpolation keeps: &minus;9.4&nbsp;dB as recorded, &minus;1.9 with the phases kept, &minus;0.05 with random phase, against &minus;0.36 for clean noise.</li>

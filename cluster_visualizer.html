@@ -3621,6 +3621,14 @@ function u2Build() {
       </div>
       <div class="cohort" id="u2modenote">—</div>
     </div>
+    <div class="u2g">
+      <div class="u2t">Contact colour</div>
+      <div class="segs" id="u2colour">
+        <button type="button" data-c="cluster" class="on">by cluster</button>
+        <button type="button" data-c="patient">by patient</button>
+      </div>
+      <div class="cohort" id="u2colnote">—</div>
+    </div>
     <div class="u2g" id="u2cenwrap">
       <div class="u2t">Centroid on <span class="u2sub" id="u2cennote"></span></div>
       <div id="u2reps" class="u2chips"></div>
@@ -4180,6 +4188,16 @@ function u2Keys(e) {
 }
 
 // ── init, after boot has a run on screen ─────────────────────────────────────
+function u2SyncColour() {
+  const byPat = state.elecColour === "patient";
+  $("u2colour").querySelectorAll("button").forEach(b =>
+    b.classList.toggle("on", (b.dataset.c === "patient") === byPat));
+  const n = (typeof patientIndex === "function") ? patientIndex().size : 0;
+  $("u2colnote").textContent = byPat
+    ? `${n} patients \u00b7 hue is stable across runs and K, and arbitrary`
+    : "the cluster palette, matching the figures";
+}
+
 async function ui2Init() {
   u2Build();
   // glass is the only surface here; entering it through the page's own handler keeps the
@@ -4194,6 +4212,21 @@ async function ui2Init() {
   $("u2gridby").querySelectorAll("button").forEach(b => {
     b.onclick = () => { if (UI2.busy) return; UI2.gridBy = b.dataset.g; u2Sync(); u2Grid(); };
   });
+  // Colour only: every filter that decides WHICH contacts are drawn is left alone, so
+  // flipping this re-encodes the same picture instead of changing it. A cluster that is
+  // one patient's electrode strip is a solid block of one hue under "by patient" and
+  // invisible under "by cluster", which is the question this cohort keeps raising.
+  $("u2colour").querySelectorAll("button").forEach(b => {
+    b.onclick = () => {
+      if (UI2.busy || state.elecColour === b.dataset.c) return;
+      state.elecColour = b.dataset.c;
+      // colouring contacts you cannot see is not a setting anyone means to choose
+      if (!state.showElec) { state.showElec = true; const c = $("showElec"); if (c) c.checked = true; }
+      u2SyncColour();
+      updateElectrodes();
+    };
+  });
+  u2SyncColour();
   // the report is built one cluster at a time, never from a grid or an overlay
   $("pdfBtn").onclick = async () => { u2SetMode("single"); await exportReport(); u2Sync(); };
   window.addEventListener("keydown", u2Keys);

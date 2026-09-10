@@ -1093,6 +1093,9 @@
   <section id="s2">
     <div class="eyebrow" style="color:var(--s2)">Stage 02</div>
     <h2 class="title">Clustering — functional response types</h2>
+    <div class="callout" style="margin:14px 0">
+      <b>16 figures were taken off this tab on 2026-09-10.</b> They were drawn on the 20260719 and 20260803 fits, whose files have been retired from the repository, so they had already been rendering as empty &ldquo;figure not found&rdquo; boxes under captions describing a cohort of 1027 or 1266 electrodes. This page now carries one cohort, <b>v7 &mdash; 1719 electrodes, 27 patients</b>. They return when the same analysis is re-run on it; the retired renders stay in git history under the commit that made them.
+    </div>
     <p class="lead">Group the trial‑averaged ERSPs into data‑driven response <b>types</b>. Every representation
       clusters the <b>same</b> 1719 gated electrodes of the v7 cohort; only the feature space changes. The
       high‑gamma track is the de‑facto canonical result.</p>
@@ -1886,57 +1889,6 @@ python make_cluster_visualizer.py</code></pre>
     <h3>Results — HFA, K‑Means K=9</h3>
 
     <figure>
-      <div class="cap"><div class="fignum">FIG 2.2</div><h4>Choosing K — every K scored, not just the winner</h4>
-        <ul>
-          <li>One <b>horizontal row per K</b>. The old vertical curve packed every K onto the x‑axis, which made
-            adjacent K values impossible to tell apart.</li>
-          <li>Four criteria, <b>same row order across all panels</b>, so sorting by silhouette immediately shows
-            what that K costs elsewhere. Sort by any column (<code>sweep_sort_by</code>).</li>
-          <li><b>Singleton clusters are flagged in red.</b> A one‑sample cluster is never a real response type, and
-            silhouette alone will not tell you it happened — on the concatenated run, every K ≥ 13 except 15
-            produces one.</li>
-          <li>Full table per run: <code>sweep_metrics.csv</code>.</li>
-        </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/sweep_metrics.png" alt="sweep statistics for every K"></div>
-    </figure>
-
-    <figure>
-      <div class="cap"><div class="fignum">FIG 2.3</div><h4>The 9 response types — HFA centroids (mean ± SEM)</h4>
-        <ul>
-          <li>Each panel = one cluster's mean high‑gamma time course across the warped trial (± SEM band).</li>
-          <li>These are the "functional types": early stimulus‑locked, late response‑locked, sustained, suppressed, etc.</li>
-        </ul></div>
-      <div class="grid">
-        <figure><div class="cap"><h4>Cluster 0</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_00.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 1</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_01.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 2</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_02.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 3</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_03.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 4</h4></div></figure>
-        <figure><div class="cap"><h4>Cluster 5</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_05.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 6</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_06.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 7</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_07.png"></div></figure>
-        <figure><div class="cap"><h4>Cluster 8</h4><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/cluster_centroids/cluster_08.png"></div></figure>
-      </div>
-    </figure>
-
-    <figure>
-      <div class="cap"><div class="fignum">FIG 2.4</div><h4>Centroid heatmap — all clusters at once</h4>
-        <ul>
-          <li>Cluster × warped‑time HFA matrix (one row per cluster); a compact view of the 9 profiles together.</li>
-        </ul><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/centroids.png" alt="centroid heatmap"></div>
-    </figure>
-
-    <figure>
-      <div class="cap"><div class="fignum">FIG 2.5</div><h4>Consensus stability — are the clusters reproducible?</h4>
-        <ul>
-          <li>Co‑clustering frequency over 50 K‑Means restarts (sample × sample); a sharp block‑diagonal = a cluster that reforms every time.</li>
-          <li>The key "is this real" check — strong within‑block agreement means the K=9 solution is stable, not a one‑off partition. (Regenerated in today's rerun.)</li>
-        </ul><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/consensus_heatmap.png" alt="consensus stability"></div>
-    </figure>
-
-    <figure>
       <div class="cap"><div class="fignum">FIG 2.6</div><h4>Anatomy — electrode coverage on fsaverage</h4>
         <ul>
           <li>All patients' contacts projected onto the common fsaverage surface (white‑matter contacts hidden).</li>
@@ -1988,45 +1940,6 @@ python make_cluster_visualizer.py</code></pre>
       </table></div></div>
     </figure>
 
-    <figure><div class="cap"><div class="fignum">FIG 2.8</div><h4>The 5 concatenated response types — waveform + anatomy side by side</h4>
-      <ul>
-        <li><b>Left of each pair:</b> the cluster's mean high-frequency activity across the <b>whole task</b> (± SEM); the two vertical
-          seams mark the <code>[audio | picture | reading]</code> boundaries.</li>
-        <li><b>Anatomy moved to FIG 2.17.</b> These chips used to carry a tiny brain thumbnail beside each waveform, but a 1200×1000 render with 19% ink is unreadable at thumbnail size. The cluster cards below show the same electrodes cropped and at three views, with region labels. <span style="display:none">(left-lateral view, cluster
-          highlighted against all other contacts in grey)</span></li>
-        <li>Because a contact contributes <b>one</b> sample, a chip shows how that electrode type behaves across
-          <i>all three</i> conditions at once — the cross-condition profile the per-condition track can't show.</li>
-        <li><b>Cluster 1 holds 575 of 1027 contacts</b> — a large, anatomically diffuse "weakly-responsive" group that is <b>silent in audio</b> and late everywhere else. The smaller
-          clusters (73–175) are the anatomically tighter, more interpretable ones.</li>
-        <li><b>Reading the waveform chip:</b> the black line is the cluster's <b>mean high-frequency activity</b> (70–150 Hz) and the grey
-          band is <b>± SEM across its member electrodes</b> — a narrow band means the members genuinely share that shape,
-          a wide one means the mean is averaging over dissimilar contacts. The horizontal line is baseline (0 dB); above it
-          is a power increase. y is fixed at ±6.5 dB across all chips, <b>so the chips are directly comparable to each
-          other</b>.</li>
-        <li><b>Reading the anatomy chip:</b> the <b>coloured dots are that cluster's electrodes</b> (colour is just the
-          cluster's identity — it carries no magnitude), <b>light grey dots are all other clustered electrodes</b>, and the
-          faint haze is the cortical surface. It is a left-lateral view. So the question it answers is <b>"is this cluster
-          spatially localised or spread everywhere?"</b> — not "how strong is it".</li>
-      </ul></div>
-      <div class="grid" style="grid-template-columns:repeat(auto-fill,minmax(310px,1fr))">
-        <figure><div class="cap"><h4>Cluster 0 <span style="color:var(--muted);font-weight:400">· n=73</span></h4><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
-          <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/cluster_centroids/cluster_00.png" style="max-width:100%"></div></figure>
-        <figure><div class="cap"><h4>Cluster 1 <span style="color:var(--muted);font-weight:400">· n=575</span></h4><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
-          <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/cluster_centroids/cluster_01.png" style="max-width:100%"></div></figure>
-        <figure><div class="cap"><h4>Cluster 2 <span style="color:var(--muted);font-weight:400">· n=130</span></h4><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
-          <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/cluster_centroids/cluster_02.png" style="max-width:100%"></div></figure>
-        <figure><div class="cap"><h4>Cluster 3 <span style="color:var(--muted);font-weight:400">· n=175</span></h4><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
-          <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/cluster_centroids/cluster_03.png" style="max-width:100%"></div></figure>
-        <figure><div class="cap"><h4>Cluster 4 <span style="color:var(--muted);font-weight:400">· n=74</span></h4></div>
-          <div class="imgwrap" style="display:flex;gap:6px;align-items:center;justify-content:center">
-            <img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/cluster_centroids/cluster_04.png" style="max-width:100%"></div></figure>
-      </div>
-    </figure>
-
     <div class="callout"><b>All clusters on one brain.</b> The combined view was previously a standalone matplotlib render with the inside-out lateral bug, so it has been removed rather than reproduced. The per-cluster glassbrains are in <b>FIG 2.17</b> below, and the live, rotatable all-cluster view is in <a href="moba.html">MOBA</a>, which reads the same run directly. The finding it illustrated is unchanged: the clusters are <b>anatomically intermixed</b> rather than occupying distinct territories — the spatial counterpart of the modest silhouette.</div>
 
     <div class="callout"><b>Now done for the concat track:</b> <code>211</code> (consensus stability / gap / anatomy),
@@ -2073,12 +1986,6 @@ python make_cluster_visualizer.py</code></pre>
       is the same colour in the curves and in the ladder below them, and the two rows share an x axis — an onset
       marker sits directly under the curve it came from.</p>
 
-    <figure><div class="cap"><div class="fignum">FIG 2.11a</div><h4>K=5 — time courses and onset ladder (silhouette 0.176)</h4><ul><li>Cluster sizes 73 / 575 / 130 / 175 / 74. The chosen K. <b>c0</b> (n=73) is early in <i>every</i> condition (2.8 / 4.8 / 1.5, mean 3.1%) — stimulus-locked rather than modality-specific. <b>c4</b> (n=74) is the opposite: audio onset 2.2% but 59% and 65% in picture and reading. <b>c1</b> (n=575) is the diffuse remainder, <b>silent in audio</b> and late elsewhere.</li></ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/timing_k05_panel.png" alt="cluster timing panel K=5"></div></figure>
-
-    <figure><div class="cap"><div class="fignum">FIG 2.11b</div><h4>K=6 — time courses and onset ladder (silhouette 0.171)</h4><ul><li>Cluster sizes 11 / 567 / 155 / 50 / 129 / 115. Splitting further isolates <b>c1</b> at n=11 — too small for its mean to be meaningful, which is exactly the trade-off FIG 2.2 makes visible. The rest of the structure is K=5's, redistributed.</li></ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/timing_k06_panel.png" alt="cluster timing panel K=6"></div></figure>
-
-    <figure><div class="cap"><div class="fignum">FIG 2.11c</div><h4>K=4 — time courses and onset ladder (silhouette 0.166)</h4><ul><li>Cluster sizes 136 / 172 / 576 / 143. Coarser. The silent-in-audio cluster survives intact (c2, n=576, onset &mdash; / 71.2 / 2.5 &mdash; no audio crossing at all; its audio peak is 0.43 dB, under the 0.5 dB threshold) and the early stimulus-locked group is absorbed — it only separates from K=5 upward.</li></ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div><div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/timing_k04_panel.png" alt="cluster timing panel K=4"></div></figure>
-
     <h3>Across the K sweep — and why the obvious version of this figure is misleading</h3>
     <p>The natural next question is <i>"is this timing ordering stable, or an artefact of the K we picked?"</i>
       The obvious figure — every cluster's onset plotted against K, with a median line — <b>cannot answer it</b>,
@@ -2104,19 +2011,6 @@ python make_cluster_visualizer.py</code></pre>
         audio and reading. The old figure gave no hint of that.</li>
     </ul></div>
 
-    <figure><div class="cap"><div class="fignum">FIG 2.12</div><h4>Onset across the K sweep — tracked, confound-checked, coverage-aware</h4>
-      <ul>
-        <li><b>Row 1 — lineage traces.</b> Solid = stimulus onset, dashed = response onset. The line follows the
-          <b>dominant heir</b> of each lineage (its largest cluster at that K); faint dots are clusters that split
-          off. A lineage holding its onset flat as K grows is the actual evidence for stability.</li>
-        <li><b>Row 2 — the size confound.</b> Onset against cluster n (log x). The upward trend is the artefact
-          described above. Read row 1 with this in mind.</li>
-        <li><b>Row 3 — coverage.</b> Percentage of clusters that have any onset in each window, per K. Where this is
-          low, the row-1 traces are summarising a minority of clusters.</li>
-      </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/onset_across_k.png" alt="onset across the K sweep"></div>
-    </figure>
-
     <div class="callout">
       <b>What can honestly be claimed.</b> Given the size confound, <b>"the onset ordering is stable across K" is
       not a defensible finding</b> from this figure. What <i>is</i> defensible: the ordering <b>at a fixed K</b>,
@@ -2140,86 +2034,6 @@ python make_cluster_visualizer.py</code></pre>
     <h3>Supporting checks — reproducibility, K choice, and method agreement</h3>
     <p>Four checks that sit behind the results above. None is a headline; together they are what makes the
       headline safe to state.</p>
-
-    <figure><div class="cap"><div class="fignum">FIG 2.13</div><h4>Consensus stability of the concatenated clusters</h4>
-      <ul>
-        <li>FIG 2.5 shows this for the per-condition HFA track. The concatenated track now carries the timing
-          story (2.10&ndash;2.12), so its reproducibility belongs here too — <b>K-Means (left) and Ward (right)</b>,
-          resampled.</li>
-        <li>Bright blocks on the diagonal = pairs of electrodes that land together across resamples. Off-diagonal
-          bleed is the honest picture of how soft these boundaries are.</li>
-      </ul><div class="runid multi">source: kmeans/concat_hg · <b>20260803_175417</b>   ·   hierarchical/concat_hg · <b>20260803_175444</b></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/consensus_heatmap.png" alt="concat consensus kmeans"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/hierarchical/concat_hg/runs/20260803_175444/consensus_heatmap.png" alt="concat consensus ward"></div>
-    </figure>
-
-    <figure><div class="cap"><div class="fignum">FIG 2.14</div><h4>Gap statistic — an independent read on K</h4>
-      <ul>
-        <li>Tibshirani's gap compares within-cluster dispersion against uniform null data, so it is independent of
-          silhouette. A fifth criterion alongside the four in FIG 2.2 — worth more when the criteria
-          <b>disagree</b> than when they agree.</li>
-      </ul><div class="runid">source: kmeans/hg · <b>20260719_153420</b></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/gap_by_k.png" alt="gap statistic"></div>
-    </figure>
-
-    <figure><div class="cap"><div class="fignum">FIG 2.15</div><h4>Do the two methods find the same structure?</h4>
-      <ul>
-        <li>Cluster-by-cluster confusion between runs. Left: <b>rawds vs HFA</b> (same method, different
-          representation). Right: <b>K-Means vs Ward</b> (same representation, different algorithm).</li>
-        <li>A near-diagonal block structure means the grouping is a property of the data. Scatter means it is a
-          property of the algorithm — the single most useful check against over-reading a weak clustering.</li>
-      </ul><div class="runid">source: cross-run comparison (19 Jul HFA runs)</div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparisons/20260719_155034_vs_20260719_153420_confusion.png" alt="rawds vs hg"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparisons/20260719_155034_vs_20260719_155101_confusion.png" alt="kmeans vs ward"></div>
-    </figure>
-
-    <figure><div class="cap"><div class="fignum">FIG 2.16</div><h4>How separated are the clusters, really?</h4>
-      <ul>
-        <li><b>Left:</b> sample &times; sample distance reordered by cluster. <b>Right:</b> k &times; k centroid
-          distances. Top row HFA (K=9), bottom row concatenated (K=5).</li>
-        <li>This is the visual form of the low silhouette: real block structure, but with substantial off-block
-          similarity. It is the honest counterweight to the centroid figures, which always look cleaner than the
-          separation actually is.</li>
-      </ul><div class="runid multi">source: kmeans/hg · <b>20260719_153420</b>   ·   kmeans/concat_hg · <b>20260803_175417</b></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/similarity_heatmap.png" alt="hg similarity"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/hg/runs/20260719_153420/centroid_distance_heatmap.png" alt="hg centroid distance"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/similarity_heatmap.png" alt="concat similarity"></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/centroid_distance_heatmap.png" alt="concat centroid distance"></div>
-    </figure>
-
-    <figure><div class="cap"><div class="fignum">FIG 2.17</div><h4>Cluster cards — waveform, location and anatomy together</h4>
-      <ul>
-        <li>One row per cluster: the <b>mean high‑gamma across the whole task</b>
-          (<code>[audio | picture | reading]</code>, the two vertical seams are the block
-          boundaries), then the same cluster on the glassbrain in three views, then its
-          <b>top Desikan‑Killiany regions</b> with the proportion of its contacts in each.</li>
-        <li><b>Why one figure instead of twelve.</b> The raw 252 renders are 1200×1000 with about
-          <b>19% ink</b> — the brain floats in a wide white margin, so shrinking them to fit a page
-          shrinks the brain, not the margin. Each view is cropped to its content and the pieces that
-          belong to one cluster are tiled together, which also makes the clusters comparable to each
-          other rather than scattered down the page.</li>
-        <li><b>How to read it.</b> Blue spheres are that cluster's electrodes; the translucent shell is
-          the fsaverage surface, drawn for shape only. Each lateral shows <b>only its own hemisphere</b>,
-          both seen from <b>outside</b>, so comparing L with R is a genuine left/right comparison.
-          <b>Purity is reported against chance</b>, not raw. With 30 regions and a skewed
-          distribution a random draw already reaches 0.24, so a raw purity of 0.18 is <i>below</i>
-          chance and 0.41 is genuinely coherent — the raw number alone says nothing. On this cohort <b>c4 reaches 2.20&times; chance</b> (superiortemporal), c3 1.89&times; and c2 1.54&times;, while <b>c1 (n=575) sits at 0.82&times; and c0 at 0.90&times; — at or below chance</b>. So the anatomically coherent clusters are the small ones, and the majority class is anatomically unstructured, which is what a leftover bin should look like.</li>
-        <li><b>The region labels were wrong until 3 Aug.</b> Half the contacts were reported as
-          "unknown", which read as an anatomical fact and was actually a <b>join failure</b>: the aparc
-          cache stores electrodes stripped (<code>AL1</code>) while a run's labels carry the clinical
-          spelling (<code>A_L1</code>), and the lookup keyed on the raw string. Normalising both sides
-          took the match from <b>55% to 96%</b> and <b>changed the largest cluster's top region</b> from
-          <code>rostralmiddlefrontal</code> to <code>middletemporal</code>. Same class of bug as the
-          recon <code>aI</code>/<code>al</code> homoglyph, in a module that was not checked when that one
-          was fixed.</li>
-        <li><b>Hemisphere counts</b> are given per cluster. They are close to balanced (43–57% LH),
-          which is worth stating plainly for a language study — these functional types are not
-          left-lateralised.</li>
-        <li><b>Dot density reflects where electrodes were implanted</b> (clinical decisions). An empty
-          region means "not sampled", never "not involved".</li>
-      </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/cluster_cards.png" alt="cluster cards"></div>
-    </figure>
 
     <h3>Cross-correlation — do the clusters lead and lag each other?</h3>
     <p>Section 2.11 asks <i>when</i> each cluster comes on. This asks whether they are
@@ -2255,73 +2069,6 @@ python make_cluster_visualizer.py</code></pre>
       essentially zero width is beaten by almost any real lag. <b>The bootstrap CI, not the p-value, is
       the statistic to read.</b>
     </div>
-    <figure><div class="cap"><div class="fignum">FIG 2.18</div><h4>Lag profiles against the auditory cluster (K=10, ref c4)</h4>
-      <div class="callout warn" style="margin:0 0 12px"><b>Rebuilt 2026-08-08 with a polarity-correct estimator.</b>
-        The previous version picked each peak with <code>argmax</code> on the <i>signed</i> correlation.
-        A suppression cluster is an inverted copy of the activation reference, so its true alignment is
-        the most <i>negative</i> r and <code>argmax</code> could never return it — it returned the
-        anti-phase side lobe instead. Three rows were published as measured lags that were not.
-        <b>The headline "one cluster lags by +15%" was one of them and has been withdrawn.</b></div>
-      <ul>
-        <li>The reference is chosen from the data rather than by id: <b>c4</b> (n=41) — audio stimulus
-          onset <b>2.17%</b> with a <b>+3.70 dB</b> peak and <b>no stimulus onset at all</b> in picture
-          or reading. Cluster ids change on every re-fit, so
-          <code>pick_reference_cluster()</code> selects the activation with the earliest audio
-          stimulus onset that is silent in the other two conditions. (Until this rebuild the notebook
-          had the reference <i>hard-coded</i> to <code>c1</code> while every published number had been
-          computed against c4, so it could not reproduce its own figures.)</li>
-        <li><b>What audio actually shows.</b> Of the clusters that survive the gate and share the
-          reference's polarity, <b>five lead c4, by 6.7–16.0%</b>, and <b>none lag it</b>.
-          The single positive offset belongs to <b>c7 (n=190), a suppression</b>, at +12.0% with
-          <b>r = −0.92</b> — an anti-correlated alignment, i.e. simultaneous and opposite, which is
-          <b>not</b> a lag. <b>18 of 27</b> rows pass the gate (it was 22 before the fix, and the site
-          previously said 25).</li>
-        <li><b>Suppression clusters are marked, not ranked.</b> Ringed marker and <b>↓supp</b> in the
-          legend: c3, c7 and c9 are suppressions in at least one condition, and their offsets sit below
-          the axis because the alignment is negative. Lead/lag is only defined <i>within</i> a polarity
-          — the same rule the onset ladder now follows.</li>
-        <li><b>How to read a curve.</b> x is the time shift applied to that cluster relative to c4; y is
-          how well the two traces match at that shift. Follow a curve to its <b>peak</b> — its highest
-          point for a same-polarity pair, its <b>lowest</b> for a ringed suppression. Left of zero the
-          cluster is <b>earlier</b> than c4; right of zero it is <b>later</b>.</li>
-        <li><b>The grey band is a refusal zone.</b> Peaks inside it (|r| &lt; 0.3) are two different
-          shapes, not a delay. <b>Solid</b> curves passed the gate; <b>dashed and pale</b> ones failed —
-          the shapes differ, the peak is censored at the edge of the searched range, or the bootstrap CI
-          is too wide to resolve. They are drawn rather than deleted because "these two do not align" is
-          itself an answer. The <b>nine</b> failing rows are c3 (n=74, all three conditions), c6 (n=7,
-          audio and picture), c9 (n=218, audio and reading) and c0 (n=67, picture and reading) —
-          <i>not</i> the "n=11 cluster" this page used to name, which does not exist at K=10
-          (sizes are 67/82/50/74/41/44/7/190/254/218).</li>
-        <li><b>The curves are not single-peaked</b>, and the page previously claimed they were.
-          15 of the 20 same-polarity pairs carry an anti-phase lobe whose |r| exceeds the in-phase peak.
-          That is precisely why the naive repair — maximising |r| — was rejected: it would have
-          corrupted those 15 rows to fix 7.</li>
-        <li><b>Lags are warped-time %, not milliseconds.</b> Read the <b>order</b>, and treat the exact
-          percentage as approximate.</li>
-      </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b> · <code>make_xcorr_figures.py</code> · notebook 215</div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/xcorr_K10_ref-c4_response.png" alt="cross-correlation lag profiles"></div>
-    </figure>
-
-    <figure><div class="cap"><div class="fignum">FIG 2.19</div><h4>The same profiles over the full lag range</h4>
-      <ul>
-        <li>The figure above is cropped to the trustworthy window. This is the <b>whole</b> lag axis
-          (<b>±47% of the trial</b>) with <b>y fixed to the full [−1, +1]</b>, so nothing is hidden by
-          auto-scaling. That ±47% is not a free choice: the response window is 150 bins, and an overlap
-          floor of 0.06 gives ⌊150 × 0.94⌋ = 141 bins = 47.0% of a 300-bin trial.</li>
-        <li><b>Why the crop exists.</b> The shaded band is ±20%, where the two segments still overlap by
-          at least 60%. Outside it the correlation is computed on a shrinking tail and swings back toward
-          ±1 — the oscillation past ±40% is that artefact, not structure.</li>
-        <li><b>Peaks outside the shaded band are drawn but never marked.</b> The gate can certify an
-          alignment out where the segments barely overlap; a bold dot there would advertise it as a
-          measurement. Those curves are demoted to dashed instead.</li>
-        <li><b>This figure had no producing code.</b> Nothing tracked in the repository generated it —
-          the notebook only ever saved the cropped view — so its axis and y-limits could not be checked
-          against anything. It is now written by <code>make_xcorr_figures.py</code> alongside FIG 2.18
-          and a matching CSV, from the same run, in one pass.</li>
-      </ul><div class="runid">source: kmeans/concat_hg · <b>20260803_175417</b> · <code>make_xcorr_figures.py</code></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/kmeans/concat_hg/runs/20260803_175417/timing/xcorr_K10_ref-c4_response_fullrange.png" alt="full lag range"></div>
-    </figure>
-  
     <!-- ============ COVERAGE / CLUSTERING VISUALIZER — METHODS ============ -->
     <h3 id="cvmethods">The Clustering Visualizer — turning a caveat into a measurement</h3>
 
@@ -4576,6 +4323,9 @@ RETIRED-END integrity -->
   <section id="caveats">
     <div class="eyebrow" style="color:var(--warn)">Caveats & next steps</div>
     <h2 class="title">Open decisions and loose ends</h2>
+    <div class="callout" style="margin:14px 0">
+      <b>3 figures were taken off this tab on 2026-09-10.</b> They were drawn on the 20260818 and 20260819 decomposition runs, whose files have been retired from the repository, so they had already been rendering as empty &ldquo;figure not found&rdquo; boxes under captions describing a cohort of 1027 or 1266 electrodes. This page now carries one cohort, <b>v7 &mdash; 1719 electrodes, 27 patients</b>. They return when the same analysis is re-run on it; the retired renders stay in git history under the commit that made them.
+    </div>
 
     <!-- ============ LATE BROADBAND BAND ============ -->
     <h3 id="latebroadband">A late broadband band in the warped ERSPs &mdash; most likely muscle, and it sits inside the HFA band</h3>
@@ -4998,77 +4748,6 @@ RETIRED-END integrity -->
       timing ladder &mdash; is an <b>argmax over G taken afterwards, outside the model</b>. C.5 is what
       that step throws away. C.6 asks whether throwing it away changes the answer.</p>
 
-    <figure><div class="cap"><div class="fignum">FIG C.5</div>
-      <h4>How the decomposition assigns electrodes</h4>
-      <ul>
-        <li><b>A &mdash; every electrode's mixture, not its membership.</b> One row per electrode
-          (1266), one column per component. Colour is the weight that electrode puts on that
-          component, <b>row-normalised so each row sums to 1</b> &mdash; raw G is not comparable
-          between electrodes, because a loud electrode loads higher on everything. Rows are grouped
-          by which component won the argmax (cyan lines mark the boundaries) and sorted within each
-          group by how strongly it won. <b>If this were a partition the diagonal blocks would be
-          solid dark and everything else pale.</b> They are not: the blocks are real, so there is
-          structure, but every block fades downward and carries substantial off-diagonal weight.
-          The tick on the colour bar marks <b>0.14</b>, an even split over seven components.</li>
-        <li><b>B &mdash; how close the decision was.</b> For each electrode, its top weight minus its
-          second, on the same row order as A. Short bars are electrodes whose two leading components
-          were nearly tied. <b>236 electrodes (19%) sit below 0.05</b>, and at the 10th percentile the
-          gap is <b>0.023</b> &mdash; for those the cluster label is close to a coin flip, and any
-          statement about "which cluster this contact belongs to" is not supportable. Note the bars
-          shorten toward the bottom of every block: the electrodes a cluster is least sure of are
-          exactly the ones it is least sure of in A.</li>
-        <li><b>C &mdash; how much the winner actually took.</b> The share of electrodes whose top
-          weight exceeds a threshold, swept from an even split to 1.0. Median top weight is
-          <b>0.43</b>; only <b>34%</b> reach a majority (&gt;&nbsp;0.5). The typical electrode is
-          mostly-but-not-only one component, which is the same fact FIG C.3 panel C reports as
-          66% having no majority &mdash; here as a curve, so you can pick your own threshold and read
-          off what it costs.</li>
-        <li><b>D &mdash; are the components even distinct from each other?</b> Correlation between the
-          seven fitted profiles. Most pairs are near-orthogonal (median <b>r = &minus;0.02</b>), which
-          is what you want. But <b>c2 and c4 sit at r = &minus;0.89</b>, boxed in red: they are near
-          mirror images, an activation and its suppression. Treating those as two independent response
-          types is a choice, not a finding, and the same caution applies more weakly to c5/c6
-          (r&nbsp;=&nbsp;+0.48).</li>
-      </ul>
-      <div class="runid">source: cnmf/concat_hg &middot; <b>20260818_112939</b> &middot; <code>make_decomposition_drivers.py</code> &middot; the concat_rawds equivalent is in that run's <code>decomposition_drivers/</code></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/cnmf/concat_hg/runs/20260818_112939/decomposition_drivers/D1_membership.png" alt="membership structure of the convex NMF decomposition: mixture matrix, decision margin, top-weight curve, component correlation"></div>
-    </figure>
-
-    <figure><div class="cap"><div class="fignum">FIG C.6</div>
-      <h4>What each component is made of &mdash; two routes to the same question</h4>
-      <ul>
-        <li><b>Rows</b> are the seven components, labelled with how many electrodes the argmax gave
-          each. <b>Columns are three different questions about the same component</b>, all on the same
-          x axis: the three conditions laid end to end, solid line = condition boundary, dashed =
-          the GO cue at 50% of each condition.</li>
-        <li><b>Left &mdash; what the component looks like.</b> The mean of its electrodes, each weighted
-          by its loading, in dB. <b>Not</b> <code>components.npy</code>: that is stored as a unit-norm
-          direction with values around &plusmn;0.05, so on a dB axis it draws a flat line. The two are
-          also not interchangeable &mdash; they agree at only <b>r = 0.40 to 0.97</b> depending on the
-          component &mdash; so the figure draws the one that is in real units and says so.</li>
-        <li><b>Middle &mdash; loading correlation, the model's own answer.</b> Across all 1266
-          electrodes, the correlation between the weight on this component and the value of each
-          feature. Read it as: <i>as an electrode loads more on this component, this feature rises
-          (green) or falls (purple)</i>. <b>This never passes through the argmax</b>, so it describes
-          what the decomposition actually fitted rather than what the labelling did afterwards.</li>
-        <li><b>Right &mdash; cluster vs rest, what a hard clustering would report.</b> Cohen's d between
-          the electrodes the argmax gave this component and every other electrode. Same layout, an
-          effect size rather than a correlation, so the scale differs &mdash; the shapes are what should
-          be compared.</li>
-        <li><b>The result is that the two right columns agree, at r = 0.97&ndash;0.99 on every
-          component</b> (printed at the end of each row, and the same on concat_rawds). This is worth
-          stating precisely, because it is narrower than it looks: <b>the argmax is unreliable for any
-          individual electrode &mdash; C.5 panel B &mdash; and still recovers the component's feature
-          signature.</b> So group-level claims about what a component responds to survive the hard
-          labelling; per-electrode claims about membership do not.</li>
-        <li><b>Colour is deliberately not the project bwr</b> in the two right columns. Those are a
-          correlation and an effect size, not dB, and reusing bwr would invite reading them against
-          the dB scale bar.</li>
-      </ul>
-      <div class="runid">source: cnmf/concat_hg &middot; <b>20260818_112939</b> &middot; <code>make_decomposition_drivers.py</code> &middot; concat_rawds draws the same three columns as band&nbsp;&times;&nbsp;time heatmaps</div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/cnmf/concat_hg/runs/20260818_112939/decomposition_drivers/D2_drivers.png" alt="per-component drivers: loading-weighted mean profile, loading correlation, and cluster-vs-rest Cohen's d"></div>
-    </figure>
-
     <figure id="separation"><div class="cap"><div class="fignum">FIG C.7</div>
       <h4>Is the K=7 partition a separation? &mdash; yes, but only in its own space</h4>
       <div class="callout q" style="margin:0 0 12px">
@@ -5337,54 +5016,6 @@ RETIRED-END integrity -->
         <code>make_separation_across_features.py</code> &middot; numbers in
         <code>comparison/separation_across_features.csv</code></div></div>
       <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/comparison/C12_separation_across_features.png" alt="heatmap of separation z-scores for three methods across three feature sets, scored in both dB and unit-norm space, with home-space scores as a bar chart"></div>
-    </figure>
-
-    <figure><div class="cap"><div class="fignum">FIG C.8</div>
-      <h4>The same figure without the responsiveness gate &mdash; what the gate was removing</h4>
-      <p style="margin:0 0 8px"><b>This is <a href="#howcnmfdecides">FIG C.5</a> redrawn on the ungated
-        electrode set, with the two populations marked.</b> The strip left of panel A is the whole
-        point: <span style="color:#4a6fa5"><b>blue</b></span> = the 1267 electrodes that would pass the
-        responsiveness gate, <span style="color:#8e969e"><b>grey</b></span> = the 1679 that only appear
-        because it was lifted. Grey is deliberate &mdash; those are the contacts the gate calls
-        non-responsive, so they should read as inactive rather than as a second finding.
-        <b>Every axis is fixed to the same range in both figures</b> (weight 0&ndash;1, margin
-        0&ndash;0.80, threshold sweep 0.14&ndash;1.0, correlation &plusmn;1), and both are drawn at the
-        same size, so they can be put side by side without either being silently rescaled.</p>
-      <ul>
-        <li><b>Lifting the gate more than doubles the dataset.</b> <b>2946 electrodes</b> against 1267
-          &mdash; it adds <b>1679</b>. The added contacts are flatter but <i>not</i> flat: mean |HFA|
-          <b>0.392 dB</b> against 0.639 for the gated set, peak <b>1.58</b> against 2.51. So this is not
-          a block of zeros being bolted on, which is why the result below is not the obvious one.</li>
-        <li><b>The added electrodes do not form their own component.</b> Read the strip against the
-          cluster boundaries: blue and grey are <b>interleaved throughout all seven</b>. The intuition
-          that a non-responsive population would collect into one tidy &quot;nothing happened here&quot;
-          cluster &mdash; which is what would have made an ungated run score better while meaning less
-          &mdash; <b>does not happen</b>. They spread across every component.</li>
-        <li><b>Membership gets more ambiguous, not less.</b> Median top weight falls <b>0.43 &rarr;
-          0.38</b>, electrodes with a majority component fall <b>34% &rarr; 20%</b>, and near-ties rise
-          <b>236 (19%) &rarr; 725 (25%)</b>. Panel C shows why in one line: the black curve for the
-          ungated set sits below C.5's throughout.</li>
-        <li><b>But the split is milder than the headline suggests.</b> Within the ungated run the two
-          populations are close: median top weight <b>0.397 gated</b> against <b>0.377 added</b>,
-          majority component <b>23%</b> against <b>17%</b>, near-ties <b>21%</b> against <b>27%</b>. The
-          added electrodes are somewhat harder to assign, not categorically different. Most of the drop
-          from 34% to 20% is simply that there are now more electrodes competing for the same seven
-          components &mdash; a dilution effect, not a discovery.</li>
-        <li><b>The hard methods lose resolution.</b> Best K by silhouette drops from <b>6 to 4</b> for
-          k-means and stays at <b>4</b> for Ward. With 2.3&times; the electrodes they find <i>fewer</i>
-          distinguishable groups.</li>
-        <li><b>Panel D changes which pair it flags</b> &mdash; c1 and c3 at <b>r = &minus;0.81</b> here,
-          against c2/c4 at &minus;0.89 in C.5. Component <i>numbering</i> is arbitrary and not
-          comparable between runs, so this is the same phenomenon (one near-mirror pair) rather than a
-          different one. Do not read c3 in this figure as c3 in C.5.</li>
-        <li><b>What it says about the gate.</b> On this evidence the gate is doing useful work: it is
-          not discarding a hidden population, and keeping it out leaves a decomposition whose
-          memberships are crisper. The honest caveat is that &quot;crisper memberships&quot; is a
-          property of the model output, not evidence that the excluded contacts carry no signal &mdash;
-          <a href="#separation">FIG C.7</a>'s framing applies here too.</li>
-      </ul>
-      <div class="runid">source: cnmf/concat_hg_all <b>20260819_220417</b> &middot; notebook <b>237</b> &middot; <code>make_decomposition_drivers.py</code> &middot; gate flag read from <code>n_high_activity</code> in labels.csv</div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/cnmf/concat_hg_all/runs/20260819_220417/decomposition_drivers/D1_membership.png" alt="membership structure of the ungated convex NMF decomposition, with gated and added electrodes marked in blue and grey"></div>
     </figure>
 
     <figure><div class="cap"><div class="fignum">FIG C.9</div>

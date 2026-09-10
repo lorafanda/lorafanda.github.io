@@ -789,10 +789,14 @@ async function loadSurface(kind, uniformRgba) {
   elecMesh = null;
   const spec = { };
   if (uniformRgba) spec.rgba255 = uniformRgba;
-  // .mz3, not .gii: Niivue's own binary mesh format, 3.1 MB against 4.1 MB per hemisphere
-  // and a binary parse instead of GIfTI XML. Both variants are already in the repository.
-  await nv.loadMeshes([{ url: `${FSAVG}meshes/fsaverage_lh${suf}.mz3`, ...spec },
-                       { url: `${FSAVG}meshes/fsaverage_rh${suf}.mz3`, ...spec }]);
+  // .gii, deliberately, after trying not to. The .mz3 files sitting beside them are not
+  // MZ3: gunzipped they start 0x6D23 where the format's magic is 0x5A4D, and Niivue
+  // rejects them with "Invalid MZ3 file". Decompressed they are 5.6 MB against the
+  // GIfTI's 4.1 MB anyway, so even a valid copy would not have been the saving it looked
+  // like. Those four files are 12.5 MB of unreadable data and should be regenerated or
+  // deleted rather than left to tempt the next person.
+  await nv.loadMeshes([{ url: `${FSAVG}meshes/fsaverage_lh${suf}.gii`, ...spec },
+                       { url: `${FSAVG}meshes/fsaverage_rh${suf}.gii`, ...spec }]);
   ["lh","rh"].forEach((h, i) => {
     const m = nv.meshes[i], n = m.pts.length / 3;
     hemis[h] = { mesh:m, nvert:n, rgba:new Uint8Array(n * 4) };

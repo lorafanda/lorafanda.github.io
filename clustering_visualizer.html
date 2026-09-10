@@ -159,6 +159,15 @@
       </div>
 
       <div class="grp">
+        <label class="title">Colour contacts by</label>
+        <div class="segs">
+          <button id="cByClu" class="on">cluster</button>
+          <button id="cByPat">patient</button>
+        </div>
+        <div class="cohort" id="colourNote">the same contacts, two encodings</div>
+      </div>
+
+      <div class="grp">
         <label class="title">Display</label>
         <div class="checks">
           <label><input type="checkbox" id="showElec"> electrode contacts</label>
@@ -251,7 +260,7 @@ const baseGrey = () => (REPORT_LIGHT.on ? REPORT_LIGHT.grey : GREY);
 let M = null, CONTACTS = null, COV = { lh:null, rh:null }, CLU = { lh:null, rh:null };
 let RUN = null, nv = null, hemis = {}, elecMesh = null, canvasEl = null;
 const state = { map:"coverage", surf:"pial", glass:false, showElec:false, gate:true,
-                elecByCluster:false,
+                elecByCluster:false, elecColour:"cluster",
                 minN:5, minLoad:0, climMax:1.0, gamma:0.80, autoScaled:0, radius:"10" };
 const R = () => state.radius;
 
@@ -1009,6 +1018,33 @@ function clusterRGB(cid) {
   return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
 }
 const clusterCSS = cid => { const c = clusterRGB(cid); return `rgb(${c[0]},${c[1]},${c[2]})`; };
+
+function hsl2rgb(h, s2, l) {
+  const k = n => (n + h * 12) % 12;
+  const a = s2 * Math.min(l, 1 - l);
+  const f = n => l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)));
+  return [Math.round(255 * f(0)), Math.round(255 * f(8)), Math.round(255 * f(4))];
+}
+
+// Patients in sorted order, so a given patient keeps its colour across runs and K - the
+// index is a property of the cohort, not of what happens to be drawn.
+let _patIdx = null;
+function patientIndex() {
+  if (_patIdx) return _patIdx;
+  const seen = [];
+  for (const p of (CONTACTS ? CONTACTS.patient : [])) if (p && seen.indexOf(p) < 0) seen.push(p);
+  seen.sort();
+  _patIdx = new Map(seen.map((p, i) => [p, i]));
+  return _patIdx;
+}
+// Golden-angle hue spacing: with 27 patients an ordered ramp is half a cohort of
+// near-identical greens, and nobody reads identity off a ramp anyway - what is read is
+// "same" or "different", which wants separation.
+function patientRGB(pid) {
+  const i = patientIndex().get(pid);
+  if (i === undefined) return [190, 190, 196];
+  return hsl2rgb(((i * 137.508) % 360) / 360, 0.66, 0.56);
+}
 // A round contact, the same icosphere MOBA draws. The bare octahedron this used to push
 // has six vertices and reads as a faceted diamond at these radii - the silhouette is a
 // hexagon, and at a few hundred contacts that is what the eye picks up. This is MOBA's
@@ -1092,6 +1128,11 @@ function updateElectrodes() {
       const L = lab && lab[i];
       if (!Array.isArray(L) || L.indexOf(d.cluster) < 0) continue;
     }
+    // COLOUR ONLY. Every filter above has already decided which contacts are drawn, so
+    // flipping this changes the encoding and not the picture - which is the point: a
+    // cluster that is one patient's strip is a solid block of one hue here and invisible
+    // in the cluster colouring.
+    if (state.elecColour === "patient") colr = patientRGB(CONTACTS.patient[i]);
     // 0.14 is uniform loading at K=7 (1/7); below that a contact is expressing
     // nothing in particular and is drawn at the floor size rather than vanishing.
     let w = 1, r = 1.73;
@@ -2827,6 +2868,26 @@ ${ovImgs.map((im, i) => `<section class="card"><h2 class="sec">${esc(ov[i].title
 function wireUI() {
   $("runSel").onchange = e => selectRun(e.target.value);
   $("mapSel").onchange = e => { state.map = e.target.value; autoScale(); render(); updateElectrodes(); };
+
+  const setColourBtns = () => {
+    $("cByClu").classList.toggle("on", state.elecColour !== "patient");
+    $("cByPat").classList.toggle("on", state.elecColour === "patient");
+    const n = patientIndex().size;
+    $("colourNote").textContent = state.elecColour === "patient"
+      ? `${n} patients \u00b7 hue is arbitrary but stable across runs and K`
+      : "the same contacts, two encodings";
+  };
+  const colourBtn = (mode) => () => {
+    if (state.elecColour === mode) return;
+    state.elecColour = mode;
+    // colouring contacts you cannot see is not a setting anyone means to choose
+    if (!state.showElec) { state.showElec = true; const c = $("showElec"); if (c) c.checked = true; }
+    setColourBtns();
+    updateElectrodes();
+  };
+  $("cByClu").onclick = colourBtn("cluster");
+  $("cByPat").onclick = colourBtn("patient");
+  setColourBtns();
 
   const setSurfBtns = () => {
     $("sPial").classList.toggle("on", state.surf === "pial" && !state.glass);

@@ -35,6 +35,17 @@
 
   /* ── compare UI — make_cluster_visualizer.py ──────────────────────────── */
   #controls { width:304px; }
+  /* the template's panel (its Run dropdown, pial / inflated / glass, radius ...) is
+     what boot() would show until ui2Init() replaces it; nothing of it is on screen
+     before the compare UI is built (ui2Init adds body.u2ready at its end) */
+  body:not(.u2ready) #controls, body:not(.u2ready) #prov, body:not(.u2ready) #hint { visibility:hidden; }
+  body:not(.u2ready) #ctlBody { transition:none; }   /* a phone folds it before the reveal */
+  /* the splash is opaque (the template panel is not seen through it); the staged line
+     sits on the white glass page, so it is dark and has no spinner */
+  #status { background:#000; }
+  #status.staged .spin { display:none; }
+  #status.staged .statusText { color:#3a3f47; opacity:1; font-weight:500; }
+  #status.failed .spin { animation:none; }
   /* the panel is taller than the one it replaces; on a short window it scrolls rather
      than clipping the report button. Collapsed it keeps overflow:hidden, so the
      max-height animation still works. */
@@ -377,7 +388,7 @@ if (typeof DecompressionStream === "undefined" && window.pako) {
   };
 }
 </script>
-<script type="module">
+<script type="module" onerror="document.getElementById('statusText').textContent='The viewer library did not load (unpkg.com unreachable?) — reload, or check the network'">
 // 0.69.0, matching poolv2. The mesh shader changed between 0.45 and 0.69 and this
 // page needs the newer one: on 0.45 a mesh carrying a PER-VERTEX rgba255 buffer
 // ignores mesh-level opacity outright, which is what defeated every attempt to make
@@ -724,18 +735,21 @@ function cmap(t) {
 // The status line, and the three states it has. Kept together so the transitions are
 // readable in one place rather than scattered through boot().
 function setStatus(t) { const e = $("statusText"); if (e) e.textContent = t; }
+let HIDE_T = 0;   // hideStatus's pending display:none, cancelled by the next showStatus
 function showStatus(t, staged) {
   const e = $("status"); if (!e) return;
+  clearTimeout(HIDE_T);
   e.style.display = "grid";
   e.classList.remove("gone");
-  e.classList.toggle("staged", staged !== false);
+  e.classList.toggle("staged", staged !== false && !U2_HOLD);   // the splash holds
   setStatus(t);
 }
 function stageStatus(t) { showStatus(t, true); }
 function hideStatus() {
   const e = $("status"); if (!e) return;
+  if (U2_HOLD) { U2_HIDE_PENDING = true; return; }   // after the splash, not under it
   e.classList.add("gone");
-  setTimeout(() => { e.style.display = "none"; }, 500);   // after the fade, not instead of it
+  HIDE_T = setTimeout(() => { e.style.display = "none"; }, 500);   // after the fade, not instead of it
 }
 
 // A progress hook rather than a parameter: fetchBin has half a dozen call sites and only
@@ -1078,7 +1092,10 @@ async function boot() {
   nv.attachToCanvas(canvasEl);
   nv.setSliceType(nv.sliceTypeRender);
   window.nv = nv;               // exposed for console debugging / camera checks
-  const meshReady = loadSurface(state.surf);
+  U2_HOLD = true;
+  const held = new Promise(res => setTimeout(res, U2_MIN_LOAD_MS));
+  state.glass = true; state.surf = "pial"; state.showElec = true; state.elecByCluster = true;
+  const meshReady = loadSurface("pial", GLASS_RGBA);   // glass: uniform rgba, or the alpha is ignored
 
   const fresh = { cache: "no-store" };
   M = await (await fetch(BUNDLE + "manifest.json", fresh)).json();
@@ -1118,13 +1135,18 @@ async function boot() {
   // WebGL2 it does not - which is why setting alpha alone produced no glass at all.
   // Best effort; the constructor falls back to WebGL2 if it ignores the flag.
   await meshReady;
-  $("brain").classList.add("up");
-  stageStatus("Loading coverage…");
-
+  applyOpacity();                    // white backdrop, 0.18 alpha
   wireUI();
+  $("showElec").checked = true;      // glass forces the contacts on; the (hidden) box says so
   PROGRESS = (got, total) =>
     setStatus(`Loading coverage… ${(got / 1048576).toFixed(1)} / ${(total / 1048576).toFixed(1)} MB`);
-  try { await selectRun(pick.id); } finally { PROGRESS = null; }
+  const runLoad = selectRun(pick.id).finally(() => { PROGRESS = null; });
+  runLoad.catch(() => {});           // awaited below; this only keeps the rejection handled meanwhile
+  await held;
+  U2_HOLD = false;
+  $("brain").classList.add("up");
+  if (U2_HIDE_PENDING) hideStatus(); else $("status").classList.add("staged");
+  await runLoad;
   await ui2Init();
   hideStatus();
 }
@@ -1324,6 +1346,7 @@ function render() {
   // In glass mode the surface carries a uniform rgba255 and its alpha is the whole
   // point. Writing a per-vertex buffer here would switch the shader back to the
   // opaque path and undo it.
+  syncLoadRow();                       // before the glass return, or never in glass mode
   if (state.glass) { nv.drawScene(); return; }
   const d = curDef(), hi = d.raw ? MAXC * state.climMax : state.climMax;
   let shown = 0, total = 0, peak = 0, peakDen = 0;
@@ -1374,14 +1397,6 @@ function render() {
   // A hard partition has no loading to threshold: every contact's membership is 1.0
   // by construction. Leaving the slider live there would look functional and do
   // nothing, which is worse than disabling it.
-  const hasLoad = !!loadingsForK();
-  const lr = $("loadRow");
-  lr.style.opacity = hasLoad ? "1" : ".35";
-  $("minLoad").disabled = !hasLoad;
-  $("loadNote").textContent = hasLoad
-    ? `graded: ${RUN.k} components, contacts sized and faded by their top weight`
-    : "graded loading — convex-NMF runs only; this run is a hard partition";
-
   const mr = $("minNRow"), useN = d.cluster !== undefined && state.gate;
   mr.style.opacity = useN ? "1" : ".35";
   $("minN").disabled = !useN;
@@ -3397,6 +3412,7 @@ function wireUI() {
   $("ctlHead").onclick = toggleCtl;
   window.addEventListener("keydown", e => {
     if (e.target.tagName === "SELECT" || e.target.tagName === "INPUT") return;
+    if (!document.body.classList.contains("u2ready")) return;   // nothing to hide or fold yet
     if (e.key === "h") document.querySelectorAll(".panel").forEach(p => p.classList.toggle("hidden"));
     else if (e.key === "c") toggleCtl();
   });
@@ -3430,6 +3446,10 @@ function wireUI() {
 // and every panel is a capture of this canvas, so a grid cell is exactly what the big
 // view shows at that angle.
 // ─────────────────────────────────────────────────────────────────────────────
+// the loading screen (the turning brain) stays up at least this long, so a cached
+// load does not flash past it
+const U2_MIN_LOAD_MS = 2000;
+let U2_HOLD = false, U2_HIDE_PENDING = false;   // boot(): the splash is up; a hide was asked for meanwhile
 const UI2 = { on:false, mode:"single", sel:new Set(), gridBy:"clusters",
               busy:false, gridOpen:false, seq:0,
               cenPos:new Map() };   // cluster -> where its overlay card was dragged
@@ -4249,6 +4269,19 @@ function u2Fold(open) {
   if (c.classList.contains("collapsed") === !open) return;
   c.classList.toggle("collapsed", !open); $("ctlChevron").textContent = open ? "\u25be" : "\u25b8";
 }
+// THE LOADING ROW, before render()'s glass early return. render() sets the caption and
+// the slider's enabled state after painting the vertices, and in glass mode it returns
+// before painting - so with glass from the first frame the row was never set, and on a
+// run switch in glass mode it had always been stale.
+function syncLoadRow() {
+  const hasLoad = !!loadingsForK();
+  $("loadRow").style.opacity = hasLoad ? "1" : ".35";
+  $("minLoad").disabled = !hasLoad;
+  $("loadNote").textContent = hasLoad
+    ? `graded: ${RUN.k} components, contacts sized and faded by their top weight`
+    : "graded loading — convex-NMF runs only; this run is a hard partition";
+}
+
 // crossing the line either way (a rotated phone, a resized window) takes the fold along;
 // watched from both events, since an emulated viewport fires only the resize
 let u2WasNarrow = U2_NARROW.matches;
@@ -4258,9 +4291,8 @@ window.addEventListener("resize", u2Cross);
 
 async function ui2Init() {
   u2Build();
-  // glass is the only surface here; entering it through the page's own handler keeps the
-  // mesh reload, the white backdrop and the by-cluster contacts in one place
-  try { await $("sGlass").onclick(); } catch (e) { console.warn("glass mode:", e); }
+  // glass is the only surface here, and boot() loaded it as such (see the boot patch in
+  // make_cluster_visualizer.py): no pial-then-glass reload, nothing to click
   UI2.on = true;
   const d0 = u2Defs()[u2Pos()];
   if (d0) UI2.sel = new Set([d0.cluster]);
@@ -4288,12 +4320,19 @@ async function ui2Init() {
   // the report is built one cluster at a time, never from a grid or an overlay
   $("pdfBtn").onclick = async () => { u2SetMode("single"); await exportReport(); u2Sync(); };
   window.addEventListener("keydown", u2Keys);
-  if (u2Phone()) u2Fold();
+  if (u2Phone()) { u2Fold(); void $("controls").offsetHeight; }   // committed before the reveal
   u2Sync();
   drawCentroid();          // sizes the canvas for the view and draws the ring if needed
+  document.body.classList.add("u2ready");   // the panel, the run box and the hint appear
 }
 
-boot().catch(e => { showStatus("Failed to load: " + e.message, false); console.error(e); });
+boot().catch(e => {
+  U2_HOLD = false;
+  showStatus("Failed to load: " + e.message + " — reload the page", false);
+  $("status").classList.add("failed");
+  document.body.classList.add("u2ready");   // whatever chrome is wired is at least visible
+  console.error(e);
+});
 </script>
 </body>
 </html>

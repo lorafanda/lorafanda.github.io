@@ -143,6 +143,32 @@
                     font-variant-numeric:tabular-nums; }
   #u2gg .miss { display:grid; place-items:center; height:118px; color:var(--muted);
                 font-size:11px; text-align:center; padding:8px; }
+
+  /* ON A PHONE the panel is a sheet that opens upward from a pill at the bottom left,
+     closed until tapped, so the brain has the screen and the pill is never over it. The
+     centroid sits above the pill at the full width; in the grid it steps aside (the
+     grid is the clusters). The run box shrinks into the top-right corner, the keyboard
+     hint has nothing to say to a thumb. Desktop: none of this applies. */
+  /* (this block sits above the page's own panel rules, so anything that competes with
+     one of them is written `body #x` to outrank it) */
+  @media (max-width: 640px) {
+    body #controls { top:auto; bottom:10px; left:10px; right:10px; width:auto; z-index:7;
+                     padding:8px 12px 10px; }
+    body #controls.collapsed { right:auto; padding:7px 13px; border-radius:999px; }
+    body #controls.collapsed #ctlBody { width:0; }   /* else the folded body still sets the pill's width */
+    body #controls h2 { font-size:12.5px; }
+    body #ctlBody, body[data-u2mode="grid"] #ctlBody { max-height:calc(100vh - 150px); }
+    body #centroidPanel { left:10px; right:10px; bottom:52px; width:auto; padding:8px 10px 9px; }
+    body #centroidPanel canvas { width:100%; height:auto; }
+    #controls:not(.collapsed) ~ #centroidPanel { display:none; }
+    body[data-u2mode="grid"] #centroidPanel { display:none !important; }
+    body #prov { top:8px; right:8px; max-width:64vw; font-size:9.5px; line-height:1.4; }
+    body #hint { display:none; }
+    #u2grid { padding:10px 8px 54px; }
+    #u2gg { grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:8px; }
+    #u2cens .u2cen { width:min(276px, calc(100vw - 20px)); }
+    #u2cens .u2cen canvas { width:100%; height:auto; }
+  }
   .row { display:flex; align-items:center; gap:8px; margin-top:6px; }
   .row label { color:var(--muted); min-width:56px; flex:none; }
   .row input[type=range] { flex:1; min-width:0; accent-color:var(--accent); }
@@ -617,7 +643,7 @@ function drawCentroid() {
   const g = st.g, own = m.feature_set, cross = CEN_REP !== own;
   const pos = (RUN && RUN.clusters) ? RUN.clusters.map(Number).indexOf(j) + 1 : 0;
   $("cpTitle").textContent = `#${pos || "?"} · Cluster ${j} · ` + (st.weighted
-    ? `n = ${st.nPass} of ${st.nMembers} members ≥ ${state.minLoad.toFixed(2)}`
+    ? `${st.nPass} contacts at loading ≥ ${state.minLoad.toFixed(2)} · ${st.nMembers} argmax members`
     : `n = ${st.nMembers} members`) + (cross ? ` · on ${REP_LABEL[CEN_REP]}` : "");
   const sdTxt = g.nb === 1 ? " · band = ±1 SD" + (paper ? "" : " (weighted)") : "";
   $("cpNote").textContent = (paper
@@ -3737,6 +3763,13 @@ function u2Slots(n) {
   const ctl = $("controls").getBoundingClientRect();
   const x0 = Math.max(m, ctl.right + gap);                 // rows must clear the panel
   const rightX = W - m - U2_CW, bottomY = H - m - 18 - U2_CH, topY = m;
+  // a phone: the controls are a pill at the bottom (44 px with its margin, whatever the
+  // sheet is doing mid-fold), so one column down the right side from the top to the
+  // pill; anything past it takes the fallback corner and is dragged
+  if (u2Phone()) {
+    const cap = Math.max(1, Math.floor((H - 44 - m) / (U2_CH + gap)));
+    return Array.from({ length: Math.min(n, cap) }, (_, i) => ({ x: rightX, y: m + i * (U2_CH + gap) }));
+  }
   const colCap = Math.max(1, Math.floor((H - 2 * m + gap) / (U2_CH + gap)));
   const rowCap = Math.max(0, Math.floor((rightX - gap - x0 + gap) / (U2_CW + gap)));
   const leftCap = Math.max(0, Math.floor((H - m - (ctl.bottom + gap) + gap) / (U2_CH + gap)));
@@ -4206,6 +4239,23 @@ function u2SyncColour() {
     : "the cluster palette, matching the figures";
 }
 
+// ON A PHONE (the CSS's 640-px sheet) the controls fold to a pill: at the start, so
+// the brain comes first, and when a view is chosen, since the sheet would cover the
+// grid or the overlay just asked for. Chips, K and run buttons leave it open.
+const U2_NARROW = window.matchMedia("(max-width: 640px)");
+const u2Phone = () => U2_NARROW.matches;
+function u2Fold(open) {
+  const c = $("controls");
+  if (c.classList.contains("collapsed") === !open) return;
+  c.classList.toggle("collapsed", !open); $("ctlChevron").textContent = open ? "\u25be" : "\u25b8";
+}
+// crossing the line either way (a rotated phone, a resized window) takes the fold along;
+// watched from both events, since an emulated viewport fires only the resize
+let u2WasNarrow = U2_NARROW.matches;
+const u2Cross = () => { if (U2_NARROW.matches !== u2WasNarrow) { u2WasNarrow = U2_NARROW.matches; u2Fold(!u2WasNarrow); } };
+U2_NARROW.addEventListener("change", u2Cross);
+window.addEventListener("resize", u2Cross);
+
 async function ui2Init() {
   u2Build();
   // glass is the only surface here; entering it through the page's own handler keeps the
@@ -4215,7 +4265,7 @@ async function ui2Init() {
   const d0 = u2Defs()[u2Pos()];
   if (d0) UI2.sel = new Set([d0.cluster]);
   $("u2mode").querySelectorAll("button").forEach(b => {
-    b.onclick = () => { if (!UI2.busy) u2SetMode(b.dataset.m); };
+    b.onclick = () => { if (UI2.busy) return; if (u2Phone()) u2Fold(); u2SetMode(b.dataset.m); };
   });
   $("u2gridby").querySelectorAll("button").forEach(b => {
     b.onclick = () => { if (UI2.busy) return; UI2.gridBy = b.dataset.g; u2Sync(); u2Grid(); };
@@ -4238,6 +4288,7 @@ async function ui2Init() {
   // the report is built one cluster at a time, never from a grid or an overlay
   $("pdfBtn").onclick = async () => { u2SetMode("single"); await exportReport(); u2Sync(); };
   window.addEventListener("keydown", u2Keys);
+  if (u2Phone()) u2Fold();
   u2Sync();
   drawCentroid();          // sizes the canvas for the view and draws the ring if needed
 }

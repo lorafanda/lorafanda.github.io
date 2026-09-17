@@ -62,6 +62,10 @@
   .seg button { flex:1; padding:4px 0; border-radius:6px; cursor:pointer; color:var(--muted); font:inherit; font-size:12px;
     background:#101318; border:1px solid rgba(255,255,255,.14); }
   .seg button.on { color:#001; background:var(--accent); border-color:var(--accent); font-weight:600; }
+  .seg.mini button { padding:2px 0; font-size:11px; }
+  #concat h3 .seg { margin-left:10px; }
+  #concat h3 .seg button { flex:none; padding:1px 8px; font-size:11px; }
+  .braincell.pickable canvas:not(.ov) { cursor:crosshair; }
 
   #transport { bottom:16px; left:14px; width:min(760px, calc(100vw - 500px)); display:flex; flex-direction:column; gap:8px; }
   .trow { display:flex; align-items:center; gap:14px; }
@@ -158,6 +162,14 @@
         <button class="step" id="contactPrev" title="previous (↑)">▲</button>
         <button class="step" id="contactNext" title="next (↓)">▼</button>
       </div>
+      <div class="row" style="margin-top:4px">
+        <label style="min-width:44px">order</label>
+        <div class="seg mini" id="orderSeg" style="flex:1">
+          <button data-order="shaft" class="on" title="shaft by shaft, contact by contact">by shaft</button>
+          <button data-order="rank" title="strongest first: mean of the selected bands in the current window, averaged over the shown conditions">by response</button>
+        </div>
+      </div>
+      <div class="note" id="orderNote" style="font-size:10.5px;color:var(--muted);margin-top:3px">click a dot on a brain to select it</div>
     </div>
 
     <div class="grp">
@@ -195,6 +207,15 @@
       <div class="row"><label>Dot size</label>
         <input type="range" id="dotR" min="0.8" max="4" step="0.1" value="1.8">
         <span class="val" id="dotRVal">1.8</span></div>
+      <div class="row"><label>View</label>
+        <div class="seg mini" id="viewSeg" style="flex:1">
+          <button data-view="90,0">L lateral</button><button data-view="270,0">R lateral</button>
+          <button data-view="0,90">top</button><button data-view="180,0">front</button><button data-view="0,0">back</button>
+        </div></div>
+      <div class="row"><label>Hemi</label>
+        <div class="seg mini" id="hemiSeg" style="flex:1">
+          <button data-hemi="both" class="on">both</button><button data-hemi="lh">left only</button><button data-hemi="rh">right only</button>
+        </div></div>
     </div>
     </div><!-- /#ctlBody -->
   </div>
@@ -208,7 +229,9 @@
   </div>
 
   <div id="concat" class="panel">
-    <h3>Concatenated ERSP <span id="concatNote"></span></h3>
+    <h3>Concatenated ERSP
+      <div class="seg" id="plotSeg"><button data-plot="lines" class="on">lines</button><button data-plot="spectro" title="band × time of the selected contact">spectrogram</button></div>
+      <span id="concatNote"></span></h3>
     <canvas id="concatCanvas" width="872" height="392"></canvas>
     <div class="note" id="concatCaption">one thin line per contact of the selected patients · black = mean · green = selected contact · cue at the middle of each block</div>
   </div>
@@ -224,7 +247,7 @@
   </div>
 
   <div id="regionLegend" class="panel"></div>
-  <div id="hint">drag = rotate · scroll = zoom · <b>h j k l</b> = hide controls / ERSP / info / regions · <b>space</b> = play · <b>↑ ↓</b> = contact · <b>← →</b> = shaft</div>
+  <div id="hint">drag = rotate · scroll = zoom · click a dot = select · <b>h j k l</b> = hide controls / ERSP / info / regions · <b>space</b> = play · <b>↑ ↓</b> = contact · <b>← →</b> = shaft</div>
 
 <script type="module">
 import { Niivue, NVMesh } from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
@@ -275,7 +298,11 @@ const state = {
   center: 0, width: 15, vmax: 6, playing: false, speed: 1.0, loop: true,
   surf: "glass", showElec: true, showRegions: false, dotR: 1.8,
   patients: new Set(), sel: -1,
+  order: "shaft",      // contact dropdown and arrows: "shaft" (by shaft) or "rank" (strongest first)
+  plot: "lines",       // the bottom-right panel: per-contact lines or the selected contact's spectrogram
+  hemi: "both",        // "both" | "lh" | "rh": the other hemisphere and its contacts are hidden
 };
+let RANKED = [], RANKVAL = new Map();   // rank mode: contacts strongest first, and their values
 const visibleConds = () => BRAIN_CONDS.filter(c => state.conds.has(c));
 const isGlass = () => state.surf === "glass";
 
@@ -360,20 +387,37 @@ function fillShaftSel() {
   sel.value = si >= 0 ? String(si) : "";
 }
 let _shaftShown = -1;     // the shaft the contact dropdown lists (may hold no selected contact yet)
+// rank mode: every selected contact, strongest first - the mean of the selected bands in
+// the current window, averaged over the conditions shown. Recomputed when the window, the
+// bands or the patients change (not on every playback frame - see refreshRank).
+function rankContacts() {
+  const conds = visibleConds(), cvs = conds.map(c => computeContactVals(M.conditions.indexOf(c)));
+  RANKVAL = new Map();
+  for (const c of SEL_LIST) { let s = 0, n = 0; for (const cv of cvs) { const v = cv[c]; if (v === v) { s += v; n++; } } RANKVAL.set(c, n ? s/n : NaN); }
+  RANKED = SEL_LIST.slice().sort((a, b) => { const va = RANKVAL.get(a), vb = RANKVAL.get(b); if (va !== va) return 1; if (vb !== vb) return -1; return vb - va; });
+}
+function refreshRank() { if (state.order !== "rank") return; rankContacts(); fillContactSel(); }
+const orderList = () => state.order === "rank" ? RANKED : SEL_LIST;
 function fillContactSel(si) {
+  const sel = $("contactSel");
+  if (state.order === "rank") {
+    const fmt = v => v === v ? (v >= 0 ? "+" : "") + v.toFixed(2) : "—";
+    sel.innerHTML = '<option value="">— none —</option>' + RANKED.map((c, i) => `<option value="${c}">${i+1}. ${_esc(CONTACTS[c].patient_id)} · ${_esc(CONTACTS[c].electrode)}  ${fmt(RANKVAL.get(c))}</option>`).join("");
+    sel.value = state.sel >= 0 ? String(state.sel) : "";
+    return;
+  }
   if (si === undefined) si = shaftIndexOf(state.sel);
   _shaftShown = si;
-  const sel = $("contactSel");
   const list = si >= 0 ? SHAFTS[si].contacts : [];
   sel.innerHTML = '<option value="">— none —</option>' + list.map(c => `<option value="${c}">${_esc(CONTACTS[c].electrode)}</option>`).join("");
   sel.value = (state.sel >= 0 && list.includes(state.sel)) ? String(state.sel) : "";
 }
 function stepContact(dir) {
-  if (!SEL_LIST.length) return;
-  let i = SEL_LIST.indexOf(state.sel);
-  if (i < 0 && _shaftShown >= 0) { const l = SHAFTS[_shaftShown].contacts; i = SEL_LIST.indexOf(dir > 0 ? l[0] : l[l.length-1]) - dir; }
-  i = i < 0 ? (dir > 0 ? 0 : SEL_LIST.length - 1) : (i + dir + SEL_LIST.length) % SEL_LIST.length;
-  setSelected(SEL_LIST[i]);
+  const L = orderList(); if (!L.length) return;
+  let i = L.indexOf(state.sel);
+  if (i < 0 && state.order === "shaft" && _shaftShown >= 0) { const l = SHAFTS[_shaftShown].contacts; i = L.indexOf(dir > 0 ? l[0] : l[l.length-1]) - dir; }
+  i = i < 0 ? (dir > 0 ? 0 : L.length - 1) : (i + dir + L.length) % L.length;
+  setSelected(L[i]);
 }
 function stepShaft(dir) {
   if (!SHAFTS.length) return;
@@ -520,10 +564,44 @@ function updateTrackPlayhead(bin) {
 }
 
 // ---- concatenated ERSP (bottom right) ---------------------------------------------
-const CC = { W: 872, H: 392, padL: 44, padR: 10, padT: 22, padB: 26, gap: 10, maxLines: 700 };
+const CC = { W: 872, H: 392, padL: 52, padR: 10, padT: 22, padB: 26, gap: 10, maxLines: 700 };
 let _ccBase = null;
+// the selected contact's band x time, one block per condition, bwr on the colour scale
+function drawSpectro() {
+  const base = document.createElement("canvas"); base.width = CC.W; base.height = CC.H;
+  const g = base.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, CC.W, CC.H);
+  const nB = BRAIN_CONDS.length, w = (CC.W - CC.padL - CC.padR - CC.gap*(nB-1)) / nB, h = CC.H - CC.padT - CC.padB, nb = M.n_band, rowH = h / nb;
+  g.font = "12px sans-serif"; g.textBaseline = "top";
+  if (state.sel < 0) { g.fillStyle = "#68727d"; g.textAlign = "center"; g.fillText("select a contact to see its spectrogram", CC.W/2, CC.H/2 - 6); _ccBase = base; $("concatNote").textContent = "no contact selected"; drawConcatPlayhead(); return; }
+  g.fillStyle = "#68727d"; g.textAlign = "right";
+  for (let b = 0; b < nb; b++) { const y = CC.padT + (nb - 1 - b) * rowH; g.fillText(`${M.bands_hz[b][0]}–${M.bands_hz[b][1]}`, CC.padL - 5, y + rowH/2 - 7); }
+  g.save(); g.translate(11, CC.padT + h/2); g.rotate(-Math.PI/2); g.textAlign = "center"; g.fillText("Hz", 0, 0); g.restore();
+  BRAIN_CONDS.forEach((cond, bi) => {
+    const x0 = CC.padL + bi*(w + CC.gap), ci = M.conditions.indexOf(cond), X = t => x0 + t/(M.n_time-1) * w, cw = w / M.n_time + 0.6;
+    g.fillStyle = "#f4f6f8"; g.fillRect(x0, CC.padT, w, h);
+    if (PRESENT[cond][state.sel]) for (let b = 0; b < nb; b++) { const y = CC.padT + (nb - 1 - b) * rowH;
+      for (let t = 0; t < M.n_time; t++) { const v = cubeAt(ci, b, state.sel, t); if (v !== v) continue; const c = bwr255(v, state.vmax);
+        g.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`; g.fillRect(X(t), y, cw, rowH + 0.5); } }
+    else { g.fillStyle = "#9aa0aa"; g.textAlign = "center"; g.fillText("no data in this condition", x0 + w/2, CC.padT + h/2 - 6); }
+    g.strokeStyle = "#c9ced4"; g.lineWidth = 1; g.strokeRect(x0 + .5, CC.padT + .5, w - 1, h - 1);
+    g.fillStyle = "#1b232c"; g.textAlign = "center"; g.fillText(cond, x0 + w/2, 4);
+    const pb = (M.phases && M.phases[0]) ? M.phases[0].end : M.n_time/2;
+    g.strokeStyle = "#1b232c"; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(X(pb), CC.padT); g.lineTo(X(pb), CC.padT + h); g.stroke(); g.setLineDash([]);
+    g.fillStyle = "#68727d"; g.fillText("cue", X(pb), CC.padT + h + 4);
+    g.textAlign = "left"; g.fillText(M.phases ? M.phases[0].name : "", x0 + 3, CC.padT + h + 4);
+    g.textAlign = "right"; g.fillText(M.phases ? M.phases[1].name : "", x0 + w - 3, CC.padT + h + 4);
+  });
+  _ccBase = base;
+  const ct = CONTACTS[state.sel];
+  $("concatNote").textContent = `${ct.patient_id} · ${ct.electrode} · bwr ±${state.vmax} dB`;
+  drawConcatPlayhead();
+}
 function drawConcat(full) {
   if (!full && _ccBase) { drawConcatPlayhead(); return; }
+  $("concatCaption").textContent = state.plot === "spectro"
+    ? "the selected contact, every band over warped time, one block per condition · cue at the middle · the window shaded"
+    : "one thin line per contact of the selected patients · black = mean · green = selected contact · cue at the middle of each block";
+  if (state.plot === "spectro") { drawSpectro(); return; }
   const base = document.createElement("canvas"); base.width = CC.W; base.height = CC.H;
   const g = base.getContext("2d");
   g.fillStyle = "#fff"; g.fillRect(0, 0, CC.W, CC.H);
@@ -621,7 +699,7 @@ const [_ICO, _ICOF] = (() => {
 function buildContactMesh(B, cond) {
   const ci = M.conditions.indexOf(cond), pr = PRESENT[cond], cv = computeContactVals(ci), pts = [], tris = [], cols = []; let vi = 0;
   for (const c of SEL_LIST) {
-    if (!pr[c]) continue;
+    if (!pr[c] || !hemiOk(c)) continue;
     const ct = CONTACTS[c], v = cv[c], rgb = v === v ? bwr255(v, state.vmax) : [150, 150, 150], al = v === v ? 255 : 120, r = state.dotR;
     for (const o of _ICO) pts.push(ct.x + o[0]*r, ct.y + o[1]*r, ct.z + o[2]*r);
     for (const f of _ICOF) tris.push(vi + f[0], vi + f[1], vi + f[2]);
@@ -640,6 +718,48 @@ function updateElectrodes(draw = true) {
   }
 }
 
+// ---- hemisphere: hide the other side's surface and contacts ----------------------------
+const hemiOk = (c) => state.hemi === "both" || CONTACTS[c].hemi === state.hemi;
+function applyHemi() {
+  for (const cond of BRAIN_CONDS) {
+    const B = BR[cond]; if (!B || !B.hemis.lh) continue;
+    for (const h of ["lh", "rh"]) { const m = B.hemis[h].mesh; if (m) m.visible = (state.hemi === "both" || state.hemi === h); }
+  }
+  updateElectrodes();
+}
+// camera presets, every brain at once (Niivue: azimuth 90 fills the view with the left
+// hemisphere, 270 with the right, elevation 90 looks down)
+function setView(az, el) {
+  for (const cond of BRAIN_CONDS) { const B = BR[cond]; if (!B) continue; try { B.nv.setRenderAzimuthElevation(az, el); B.nv.drawScene(); } catch (e) {} }
+}
+
+// ---- click a dot to select it ---------------------------------------------------------
+// The contacts are projected with the same MVP the ring uses; the nearest one within a
+// few pixels of the click wins. A drag (rotating the brain) is not a click.
+function pickAt(cond, clientX, clientY) {
+  const B = BR[cond], nv = B.nv, gl = nv.gl, W = gl.canvas.width, H = gl.canvas.height, rect = gl.canvas.getBoundingClientRect();
+  if (!W || !H || !rect.width) return;
+  const sx = (clientX - rect.left) * (W / rect.width), sy = (clientY - rect.top) * (H / rect.height), tol = 14 * (W / rect.width);
+  let mvp; try { mvp = nv.calculateMvpMatrix(null, [0, 0, W, H], nv.scene.renderAzimuth, nv.scene.renderElevation)[0]; } catch (e) { return; }
+  const pr = PRESENT[cond]; let best = -1, bd = tol * tol, bz = Infinity;
+  for (const c of SEL_LIST) {
+    if (!pr[c] || !hemiOk(c)) continue;
+    const ct = CONTACTS[c], p = nv.calculateScreenPoint([ct.x, ct.y, ct.z], mvp, [0, 0, W, H]);
+    const d = (p[0] - sx) ** 2 + (p[1] - sy) ** 2;
+    if (d < bd || (d < tol * tol && Math.abs(d - bd) < 4 && p[2] < bz)) { best = c; bd = d; bz = p[2]; }
+  }
+  if (best >= 0) setSelected(best);
+}
+function wirePicking() {
+  for (const cond of BRAIN_CONDS) {
+    const B = BR[cond]; let down = null;
+    B.cell.classList.add("pickable");
+    B.cell.addEventListener("pointerdown", e => { if (e.button !== 0 || e.target.closest("button")) { down = null; return; } down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
+    B.cell.addEventListener("pointerup", e => { if (!down) return; const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), dt = performance.now() - down.t; down = null;
+      if (moved > 4 || dt > 700 || state.surf === "inflated") return; pickAt(cond, e.clientX, e.clientY); });
+  }
+}
+
 // ---- the ring: the selected contact projected into the viewer's plane -------------
 // Redrawn every frame on a 2D canvas over each brain; the 3D scene is not touched.
 function drawRings() {
@@ -648,7 +768,7 @@ function drawRings() {
     const ov = B.ov, gl = B.nv.gl, W = gl.canvas.width, H = gl.canvas.height;
     if (ov.width !== W || ov.height !== H) { ov.width = W; ov.height = H; }
     const ctx = ov.getContext("2d"); ctx.clearRect(0, 0, W, H);
-    if (state.sel < 0 || !state.conds.has(cond) || state.surf === "inflated" || !W || !H) continue;
+    if (state.sel < 0 || !state.conds.has(cond) || state.surf === "inflated" || !W || !H || !hemiOk(state.sel)) continue;
     const ct = CONTACTS[state.sel];
     let p;
     try { const mvp = B.nv.calculateMvpMatrix(null, [0, 0, W, H], B.nv.scene.renderAzimuth, B.nv.scene.renderElevation)[0];
@@ -714,14 +834,16 @@ function tick(now) {
   if (state.center >= M.n_time-1) { if (state.loop) state.center = 0; else { state.center = M.n_time-1; setPlaying(false); } }
   render(); requestAnimationFrame(tick);
 }
-function setPlaying(p) { state.playing = p; $("playBtn").textContent = p ? "❚❚" : "▶"; if (p) requestAnimationFrame(tick); }
+function setPlaying(p) { state.playing = p; $("playBtn").textContent = p ? "❚❚" : "▶"; if (p) requestAnimationFrame(tick); else refreshRank(); }
 
 // ---- UI wiring ----------------------------------------------------------------------
 function onSelectionChanged() {
-  rebuildSelList();
+  rebuildSelList(); refreshRank();
   for (const cond of BRAIN_CONDS) if (BR[cond].hemis.lh && !isGlass()) computeCoverage(M.conditions.indexOf(cond), BR[cond].hemis);
   render(); drawConcat(true); updateInfo();
 }
+const segWire = (id, attr, fn) => $(id).addEventListener("click", e => { const b = e.target.closest(`button[${attr}]`); if (!b) return;
+  $(id).querySelectorAll("button").forEach(x => x.classList.toggle("on", x === b)); fn(b.getAttribute(attr)); });
 function togglePanel(id) { $(id).classList.toggle("hidden"); }
 function buildUI() {
   const conds = $("conds");
@@ -740,15 +862,23 @@ function buildUI() {
   $("contactSel").onchange = e => setSelected(e.target.value === "" ? -1 : +e.target.value);
   $("contactPrev").onclick = () => stepContact(-1); $("contactNext").onclick = () => stepContact(+1);
   $("shaftPrev").onclick = () => stepShaft(-1); $("shaftNext").onclick = () => stepShaft(+1);
+  segWire("orderSeg", "data-order", v => { state.order = v; const byShaft = v === "shaft";
+    $("shaftSel").disabled = !byShaft; $("shaftPrev").disabled = !byShaft; $("shaftNext").disabled = !byShaft;
+    $("orderNote").textContent = byShaft ? "click a dot on a brain to select it" : "strongest first at the current window · ↑ ↓ walk the ranking · click a dot to select it";
+    if (!byShaft) rankContacts(); fillShaftSel(); fillContactSel(); });
+  segWire("plotSeg", "data-plot", v => { state.plot = v; drawConcat(true); });
+  segWire("viewSeg", "data-view", v => { const [az, el] = v.split(",").map(Number); setView(az, el); });
+  segWire("hemiSeg", "data-hemi", v => { state.hemi = v; applyHemi(); drawConcat(false); updateInfo(); });
 
   const bandsEl = $("bands");
   M.bands_hz.forEach((b,i) => { const lab = document.createElement("label"); lab.innerHTML = `<input type="checkbox" value="${i}" checked> ${b[0]}–${b[1]}`; bandsEl.appendChild(lab); });
-  bandsEl.addEventListener("change", e => { const i = +e.target.value; if (e.target.checked) state.bands.add(i); else state.bands.delete(i); render(); renderTrack(); drawConcat(true); });
-  const setAllBands = on => { state.bands.clear(); bandsEl.querySelectorAll("input").forEach((cb,i)=>{ cb.checked=on; if(on) state.bands.add(i); }); render(); renderTrack(); drawConcat(true); };
+  bandsEl.addEventListener("change", e => { const i = +e.target.value; if (e.target.checked) state.bands.add(i); else state.bands.delete(i); refreshRank(); render(); renderTrack(); drawConcat(true); });
+  const setAllBands = on => { state.bands.clear(); bandsEl.querySelectorAll("input").forEach((cb,i)=>{ cb.checked=on; if(on) state.bands.add(i); }); refreshRank(); render(); renderTrack(); drawConcat(true); };
   $("bandsAll").onclick = () => setAllBands(true); $("bandsNone").onclick = () => setAllBands(false);
 
   const width = $("width"); width.value = state.width; $("widthVal").textContent = state.width;
   width.oninput = () => { state.width = +width.value; $("widthVal").textContent = state.width; render(); };
+  width.onchange = refreshRank;
   const speed = $("speed"); speed.oninput = () => { state.speed = +speed.value; $("speedVal").textContent = state.speed.toFixed(1)+"×"; };
   const clim = $("clim"); clim.value = state.vmax; $("climVal").textContent = "±"+state.vmax;
   clim.oninput = () => { state.vmax = +clim.value; $("climVal").textContent = "±"+state.vmax; render(); drawConcat(true); };
@@ -762,6 +892,7 @@ function buildUI() {
   $("playBtn").onclick = () => setPlaying(!state.playing);
   const sc = $("scrub"); sc.max = M.n_time-1; sc.style.marginLeft = (GUT_FRAC*100) + "%"; sc.style.width = ((1-GUT_FRAC)*100) + "%";
   sc.oninput = (e) => { setPlaying(false); state.center = +e.target.value; render(); };
+  sc.onchange = refreshRank;     // the ranking follows the window once the scrub is released
   const toggleCtl = () => { const c = $("controls").classList.toggle("collapsed"); $("ctlChevron").textContent = c ? "▸" : "▾"; };
   $("ctlToggle").onclick = toggleCtl;
 
@@ -807,6 +938,7 @@ async function loadAllSurfaces(kind) {
   for (const cond of BRAIN_CONDS) { const B = BR[cond]; B.elec = null; [...B.nv.meshes].forEach(m => B.nv.removeMesh(m));
     await B.nv.loadMeshes(meshSpecs(kind)); bindMeshesFor(B.nv, B.hemis); if (kind !== "glass") computeCoverage(M.conditions.indexOf(cond), B.hemis); }
   applyLook();
+  if (state.hemi !== "both") applyHemi();
 }
 async function switchSurface(kind) {
   if (kind === state.surf) return;
@@ -836,7 +968,7 @@ async function main() {
     await loadAllSurfaces("glass");
   } catch (e) { return fail(`Mesh load failed.<br><small>${e.message}</small>`); }
   try {
-    rebuildSelList(); buildUI(); setLayout(); addDownloadButtons();
+    rebuildSelList(); buildUI(); setLayout(); addDownloadButtons(); wirePicking();
     render(); drawConcat(true); updateInfo(); requestAnimationFrame(drawRings);
     window.addEventListener("resize", fitBrains); hideStatus();
     window.__viz = { BR, state, M, SHAFTS: () => SHAFTS, render, setLayout, fitBrains, renderTrack, updateElectrodes, updateRegions, switchSurface, recordCondition, setPlaying, setSelected, stepContact, stepShaft, drawConcat };

@@ -230,7 +230,7 @@
 
   <div id="concat" class="panel">
     <h3>Concatenated ERSP
-      <div class="seg" id="plotSeg"><button data-plot="lines" class="on">lines</button><button data-plot="spectro" title="band × time of the selected contact">spectrogram</button></div>
+      <div class="seg" id="plotSeg"><button data-plot="lines" class="on">lines</button><button data-plot="spectro" title="the selected contact's ERSP, 0-400 Hz">spectrogram</button></div>
       <span id="concatNote"></span></h3>
     <canvas id="concatCanvas" width="872" height="392"></canvas>
     <div class="note" id="concatCaption">one thin line per contact of the selected patients · black = mean · green = selected contact · cue at the middle of each block</div>
@@ -253,7 +253,11 @@
 import { Niivue, NVMesh } from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
 
 const BRANCH = "activity-visualizer";
-const BUNDLE = `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${BRANCH}/02_FBM_Clustering/outputs/250_recon/fsaverage/activity_viz/`;
+// ?bundle=http://localhost:8000/02_FBM_Clustering/outputs/250_recon/fsaverage/activity_viz/
+// points the page at a local copy (python -m http.server 8000 in the analysis repo) to
+// check a rebuilt bundle before it is pushed.
+const BUNDLE = new URLSearchParams(location.search).get("bundle")
+  || `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${BRANCH}/02_FBM_Clustering/outputs/250_recon/fsaverage/activity_viz/`;
 const $ = (id) => document.getElementById(id);
 const statusEl = $("status");
 const setStatus = (t) => { const e = $("statusText"); if (e) e.textContent = t; };
@@ -566,23 +570,61 @@ function updateTrackPlayhead(bin) {
 // ---- concatenated ERSP (bottom right) ---------------------------------------------
 const CC = { W: 872, H: 392, padL: 52, padR: 10, padT: 22, padB: 26, gap: 10, maxLines: 700 };
 let _ccBase = null;
-// the selected contact's band x time, one block per condition, bwr on the colour scale
-function drawSpectro() {
+// the selected contact's REAL ERSP - the matrix its exemplar figure is drawn from, 0-400 Hz
+// at full frequency resolution - one block per condition, bwr on the colour scale. One
+// small file per contact (activity_viz/ersp/c<i>.bin, scripts/precompute_contact_ersp.py),
+// fetched when the contact is selected and kept.
+const ERSP = { manifest: null, missing: false, cache: new Map(), loading: null };
+async function erspManifest() {
+  if (ERSP.manifest || ERSP.missing) return ERSP.manifest;
+  try { const r = await fetch(BUNDLE + "ersp/manifest.json"); if (!r.ok) throw new Error(r.status); ERSP.manifest = await r.json(); }
+  catch (e) { ERSP.missing = true; }
+  return ERSP.manifest;
+}
+async function contactErsp(c) {
+  if (ERSP.cache.has(c)) return ERSP.cache.get(c);
+  const r = await fetch(BUNDLE + `ersp/c${c}.bin`); if (!r.ok) return null;
+  const a = new Uint8Array(await r.arrayBuffer()); ERSP.cache.set(c, a); return a;
+}
+function spectroFrame(g, msg) {
+  g.fillStyle = "#fff"; g.fillRect(0, 0, CC.W, CC.H);
+  if (msg) { g.font = "12px sans-serif"; g.textBaseline = "top"; g.fillStyle = "#68727d"; g.textAlign = "center"; g.fillText(msg, CC.W/2, CC.H/2 - 6); }
+}
+async function drawSpectro() {
   const base = document.createElement("canvas"); base.width = CC.W; base.height = CC.H;
-  const g = base.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, CC.W, CC.H);
-  const nB = BRAIN_CONDS.length, w = (CC.W - CC.padL - CC.padR - CC.gap*(nB-1)) / nB, h = CC.H - CC.padT - CC.padB, nb = M.n_band, rowH = h / nb;
-  g.font = "12px sans-serif"; g.textBaseline = "top";
-  if (state.sel < 0) { g.fillStyle = "#68727d"; g.textAlign = "center"; g.fillText("select a contact to see its spectrogram", CC.W/2, CC.H/2 - 6); _ccBase = base; $("concatNote").textContent = "no contact selected"; drawConcatPlayhead(); return; }
-  g.fillStyle = "#68727d"; g.textAlign = "right";
-  for (let b = 0; b < nb; b++) { const y = CC.padT + (nb - 1 - b) * rowH; g.fillText(`${M.bands_hz[b][0]}–${M.bands_hz[b][1]}`, CC.padL - 5, y + rowH/2 - 7); }
+  const g = base.getContext("2d");
+  const sel = state.sel;
+  if (sel < 0) { spectroFrame(g, "select a contact to see its ERSP"); _ccBase = base; $("concatNote").textContent = "no contact selected"; drawConcatPlayhead(); return; }
+  const man = await erspManifest();
+  if (!man) { spectroFrame(g, "no per-contact ERSP in the bundle yet - run scripts/precompute_contact_ersp.py and push activity_viz/ersp/"); _ccBase = base; $("concatNote").textContent = ""; drawConcatPlayhead(); return; }
+  spectroFrame(g, "loading…"); _ccBase = base; drawConcatPlayhead();
+  const a = await contactErsp(sel);
+  if (state.sel !== sel || state.plot !== "spectro") return;          // the user moved on
+  if (!a) { spectroFrame(g, "no ERSP file for this contact"); _ccBase = base; drawConcatPlayhead(); return; }
+  spectroFrame(g, null);
+  const nB = BRAIN_CONDS.length, w = (CC.W - CC.padL - CC.padR - CC.gap*(nB-1)) / nB, h = CC.H - CC.padT - CC.padB;
+  const nf = man.n_freq, nt = man.n_time, fTop = man.f_hz[1], vmin = man.vmin, vmax = man.vmax, span = vmax - vmin;
+  g.font = "12px sans-serif"; g.textBaseline = "top"; g.fillStyle = "#68727d"; g.textAlign = "right";
+  for (const f of [0, 100, 200, 300, 400]) { if (f > fTop + 3) continue; const y = CC.padT + h - (f / fTop) * h; g.fillText(String(f), CC.padL - 5, y - 7);
+    g.strokeStyle = "#c9ced4"; g.beginPath(); g.moveTo(CC.padL - 3, y); g.lineTo(CC.padL, y); g.stroke(); }
   g.save(); g.translate(11, CC.padT + h/2); g.rotate(-Math.PI/2); g.textAlign = "center"; g.fillText("Hz", 0, 0); g.restore();
+  const tile = document.createElement("canvas"); tile.width = nt; tile.height = nf;
+  const tg = tile.getContext("2d"), img = tg.createImageData(nt, nf), px = img.data;
+  const CI = { audio: man.conditions.indexOf("audio"), picture: man.conditions.indexOf("picture"), reading: man.conditions.indexOf("reading") };
   BRAIN_CONDS.forEach((cond, bi) => {
-    const x0 = CC.padL + bi*(w + CC.gap), ci = M.conditions.indexOf(cond), X = t => x0 + t/(M.n_time-1) * w, cw = w / M.n_time + 0.6;
+    const x0 = CC.padL + bi*(w + CC.gap), k = CI[cond], X = t => x0 + t/(M.n_time-1) * w;
     g.fillStyle = "#f4f6f8"; g.fillRect(x0, CC.padT, w, h);
-    if (PRESENT[cond][state.sel]) for (let b = 0; b < nb; b++) { const y = CC.padT + (nb - 1 - b) * rowH;
-      for (let t = 0; t < M.n_time; t++) { const v = cubeAt(ci, b, state.sel, t); if (v !== v) continue; const c = bwr255(v, state.vmax);
-        g.fillStyle = `rgb(${c[0]},${c[1]},${c[2]})`; g.fillRect(X(t), y, cw, rowH + 0.5); } }
-    else { g.fillStyle = "#9aa0aa"; g.textAlign = "center"; g.fillText("no data in this condition", x0 + w/2, CC.padT + h/2 - 6); }
+    let any = false;
+    if (k >= 0) {
+      for (let f = 0; f < nf; f++) { const row = nf - 1 - f;               // 0 Hz at the bottom
+        for (let t = 0; t < nt; t++) { const b = a[(k*nf + f)*nt + t], o = (row*nt + t)*4;
+          if (!b) { px[o] = 244; px[o+1] = 246; px[o+2] = 248; px[o+3] = 255; continue; }
+          any = true; const v = vmin + (b - 1) / 254 * span, c = bwr255(v, state.vmax);
+          px[o] = c[0]; px[o+1] = c[1]; px[o+2] = c[2]; px[o+3] = 255; } }
+      tg.putImageData(img, 0, 0);
+      g.imageSmoothingEnabled = false; g.drawImage(tile, x0, CC.padT, w, h); g.imageSmoothingEnabled = true;
+    }
+    if (!any) { g.fillStyle = "#9aa0aa"; g.textAlign = "center"; g.fillText("no data in this condition", x0 + w/2, CC.padT + h/2 - 6); }
     g.strokeStyle = "#c9ced4"; g.lineWidth = 1; g.strokeRect(x0 + .5, CC.padT + .5, w - 1, h - 1);
     g.fillStyle = "#1b232c"; g.textAlign = "center"; g.fillText(cond, x0 + w/2, 4);
     const pb = (M.phases && M.phases[0]) ? M.phases[0].end : M.n_time/2;
@@ -592,14 +634,14 @@ function drawSpectro() {
     g.textAlign = "right"; g.fillText(M.phases ? M.phases[1].name : "", x0 + w - 3, CC.padT + h + 4);
   });
   _ccBase = base;
-  const ct = CONTACTS[state.sel];
-  $("concatNote").textContent = `${ct.patient_id} · ${ct.electrode} · bwr ±${state.vmax} dB`;
+  const ct = CONTACTS[sel];
+  $("concatNote").textContent = `${ct.patient_id} · ${ct.electrode} · 0–${Math.round(fTop)} Hz · bwr ±${state.vmax} dB`;
   drawConcatPlayhead();
 }
 function drawConcat(full) {
   if (!full && _ccBase) { drawConcatPlayhead(); return; }
   $("concatCaption").textContent = state.plot === "spectro"
-    ? "the selected contact, every band over warped time, one block per condition · cue at the middle · the window shaded"
+    ? "the selected contact's ERSP, 0–400 Hz over warped time, one block per condition · cue at the middle · the window shaded"
     : "one thin line per contact of the selected patients · black = mean · green = selected contact · cue at the middle of each block";
   if (state.plot === "spectro") { drawSpectro(); return; }
   const base = document.createElement("canvas"); base.width = CC.W; base.height = CC.H;

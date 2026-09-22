@@ -367,8 +367,16 @@ async function loadBundle() {
   setStatus("Loading the cube…");
   M = await (await fetch(BUNDLE + "manifest.json")).json();
   const f = M.files;
+  // the cube comes in parts of a few MB since 2026-09-22 (files.cube.parts); one file before
+  const fetchCube = async () => {
+    if (!f.cube.parts) return fetchBin(BUNDLE + f.cube.name, f.cube.dtype || "float32");
+    const bufs = await Promise.all(f.cube.parts.map(p => fetch(BUNDLE + p).then(r => { if (!r.ok) throw new Error(`${p} → HTTP ${r.status}`); return r.arrayBuffer(); })));
+    const all = new Uint8Array(bufs.reduce((s, b) => s + b.byteLength, 0)); let o = 0;
+    for (const b of bufs) { all.set(new Uint8Array(b), o); o += b.byteLength; }
+    return f.cube.dtype === "float16" ? decodeF16(new Uint16Array(all.buffer)) : new Float32Array(all.buffer);
+  };
   [cube, projLhIdx, projLhW, projRhIdx, projRhW] = await Promise.all([
-    fetchBin(BUNDLE + f.cube.name, f.cube.dtype || "float32"),
+    fetchCube(),
     fetchBin(BUNDLE + f.proj_lh_idx.name, "uint16"), fetchBin(BUNDLE + f.proj_lh_w.name, "float32"),
     fetchBin(BUNDLE + f.proj_rh_idx.name, "uint16"), fetchBin(BUNDLE + f.proj_rh_w.name, "float32"),
   ]);

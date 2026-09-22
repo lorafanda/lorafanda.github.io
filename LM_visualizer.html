@@ -104,6 +104,34 @@
   #regionLegend .sys { margin:7px 0 2px; font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.5px; color:#aab0ba; }
   #regionLegend .ritem { display:flex; align-items:center; gap:7px; padding:1px 0 1px 4px; }
   #regionLegend .sw { width:12px; height:12px; border-radius:3px; flex:none; border:1px solid rgba(255,255,255,.25); }
+  /* review mode (r): the patient's contacts shaft by shaft, between the controls and the info panel, above the ERSP panel */
+  #review { top:14px; left:364px; right:332px; bottom:262px; display:none; overflow:auto; padding:10px 12px; }
+  #review.on { display:block; }
+  #review h3 { margin:0 0 6px; font-size:12px; font-weight:600; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #review h3 select { background:#101318; color:var(--fg); border:1px solid rgba(255,255,255,.14); border-radius:6px; padding:2px 4px; font:inherit; font-size:11.5px; }
+  #review h3 label { color:var(--muted); font-weight:400; font-size:11px; display:flex; align-items:center; gap:4px; white-space:nowrap; }
+  #review h3 input[type=range] { accent-color:var(--accent); }
+  #review .pinfo { font-size:11px; color:var(--muted); margin:0 0 8px; line-height:1.5; }
+  #review .pinfo b { color:var(--fg); font-weight:600; }
+  #review .pinfo .warn { color:#ffd27f; }
+  #review .shaftHdr { font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:#aab0ba; margin:10px 0 4px; }
+  #review .tiles { display:flex; flex-wrap:wrap; gap:8px 10px; align-items:flex-start; }
+  #review .tile { position:relative; border:2px solid transparent; border-radius:6px; padding:2px; cursor:pointer; }
+  #review .tile:hover { border-color:rgba(255,255,255,.25); }
+  #review .tile.sel { border-color:var(--sel); }
+  #review .tile canvas { display:block; border-radius:3px; background:#f4f6f8; }
+  #review .tile .box { display:grid; place-items:center; background:#1a1d24; color:#8a9098; font-size:11px; border-radius:3px; text-align:center; padding:4px; }
+  #review .tile .cap { font-size:10.5px; line-height:1.3; margin-top:2px; }
+  #review .tile .cap b { font-weight:600; }
+  #review .tile .cap .lab { color:var(--muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #review .chip { display:inline-block; font-size:9.5px; padding:0 5px; border-radius:8px; margin-left:4px; vertical-align:middle; background:#2a2f38; color:#cdd3dc; }
+  #review .chip.bad { background:#6b1e1e; color:#ffd5d5; } #review .chip.wm { background:#1e3d6b; color:#d5e6ff; }
+  #review .chip.warn { background:#7a5a00; color:#fff2c4; } #review .chip.unk { background:#4a4a55; }
+  #review .tile .hgb { position:absolute; top:5px; right:5px; font-size:9.5px; padding:0 5px; border-radius:6px; background:rgba(18,18,22,.8); color:#cdd3dc; border:1px solid rgba(255,255,255,.2); cursor:pointer; }
+  #review .tile .hgb:hover, #review .tile .hgb.on { background:var(--accent); color:#001; }
+  #review .hgrow { flex-basis:100%; display:flex; gap:8px; margin:-2px 0 6px; align-items:flex-start; }
+  #review .hgrow img { width:calc((100% - 16px)/3); height:auto; border-radius:4px; background:#fff; }
+  #review .hgrow .nohg { width:calc((100% - 16px)/3); font-size:11px; color:var(--muted); padding:6px; background:#1a1d24; border-radius:4px; }
   #hint { position:fixed; bottom:6px; left:8px; color:#5a5f68; font-size:11px; z-index:5; }
 
   #status { position:fixed; inset:0; display:grid; place-items:center; text-align:center; background:#000;
@@ -246,8 +274,24 @@
     <div id="annoCaption"></div>
   </div>
 
+  <div id="review" class="panel">
+    <h3>Review
+      <select id="rvPatient" title="patient (PgUp / PgDn)"></select>
+      <button class="step" id="rvPrev" title="previous patient (PgUp)">◀</button><button class="step" id="rvNext" title="next patient (PgDn)">▶</button>
+      <label>order <select id="rvSort">
+        <option value="shaft">by shaft</option><option value="rel">least reliable first</option><option value="stripe">strongest mains stripe first</option>
+        <option value="power">largest |dB| first</option><option value="hg">strongest HG first</option></select></label>
+      <label>size <input type="range" id="rvScale" min="0.2" max="1" step="0.05" value="0.35" style="width:70px"> <span id="rvScaleVal">0.35</span></label>
+      <label><input type="checkbox" id="rvExcl" checked> excluded contacts</label>
+      <label><input type="checkbox" id="rvHgAll"> HG under every tile</label>
+      <span id="rvNote" style="margin-left:auto;color:var(--muted);font-weight:400;font-size:11px"></span>
+    </h3>
+    <div class="pinfo" id="rvInfo"></div>
+    <div id="rvBody"></div>
+  </div>
+
   <div id="regionLegend" class="panel"></div>
-  <div id="hint">drag = rotate · scroll = zoom · click a dot = select · <b>h j k l</b> = hide controls / ERSP / info / regions · <b>space</b> = play · <b>↑ ↓</b> = contact · <b>← →</b> = shaft</div>
+  <div id="hint">drag = rotate · scroll = zoom · click a dot = select · <b>h j k l</b> = hide controls / ERSP / info / regions · <b>r</b> = review · <b>space</b> = play · <b>↑ ↓</b> = contact · <b>← →</b> = shaft</div>
 
 <script type="module">
 import { Niivue, NVMesh } from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
@@ -259,6 +303,9 @@ const BRANCH = "activity-visualizer";
 const BUNDLE = new URLSearchParams(location.search).get("bundle")
   || `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${BRANCH}/02_FBM_Clustering/outputs/250_recon/fsaverage/activity_viz/`;
 const $ = (id) => document.getElementById(id);
+// ?hg=http://localhost:8000/01_FBM_Analysis/outputs/04_ersp_LM/ - where the review mode finds
+// the HG trial rasters (the QC figures of the 140 run; ~2 GB, so never on the site)
+const HG_ROOT = new URLSearchParams(location.search).get("hg");
 const statusEl = $("status");
 const setStatus = (t) => { const e = $("statusText"); if (e) e.textContent = t; };
 const fail = (msg) => { statusEl.style.display = "grid"; statusEl.classList.remove("gone", "staged");
@@ -593,13 +640,15 @@ function spectroFrame(g, msg) {
 async function drawSpectro() {
   const base = document.createElement("canvas"); base.width = CC.W; base.height = CC.H;
   const g = base.getContext("2d");
-  const sel = state.sel;
+  // in review mode the panel shows the review contact's ERSP (the 140 output tree), not the cube bundle's
+  const rv = RV.on && RV.sel >= 0 ? RV.contacts[RV.sel] : null;
+  const sel = rv ? RV.sel : state.sel;
   if (sel < 0) { spectroFrame(g, "select a contact to see its ERSP"); _ccBase = base; $("concatNote").textContent = "no contact selected"; drawConcatPlayhead(); return; }
-  const man = await erspManifest();
+  const man = rv ? RV.man : await erspManifest();
   if (!man) { spectroFrame(g, "no per-contact ERSP in the bundle yet - run scripts/precompute_contact_ersp.py and push activity_viz/ersp/"); _ccBase = base; $("concatNote").textContent = ""; drawConcatPlayhead(); return; }
   spectroFrame(g, "loading…"); _ccBase = base; drawConcatPlayhead();
-  const a = await contactErsp(sel);
-  if (state.sel !== sel || state.plot !== "spectro") return;          // the user moved on
+  const a = rv ? await rvErsp(sel) : await contactErsp(sel);
+  if ((rv ? RV.sel : state.sel) !== sel || state.plot !== "spectro") return;          // the user moved on
   if (!a) { spectroFrame(g, "no ERSP file for this contact"); _ccBase = base; drawConcatPlayhead(); return; }
   spectroFrame(g, null);
   const nB = BRAIN_CONDS.length, w = (CC.W - CC.padL - CC.padR - CC.gap*(nB-1)) / nB, h = CC.H - CC.padT - CC.padB;
@@ -634,8 +683,8 @@ async function drawSpectro() {
     g.textAlign = "right"; g.fillText(M.phases ? M.phases[1].name : "", x0 + w - 3, CC.padT + h + 4);
   });
   _ccBase = base;
-  const ct = CONTACTS[sel];
-  $("concatNote").textContent = `${ct.patient_id} · ${ct.electrode} · 0–${Math.round(fTop)} Hz · bwr ±${state.vmax} dB`;
+  const ct = rv ? { patient_id: rv.patient, electrode: rv.name } : CONTACTS[sel];
+  $("concatNote").textContent = `${ct.patient_id} · ${ct.electrode} · 0–${Math.round(fTop)} Hz · bwr ±${state.vmax} dB` + (rv ? " · 140 tree" : "");
   drawConcatPlayhead();
 }
 function drawConcat(full) {
@@ -716,6 +765,7 @@ function updateInfo() {
   $("infoKV").innerHTML = kv.map(([k, v]) => `<div class="k">${k}</div><div class="v">${_esc(v)}</div>`).join("");
   $("cbHi").textContent = "+" + state.vmax; $("cbLo").textContent = "−" + state.vmax;
   const s = $("infoSel");
+  if (RV.on && RV.sel >= 0) { s.innerHTML = rvInfoHtml(RV.contacts[RV.sel]); return; }
   if (state.sel < 0) { s.innerHTML = "no contact selected — pick a shaft and a contact, or ↑ ↓ ← →"; return; }
   const ct = CONTACTS[state.sel], si = shaftIndexOf(state.sel);
   const vals = visibleConds().map(cond => { const ci = M.conditions.indexOf(cond), [a, b] = windowBins(), v = bandMean(ci, state.sel, [...state.bands], a, b);
@@ -810,8 +860,10 @@ function drawRings() {
     const ov = B.ov, gl = B.nv.gl, W = gl.canvas.width, H = gl.canvas.height;
     if (ov.width !== W || ov.height !== H) { ov.width = W; ov.height = H; }
     const ctx = ov.getContext("2d"); ctx.clearRect(0, 0, W, H);
-    if (state.sel < 0 || !state.conds.has(cond) || state.surf === "inflated" || !W || !H || !hemiOk(state.sel)) continue;
-    const ct = CONTACTS[state.sel];
+    const rvc = RV.on && RV.sel >= 0 ? RV.contacts[RV.sel] : null;      // review: the ring follows the review contact
+    if (rvc ? rvc.x == null : (state.sel < 0 || !hemiOk(state.sel))) continue;
+    if (!state.conds.has(cond) || state.surf === "inflated" || !W || !H) continue;
+    const ct = rvc || CONTACTS[state.sel];
     let p;
     try { const mvp = B.nv.calculateMvpMatrix(null, [0, 0, W, H], B.nv.scene.renderAzimuth, B.nv.scene.renderElevation)[0];
           p = B.nv.calculateScreenPoint([ct.x, ct.y, ct.z], mvp, [0, 0, W, H]); } catch (e) { continue; }
@@ -864,6 +916,205 @@ async function recordCondition(cond) {
 function addDownloadButtons() {
   for (const cond of BRAIN_CONDS) { const B = BR[cond]; if (!B || B.cell.querySelector(".dlBtn")) continue;
     const btn = document.createElement("button"); btn.className = "dlBtn"; btn.title = `Download video (${cond})`; btn.innerHTML = DL_ICON; btn.onclick = () => recordCondition(cond); B.cell.appendChild(btn); }
+}
+
+// ---- review mode (r) -----------------------------------------------------------------
+// One patient's contacts shaft by shaft, each with its concatenated ERSP straight from the
+// 140 output tree (activity_viz/review/, built by scripts/make_lm_review_bundle.py), its
+// native anatomical label, why it is or is not in the data, and per-condition numbers.
+// The tiles are the bottom-right panel's blocks at a smaller size - the same block shape,
+// scaled uniformly, never stretched. HG trial rasters are the run's QC figures, shown from
+// a local server (?hg=...): click HG on a tile, or "HG under every tile".
+const RV = { on:false, loaded:false, missing:false, man:null, pats:[], contacts:[], byPat:new Map(),
+             pid:null, sel:-1, scale:0.35, sort:"shaft", excl:true, hgAll:false, cache:new Map() };
+const RV_STATUS = { data:"", wm_ref:"WM reference", bad:"bad list", unknown:"Unknown parcellation", aux:"aux name", not_recorded:"not recorded", not_run:"patient not run" };
+const RV_CLS = { wm_ref:"wm", bad:"bad", unknown:"unk", aux:"unk", not_recorded:"unk", not_run:"unk" };
+const norm_el = (s) => String(s).replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+async function loadReview() {
+  if (RV.loaded || RV.missing) return RV.loaded;
+  try {
+    const [man, pats, cts] = await Promise.all(["manifest.json", "patients.json", "contacts.json"].map(f =>
+      fetch(BUNDLE + "review/" + f).then(r => { if (!r.ok) throw new Error(`${f} → HTTP ${r.status}`); return r.json(); })));
+    RV.man = man; RV.pats = pats; RV.contacts = cts;
+    cts.forEach((c, i) => { c.i = i; if (!RV.byPat.has(c.patient)) RV.byPat.set(c.patient, []); RV.byPat.get(c.patient).push(c); });
+    RV.loaded = true;
+  } catch (e) { RV.missing = true; console.error("review bundle:", e); }
+  return RV.loaded;
+}
+async function rvErsp(i) {
+  const ct = RV.contacts[i]; if (!ct.file) return null;
+  if (RV.cache.has(i)) return RV.cache.get(i);
+  const r = await fetch(BUNDLE + "review/" + ct.file); if (!r.ok) return null;
+  const a = new Uint8Array(await r.arrayBuffer()); RV.cache.set(i, a); return a;
+}
+// one condition block of an ERSP byte array, at native bins (n_time x n_freq), 0 Hz at the bottom
+function rvBlock(a, k, man) {
+  const nf = man.n_freq, nt = man.n_time, vmin = man.vmin, span = man.vmax - man.vmin;
+  const cv = document.createElement("canvas"); cv.width = nt; cv.height = nf;
+  const g = cv.getContext("2d"), img = g.createImageData(nt, nf), px = img.data; let any = false;
+  for (let f = 0; f < nf; f++) { const row = nf - 1 - f;
+    for (let t = 0; t < nt; t++) { const b = a[(k*nf + f)*nt + t], o = (row*nt + t)*4;
+      if (!b) { px[o] = 244; px[o+1] = 246; px[o+2] = 248; px[o+3] = 255; continue; }
+      any = true; const c = bwr255(vmin + (b - 1) / 254 * span, state.vmax); px[o] = c[0]; px[o+1] = c[1]; px[o+2] = c[2]; px[o+3] = 255; } }
+  g.putImageData(img, 0, 0); return any ? cv : null;
+}
+// the block shape of the bottom-right panel (CC), scaled by RV.scale
+function rvTileSize() {
+  const bw = (CC.W - CC.padL - CC.padR - CC.gap*2) / 3, bh = CC.H - CC.padT - CC.padB, s = RV.scale, gap = CC.gap * s;
+  return { bw: bw * s, h: bh * s, gap, w: Math.round(3 * bw * s + 2 * gap) };
+}
+async function rvDrawTile(cv, i) {
+  const a = await rvErsp(i), m = RV.man, sz = rvTileSize(), g = cv.getContext("2d");
+  cv.width = sz.w; cv.height = Math.round(sz.h); g.fillStyle = "#f4f6f8"; g.fillRect(0, 0, cv.width, cv.height);
+  if (!a) { g.fillStyle = "#9aa0aa"; g.font = "10px sans-serif"; g.textAlign = "center"; g.fillText("no ERSP file", cv.width/2, cv.height/2 + 3); return; }
+  BRAIN_CONDS.forEach((cond, k) => { const kk = m.conditions.indexOf(cond), x0 = k * (sz.bw + sz.gap), blk = kk >= 0 ? rvBlock(a, kk, m) : null;
+    if (blk) { g.imageSmoothingEnabled = true; g.drawImage(blk, x0, 0, sz.bw, sz.h); }
+    else { g.fillStyle = "#e6e9ee"; g.fillRect(x0, 0, sz.bw, sz.h); }
+    g.strokeStyle = "#1b232c"; g.lineWidth = 1; g.setLineDash([2, 2]); g.beginPath(); g.moveTo(x0 + sz.bw/2, 0); g.lineTo(x0 + sz.bw/2, sz.h); g.stroke(); g.setLineDash([]); });
+}
+const rvChip = (txt, cls) => `<span class="chip ${cls || ""}">${_esc(txt)}</span>`;
+const rvNum = (v, d = 2, sign = false) => v == null ? "—" : (sign && v >= 0 ? "+" : "") + v.toFixed(d);
+function rvNums(c) {
+  const rel = BRAIN_CONDS.map(k => c.m[k] ? rvNum(c.m[k].rel) : "·").join("/");
+  const st = Math.max(...BRAIN_CONDS.map(k => c.m[k] && c.m[k].stripe != null ? c.m[k].stripe : -1));
+  const hg = BRAIN_CONDS.map(k => c.m[k] ? c.m[k].hg : NaN).filter(v => v === v);
+  const hgm = hg.length ? hg.reduce((x, y) => Math.abs(y) > Math.abs(x) ? y : x, 0) : null;
+  return `r ${rel} · stripe ${st >= 0 ? st.toFixed(2) : "—"} · HG ${rvNum(hgm, 1, true)} dB`;
+}
+function rvMetricValue(c, key) {
+  const v = BRAIN_CONDS.map(k => c.m[k] ? c.m[k][key] : null).filter(x => x != null);
+  return v.length ? v.reduce((a, b) => a + b, 0) / v.length : NaN;
+}
+function rvSorted(list) {
+  if (RV.sort === "shaft") return list;
+  const key = RV.sort, arr = list.filter(c => c.status === "data").map(c => [c, rvMetricValue(c, key)]);
+  arr.sort((a, b) => { const va = a[1], vb = b[1]; if (va !== va) return 1; if (vb !== vb) return -1; return key === "rel" ? va - vb : vb - va; });
+  return arr.map(x => x[0]);
+}
+function rvHgUrl(c, cond) {
+  const P = RV.pats.find(p => p.patient === c.patient), root = HG_ROOT.replace(/\/?$/, "/");
+  return `${root}${c.patient}/LM/HG/${cond}/${c.patient}_${cond}_${P ? P.hg_reref : "WM"}_HGtrials_${c.name}.png`;
+}
+function rvHgRow(tile, c, on) {
+  const cur = tile.nextElementSibling, has = cur && cur.classList.contains("hgrow") && cur.dataset.i == c.i;
+  const btn = tile.querySelector(".hgb");
+  if (on === undefined) on = !has;
+  if (!on) { if (has) cur.remove(); if (btn) btn.classList.remove("on"); return; }
+  if (has) return;
+  const row = document.createElement("div"); row.className = "hgrow"; row.dataset.i = c.i;
+  for (const cond of BRAIN_CONDS) {
+    if (!c.conds.includes(cond)) { const n = document.createElement("div"); n.className = "nohg"; n.textContent = `${cond}: not run`; row.appendChild(n); continue; }
+    const im = document.createElement("img"); im.loading = RV.hgAll ? "lazy" : "eager"; im.alt = `${c.name} ${cond} HG trials`; im.title = `${c.patient} · ${c.name} · ${cond} · HG trials (the run's QC figure)`;
+    im.onerror = () => { const n = document.createElement("div"); n.className = "nohg"; n.textContent = `${cond}: HG figure not found at ${im.src}`; im.replaceWith(n); };
+    im.src = rvHgUrl(c, cond); row.appendChild(im);
+  }
+  tile.after(row); if (btn) btn.classList.add("on");
+}
+function rvTile(c) {
+  const d = document.createElement("div"); d.className = "tile" + (c.i === RV.sel ? " sel" : ""); d.dataset.i = c.i;
+  const sz = rvTileSize();
+  if (c.status === "data") { const cv = document.createElement("canvas"); d.appendChild(cv); rvDrawTile(cv, c.i); }
+  else { const b = document.createElement("div"); b.className = "box"; b.style.width = sz.w + "px"; b.style.height = Math.round(sz.h) + "px"; b.textContent = RV_STATUS[c.status] || c.status; d.appendChild(b); }
+  const chips = [];
+  if (c.status !== "data") chips.push(rvChip(RV_STATUS[c.status] || c.status, RV_CLS[c.status]));
+  for (const f of c.flags) chips.push(rvChip(f, /BAD-LISTED/.test(f) ? "warn" : /WM/.test(f) ? "wm" : ""));
+  const cap = document.createElement("div"); cap.className = "cap"; cap.style.maxWidth = sz.w + "px";
+  const tip = (c.native ? c.native.raw : "") + (c.aparc ? ` · fsaverage aparc: ${c.aparc}` : "") + (c.dist_to_pial_mm != null ? ` · ${c.dist_to_pial_mm} mm to pial` : "");
+  cap.innerHTML = `<b>${_esc(c.name)}</b>${chips.join("")}<span class="lab" title="${_esc(tip)}">${_esc(c.label)}</span>` +
+    (c.status === "data" ? `<span class="lab" title="split-half r per condition · mains-row stripe (max) · HG 70–150 Hz in the stimulus (largest)">${rvNums(c)}</span>` : "");
+  d.appendChild(cap);
+  if (c.status === "data" && HG_ROOT) { const b = document.createElement("button"); b.className = "hgb"; b.textContent = "HG"; b.title = "HG trial rasters of this contact (audio | picture | reading)";
+    b.onclick = (e) => { e.stopPropagation(); rvHgRow(d, c); }; d.appendChild(b); }
+  d.onclick = () => rvSelect(c.i);
+  return d;
+}
+function rvPatientInfo(P) {
+  const tr = BRAIN_CONDS.map(c => { const t = P.trials[c] || {}; return `<b>${c}</b> ${t.used || "—"} of ${t.in || "—"} trials · ${t.cubes || 0} cubes`; }).join(" &nbsp;·&nbsp; ");
+  const ns = P.n_status || {};
+  const warn = P.status && P.status !== "ok" ? ` · <span class="warn">${_esc(P.status)}</span>` : "";
+  return `<b>${_esc(P.patient)}</b> (${_esc(P.raw_id)}, ${_esc(P.system)}) · run ${_esc(P.run_start || "—")}${warn}<br>${tr}<br>` +
+    `reference: ${_esc(P.reference)}${P.wm_source ? " · " + _esc(P.wm_source) : ""} · notch: ${_esc(P.notch)} · crop: ${_esc(P.crop)} · bad-listed: ${P.bad_n} · unexplained peaks: ${_esc(P.unexplained_peaks)}<br>` +
+    `contacts: <b>${ns.data || 0}</b> with ERSP · ${ns.wm_ref || 0} WM reference · ${ns.bad || 0} bad · ${ns.unknown || 0} Unknown · ${ns.aux || 0} aux · ${ns.not_recorded || 0} not recorded · anatomy: ${_esc(P.anatomy_source)}`;
+}
+function rvRender() {
+  const body = $("rvBody"); body.innerHTML = "";
+  const all = RV.byPat.get(RV.pid) || [], list = RV.excl ? all : all.filter(c => c.status === "data");
+  const P = RV.pats.find(p => p.patient === RV.pid);
+  $("rvInfo").innerHTML = P ? rvPatientInfo(P) : "";
+  const groups = [];
+  if (RV.sort === "shaft") { let cur = null; for (const c of list) { if (!cur || cur.shaft !== c.shaft) { cur = { shaft: c.shaft, items: [] }; groups.push(cur); } cur.items.push(c); } }
+  else groups.push({ shaft: $("rvSort").selectedOptions[0].textContent, items: rvSorted(list) });
+  for (const grp of groups) {
+    const h = document.createElement("div"); h.className = "shaftHdr"; h.textContent = `${grp.shaft} · ${grp.items.length}`; body.appendChild(h);
+    const tiles = document.createElement("div"); tiles.className = "tiles"; body.appendChild(tiles);
+    for (const c of grp.items) { const t = rvTile(c); tiles.appendChild(t); if (RV.hgAll && c.status === "data" && HG_ROOT) rvHgRow(t, c, true); }
+  }
+  $("rvNote").textContent = HG_ROOT ? `${list.length} contacts` : `${list.length} contacts · HG rasters are local: open with ?hg=<url of 01_FBM_Analysis/outputs/04_ersp_LM/>`;
+}
+const _mainKey = new Map();
+function rvMainIndex(c) {
+  if (!_mainKey.size) CONTACTS.forEach((ct, k) => _mainKey.set(ct.patient_id + "|" + norm_el(ct.electrode), k));
+  const k = _mainKey.get(c.patient + "|" + norm_el(c.name)); return k == null ? -1 : k;
+}
+function rvSelect(i) {
+  RV.sel = i; const c = RV.contacts[i];
+  document.querySelectorAll("#review .tile").forEach(t => t.classList.toggle("sel", +t.dataset.i === i));
+  const main = rvMainIndex(c);                     // the brain's own dot, when the cube bundle has this contact
+  if (main >= 0) { state.sel = main; fillShaftSel(); fillContactSel(); updateElectrodes(); }
+  if (state.plot !== "spectro") { state.plot = "spectro"; $("plotSeg").querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.plot === "spectro")); }
+  drawConcat(true); updateInfo();
+  const t = document.querySelector(`#review .tile[data-i="${i}"]`); if (t) t.scrollIntoView({ block: "nearest" });
+}
+function rvInfoHtml(c) {
+  const chips = (c.status !== "data" ? [rvChip(RV_STATUS[c.status] || c.status, RV_CLS[c.status])] : []).concat(c.flags.map(f => rvChip(f, /BAD-LISTED/.test(f) ? "warn" : /WM/.test(f) ? "wm" : "")));
+  const nums = BRAIN_CONDS.filter(k => c.m[k]).map(k => { const m = c.m[k]; return `${k}: r ${rvNum(m.rel)} · stripe ${rvNum(m.stripe)} · |dB| ${rvNum(m.power, 1)} · HG ${rvNum(m.hg, 1, true)}`; }).join("<br>");
+  const xyz = c.x != null ? `${c.x.toFixed(0)}, ${c.y.toFixed(0)}, ${c.z.toFixed(0)} mm (fsaverage)` : "no fsaverage coordinates";
+  return `<b>${_esc(c.patient)} · ${_esc(c.name)}</b> ${chips.join("")}<br>` +
+    `<span style="color:var(--muted)">native:</span> ${_esc(c.label)}<br>` +
+    (c.native && c.native.raw ? `<span style="color:var(--muted);font-size:11px">${_esc(c.native.raw)}</span><br>` : "") +
+    `<span style="color:var(--muted)">fsaverage:</span> ${_esc(c.aparc || "—")} · ${_esc(xyz)}` + (c.dist_to_pial_mm != null ? ` · ${c.dist_to_pial_mm} mm to pial` : "") +
+    (nums ? `<br><span style="color:var(--muted)">numbers:</span><br>${nums}` : "");
+}
+function rvSetPatient(pid) {
+  RV.pid = pid; RV.sel = -1; $("rvPatient").value = pid;
+  if (PATIENTS.includes(pid)) { state.patients = new Set([pid]); $("pats").querySelectorAll("input").forEach(cb => cb.checked = cb.value === pid); onSelectionChanged(); }
+  rvRender(); drawConcat(true); updateInfo();
+}
+function rvOrder() { return [...document.querySelectorAll("#review .tile")].map(t => +t.dataset.i); }
+function rvKey(e) {
+  const L = rvOrder();
+  if (e.key === "ArrowDown" || e.key === "ArrowUp") { e.preventDefault(); if (!L.length) return true;
+    let i = L.indexOf(RV.sel); i = i < 0 ? 0 : (i + (e.key === "ArrowDown" ? 1 : -1) + L.length) % L.length; rvSelect(L[i]); return true; }
+  if (e.key === "ArrowRight" || e.key === "ArrowLeft") { e.preventDefault(); if (!L.length) return true;
+    let i = L.indexOf(RV.sel); if (i < 0) { rvSelect(L[0]); return true; }
+    const dir = e.key === "ArrowRight" ? 1 : -1, cur = RV.contacts[L[i]].shaft;
+    for (let k = 1; k <= L.length; k++) { const j = (i + dir*k + L.length) % L.length;
+      if (RV.contacts[L[j]].shaft !== cur) { let f = j; while (f > 0 && RV.contacts[L[f-1]].shaft === RV.contacts[L[j]].shaft) f--; rvSelect(L[f]); return true; } }
+    return true; }
+  if (e.key === "PageDown" || e.key === "PageUp") { e.preventDefault(); const ids = RV.pats.map(p => p.patient); let i = ids.indexOf(RV.pid);
+    i = (i + (e.key === "PageDown" ? 1 : -1) + ids.length) % ids.length; rvSetPatient(ids[i]); return true; }
+  return false;
+}
+let _rvWired = false;
+function rvWire() {
+  if (_rvWired) return; _rvWired = true;
+  $("rvPatient").onchange = e => rvSetPatient(e.target.value);
+  $("rvPrev").onclick = () => rvKey({ key: "PageUp", preventDefault() {} }); $("rvNext").onclick = () => rvKey({ key: "PageDown", preventDefault() {} });
+  $("rvSort").onchange = e => { RV.sort = e.target.value; rvRender(); };
+  const sc = $("rvScale"); sc.oninput = () => { RV.scale = +sc.value; $("rvScaleVal").textContent = RV.scale.toFixed(2); }; sc.onchange = rvRender;
+  $("rvExcl").onchange = e => { RV.excl = e.target.checked; rvRender(); };
+  $("rvHgAll").onchange = e => { RV.hgAll = e.target.checked; rvRender(); };
+  $("clim").addEventListener("input", () => { if (RV.on) rvRender(); });
+}
+async function toggleReview(on) {
+  RV.on = on === undefined ? !RV.on : !!on;
+  $("review").classList.toggle("on", RV.on);
+  $("transport").classList.toggle("hidden", RV.on);
+  if (!RV.on) { RV.sel = -1; drawConcat(true); updateInfo(); return; }
+  if (!(await loadReview())) { $("rvInfo").innerHTML = `no review bundle at ${_esc(BUNDLE)}review/ — build it with 02_FBM_Clustering/scripts/make_lm_review_bundle.py (after 01_FBM_Analysis/141_audit_140.py)`; return; }
+  const sel = $("rvPatient");
+  if (!sel.options.length) { sel.innerHTML = RV.pats.map(p => `<option value="${_esc(p.patient)}">${_esc(p.patient)}${p.ran ? "" : " (not run)"}${p.status && p.status !== "ok" && p.ran ? " ⚠" : ""}</option>`).join(""); rvWire(); }
+  if (!RV.pid) rvSetPatient(RV.pats[0].patient); else rvRender();
 }
 
 // ---- animation loop -----------------------------------------------------------------
@@ -942,6 +1193,8 @@ function buildUI() {
     const tag = e.target && e.target.tagName;
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(tag) && e.target.type !== "range" && e.target.type !== "checkbox" && !/^Arrow/.test(e.key)) return;
     if (tag === "SELECT" && /^Arrow(Up|Down)$/.test(e.key)) return;    // let the dropdown do its own stepping
+    if (e.key === "r") { toggleReview(); return; }
+    if (RV.on && rvKey(e)) return;                                      // review mode owns the arrows and PgUp/PgDn
     if (e.key === "h") togglePanel("controls");
     else if (e.key === "j") togglePanel("concat");
     else if (e.key === "k") togglePanel("info");
@@ -1013,7 +1266,8 @@ async function main() {
     rebuildSelList(); buildUI(); setLayout(); addDownloadButtons(); wirePicking();
     render(); drawConcat(true); updateInfo(); requestAnimationFrame(drawRings);
     window.addEventListener("resize", fitBrains); hideStatus();
-    window.__viz = { BR, state, M, SHAFTS: () => SHAFTS, render, setLayout, fitBrains, renderTrack, updateElectrodes, updateRegions, switchSurface, recordCondition, setPlaying, setSelected, stepContact, stepShaft, drawConcat };
+    window.__viz = { BR, state, M, RV, SHAFTS: () => SHAFTS, render, setLayout, fitBrains, renderTrack, updateElectrodes, updateRegions, switchSurface, recordCondition, setPlaying, setSelected, stepContact, stepShaft, drawConcat, toggleReview, rvSetPatient, rvSelect };
+    if (new URLSearchParams(location.search).get("review")) toggleReview(true);
   } catch (e) { fail("Init error: " + e.message); throw e; }
 }
 main();

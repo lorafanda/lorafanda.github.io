@@ -578,9 +578,9 @@
       stages connect and compare; the specific numbers live in each stage's own tab.</p>
 
     <div class="kpis">
-      <div class="kpi"><div class="v">1680</div><div class="l">gated electrodes · 27 of ~29 patients</div></div>
+      <div class="kpi"><div class="v">1624</div><div class="l">gated electrodes · 29 of 31 patients</div></div>
       <div class="kpi"><div class="v">3</div><div class="l">conditions · one task (LM)</div></div>
-      <div class="kpi"><div class="v">129×300</div><div class="l">warped ERSP substrate</div></div>
+      <div class="kpi"><div class="v">103×300</div><div class="l">warped ERSP substrate · 0–400 Hz</div></div>
       <div class="kpi"><div class="v">3</div><div class="l">analysis lenses on it</div></div>
     </div>
 
@@ -589,7 +589,7 @@
     <div class="method">
       <ul>
         <li><b>01 · Signal → ERSP.</b> Raw clinical recordings → cleaned, re‑referenced signals → trial‑locked,
-          baseline‑normalised <b>ERSP</b> cubes (129 freq × 300 warped time) per electrode × condition. Feeds everything below.</li>
+          baseline‑normalised <b>ERSP</b> cubes (103 freq × 300 warped time, 0–400 Hz) per electrode × condition. Feeds everything below.</li>
         <li><b>02 · Clustering</b> <span style="color:var(--muted)">— unsupervised: "what structure emerges?"</span> Let the data group the ERSPs into response types, no labels given.</li>
         <li><b>03 · Decoding</b> <span style="color:var(--muted)">— supervised: "what can we read out?"</span> Test whether condition, and separately Yeo network, can be predicted from one electrode's response.</li>
         <li><b>04 · Pooling</b> <span style="color:var(--muted)">— confirmatory: "where are the a‑priori roles, and when?"</span> Match hypothesis‑driven functional roles and read their response‑timing on the warped timeline.</li>
@@ -599,10 +599,10 @@
 <h3>Status at a glance</h3>
     <table>
       <tr><th>Stage</th><th>Status</th><th>What it establishes</th><th>Watch‑outs</th></tr>
-      <tr><td><b>01 ERSP</b></td><td><span class="pill ok">reran 09‑14</span></td>
+      <tr><td><b>01 ERSP</b></td><td><span class="pill ok">reran 09‑18</span></td>
         <td>The shared, cleaned, time‑warped ERSP substrate, plus a second <b>non‑warped, GO‑locked</b> tree (<a href="#realtime">&sect;1.9</a>).</td>
-        <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only. Only <code>PAT_6854</code> (09-08) and <code>PAT_6684</code> (09-08, then again from its Micromed TRC on 09-14: 150 channels, 96 grey-matter contacts once the 2 unparcellated and 40 white-matter contacts are dropped, 26 / 23 / 29 trials in audio / picture / reading) were recomputed; the rest of the tree is the 08-16 run. <b><code>pd_blocks</code> is read only by <code>lf_trials_qc.extract_trials_with_qc</code></b>, which notebook 13 calls &mdash; notebook 140 calls <code>lf_micromacro.extract_events_from_photodiode</code> directly and never sees it, so per-block photodiode equalisation does not reach the notebook that makes the cubes. EL048 and PAT_6953 still incomplete in the non-warped tree.</td></tr>
-      <tr><td><b>02 Clustering</b></td><td><span class="pill ok">reran 09‑15</span></td>
+        <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only. The whole tree was recomputed on 2026-09-18 at <code>fmax 400</code> (31 patients), with EL043, PAT_6704 and PAT_6854 re-run on 09-22 and PAT_6953 on 09-21; the 0-500 Hz tree is kept beside it as <code>_old</code>. PAT_6684 (G-05) is out of the cohort. <b><code>pd_blocks</code> is read only by <code>lf_trials_qc.extract_trials_with_qc</code></b>, which notebook 13 calls &mdash; notebook 140 calls <code>lf_micromacro.extract_events_from_photodiode</code> directly and never sees it, so per-block photodiode equalisation does not reach the notebook that makes the cubes. EL048 and PAT_6953 still incomplete in the non-warped tree.</td></tr>
+      <tr><td><b>02 Clustering</b></td><td><span class="pill ok">reran 09‑24</span></td>
         <td>Structure does emerge — and it is the condition/modality axis; not noise, but not a clean "language" type either. On v8 the picture is less clean than it was on v7: at K=8 the matched-diagonal share is <b>0.47&ndash;0.64</b> between cNMF, k-means and Ward (cNMF vs Ward fell 0.62 &rarr; 0.47) against <b>0.34&ndash;0.49</b> between feature sets (HFA vs 5 bands z rose 0.38 &rarr; 0.49), with random pairings at ~0.12 &mdash; <b>the representation still matters more than the algorithm</b>, but the two ranges now overlap.</td>
         <td><code>NOTEBOOKS.md</code> still names the 212 track — <b>pick your headline</b>. Superseded by the graded decomposition — see <a href="#gradedvspartition">the ledger</a>.</td></tr>
       <tr><td><b>03 Decoding</b></td><td><span class="pill ok">reran 07‑19</span></td>
@@ -667,23 +667,24 @@ POOL-OFF-END -->
     <div class="eyebrow" style="color:var(--s2)">Stage 02</div>
     <h2 class="title">Clustering — functional response types</h2>
     <p class="lead">Group the trial‑averaged ERSPs into data‑driven response <b>types</b>. Every representation
-      clusters the <b>same</b> 1680 gated electrodes of the v8 cohort; only the feature space changes. The
+      clusters the <b>same</b> 1624 gated electrodes of the v10 cohort; only the feature space changes. The
       high‑gamma track is the de‑facto canonical result.</p>
 
     <div class="method" id="s2runbook" style="border-left:4px solid var(--s2)">
       <h3 style="margin:0 0 6px">How this stage is run &mdash; the order, and what each notebook does</h3>
-      <p style="margin:0 0 10px">Rebuilt 2026-09-14 &rarr; 15 after PAT_6684 had its ERSP cubes recomputed from
-        its Micromed TRC &mdash; 96 channels analysed, 21 of its 40 white-matter contacts kept out of the reference
-        (19 remain) and 43 discharge spans dropping trials &mdash; which took it from 111 to 72 gated contacts. <b>The order matters and two steps are strictly serial.</b>
+      <p style="margin:0 0 10px">Rebuilt 2026-09-24 on the <b>fmax 400</b> cubes &mdash; notebook 140 re-run for all 31
+        patients on 09-18, so every retained frequency bin changed, not just the ones above 400&nbsp;Hz (the adaptive notch
+        rebuilds the series through the FFT). PAT_3415 is back with its depth electrodes (its grid shafts stay out),
+        EL051 and EL052 are in, PAT_6684 and EL044 are out. <b>The order matters and two steps are strictly serial.</b>
         Everything downstream of the dataset cache is only as current as that cache.</p>
 
       <p style="margin:0 0 4px"><b>STEP 0 &mdash; alone, nothing else running.</b></p>
-      <pre style="margin:0 0 10px"><code>python rebuild_concat_cache.py --apply --version 8</code></pre>
+      <pre style="margin:0 0 10px"><code>python rebuild_concat_cache.py --apply --version 10</code></pre>
       <ul style="margin:0 0 12px">
         <li><b><code>--version</code> is not optional in practice.</b> It defaults to <b>5</b>, so leaving it
           off aims the rebuild at a cache that already exists and hands back the cohort from three rebuilds
-          ago. Pass the next unused number; <code>outputs/_dataset/</code> currently holds v4 through v8.</li>
-        <li><b>Writes a NEW cache directory</b> (<code>concat_source_v8</code>) rather than rebuilding in
+          ago. Pass the next unused number; <code>outputs/_dataset/</code> currently holds v4 through v10.</li>
+        <li><b>Writes a NEW cache directory</b> (<code>concat_source_v10</code>) rather than rebuilding in
           place. <code>prepare_dataset</code> decides a cache hit on
           <code>cached_params == params</code>, and <code>params</code> carries the input path, the
           thresholds and a schema tag &mdash; <b>no patient list, no cube timestamps, no content hash</b>.
@@ -693,11 +694,13 @@ POOL-OFF-END -->
         <li><b>Re-gates every electrode</b> from the current cubes:
           <code>prop_above_pos&nbsp;&ge;&nbsp;0.02 OR prop_below_neg&nbsp;&ge;&nbsp;0.04</code>, in at
           least one of the three conditions.</li>
-        <li>Prints the new cohort size and a per-patient before/after table. <b>v8: 1680 gated of 2948
-          ungated, 27 patients</b> (v7 1719/27, v6 1688/27, v5 1675/26, v4 1693/27). Read that table &mdash; on v8 only
-          one patient moved at all: PAT_6684 111&nbsp;&rarr;&nbsp;72, all 72 of its contacts passing.
-          Everyone else is unchanged, which is the check that the rebuild did what it was supposed to and
-          nothing more.</li>
+        <li>Prints the new cohort size and a per-patient before/after table. <b>v10: 1624 gated of 2961
+          ungated, 29 patients</b> (v9 1695/2966/28, v8 1680/2948/27, v7 1719/27, v6 1688/27, v5 1675/26).
+          Read that table &mdash; both sides are counted under today&rsquo;s exclusion list, so its deltas are the
+          <b>cube change alone</b>: eleven patients lose electrodes and nobody gains, &minus;95 in total, PAT_6619
+          the largest at &minus;45 (143&nbsp;&rarr;&nbsp;98), then EL034 &minus;15 and EL046 &minus;8. A gate that moves
+          for everyone is what a new cube tree looks like; a gate that moves for one patient is what a re-processed
+          patient looks like.</li>
       </ul>
 
       <p style="margin:0 0 4px"><b>STEP 1 &mdash; 240 and 241 together, then 242.</b> They share the cache
@@ -728,9 +731,9 @@ POOL-OFF-END -->
           so their argmax is just the largest K tested and means nothing. That same K is then applied to
           all three for the comparison.</li>
         <li>K will generally <b>differ between the four feature sets</b>. That is expected: same electrodes,
-          different representation. On v8 (249, 2026-09-15) the convex-NMF held-out peaks are <code>concat_hg</code>&nbsp;9,
-          <code>concat_rawds</code>&nbsp;12, <code>concat_bands5</code>&nbsp;13 and
-          <code>concat_bands5z</code>&nbsp;14 (v7: 9 / 13 / 14 / 14).</li>
+          different representation. On v10 (249, 2026-09-24) the convex-NMF held-out peaks are <code>concat_hg</code>&nbsp;10,
+          <code>concat_rawds</code>&nbsp;12, <code>concat_bands5</code>&nbsp;14 and
+          <code>concat_bands5z</code>&nbsp;16 (v9: 10 / 13 / 13 / 14, v8: 9 / 12 / 13 / 14).</li>
         <li>Runs separation-vs-matched-null, cross-method agreement, anatomical coherence and
           leave-one-patient-out, then builds the figures.</li>
       </ul>
@@ -787,14 +790,14 @@ python make_cluster_visualizer.py</code></pre>
       </table>
       <div class="runid">source of truth: <code>02_FBM_Clustering/rebuild_concat_cache.py</code> and
         notebooks 240 / 241 / 242 / 249 &middot; cohort cache
-        <code>outputs/_dataset/concat_source_v8</code>, built 2026-09-15</div>
+        <code>outputs/_dataset/concat_source_v10</code>, built 2026-09-24</div>
     </div>
 
 
     <div class="method" id="s2methods" style="border-left:4px solid var(--s2)">
       <h3 style="margin:0 0 6px">What this stage does now &mdash; three algorithms, one cohort, K&nbsp;=&nbsp;5&hellip;30</h3>
-      <p style="margin:0 0 8px">Written 2026-09-09 from the files the run produced; cohort and K re-read on v8, 2026-09-15. The cohort is the
-        <b>v8 rebuild</b>: <b>1680 gated electrodes across 27 patients</b>, and there are now <b>four</b>
+      <p style="margin:0 0 8px">Written 2026-09-09 from the files the run produced; cohort and K re-read on v10, 2026-09-24. The cohort is the
+        <b>v10 rebuild</b>: <b>1624 gated electrodes across 29 patients</b>, and there are now <b>four</b>
         feature sets rather than two &mdash; <code>concat_hg</code> (the 70&ndash;150&nbsp;Hz line,
         1&nbsp;&times;&nbsp;900), <code>concat_rawds</code> (15 canonical bands
         &times;&nbsp;30 bins, 1350), <code>concat_bands5</code> (the same grid coarsened to 5

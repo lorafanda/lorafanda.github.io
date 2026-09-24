@@ -601,7 +601,7 @@
       <tr><th>Stage</th><th>Status</th><th>What it establishes</th><th>Watch‑outs</th></tr>
       <tr><td><b>01 ERSP</b></td><td><span class="pill ok">reran 09‑18</span></td>
         <td>The shared, cleaned, time‑warped ERSP substrate, plus a second <b>non‑warped, GO‑locked</b> tree (<a href="#realtime">&sect;1.9</a>).</td>
-        <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only. The whole tree was recomputed on 2026-09-18 at <code>fmax 400</code> (31 patients), with EL043, PAT_6704 and PAT_6854 re-run on 09-22 and PAT_6953 on 09-21; the 0-500 Hz tree is kept beside it as <code>_old</code>. PAT_6684 (G-05) is out of the cohort. <b><code>pd_blocks</code> is read only by <code>lf_trials_qc.extract_trials_with_qc</code></b>, which notebook 13 calls &mdash; notebook 140 calls <code>lf_micromacro.extract_events_from_photodiode</code> directly and never sees it, so per-block photodiode equalisation does not reach the notebook that makes the cubes. EL048 and PAT_6953 still incomplete in the non-warped tree.</td></tr>
+        <td>Micro/macro (nb 11) not yet run; spike‑sorting figures are notebook‑inline only. The whole tree is the <code>fmax 400</code> rebuild of notebook 140, run in five waves &mdash; 16 patients on 2026-09-18, PAT_6953 on 09-21, eight on 09-22, four on 09-23, EL038 and PAT_6854 on 09-24 &mdash; all 31 at 400&nbsp;Hz (<code>audit_140.tsv</code>). Cohort v10 was built at 01:41 on 09-24, after the last of them; the 0-500 Hz tree is kept beside it as <code>_old</code>. PAT_6684 (G-05) is out of the cohort. <b><code>pd_blocks</code> is read only by <code>lf_trials_qc.extract_trials_with_qc</code></b>, which notebook 13 calls &mdash; notebook 140 calls <code>lf_micromacro.extract_events_from_photodiode</code> directly and never sees it, so per-block photodiode equalisation does not reach the notebook that makes the cubes. EL048 and PAT_6953 still incomplete in the non-warped tree.</td></tr>
       <tr><td><b>02 Clustering</b></td><td><span class="pill ok">reran 09‑24</span></td>
         <td>Structure does emerge — and it is the condition/modality axis; not noise, but not a clean "language" type either. On v8 the picture is less clean than it was on v7: at K=8 the matched-diagonal share is <b>0.47&ndash;0.64</b> between cNMF, k-means and Ward (cNMF vs Ward fell 0.62 &rarr; 0.47) against <b>0.34&ndash;0.49</b> between feature sets (HFA vs 5 bands z rose 0.38 &rarr; 0.49), with random pairings at ~0.12 &mdash; <b>the representation still matters more than the algorithm</b>, but the two ranges now overlap.</td>
         <td><code>NOTEBOOKS.md</code> still names the 212 track — <b>pick your headline</b>. Superseded by the graded decomposition — see <a href="#gradedvspartition">the ledger</a>.</td></tr>
@@ -696,8 +696,9 @@ POOL-OFF-END -->
           least one of the three conditions.</li>
         <li>Prints the new cohort size and a per-patient before/after table. <b>v10: 1624 gated of 2961
           ungated, 29 patients</b> (v9 1695/2966/28, v8 1680/2948/27, v7 1719/27, v6 1688/27, v5 1675/26).
-          Read that table &mdash; both sides are counted under today&rsquo;s exclusion list, so its deltas are the
-          <b>cube change alone</b>: eleven patients lose electrodes and nobody gains, &minus;95 in total, PAT_6619
+          Read that table &mdash; both sides are counted under today&rsquo;s exclusion list, so the v9 column reads
+          <b>1719</b>, not the 1695 v9 was published at: PAT_3415&rsquo;s 24 depth contacts count on both sides once the
+          split is by shaft rather than by patient. What is left is the <b>cube change alone</b>: eleven patients lose electrodes and nobody gains, &minus;95 in total, PAT_6619
           the largest at &minus;45 (143&nbsp;&rarr;&nbsp;98), then EL034 &minus;15 and EL046 &minus;8. A gate that moves
           for everyone is what a new cube tree looks like; a gate that moves for one patient is what a re-processed
           patient looks like.</li>
@@ -5477,7 +5478,7 @@ RETIRED-END integrity -->
           z&nbsp;=&nbsp;+0.3 &mdash; indistinguishable from a one-blob null &mdash; and Ward +1.9.
           Read together with <a href="#gatesplit">FIG C.9</a>, which shows those same ungated runs
           building a cluster 74% and 71% made of the contacts the gate removes, the picture is
-          consistent: adding 1680 quiet contacts does not add structure, it adds a smear that the
+          consistent: adding 1266 quiet contacts does not add structure, it adds a smear that the
           hard methods then partition.</li>
 
         <li><b>Bands&times;time beats high-frequency activity alone, for every method.</b> The 15-band

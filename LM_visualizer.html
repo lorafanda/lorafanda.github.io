@@ -139,6 +139,23 @@
   #review .hgrow { flex-basis:100%; display:flex; gap:8px; margin:-2px 0 6px; align-items:flex-start; }
   #review .hgrow img { width:calc((100% - 16px)/3); height:auto; border-radius:4px; background:#fff; }
   #review .hgrow .nohg { width:calc((100% - 16px)/3); font-size:11px; color:var(--muted); padding:6px; background:#1a1d24; border-radius:4px; }
+  /* figures column (l): tiles keep three quarters, the patient's PSD / trial-rejection figures and
+     the per-trial table take the right quarter */
+  #rvBody { display:flex; gap:12px; align-items:flex-start; }
+  #rvTiles { flex:1 1 0; min-width:0; }
+  #rvSide { display:none; flex:0 0 25%; min-width:0; }
+  #review.side #rvTiles { flex:0 0 calc(75% - 12px); }
+  #review.side #rvSide { display:block; }
+  #rvSide h4 { margin:8px 0 4px; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:#aab0ba; }
+  #rvSide img { width:100%; height:auto; border-radius:4px; background:#fff; display:block; margin:0 0 6px; }
+  #rvSide .nohg { font-size:11px; color:var(--muted); padding:6px; background:#1a1d24; border-radius:4px; margin:0 0 6px; }
+  #rvSide .sum { font-size:11px; color:var(--fg); margin:0 0 3px; }
+  #rvSide table { border-collapse:collapse; font-size:10.5px; width:100%; margin:0 0 8px; }
+  #rvSide th { text-align:left; color:#aab0ba; font-weight:600; padding:1px 4px; border-bottom:1px solid rgba(255,255,255,.14); }
+  #rvSide td { padding:1px 4px; white-space:nowrap; border-bottom:1px solid rgba(255,255,255,.05); }
+  #rvSide tr.drop td { color:#ff9c9c; }
+  #rvSide tr.keep td { color:var(--muted); }
+  #rvSide details summary { cursor:pointer; font-size:11px; color:var(--muted); margin:2px 0 4px; }
   #hint { position:fixed; bottom:6px; left:8px; color:#5a5f68; font-size:11px; z-index:5; }
 
   #status { position:fixed; inset:0; display:grid; place-items:center; text-align:center; background:#000;
@@ -293,10 +310,12 @@
       <label><input type="checkbox" id="rvExcl" checked> excluded contacts</label>
       <label><input type="checkbox" id="rvHgAll"> HG under every tile</label>
       <label title="turn the brain so the selected contact faces you"><input type="checkbox" id="rvFollow" checked> camera follows</label>
+      <label title="the patient's PSD and trial-rejection figures and every trial's reason, in a column on the right (key l)"><input type="checkbox" id="rvSideCb"> figures (l)</label>
+      <label title="where the run's QC figures (HG rasters, PSD, trial rejection) are served from - they are not on the site. Run: python 02_FBM_Clustering/scripts/serve_bundle.py 8000">QC root <input type="text" id="rvHgRoot" placeholder="http://localhost:8000/01_FBM_Analysis/outputs/04_ersp_LM/" spellcheck="false" style="width:230px;background:#101318;color:var(--fg);border:1px solid rgba(255,255,255,.14);border-radius:6px;padding:2px 5px;font:inherit;font-size:11px"></label>
       <span id="rvNote" style="margin-left:auto;color:var(--muted);font-weight:400;font-size:11px"></span>
     </h3>
     <div class="pinfo" id="rvInfo"></div>
-    <div id="rvBody"></div>
+    <div id="rvBody"><div id="rvTiles"></div><div id="rvSide"></div></div>
   </div>
 
   <div id="regionLegend" class="panel"></div>
@@ -314,7 +333,8 @@ const BUNDLE = new URLSearchParams(location.search).get("bundle")
 const $ = (id) => document.getElementById(id);
 // ?hg=http://localhost:8000/01_FBM_Analysis/outputs/04_ersp_LM/ - where the review mode finds
 // the HG trial rasters (the QC figures of the 140 run; ~2 GB, so never on the site)
-const HG_ROOT = new URLSearchParams(location.search).get("hg");
+// ?hg=<url> wins; otherwise the root typed into the review bar (kept in localStorage); "" = none
+let HG_ROOT = new URLSearchParams(location.search).get("hg") || (() => { try { return localStorage.getItem("lm_hg_root") || ""; } catch (e) { return ""; } })();
 const statusEl = $("status");
 const setStatus = (t) => { const e = $("statusText"); if (e) e.textContent = t; };
 const fail = (msg) => { statusEl.style.display = "grid"; statusEl.classList.remove("gone", "staged");
@@ -963,7 +983,7 @@ function addDownloadButtons() {
 // scaled uniformly, never stretched. HG trial rasters are the run's QC figures, shown from
 // a local server (?hg=...): click HG on a tile, or "HG under every tile".
 const RV = { on:false, loaded:false, missing:false, man:null, pats:[], contacts:[], byPat:new Map(),
-             pid:null, sel:-1, scale:0.35, sort:"shaft", excl:true, hgAll:false, follow:true, cache:new Map() };
+             pid:null, sel:-1, scale:0.35, sort:"shaft", excl:true, hgAll:false, follow:true, side:false, cache:new Map(), trials:new Map() };
 const RV_STATUS = { data:"", wm_ref:"WM reference", bad:"bad list", unknown:"Unknown parcellation", aux:"aux name", not_recorded:"not recorded", not_run:"patient not run" };
 const RV_CLS = { wm_ref:"wm", bad:"bad", unknown:"unk", aux:"unk", not_recorded:"unk", not_run:"unk" };
 const norm_el = (s) => String(s).replace(/[^A-Za-z0-9]/g, "").toUpperCase();
@@ -1073,8 +1093,54 @@ function rvPatientInfo(P) {
     `reference: ${_esc(P.reference)}${P.wm_source ? " · " + _esc(P.wm_source) : ""} · notch: ${_esc(P.notch)} · crop: ${_esc(P.crop)} · bad-listed: ${P.bad_n} · unexplained peaks: ${_esc(P.unexplained_peaks)}<br>` +
     `contacts: <b>${ns.data || 0}</b> with ERSP · ${ns.wm_ref || 0} WM reference · ${ns.bad || 0} bad · ${ns.unknown || 0} Unknown · ${ns.aux || 0} aux · ${ns.not_recorded || 0} not recorded · anatomy: ${_esc(P.anatomy_source)}`;
 }
+// ---- the figures column (l): the patient's QC figures from the local root, and every trial with its reason
+const rvQcRoot = () => HG_ROOT.replace(/\/?$/, "/");
+async function rvTrials(pid) {
+  if (RV.trials.has(pid)) return RV.trials.get(pid);
+  let t = null;
+  try { const r = await fetch(BUNDLE + `review/trials/${pid}.json`); if (r.ok) t = await r.json(); } catch (e) {}
+  RV.trials.set(pid, t); return t;
+}
+function rvSideImg(url, alt, fallback) {
+  const im = document.createElement("img"); im.alt = alt; im.title = alt;            // eager: at most seven per patient
+  im.onerror = () => { if (fallback) { im.onerror = () => im.replaceWith(rvSideNote(`${alt}: not found at ${fallback}`)); im.src = fallback; } else im.replaceWith(rvSideNote(`${alt}: not found at ${url}`)); };
+  im.src = url; return im;
+}
+function rvSideNote(txt) { const n = document.createElement("div"); n.className = "nohg"; n.textContent = txt; return n; }
+async function rvSideRender() {
+  const side = $("rvSide"), my = (RV.sideSeq = (RV.sideSeq || 0) + 1);   // the newest call wins
+  if (!RV.side || !RV.pid) { side.innerHTML = ""; return; }
+  const pid = RV.pid, root = rvQcRoot();
+  const T = await rvTrials(pid);
+  if (my !== RV.sideSeq) return;                                         // a newer render took over while the table loaded
+  side.innerHTML = "";
+  const h = (t) => { const e = document.createElement("h4"); e.textContent = t; side.appendChild(e); };
+  if (!HG_ROOT) side.appendChild(rvSideNote("QC figures are not on the site. Run  python 02_FBM_Clustering/scripts/serve_bundle.py 8000  and type  http://localhost:8000/01_FBM_Analysis/outputs/04_ersp_LM/  into 'QC root' above (it is remembered)."));
+  for (const cond of BRAIN_CONDS) {
+    h(`${cond} · trials`);
+    if (T && T.conditions[cond]) {
+      const C = T.conditions[cond], drop = C.rows.filter(r => !r[5]);
+      const s = document.createElement("div"); s.className = "sum";
+      s.textContent = `${C.n_kept} of ${C.n_in} kept · ${drop.length} dropped` + (drop.length ? ": " + Object.entries(drop.reduce((m, r) => (m[r[6]] = (m[r[6]] || 0) + 1, m), {})).map(([k, v]) => `${v} ${k}`).join(", ") : "");
+      side.appendChild(s);
+      const det = document.createElement("details"); const sm = document.createElement("summary"); sm.textContent = `every trial (${C.rows.length}) · idx · onset s · stim s · post s · scored · reason`; det.appendChild(sm);
+      const tb = document.createElement("table"); tb.innerHTML = "<tr><th>#</th><th>onset</th><th>stim</th><th>post</th><th>scored</th><th>reason</th></tr>" +
+        C.rows.map(r => `<tr class="${r[5] ? "keep" : "drop"}"><td>${_esc(r[0])}</td><td>${r[1]}</td><td>${r[2]}</td><td>${r[3]}</td><td>${_esc(r[4])}</td><td>${_esc(r[5] ? "kept" : r[6])}</td></tr>`).join("");
+      det.appendChild(tb); side.appendChild(det);
+    } else side.appendChild(rvSideNote(T ? `${cond}: not in the run's tables` : "trial table not in the bundle (rebuild it with make_lm_review_bundle.py)"));
+    if (HG_ROOT) {
+      side.appendChild(rvSideImg(`${root}${pid}/LM/Report/${pid}_${cond}_iqr_postDur_QC.png`, `${pid} ${cond} trial rejection (post-offset durations, IQR fences)`));
+      side.appendChild(rvSideImg(`${root}${pid}/LM/PSD_clean/${cond}/PSD/psd_by_shaft.png`, `${pid} ${cond} PSD after the notch`, `${root}${pid}/LM/PSD_clean/${cond}/PSD/psd_allch_full.png`));
+    }
+  }
+}
+function rvToggleSide(on) {
+  RV.side = on === undefined ? !RV.side : !!on;
+  $("review").classList.toggle("side", RV.side); $("rvSideCb").checked = RV.side;
+  rvSideRender();
+}
 function rvRender() {
-  const body = $("rvBody"); body.innerHTML = "";
+  const body = $("rvTiles"); body.innerHTML = "";
   const all = RV.byPat.get(RV.pid) || [], list = RV.excl ? all : all.filter(c => c.status === "data");
   const P = RV.pats.find(p => p.patient === RV.pid);
   $("rvInfo").innerHTML = P ? rvPatientInfo(P) : "";
@@ -1086,7 +1152,8 @@ function rvRender() {
     const tiles = document.createElement("div"); tiles.className = "tiles"; body.appendChild(tiles);
     for (const c of grp.items) { const t = rvTile(c); tiles.appendChild(t); if (RV.hgAll && c.status === "data" && HG_ROOT) rvHgRow(t, c, true); }
   }
-  $("rvNote").textContent = HG_ROOT ? `${list.length} contacts` : `${list.length} contacts · HG rasters are local: open with ?hg=<url of 01_FBM_Analysis/outputs/04_ersp_LM/>`;
+  $("rvNote").textContent = HG_ROOT ? `${list.length} contacts` : `${list.length} contacts · HG rasters, PSD and trial figures are not on the site: run serve_bundle.py 8000 and set the QC root`;
+  rvSideRender();
 }
 const _mainKey = new Map();
 function rvMainIndex(c) {
@@ -1141,6 +1208,7 @@ function rvKey(e) {
     return true; }
   if (e.key === "PageDown" || e.key === "PageUp") { e.preventDefault(); const ids = RV.pats.map(p => p.patient); let i = ids.indexOf(RV.pid);
     i = (i + (e.key === "PageDown" ? 1 : -1) + ids.length) % ids.length; rvSetPatient(ids[i]); return true; }
+  if (e.key === "l" || e.key === "L") { rvToggleSide(); return true; }   // in review mode l is the figures column (outside it: region outlines)
   return false;
 }
 let _rvWired = false;
@@ -1153,6 +1221,10 @@ function rvWire() {
   $("rvExcl").onchange = e => { RV.excl = e.target.checked; rvRender(); };
   $("rvHgAll").onchange = e => { RV.hgAll = e.target.checked; rvRender(); };
   $("rvFollow").onchange = e => { RV.follow = e.target.checked; if (RV.follow && RV.sel >= 0) rvFocus(RV.contacts[RV.sel]); };
+  $("rvSideCb").onchange = e => rvToggleSide(e.target.checked);
+  const hr = $("rvHgRoot"); hr.value = HG_ROOT || "";
+  hr.onchange = () => { HG_ROOT = hr.value.trim(); try { localStorage.setItem("lm_hg_root", HG_ROOT); } catch (e) {} rvRender(); };
+  hr.onkeydown = e => e.stopPropagation();                              // typing in it must not drive the review keys
   const hh = $("rvH");                       // how much of the screen the strip takes
   hh.oninput = () => { document.documentElement.style.setProperty("--rvh", hh.value + "vh"); $("rvHVal").textContent = hh.value + "%"; rvResize(); };
   $("clim").addEventListener("input", () => { if (RV.on) rvRender(); });

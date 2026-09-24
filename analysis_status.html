@@ -5954,35 +5954,7 @@ POOL-OFF-END -->
       </ul>
     </div>
 
-    <h3>Part 2 &mdash; held-out variance over components, on the SBSF cohort</h3>
-    <p><b>A different cohort on purpose.</b> Part 2 is <code>concat_hg</code> &mdash; the
-      SBSF run, 1266 electrodes, gate APPLIED &mdash; and <code>concat_rawds</code>,
-      which is the <b>same 1266 electrodes</b> described by 15 bands &times; 3 conditions
-      &times; 30 bins instead of high-frequency activity alone. So the two feature sets here are one
-      cohort seen two ways, and neither is mixed with Part 1's 2946.</p>
-    
-    <figure id="c13"><div class="cap"><div class="fignum">FIG C.13</div>
-      <h4>Held-out variance explained over components, three algorithms</h4>
-      <p style="margin:0 0 8px"><b>Bi-cross-validation.</b> A block of ROWS and a
-        block of COLUMNS is held out; the method is fitted on the remaining block; each
-        held-out electrode's loadings come from the TRAIN columns only and are scored on
-        the TEST columns. The loadings never see the values they are graded on. The only
-        thing that differs between methods is how those loadings are obtained &mdash;
-        NNLS against the components for convex NMF, nearest centroid for k-means and Ward
-        &mdash; which is exactly what distinguishes them.
-        4&times;4 folds,
-        K = 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 18, 20.</p>
-      <p style="margin:0 0 8px"><b>Two panels per feature set, because variance explained
-        is not space-free.</b> The left panel fits and scores each method where it belongs,
-        so the SHAPE of each curve is meaningful but the heights are not comparable. The
-        right panel puts every method in unit-norm, where heights ARE comparable, at the
-        cost of scoring the hard methods somewhere they were not designed to run.</p>
-      <div class="runid"><code>make_heldout_variance.py</code> + <code>make_heldout_figure.py</code> &middot; numbers in <code>bsf_comparison/part2_heldout_variance.csv</code></div></div>
-      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/bsf_comparison/C13_heldout_variance.png" alt="held-out variance explained versus K for k-means, Ward and convex NMF on concat_hg and concat_rawds, in home space and in unit-norm space"></div>
-    </figure>
-    <table class='sum' style='margin:8px 0'><tr><th>feature set</th><th>space</th><th>method</th><th>at K=8</th><th>peak</th><th>turns over?</th></tr><tr><td><code>concat_hg</code></td><td>home</td><td>Ward</td><td><b>0.454</b></td><td>0.571</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_hg</code></td><td>home</td><td>convex NMF</td><td><b>0.568</b></td><td>0.568</td><td><span style='color:#1b7837'>yes, k=8</span></td></tr><tr><td><code>concat_hg</code></td><td>home</td><td>k-means</td><td><b>0.467</b></td><td>0.574</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_hg</code></td><td>unit-norm</td><td>Ward</td><td><b>0.425</b></td><td>0.504</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_hg</code></td><td>unit-norm</td><td>convex NMF</td><td><b>0.568</b></td><td>0.568</td><td><span style='color:#1b7837'>yes, k=8</span></td></tr><tr><td><code>concat_hg</code></td><td>unit-norm</td><td>k-means</td><td><b>0.436</b></td><td>0.507</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_rawds</code></td><td>home</td><td>Ward</td><td><b>0.333</b></td><td>0.419</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_rawds</code></td><td>home</td><td>convex NMF</td><td><b>0.429</b></td><td>0.449</td><td><span style='color:#1b7837'>yes, k=14</span></td></tr><tr><td><code>concat_rawds</code></td><td>home</td><td>k-means</td><td><b>0.341</b></td><td>0.427</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_rawds</code></td><td>unit-norm</td><td>Ward</td><td><b>0.313</b></td><td>0.407</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr><tr><td><code>concat_rawds</code></td><td>unit-norm</td><td>convex NMF</td><td><b>0.429</b></td><td>0.449</td><td><span style='color:#1b7837'>yes, k=14</span></td></tr><tr><td><code>concat_rawds</code></td><td>unit-norm</td><td>k-means</td><td><b>0.323</b></td><td>0.410</td><td><span style='color:#c1121f'>no &mdash; still rising at k=20</span></td></tr></table>
-  
-RETIRED-END clustercmp -->
+    <!-- Part 2 (held-out variance on the SBSF cohort, FIG C.13) removed 2026-09-24 at Lora's request; make_bsf_webblock.py no longer emits it -->
   </section>
   </main>
 </div>

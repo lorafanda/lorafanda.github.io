@@ -578,7 +578,7 @@
       stages connect and compare; the specific numbers live in each stage's own tab.</p>
 
     <div class="kpis">
-      <div class="kpi"><div class="v">1624</div><div class="l">gated electrodes · 29 of 31 patients</div></div>
+      <div class="kpi"><div class="v">1487</div><div class="l">gated electrodes · 30 of 32 patients</div></div>
       <div class="kpi"><div class="v">3</div><div class="l">conditions · one task (LM)</div></div>
       <div class="kpi"><div class="v">103×300</div><div class="l">warped ERSP substrate · 0–400 Hz</div></div>
       <div class="kpi"><div class="v">3</div><div class="l">analysis lenses on it</div></div>
@@ -667,7 +667,7 @@ POOL-OFF-END -->
     <div class="eyebrow" style="color:var(--s2)">Stage 02</div>
     <h2 class="title">Clustering — functional response types</h2>
     <p class="lead">Group the trial‑averaged ERSPs into data‑driven response <b>types</b>. Every representation
-      clusters the <b>same</b> 1624 gated electrodes of the v10 cohort; only the feature space changes. The
+      clusters the <b>same</b> 1487 gated electrodes of the v11 cohort; only the feature space changes. The
       high‑gamma track is the de‑facto canonical result.</p>
 
     <div class="method" id="s2runbook" style="border-left:4px solid var(--s2)">
@@ -679,12 +679,12 @@ POOL-OFF-END -->
         Everything downstream of the dataset cache is only as current as that cache.</p>
 
       <p style="margin:0 0 4px"><b>STEP 0 &mdash; alone, nothing else running.</b></p>
-      <pre style="margin:0 0 10px"><code>python rebuild_concat_cache.py --apply --version 10</code></pre>
+      <pre style="margin:0 0 10px"><code>python rebuild_concat_cache.py --apply --version 11</code></pre>
       <ul style="margin:0 0 12px">
         <li><b><code>--version</code> is not optional in practice.</b> It defaults to <b>5</b>, so leaving it
           off aims the rebuild at a cache that already exists and hands back the cohort from three rebuilds
-          ago. Pass the next unused number; <code>outputs/_dataset/</code> currently holds v4 through v10.</li>
-        <li><b>Writes a NEW cache directory</b> (<code>concat_source_v10</code>) rather than rebuilding in
+          ago. Pass the next unused number; <code>outputs/_dataset/</code> currently holds v4 through v11.</li>
+        <li><b>Writes a NEW cache directory</b> (<code>concat_source_v11</code>) rather than rebuilding in
           place. <code>prepare_dataset</code> decides a cache hit on
           <code>cached_params == params</code>, and <code>params</code> carries the input path, the
           thresholds and a schema tag &mdash; <b>no patient list, no cube timestamps, no content hash</b>.
@@ -694,8 +694,8 @@ POOL-OFF-END -->
         <li><b>Re-gates every electrode</b> from the current cubes:
           <code>prop_above_pos&nbsp;&ge;&nbsp;0.02 OR prop_below_neg&nbsp;&ge;&nbsp;0.04</code>, in at
           least one of the three conditions.</li>
-        <li>Prints the new cohort size and a per-patient before/after table. <b>v10: 1624 gated of 2961
-          ungated, 29 patients</b> (v9 1695/2966/28, v8 1680/2948/27, v7 1719/27, v6 1688/27, v5 1675/26).
+        <li>Prints the new cohort size and a per-patient before/after table. <b>v11: 1487 gated of 3121
+          ungated, 30 patients</b> (v10 1624/2961/29, v9 1695/2966/28, v8 1680/2948/27, v7 1719/27, v6 1688/27).
           Read that table &mdash; both sides are counted under today&rsquo;s exclusion list, so the v9 column reads
           <b>1719</b>, not the 1695 v9 was published at: PAT_3415&rsquo;s 24 depth contacts count on both sides once the
           split is by shaft rather than by patient. What is left is the <b>cube change alone</b>: eleven patients lose electrodes and nobody gains, &minus;95 in total, PAT_6619
@@ -791,14 +791,14 @@ python make_cluster_visualizer.py</code></pre>
       </table>
       <div class="runid">source of truth: <code>02_FBM_Clustering/rebuild_concat_cache.py</code> and
         notebooks 240 / 241 / 242 / 249 &middot; cohort cache
-        <code>outputs/_dataset/concat_source_v10</code>, built 2026-09-24</div>
+        <code>outputs/_dataset/concat_source_v11</code>, built 2026-09-26</div>
     </div>
 
 
     <div class="method" id="s2methods" style="border-left:4px solid var(--s2)">
       <h3 style="margin:0 0 6px">What this stage does now &mdash; three algorithms, one cohort, K&nbsp;=&nbsp;5&hellip;30</h3>
       <p style="margin:0 0 8px">Written 2026-09-09 from the files the run produced; cohort and K re-read on v10, 2026-09-24. The cohort is the
-        <b>v10 rebuild</b>: <b>1624 gated electrodes across 29 patients</b>, and there are now <b>four</b>
+        <b>v11 rebuild</b>: <b>1487 gated electrodes across 30 patients</b>, and there are now <b>four</b>
         feature sets rather than two &mdash; <code>concat_hg</code> (the 70&ndash;150&nbsp;Hz line,
         1&nbsp;&times;&nbsp;900), <code>concat_rawds</code> (15 canonical bands
         &times;&nbsp;30 bins, 1350), <code>concat_bands5</code> (the same grid coarsened to 5

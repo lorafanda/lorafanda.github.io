@@ -994,6 +994,8 @@ async function loadReview() {
       fetch(BUNDLE + "review/" + f).then(r => { if (!r.ok) throw new Error(`${f} → HTTP ${r.status}`); return r.json(); })));
     RV.man = man; RV.pats = pats; RV.contacts = cts;
     cts.forEach((c, i) => { c.i = i; if (!RV.byPat.has(c.patient)) RV.byPat.set(c.patient, []); RV.byPat.get(c.patient).push(c); });
+    // the compact WebP copies of the QC figures (make_lm_qc_images.py), when the bundle has them
+    try { const r = await fetch(BUNDLE + "review/qc/manifest.json"); RV.qc = r.ok ? await r.json() : null; } catch (e) { RV.qc = null; }
     RV.loaded = true;
   } catch (e) { RV.missing = true; console.error("review bundle:", e); }
   return RV.loaded;
@@ -1048,7 +1050,10 @@ function rvSorted(list) {
   arr.sort((a, b) => { const va = a[1], vb = b[1]; if (va !== va) return 1; if (vb !== vb) return -1; return key === "rel" ? va - vb : vb - va; });
   return arr.map(x => x[0]);
 }
+// a local QC root (full-resolution PNGs) wins; otherwise the bundle's WebP copies
+const rvHasQc = () => !!(HG_ROOT || RV.qc);
 function rvHgUrl(c, cond) {
+  if (!HG_ROOT) return `${BUNDLE}review/qc/${c.patient}/HG/${cond}/${c.name}.webp`;
   const P = RV.pats.find(p => p.patient === c.patient), root = HG_ROOT.replace(/\/?$/, "/");
   return `${root}${c.patient}/LM/HG/${cond}/${c.patient}_${cond}_${P ? P.hg_reref : "WM"}_HGtrials_${c.name}.png`;
 }
@@ -1080,7 +1085,7 @@ function rvTile(c) {
   cap.innerHTML = `<b>${_esc(c.name)}</b>${chips.join("")}<span class="lab" title="${_esc(tip)}">${_esc(c.label)}</span>` +
     (c.status === "data" ? `<span class="lab" title="split-half r per condition · mains-row stripe (max) · HG 70–150 Hz in the stimulus (largest)">${rvNums(c)}</span>` : "");
   d.appendChild(cap);
-  if (c.status === "data" && HG_ROOT) { const b = document.createElement("button"); b.className = "hgb"; b.textContent = "HG"; b.title = "HG trial rasters of this contact (audio | picture | reading)";
+  if (c.status === "data" && rvHasQc()) { const b = document.createElement("button"); b.className = "hgb"; b.textContent = "HG"; b.title = "HG trial rasters of this contact (audio | picture | reading)";
     b.onclick = (e) => { e.stopPropagation(); rvHgRow(d, c); }; d.appendChild(b); }
   d.onclick = () => rvSelect(c.i);
   return d;
@@ -1115,7 +1120,8 @@ async function rvSideRender() {
   if (my !== RV.sideSeq) return;                                         // a newer render took over while the table loaded
   side.innerHTML = "";
   const h = (t) => { const e = document.createElement("h4"); e.textContent = t; side.appendChild(e); };
-  if (!HG_ROOT) side.appendChild(rvSideNote("QC figures are not on the site. Run  python 02_FBM_Clustering/scripts/serve_bundle.py 8000  and type  http://localhost:8000/01_FBM_Analysis/outputs/04_ersp_LM/  into 'QC root' above (it is remembered)."));
+  if (!rvHasQc()) side.appendChild(rvSideNote("No QC figures in this bundle. Run  python 02_FBM_Clustering/scripts/serve_bundle.py 8000  and type  http://localhost:8000/01_FBM_Analysis/outputs/04_ersp_LM/  into 'QC root' above (it is remembered), or build the copies with make_lm_qc_images.py."));
+  const qc = `${BUNDLE}review/qc/${pid}/`;
   for (const cond of BRAIN_CONDS) {
     h(`${cond} · trials`);
     if (T && T.conditions[cond]) {
@@ -1131,6 +1137,9 @@ async function rvSideRender() {
     if (HG_ROOT) {
       side.appendChild(rvSideImg(`${root}${pid}/LM/Report/${pid}_${cond}_iqr_postDur_QC.png`, `${pid} ${cond} trial rejection (post-offset durations, IQR fences)`));
       side.appendChild(rvSideImg(`${root}${pid}/LM/PSD_clean/${cond}/PSD/psd_by_shaft.png`, `${pid} ${cond} PSD after the notch`, `${root}${pid}/LM/PSD_clean/${cond}/PSD/psd_allch_full.png`));
+    } else if (RV.qc) {
+      side.appendChild(rvSideImg(`${qc}iqr_${cond}.webp`, `${pid} ${cond} trial rejection (post-offset durations, IQR fences)`));
+      side.appendChild(rvSideImg(`${qc}psd_${cond}.webp`, `${pid} ${cond} PSD after the notch`));
     }
   }
 }
@@ -1150,9 +1159,9 @@ function rvRender() {
   for (const grp of groups) {
     const h = document.createElement("div"); h.className = "shaftHdr"; h.textContent = `${grp.shaft} · ${grp.items.length}`; body.appendChild(h);
     const tiles = document.createElement("div"); tiles.className = "tiles"; body.appendChild(tiles);
-    for (const c of grp.items) { const t = rvTile(c); tiles.appendChild(t); if (RV.hgAll && c.status === "data" && HG_ROOT) rvHgRow(t, c, true); }
+    for (const c of grp.items) { const t = rvTile(c); tiles.appendChild(t); if (RV.hgAll && c.status === "data" && rvHasQc()) rvHgRow(t, c, true); }
   }
-  $("rvNote").textContent = HG_ROOT ? `${list.length} contacts` : `${list.length} contacts · HG rasters, PSD and trial figures are not on the site: run serve_bundle.py 8000 and set the QC root`;
+  $("rvNote").textContent = HG_ROOT ? `${list.length} contacts · QC figures from ${HG_ROOT}` : RV.qc ? `${list.length} contacts · QC figures: the bundle's copies of ${RV.qc.built}` : `${list.length} contacts · no QC figures in this bundle: run serve_bundle.py 8000 and set the QC root`;
   rvSideRender();
 }
 const _mainKey = new Map();

@@ -1100,6 +1100,71 @@ python make_cluster_visualizer.py</code></pre>
         signed data, the Gram split, W and G, the components in dB, and the variance
         accounted for"></div>
     </figure>
+    <h4 id="s2cnmf3">Four roles, forty electrodes, k&nbsp;=&nbsp;4: does it find them, and what is computed on the way?</h4>
+    <div class="method" style="border-left:4px solid var(--s2)">
+      <p style="margin:0 0 8px">FIG&nbsp;E.13 shows the method on six arbitrary electrodes. Here the sample is
+        built to have an answer: 10 electrodes per role, chosen <b>by rule, not by hand</b>, from the same
+        cache and the same 10-bin high-gamma profiles (the first 5 bins of each condition are the
+        stimulus, the last 5 the response). Anatomy is the review bundle's label for the contact.
+        The fourth group is the <b>negative network</b>: contacts that sit below baseline for the whole trial,
+        there so the negative values have something to contrast against.</p>
+      <ul style="margin:0 0 10px">
+        <li><b>auditory</b> &mdash; 17 candidates: &ge;&nbsp;1.5&nbsp;dB during the audio
+          stimulus, &le;&nbsp;0.5&nbsp;dB during the visual ones, superior or transverse temporal, at most 3 per
+          patient &mdash; EL035 TTG_R1 (superior temporal), EL035 TTG_R4 (superior temporal), EL035 TTG_R2 (superior temporal), EL043 STG2 (superior temporal), EL042 STG_R6 (superior temporal), EL042 STG_R5 (superior temporal), EL042 STG_R4 (superior temporal), PAT_6953 GHD4 (superior temporal), EL043 STG3 (superior temporal), PAT_6704 THD1 (transverse temporal).</li>
+        <li><b>visual</b> &mdash; 23 candidates: &ge;&nbsp;0.7&nbsp;dB during the picture and
+          reading stimuli, &le;&nbsp;0.6&nbsp;dB during the audio one, quieter in the response than in the
+          stimulus; no per-patient cap, because only two patients carry a visual-only response at all &mdash;
+          EL043 IOG7 (lateral occipital), EL043 IOG6 (lateral occipital), EL043 IOG8 (lateral occipital), EL043 IOG5 (lateral occipital), EL043 IOG4 (lateral occipital), PAT_3975 HAD1 (supramarginal), PAT_3975 HAD2 (supramarginal), EL043 IOG1 (pericalcarine), PAT_3975 HAD3 (inferior temporal), EL043 ITG4 (inferior temporal).</li>
+        <li><b>motor</b> &mdash; 21 candidates: &ge;&nbsp;1&nbsp;dB in the response half and
+          &ge;&nbsp;1&nbsp;dB above the stimulus half, pre-/postcentral or pars opercularis, at most 3 per
+          patient &mdash; PAT_6953 TPD11 (postcentral), PAT_3415 GB4 (precentral), PAT_6953 TPD10 (precentral), PAT_6953 TPD13 (postcentral), PAT_3415 GE3 (precentral), PAT_1327 CPD12 (postcentral), PAT_1327 CPD11 (postcentral), PAT_3975 IMD11 (precentral), PAT_1327 CPG13 (postcentral), EL051 POp_R4 (postcentral).</li>
+        <li><b>negative</b> &mdash; 29 candidates: mean of the whole profile
+          &le;&nbsp;&minus;0.8&nbsp;dB and no bin above 0.5&nbsp;dB, any anatomy, at most 3 per patient &mdash;
+          PAT_3965 ad10 (inferior temporal), PAT_3965 ad8 (inferior temporal), PAT_3965 ad7 (inferior temporal), EL052 pH_L12 (middletemporal), PAT_3455 HAD10 (middletemporal), EL037 EntG_L11 (middletemporal), EL052 pH_L11 (middletemporal), EL052 EntG_R10 (superior temporal), EL037 aH_R12 (inferior temporal), PAT_3455 HAD9 (middletemporal).</li>
+      </ul>
+      <p style="margin:0 0 6px"><b>What the factorisation finds.</b> The four components of
+        <code>W&prime;X</code> line up with the four group means, and the argmax of <b>G</b> puts
+        39 of 40 electrodes in the group they were chosen for:</p>
+      <table style="border-collapse:collapse;margin:0 0 8px;font-size:0.92em">
+        <tr><th></th><th style="padding:2px 10px;font-weight:normal;color:#68727d">&rarr; auditory</th><th style="padding:2px 10px;font-weight:normal;color:#68727d">&rarr; visual</th><th style="padding:2px 10px;font-weight:normal;color:#68727d">&rarr; motor</th><th style="padding:2px 10px;font-weight:normal;color:#68727d">&rarr; negative</th><th></th></tr><tr><th style="text-align:left;padding:2px 8px 2px 0;font-weight:normal">chosen as auditory</th><td style="text-align:center;padding:2px 10px;font-weight:bold">9</td><td style="text-align:center;padding:2px 10px">0</td><td style="text-align:center;padding:2px 10px">1</td><td style="text-align:center;padding:2px 10px">0</td><td style="padding:2px 10px;color:#68727d">its component: r = +0.98 with the group mean</td></tr><tr><th style="text-align:left;padding:2px 8px 2px 0;font-weight:normal">chosen as visual</th><td style="text-align:center;padding:2px 10px">0</td><td style="text-align:center;padding:2px 10px;font-weight:bold">10</td><td style="text-align:center;padding:2px 10px">0</td><td style="text-align:center;padding:2px 10px">0</td><td style="padding:2px 10px;color:#68727d">its component: r = +1.00 with the group mean</td></tr><tr><th style="text-align:left;padding:2px 8px 2px 0;font-weight:normal">chosen as motor</th><td style="text-align:center;padding:2px 10px">0</td><td style="text-align:center;padding:2px 10px">0</td><td style="text-align:center;padding:2px 10px;font-weight:bold">10</td><td style="text-align:center;padding:2px 10px">0</td><td style="padding:2px 10px;color:#68727d">its component: r = +1.00 with the group mean</td></tr><tr><th style="text-align:left;padding:2px 8px 2px 0;font-weight:normal">chosen as negative</th><td style="text-align:center;padding:2px 10px">0</td><td style="text-align:center;padding:2px 10px">0</td><td style="text-align:center;padding:2px 10px">0</td><td style="text-align:center;padding:2px 10px;font-weight:bold">10</td><td style="padding:2px 10px;color:#68727d">its component: r = +0.99 with the group mean</td></tr>
+      </table>
+      <p style="margin:0 0 10px">The 2 that split &mdash; PAT_6953 GHD4 (54% auditory / 37% motor); PAT_6704 THD1 (53% motor / 44% auditory) &mdash; have no majority component; <b>G</b> records the mixture, the argmax cannot. At k&nbsp;=&nbsp;4 the model keeps 92% of the
+        variance of the sample; 549 of its 1200 values are below baseline, which is why
+        it has to be <i>convex</i> NMF.</p>
+      <p style="margin:0 0 4px"><b>The arithmetic, entry by entry.</b> Every number is read off the matrices in
+        FIG&nbsp;E.14; the sums are computed at full precision and printed to two decimals:</p>
+      <pre style="white-space:pre-wrap;font-size:12px;line-height:1.55;margin:0 0 8px;padding:10px 12px;border:1px solid var(--line);border-radius:6px;overflow-x:auto">shapes   X 40×30 (electrodes × bins)   A = XX′ 40×40   W 40×4   F = W′X 4×30   G 40×4   X̂ = G F 40×30
+
+Gram, two entries.   A[i,l] = Σ_t X[i,t]·X[l,t]   (sum over the 30 bins)
+  i = EL035 TTG_R1, l = EL035 TTG_R4 (both auditory):   4.29×4.54 + 4.04×4.35 + 3.75×4.01 + … (27 more, summing +38.39)
+     = +90.4   →  A⁺[i,l] = 90.4,  A⁻[i,l] = 0.0
+  i = EL035 TTG_R1, m = PAT_3965 ad10 (auditory vs negative):   4.29×-1.09 + 4.04×-2.16 + 3.75×-2.49 + … (27 more, summing -27.02)
+     = -49.7   →  A⁺[i,m] = 0.0,  A⁻[i,m] = 49.7      (the sign goes into WHICH half, the size stays)
+
+Component, one entry.   F[c_aud, audio bin 0] = Σ_i W[i, c_aud]·X[i, bin 0]   (W′s column sums to 1, so this is a weighted average of the 40 electrodes)
+  = 0.18×4.29 (EL035 TTG_R1) + 0.15×4.54 (EL035 TTG_R4) + 0.17×3.05 (EL043 STG2) + 0.12×3.94 (EL035 TTG_R2) + … (36 more, summing +0.96)  =  +3.39 dB
+
+Reconstruction, one entry.   X̂[i, bin 0] = Σ_j G[i,j]·F[j, bin 0]   for i = EL035 TTG_R1
+  = 0.15×-0.65 (c_neg) + 0.00×+0.37 (c_mot) + 0.05×+0.05 (c_vis) + 1.29×+3.39 (c_aud)  =  +4.29 dB     measured X[i, bin 0] = +4.29,  residual -0.00
+
+One update of one W entry, from the pipeline&#x27;s initialisation (k-means labels → G = 0.2 + one-hot + noise, W = G / colsum):
+  W[i,j] ← W[i,j] · √( (A⁺G + A⁻W G′G)[i,j] / (A⁻G + A⁺W G′G)[i,j] )   for i = EL035 TTG_R1, j = 3:
+  = 0.0658 · √( (725.2 + 335.1) / (109.1 + 975.9) )  =  0.0658 · 0.989  =  0.0650      (A⁺G pulls the weight up where i agrees with what already loads on j; A⁻G pushes it down)
+
+Fit after 300 iterations:   ‖X − G W′X‖ / ‖X‖ = 0.287   →  92% of the variance;   argmax(G) puts 39 of 40 electrodes in their own group.</pre>
+      <div class="runid">figure and numbers from <code>make_cnmf_three_roles_explainer.py</code> &rarr;
+        <code>explainers/E14_cnmf_three_roles.json</code></div>
+    </div>
+    <figure>
+      <div class="cap"><div class="fignum">FIG E.14</div>
+        <h4>Convex NMF at k = 4 on forty electrodes chosen to be auditory, visual, motor or negative</h4>
+        <div class="runid"><code>E14_cnmf_three_roles.png</code> &middot;
+          <code>make_cnmf_three_roles_explainer.py --k 4 --bins 10 --per 10</code></div></div>
+      <div class="imgwrap"><img data-fig="02_FBM_Clustering/outputs/clustering/explainers/E14_cnmf_three_roles.png" alt="convex NMF at k = 4 on forty real electrodes: the
+        signed data in 4 groups, the components against the group means, W and G, the argmax
+        table, the reconstruction and residual, the convergence, and the arithmetic entry by entry"></div>
+    </figure>
 <!-- END cnmf method -->
 <!-- BEGIN stage02 rebuild, generated by make_rebuild_block.py - do not hand-edit -->
     <h4 id="s2rebuild">Rebuilding stage 02 &mdash; the order, and why</h4>

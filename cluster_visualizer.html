@@ -417,18 +417,18 @@ const PAPER_K = 8;
 // the viewer's brain captures in the saved report; REPORT_3D in make_cluster_visualizer.py
 const REPORT_3D = false;
 const PAPER_RUNS = [
-  "cnmf__concat_bands5z__20260927_221218",
-  "cnmf__concat_hg__20260927_215203",
-  "cnmf__concat_rawds__20260927_215953",
-  "cnmf__concat_bands5__20260927_220627",
-  "kmeans__concat_bands5z__20260927_213655",
-  "kmeans__concat_hg__20260927_213520",
-  "kmeans__concat_rawds__20260927_213554",
-  "kmeans__concat_bands5__20260927_213632",
-  "hierarchical__concat_bands5z__20260927_080347",
-  "hierarchical__concat_hg__20260927_080321",
-  "hierarchical__concat_rawds__20260927_080330",
-  "hierarchical__concat_bands5__20260927_080339"
+  "cnmf__concat_bands5z__20260929_105409",
+  "cnmf__concat_hg__20260929_103351",
+  "cnmf__concat_rawds__20260929_104142",
+  "cnmf__concat_bands5__20260929_104811",
+  "kmeans__concat_bands5z__20260929_095529",
+  "kmeans__concat_hg__20260929_095405",
+  "kmeans__concat_rawds__20260929_095432",
+  "kmeans__concat_bands5__20260929_095509",
+  "hierarchical__concat_bands5z__20260929_095444",
+  "hierarchical__concat_hg__20260929_095420",
+  "hierarchical__concat_rawds__20260929_095428",
+  "hierarchical__concat_bands5__20260929_095437"
 ];
 let ORDER = { runs: {} };
 // ---- the live centroid (cluster_visualizer) ---------------------------------------
@@ -2036,6 +2036,13 @@ function labelColour(s, i, n) {
   return `hsl(${hueOf(s)} 52% ${n && i === n - 1 ? 78 : 56}%)`;
 }
 
+// Fixed, so a centre or a language keeps its colour between the cohort bars at the top
+// and every cluster's own bars below - the hash colour would have given the same label
+// one colour in one place and another elsewhere, which is exactly what stops the two
+// being read against each other. Matches FIG C.0 on the status page.
+const CEN_PAL_JS = { Bern: "#5b6bbf", Geneva: "#c77f2a" };
+const LANG_PAL_JS = { GER: "#7d5ba6", FRE: "#3f9e8c", ENG: "#b5651d", ITA: "#8aa62f" };
+
 // The patients of the run on screen, once each.
 function runPatients() {
   const lab = labelsForK(), out = new Set();
@@ -2060,13 +2067,15 @@ function patientsBy(field) {
   const keys = [...cnt.keys()].sort((a, b) =>
     (a === "unknown") - (b === "unknown") || cnt.get(b) - cnt.get(a) || a.localeCompare(b));
   const tot = [...cnt.values()].reduce((a, b) => a + b, 0);
+  const pal = field === "centre" ? CEN_PAL_JS : (field === "lang" ? LANG_PAL_JS : null);
+  const nm = field === "centre" ? CENTRE_NAME : null;
   return {
     tot,
     items: keys.map(k => ({
-      label: k, value: cnt.get(k),
-      color: k === "unknown" ? "#c8ccd2" : labelColour(k)
+      label: (nm && nm[k]) || k, value: cnt.get(k),
+      color: k === "unknown" ? "#c8ccd2" : ((pal && pal[k]) || labelColour(k))
     })),
-    cap: keys.map(k => `${esc(k)} ${cnt.get(k)}`).join(" · ")
+    cap: keys.map(k => `${esc((nm && nm[k]) || k)} ${cnt.get(k)}`).join(" · ")
   };
 }
 
@@ -2117,13 +2126,58 @@ function regionItemsFor(cid, topN) {
   };
 }
 
-// The second track under a cluster's patient composition. Same width, thinner, its own
-// caption - compact enough to sit in the existing cell without a new column.
-function regionTrack(cid) {
-  const d = regionItemsFor(cid, 6);
+// A cluster's electrodes split by one patient_meta field. Counted over ELECTRODES, not
+// patients, so it reads against the patient composition bar directly above it: the
+// question is how much of THIS cluster came from one centre or one language, and a
+// cluster carried by a single centre is the confound worth seeing.
+function clusterSplitBy(cid, field) {
+  const meta = CONTACTS.patient_meta;
+  if (!meta) return null;
+  const lab = labelsForK(), cnt = new Map();
+  let n = 0;
+  for (const i of (CONTACTS.cohorts[RUN.cohort_id] || [])) {
+    const L = lab && lab[i];
+    if (!Array.isArray(L) || L.indexOf(cid) < 0) continue;
+    const v = (meta[CONTACTS.patient[i]] || {})[field] || "unknown";
+    cnt.set(v, (cnt.get(v) || 0) + 1);
+    n++;
+  }
+  if (!n) return null;
+  const keys = [...cnt.keys()].sort((a, b) =>
+    (a === "unknown") - (b === "unknown") || cnt.get(b) - cnt.get(a) || a.localeCompare(b));
+  return { tot: n, keys, cnt };
+}
+
+// The recording centres by the names Lora uses for them.
+const CENTRE_NAME = { Bern: "InselSpital", Geneva: "HUG" };
+
+function miniSplit(cid, field, pal, rename) {
+  const d = clusterSplitBy(cid, field);
   if (!d) return "";
-  return `<div class="sbtrack" style="margin-top:3px">${stackbar(d.items, d.tot, 9)}</div>
-    <div class="sbcap" style="opacity:.85">${d.cap}</div>`;
+  const items = d.keys.map(k => ({
+    label: (rename && rename[k]) || k, value: d.cnt.get(k),
+    color: k === "unknown" ? "#c8ccd2" : pal(k)
+  }));
+  const cap = items.map(it => `${esc(it.label)} ${(100 * it.value / d.tot).toFixed(0)}%`).join(" · ");
+  return `<div style="flex:1 1 0;min-width:0">
+      <div class="sbtrack">${stackbar(items, d.tot, 7)}</div>
+      <div class="sbcap" style="opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${cap}</div>
+    </div>`;
+}
+
+// Everything under a cluster's patient composition, in one cell so the card grid keeps
+// its five columns: the native anatomy (top 3 plus the rest), then centre and language
+// side by side. Three thin tracks rather than three more columns.
+function regionTrack(cid) {
+  const d = regionItemsFor(cid, 3);
+  const anat = !d ? "" :
+    `<div class="sbtrack" style="margin-top:3px">${stackbar(d.items, d.tot, 9)}</div>
+     <div class="sbcap" style="opacity:.85">${d.cap}</div>`;
+  const cen = miniSplit(cid, "centre", k => CEN_PAL_JS[k] || "#9aa3ad", CENTRE_NAME);
+  const lan = miniSplit(cid, "lang", k => LANG_PAL_JS[k] || "#9aa3ad", null);
+  const both = (cen || lan)
+    ? `<div style="display:flex;gap:6px;margin-top:3px">${cen}${lan}</div>` : "";
+  return anat + both;
 }
 
 function stackbar(items, total, h, scaleMax) {

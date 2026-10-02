@@ -1058,7 +1058,7 @@ function rvHgUrl(c, cond) {
   // a non-cohort patient (asterisk) lives in the frozen 04_ersp_LM tree, one folder up from
   // the 03_ERSP root, with the old HG/ folder and _HGtrials_ stem; patients.json says which
   const tree = P && P.tree && P.tree !== "03_ERSP" ? root.replace(/03_ERSP\/$/, P.tree + "/") : root;
-  const dir = P && P.hfa_dir ? P.hfa_dir : "HFA", stem = P && P.hfa_stem ? P.hfa_stem : "HFAtrials";
+  const dir = P && P.hfa_dir ? P.hfa_dir : "PerTrial/HFA", stem = P && P.hfa_stem ? P.hfa_stem : "HFAtrials";
   return `${tree}${c.patient}/LM/${dir}/${cond}/${c.patient}_${cond}_${P ? P.hg_reref : "WM"}_${stem}_${c.name}.png`;
 }
 function rvHgRow(tile, c, on) {
@@ -1142,7 +1142,8 @@ async function rvSideRender() {
       det.appendChild(tb); side.appendChild(det);
     } else side.appendChild(rvSideNote(T ? `${cond}: not in the run's tables` : "trial table not in the bundle (rebuild it with make_lm_review_bundle.py)"));
     if (HG_ROOT) {
-      side.appendChild(rvSideImg(`${root}${pid}/LM/Report/${pid}_${cond}_iqr_postDur_QC.png`, `${pid} ${cond} trial rejection (post-offset durations, IQR fences)`));
+      const _P = RV.pats.find(p => p.patient === pid), _rep = _P && _P.report_dir ? _P.report_dir : "PerTrial/Report";   // per patient since 2026-10-02
+      side.appendChild(rvSideImg(`${root}${pid}/LM/${_rep}/${pid}_${cond}_iqr_postDur_QC.png`, `${pid} ${cond} trial rejection (post-offset durations, IQR fences)`));
       side.appendChild(rvSideImg(`${root}${pid}/LM/PSD_clean/${cond}/PSD/psd_by_shaft.png`, `${pid} ${cond} PSD after the notch`, `${root}${pid}/LM/PSD_clean/${cond}/PSD/psd_allch_full.png`));
     } else if (RV.qc) {
       side.appendChild(rvSideImg(`${qc}iqr_${cond}.webp`, `${pid} ${cond} trial rejection (post-offset durations, IQR fences)`));

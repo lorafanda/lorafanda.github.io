@@ -417,18 +417,18 @@ const PAPER_K = 8;
 // the viewer's brain captures in the saved report; REPORT_3D in make_cluster_visualizer.py
 const REPORT_3D = false;
 const PAPER_RUNS = [
-  "cnmf__concat_bands5z__20260929_105409",
-  "cnmf__concat_hg__20260929_103351",
-  "cnmf__concat_rawds__20260929_104142",
-  "cnmf__concat_bands5__20260929_104811",
-  "kmeans__concat_bands5z__20260929_095529",
-  "kmeans__concat_hg__20260929_095405",
-  "kmeans__concat_rawds__20260929_095432",
-  "kmeans__concat_bands5__20260929_095509",
-  "hierarchical__concat_bands5z__20260929_095444",
-  "hierarchical__concat_hg__20260929_095420",
-  "hierarchical__concat_rawds__20260929_095428",
-  "hierarchical__concat_bands5__20260929_095437"
+  "cnmf__concat_bands5z__20261009_183055",
+  "cnmf__concat_hg__20261009_180817",
+  "cnmf__concat_rawds__20261009_181709",
+  "cnmf__concat_bands5__20261009_182431",
+  "kmeans__concat_bands5z__20261009_180331",
+  "kmeans__concat_hg__20261009_180205",
+  "kmeans__concat_rawds__20261009_180234",
+  "kmeans__concat_bands5__20261009_180310",
+  "hierarchical__concat_bands5z__20261009_180243",
+  "hierarchical__concat_hg__20261009_180212",
+  "hierarchical__concat_rawds__20261009_180225",
+  "hierarchical__concat_bands5__20261009_180235"
 ];
 let ORDER = { runs: {} };
 // ---- the live centroid (cluster_visualizer) ---------------------------------------
@@ -2165,19 +2165,25 @@ function miniSplit(cid, field, pal, rename) {
     </div>`;
 }
 
-// Everything under a cluster's patient composition, in one cell so the card grid keeps
-// its five columns: the native anatomy (top 3 plus the rest), then centre and language
-// side by side. Three thin tracks rather than three more columns.
+// The native anatomy (top 3 plus the rest), under the cluster's patient composition and
+// in the same cell. Centre and language used to sit here too, squeezed in beside it;
+// they are a column of their own now (centreLangCell), because who recorded a cluster
+// and in what language is read across clusters, and a reader cannot compare values that
+// are buried at three different widths inside another column.
 function regionTrack(cid) {
   const d = regionItemsFor(cid, 3);
-  const anat = !d ? "" :
-    `<div class="sbtrack" style="margin-top:3px">${stackbar(d.items, d.tot, 9)}</div>
+  if (!d) return "";
+  return `<div class="sbtrack" style="margin-top:3px">${stackbar(d.items, d.tot, 9)}</div>
      <div class="sbcap" style="opacity:.85">${d.cap}</div>`;
+}
+
+// The condensed centre / language column of a cluster card. Stacked, not side by side:
+// the column is narrow, and two full-width bars read better than two half-width ones.
+function centreLangCell(cid) {
   const cen = miniSplit(cid, "centre", k => CEN_PAL_JS[k] || "#9aa3ad", CENTRE_NAME);
   const lan = miniSplit(cid, "lang", k => LANG_PAL_JS[k] || "#9aa3ad", null);
-  const both = (cen || lan)
-    ? `<div style="display:flex;gap:6px;margin-top:3px">${cen}${lan}</div>` : "";
-  return anat + both;
+  if (!cen && !lan) return "<div></div>";
+  return `<div style="display:flex;flex-direction:column;gap:4px;min-width:0">${cen}${lan}</div>`;
 }
 
 function stackbar(items, total, h, scaleMax) {
@@ -2421,7 +2427,7 @@ h2.sec{font-size:17px;margin:0 0 3px}
 .cards{display:grid;gap:8px}
 /* the two lateral views carry the most anatomy, so they get the width; the cluster
    chip is a square and the composition track gives up space to them */
-.cardhead,.cardrow,.cardaxis{display:grid;grid-template-columns:30px 1fr 1fr 1fr 1.25fr 1.25fr .85fr 1.05fr;gap:8px;align-items:center}
+.cardhead,.cardrow,.cardaxis{display:grid;grid-template-columns:30px 1fr 1fr 1fr 1.25fr 1.25fr .85fr 1.05fr .72fr;gap:8px;align-items:center}
 .cardhead{padding:0 10px 4px;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.04em}
 .cardaxis{padding:3px 10px 0}
 .cardrow{padding:7px 10px;border:1px solid var(--line);border-radius:10px;background:#fff}
@@ -2846,6 +2852,7 @@ async function exportReport() {
           <div class="sbcap">${tot} samples · ${RUN.cluster_patients[String(k)]} patients${
             top ? " · " + esc(top[0]) + " " + (100 * top[1] / (tot || 1)).toFixed(0) + "%" : ""}</div>
         </div>
+        ${centreLangCell(k)}
       </div>`;
     }).join("");
 
@@ -2869,10 +2876,10 @@ async function exportReport() {
     The composition bars share one x axis in samples, so a longer bar is a bigger
     cluster and the segments inside it are the patients it came from &mdash; length and
     composition are readable in the same glance.</p>
-  <div class="cardhead"><div></div><div>centroid</div>
-    ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div></div>
+  <div class="cardhead"><div></div>${KROW_REPS.map(r => `<div>${REP_LABEL[r] || r}</div>`).join("")}
+    ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div><div>centre · language</div></div>
   <div class="cards">${cardsRows}</div>
-  <div class="cardaxis"><div></div><div></div><div></div><div></div><div></div>
+  <div class="cardaxis"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
     <div class="baxis"><span>0</span><span>${Math.round(barMax / 2)}</span><span>${barMax}</span></div>
   </div>
 </section>`;
@@ -3203,7 +3210,7 @@ async function exportReport() {
            absent.</p>`}
       ${(B.brains && B.brains.some(Boolean)) ? `
         <div class="cardhead"><div></div>${KROW_REPS.map(r => `<div>${REP_LABEL[r] || r}</div>`).join("")}
-          ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div></div>
+          ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div><div>centre · language</div></div>
         <div class="cards">${(B.ids || []).map((c, i) => {
           const g = (B.brains || [])[i];
           const comp = (st.cluster_patient_counts || {})[String(c)] || {};
@@ -3220,9 +3227,10 @@ async function exportReport() {
               <div class="sbcap">${tot} samples · ${(st.cluster_patients || {})[String(c)] || 0} patients${
                 top ? " · " + esc(top[0]) + " " + (100 * top[1] / (tot || 1)).toFixed(0) + "%" : ""}</div>
             </div>
+            ${centreLangCell(c)}
           </div>`;
         }).join("")}</div>
-        <div class="cardaxis"><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+        <div class="cardaxis"><div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
           <div class="baxis"><span>0</span><span>${Math.round(kBarMax / 2)}</span><span>${kBarMax}</span></div>
         </div>
         <p class="sechint">Every cluster at K=${k}, on the glass brain at the frozen settings.

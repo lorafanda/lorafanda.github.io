@@ -3965,12 +3965,13 @@ RETIRED-END integrity -->
   #outline ul{margin:4px 0 0;padding-left:20px} #outline li{margin:3px 0} #outline li ul{margin-top:2px}
   #outline h4{margin:14px 0 4px}
   #outline .new{color:#1b7f3b} #outline .new code,#outline .new b,#outline .new i{color:inherit} #outline li.new::marker{color:#1b7f3b}
+  #outline .pur{color:#6a3fb5} #outline .pur code,#outline .pur b,#outline .pur i{color:inherit} #outline li.pur::marker{color:#6a3fb5}
 </style>
   <section id="outline">
     <div class="eyebrow">Manuscript</div>
     <h2 class="title">Paper 2 &middot; outline, preprocessing &rarr; clustering outputs</h2>
     <p class="lead">Every section of the paper as bullets, in Cell Reports order. The darkness of a line is how sure it is: black was read from the code or the run, lighter is memory, a guess, or a slot to fill. Source: <code>02_FBM_Clustering/paper2_outline.md</code>, rebuilt 2026-10-12.</p>
-    <div class="legend"><span class="cf1">read from the code / run</span><span class="cf2">from the pipeline as I know it</span><span class="cf3">plausible, check</span><span class="cf4">your slot: citation section / paragraph, number, decision</span><span class="new">green: new since 2026-10-07</span></div>
+    <div class="legend"><span class="cf1">read from the code / run</span><span class="cf2">from the pipeline as I know it</span><span class="cf3">plausible, check</span><span class="cf4">your slot: citation section / paragraph, number, decision</span><span class="new">green: new since 2026-10-07</span><span class="pur">purple: new writing (2026-10-13), to review</span></div>
     <h3 id="o-read-me-first">Read me first</h3>
     <div class="method">
     <div class="note">How to read this tab: every line is a bullet; its darkness is how sure it is. Black = read from the code or from a run on 2026-09-24. Dark grey = the pipeline as I know it (not re-read today). Mid grey = plausible, check before you say it. Light grey = your slot: a citation with its section / paragraph, a number to read off a run, a decision. Edit <code>02_FBM_Clustering/paper2_outline.md</code>, then <code>python make_outline_tab.py --insert</code> and <code>python make_site_ui.py --insert</code>.</div>
@@ -3978,6 +3979,7 @@ RETIRED-END integrity -->
 <ul>
 <li class="cf4">Journal: Cell Reports (research article: Summary, Highlights, Introduction, Results, Discussion, Limitations, STAR Methods, Figures). Swap the order if the target changes.</li>
 <li class="cf1 new">Green = new since 2026-10-07 (a green bullet, or a green phrase inside an older one). Cohort <b>v15</b> exists (built 2026-10-09 13:25 from the 03_ERSP tree, the only tree since the 04_* trees were archived on 10-07): 1613 gated / 2976 ungated electrodes, 29 patients. Between v11 and v15: PAT_3780 re-timed (its 2025 trial tables were 180 s early) and rerun with five bad contacts, gated 49 → 92; EL031 processed and excluded; PAT_3415 contributes 0 (its depth contacts left the 03_ERSP run as Unknown); v13 (09-29) was the archived tree, v14 (10-07) still carried PAT_3780&#x27;s wrong windows. All twelve clustering runs are refitted on v15 (2026-10-09); the held-out curves, 249, 252 and every figure are older. Stage-02 lines below say which cohort they are on.</li>
+<li class="cf1 pur">Cohort <b>v16</b> exists (built 2026-10-12 18:17, after the channel decisions and the three reruns): 1607 gated / 2946 ungated electrodes, 29 patients (PAT_3975 108 / 140 on its deep-WM reference, PAT_3455 73 / 86, PAT_6854 125 / 163). The script-by-script methods below (purple) are written against it; the twelve fits, the bundles and the figures are still to be redone on it.</li>
 <li class="cf1 new">2026-10-12, channel decisions: 67 contacts bad-listed across 10 patients from the contact-noise audit (148) and the Signal / HFA / ERSP figures; PAT_3975 moved to a deep white-matter reference (11 contacts); PAT_6854, PAT_3975 and PAT_3455 rerun the same day, the other patients&#x27; removed contacts taken out with 143 (log <code>logs/bad_listed_deleted_20261012_163706.tsv</code>). v15 is therefore stale; <b>v16</b> is the next cache, and every stage-02 number waits for it.</li>
 <li class="cf1">Cohort v11 existed (built 2026-09-26 21:33): 1487 gated / 3121 ungated electrodes, 30 patients. PAT_1327 joined, and the whole tree was re-preprocessed on the 2026-09-26 settings: post-offset floor 1 s → 0.2 s, spectrum interpolation per shaft for every patient, EL043 / EL046 bad contacts and re-scored trials.</li>
 </ul>
@@ -4278,6 +4280,109 @@ RETIRED-END integrity -->
 <li class="cf1">249 (<code>make_cluster_statistics.py</code>, at the cNMF peak K per feature set, N_NULL 50, LOPO_REPS 10): separation = silhouette in dB and unit-norm space against 50 Gaussian surrogates with the data&#x27;s covariance (z-score); agreement = pairwise ARI / NMI and contingency tables between the three methods; anatomical coherence = share of the 10 nearest fsaverage neighbours sharing a label vs 20 label shuffles; leave-one-patient-out = ARI of the refit vs the full-cohort labels against size-matched pseudo-patient nulls (z of the minimum).</li>
 <li class="cf1">Atlas test: Spearman ρ, 1000 shaft-shift and 1000 within-patient permutations, 1000 patient bootstraps, Benjamini–Hochberg FDR (FIG 3); correspondence nulls 1000 reassignments (FIG 4), 1000 label shuffles (FIG 5).</li>
 <li class="cf4">Effect-size conventions and which of these tests reach the main text [your slot].</li>
+</ul>
+    </div>
+    <h3 id="o-star-methods-the-pipeline-script-by-scri" class="pur">STAR Methods · the pipeline, script by script</h3>
+    <div class="method">
+    <div class="note">Purple = new writing of 2026-10-13, to review. One script after the other, in the order they run; the numbers are the config as it stands (v16). Black / grey lines elsewhere in this tab carry the same facts with their sources.</div>
+    <h4 class="pur"><code>140_ersp_pipeline.py</code> — one patient, raw recording → ERSP cubes</h4>
+<ul>
+<li class="cf1 pur">Input: one raw recording per patient. Bern .h5 / .edf at 1024 Hz, Geneva Micromed .TRC at 2048 Hz, MicroEPI .mat at 2048 Hz. A recording split over several files is joined end to end (<code>RAW_CONCAT</code>); a shaft spelled differently in one file is renamed (<code>RAW_CONCAT_RENAME</code>).</li>
+<li class="cf1 pur">Bern recordings are cropped to the task window (<code>time_range</code> per patient).</li>
+<li class="cf1 pur">Channels are removed in this order: auxiliary channels by name (MRK, X, ECG, EX, AUDIO, photo, E1–E8); contacts with no parcellation (tissueLabel empty or Unknown); the patient&#x27;s manual bad list (<code>bad_channels_manual</code>). A removed contact gets no product.</li>
+<li class="cf1 pur">Reference: the mean of the patient&#x27;s white-matter contacts, taken from the BIDS electrodes table (<code>tissueLabel</code> starting with <code>wm-</code>, <code>tissueWeights_1</code> &gt; 0.97, at least 3 contacts), computed on the whole cropped recording and subtracted from every channel. Reference contacts are not analysed as data (MicroEPI keeps them). Overrides: <code>MANUAL_WM_CHANNELS</code> (PAT_3975, 11 deep-WM contacts), <code>WM_NOT_REFERENCE</code> (a WM contact with a task response stays data), <code>WHOLE_CAR_PATIENTS</code> (EL031), a per-grid CAR for EL044.</li>
+<li class="cf1 pur">Line noise, per condition block (the block&#x27;s trials ± 10 s): the block&#x27;s median Welch PSD (2 s segments); the 50 Hz harmonics up to 400 Hz, plus a patient&#x27;s own comb where the audit found one (EL048 16.667 Hz, EL045 59.94 Hz); a harmonic is corrected when its peak is z ≥ 3 against the ±1–5 Hz surround; correction by spectrum interpolation per shaft (the amplitude inside the peak replaced by the flanks&#x27; RMS with random phase, the width widened +1 Hz per pass up to ±12 Hz), with a per-patient floor on the starting half-width where a trial-locked residue needs it (<code>notch_interp_min_hw_hz</code>). No other filter is applied.</li>
+<li class="cf1 pur">Trials: the patient&#x27;s prep0 tables, one .tsv per condition (onset, offset, trial_end, accuracy, exemplar); byte-identical duplicates skipped. A trial is kept when the answer is correct, the stimulus lasted ≥ 0.5 s, the post-offset period (offset → trial_end) is 0.2–10 s and inside the 1.5 × IQR fences of its condition, and it overlaps no listed discharge span.</li>
+<li class="cf2 pur">Per-trial high-gamma rejection per channel: the 70–150 Hz envelope of each trial z-scored within the channel (<code>score_hg</code>); trials beyond 3.5 MAD are dropped for that channel.</li>
+<li class="cf1 pur">Each channel is resampled to 1 kHz (<code>resample_poly</code>). STFT per trial: Hann, nperseg 128, noverlap 108 (84 %, a 20 ms hop), nfft 256 → 3.906 Hz bins, kept to 400 Hz (103 bins); power in dB.</li>
+<li class="cf1 pur">Baseline per trial and frequency: the mean over −0.4 to −0.1 s before stimulus onset, subtracted (dB re baseline).</li>
+<li class="cf1 pur">Time normalisation: stimulus onset → offset onto bins 0–149, offset → trial_end onto bins 150–299 (proportions 0 / 0.5 / 0.5, 300 bins). The pre-stimulus period is not in the cube.</li>
+<li class="cf1 pur">The cube is the mean over the kept trials (nanmean, gaps filled by nearest neighbour). The odd and the even trials are averaged separately and stored beside it (<code>ERSP_halves</code>).</li>
+<li class="cf1 pur">Outputs under <code>outputs/03_ERSP/&lt;pid&gt;/LM/</code>: <code>ERSP_matrix/&lt;cond&gt;/&lt;pid&gt;_&lt;cond&gt;_WM_ERSP_&lt;contact&gt;_TN.npy</code> (103 × 300 float), <code>ERSP_halves/</code>, one CLEAN image per cube; the QC set per channel (ERSP image, HFA raster, Signal raster under <code>PerTrial/</code>), the trial scores, the raw and clean PSD per shaft, the IQR report, the run log.</li>
+<li class="cf1 pur"><code>--pd</code> first re-extracts the trigger times from the photodiode and rewrites prep0 (<code>LF_pd</code>: 10 Hz Butterworth low-pass, Savitzky–Golay derivative, peaks ≥ 0.40 at ≥ 0.2 s spacing, offsets = the steepest falling edge before the next onset, a per-patient flip). A diode that needs its own recipe has a builder: <code>pat_1327_build_triggers.py</code>, <code>pat_3780_build_triggers.py</code> (envelope difference of X1 and X2), <code>el031_build_triggers.py</code> (DC6 pulses per file).</li>
+</ul>
+    <h4 class="pur"><code>141_audit_140.py</code> — the audit of the runs</h4>
+<ul>
+<li class="cf1 pur">One row per patient, from the newest finished log and the config as it stands: channels in / neural / Unknown / aux, bad list, reference and its source, WM count, notch per block, trials in / kept / used, cubes and shapes. Writes <code>outputs/03_ERSP/audit_140.tsv</code>; the s1 tab reads it.</li>
+</ul>
+    <h4 class="pur"><code>142_stale_cubes.py</code> — stale products</h4>
+<ul>
+<li class="cf1 pur">Lists, and with <code>--delete</code> removes, every file under a patient&#x27;s folder older than its run start. A contact a rerun no longer produces leaves no cube behind.</li>
+</ul>
+    <h4 class="pur"><code>143_delete_non_neural.py --bad-listed</code> — a contact removed after its run</h4>
+<ul>
+<li class="cf1 pur">Removes one contact&#x27;s products (cubes, halves, images, trial-score rows) without a rerun and logs them (<code>outputs/03_ERSP/logs/bad_listed_deleted_&lt;stamp&gt;.tsv</code>). Not for a reference contact: the patient is rerun instead.</li>
+</ul>
+    <h4 class="pur"><code>148_contact_noise_audit.py</code> / <code>147_keep_all_channels.py</code> — the contact audit</h4>
+<ul>
+<li class="cf1 pur">148: broadband and 70–150 Hz sd per contact after subtracting the white-matter mean, over the task window, as a multiple of the patient&#x27;s montage median (<code>outputs/contact_noise/&lt;pid&gt;_contact_noise.tsv</code>). 147: 140 with the bad list cleared, into <code>outputs/03_ERSP-allchan-wm</code>, where a removed or reference contact can be looked at. The decision per contact is taken on the Signal, HFA and ERSP figures against the measurement (s1 tab, <code>make_contact_review_block.py</code>).</li>
+</ul>
+    <h4 class="pur"><code>250_recon_fsaverage.ipynb</code> — electrode coordinates</h4>
+<ul>
+<li class="cf1 pur">Contacts from LEPTOVOX voxels to surface RAS (tkrRAS); WM vs cortical from the BIDS table; cortical contacts to fsaverage by spherical registration (nearest native pial vertex → <code>?h.sphere.reg</code> → nearest fsaverage vertex → its pial coordinate), WM contacts and patients without <code>sphere.reg</code> by affine (<code>talairach.xfm</code> → MNI305 → fsaverage); Yeo-7 / Yeo-17 and Desikan-Killiany labels at the nearest vertex. Recording and reconstruction names reconciled (<code>RECON_ALIAS</code>, <code>CHANNEL_SHAFT_ALIAS</code>). Writes <code>outputs/250_recon/fsaverage/coords/&lt;pid&gt;_contacts_fsaverage.csv</code> and the ALL table.</li>
+</ul>
+    <h4 class="pur"><code>rebuild_concat_cache.py --version N --apply</code> — the dataset cache (<code>lf_dataset.prepare_dataset</code>)</h4>
+<ul>
+<li class="cf1 pur">Walks <code>ERSP_matrix</code> of every patient folder and stacks every cube into <code>X_3d.npy</code> (n × 103 × 300, float32) with <code>df_meta.parquet</code> (patient, electrode, condition, file).</li>
+<li class="cf1 pur">Per electrode and condition: noise = sd(half1 − half2) / 2 from <code>ERSP_halves</code>; a bin counts as active beyond max(+2.2 dB, 2 × noise) or below min(−3.0 dB, −2 × noise); <code>high_activity</code> when ≥ 2 % of the 30 900 bins are above or ≥ 4 % below.</li>
+<li class="cf1 pur">A new version directory every time the cohort changes (the params record no patient list). FIG C.0 is drawn from it (<code>make_cohort_figure.py</code>). v16: 8967 rows, 30 patient folders.</li>
+</ul>
+    <h4 class="pur"><code>lf_concat.build_concat_dataset</code> — the cohort and the feature sets (called by 240 / 241 / 242)</h4>
+<ul>
+<li class="cf1 pur">Filters at read: non-neural names; microwires (<code>is_micro</code>: a lower-case m before the contact number, FOM, X1M); grid shafts (EL044, PAT_3415 GA–GH); noisy shafts (PAT_3415 IMG / TA / IPG); excluded patients (EL044, PAT_6684, EL031).</li>
+<li class="cf1 pur">An electrode enters when it has a cube in all three conditions and <code>high_activity</code> in at least one. Its three cubes are concatenated audio | picture | reading (103 × 900). v16: 1607 electrodes of 2946, 29 patients.</li>
+<li class="cf1 pur">Feature sets from the concatenated cube: <code>concat_hg</code> (the mean of the 70–150 Hz bins per time bin, 3 × 300 = 900); <code>concat_rawds</code> (15 bands 1–400 Hz × 30 time bins per block = 1350; the time axis downsampled with scikit-image <code>resize</code>, never across a block boundary); <code>concat_bands5</code> (5 bands, 1–20 / 20–70 / 70–170 / 170–270 / 270–400 Hz, × 30 × 3 = 450; each band the mean of its original bins); <code>concat_bands5z</code> (the same, each band z-scored across the cohort).</li>
+<li class="cf1 pur">Every electrode&#x27;s feature vector is scaled to unit L2 length before fitting (unit-norm space). <code>X_train.npy</code> keeps the raw dB.</li>
+</ul>
+    <h4 class="pur"><code>240_cluster_kmeans.py</code> / <code>241_cluster_hierarchical.py</code> — hard partitions</h4>
+<ul>
+<li class="cf1 pur">For each feature set: k-means (scikit-learn <code>KMeans</code>, n_init 20, random_state 42) and Ward (<code>scipy.cluster.hierarchy.linkage</code>, Euclidean, cut by <code>fcluster</code> maxclust) at every K from 5 to 30, on the unit-norm features. Per run: <code>labels.csv</code> (electrode order), <code>cluster_labels_by_k.csv</code>, <code>sweep_metrics.csv</code> (silhouette, Calinski–Harabasz, Davies–Bouldin per K), <code>X_train.npy</code>, a manifest naming the cache; one folder per fit under <code>outputs/clustering/&lt;method&gt;/&lt;feature_set&gt;/runs/&lt;stamp&gt;</code>.</li>
+<li class="cf1 pur">Section 3 of each (<code>make_heldout_variance.py</code>: bi-cross-validation, 4 row folds × 4 column folds, held-out electrodes scored by the nearest cluster mean, 300 iterations) runs only when K is being chosen; <code>--no-heldout</code> otherwise. Electrodes stay in the same order across every run.</li>
+</ul>
+    <h4 class="pur"><code>242_cluster_cnmf.py</code> — convex NMF</h4>
+<ul>
+<li class="cf1 pur"><code>run_decomposition.py</code>: convex NMF (Ding, Li &amp; Jordan 2010; <code>lf_decompose.convex_nmf</code>), X ≈ G (Wᵀ X), multiplicative updates on the signed Gram matrix, initialised from k-means labels, stopped at a relative Frobenius change &lt; 1e-6; the publish fit at K = 7 with 300 iterations; W columns normalised to sum 1, loadings G row-normalised (graded membership). The matrix is the newest k-means run&#x27;s <code>X_train.npy</code>.</li>
+<li class="cf1 pur"><code>publish_decomposition.py</code> registers that fit as a run; <code>sweep_decomposition.py</code> refits K = 5…30 at 1000 iterations into it: <code>loadings_by_k</code>, <code>components_by_k</code>, <code>cluster_labels_by_k</code> (argmax, for display only).</li>
+</ul>
+    <h4 class="pur"><code>make_missing_centroids.py</code> / <code>make_centroid_rasters.py</code> — per-run products</h4>
+<ul>
+<li class="cf1 pur">The mean ± SD feature vector of every cluster at every K (<code>cluster_centroids/k_K/</code>, members = argmax, plus one panel at the run&#x27;s K) and the electrode rasters of the run&#x27;s K (<code>cluster_rasters/</code>).</li>
+</ul>
+    <h4 class="pur"><code>choose_k.py</code> / <code>make_heldout_variance.py</code> — K</h4>
+<ul>
+<li class="cf1 pur">K is read where convex NMF&#x27;s bi-cross-validated held-out variance turns over; the k-means and Ward curves rise to the edge of the range. Beside it the patient-generalisation criterion at every K: the share of clusters where one patient holds &gt; 50 % of the electrodes, and the share of electrodes in such clusters. The cross-method figures are cut at K = 8; the cluster visualizer carries K 5–12.</li>
+</ul>
+    <h4 class="pur"><code>make_cluster_statistics.py</code> (249) — the statistics</h4>
+<ul>
+<li class="cf1 pur">At the chosen K per feature set: separation = silhouette in dB and in unit-norm space against 50 Gaussian surrogates with the data&#x27;s covariance; agreement = pairwise ARI / NMI and contingency tables between the three methods; anatomical coherence = the share of the 10 nearest fsaverage neighbours sharing a label against 20 label shuffles; leave-one-patient-out = ARI of the refit against the full-cohort labels, against size-matched pseudo-patient nulls. Writes <code>cluster_statistics.json</code> into the run. Not run on v16 yet.</li>
+</ul>
+    <h4 class="pur"><code>00_paper2_figure0_coverage.py</code> — FIG 0</h4>
+<ul>
+<li class="cf1 pur">Every electrode the gate saw, on fsaverage (kept vs rejected); four example electrodes with their three-condition cubes; the per-patient composition and the gate at the line as the supplement.</li>
+</ul>
+    <h4 class="pur"><code>00_Paper2_Figures.py</code> — FIG 1a–d</h4>
+<ul>
+<li class="cf1 pur">One feature set per figure, convex NMF: A the held-out variance vs K with the peaks and the cut; B one block per cluster, mean ± SD over the three concatenated conditions, hemisphere renders, patient-composition bar; C how to read a block (trial strip, GO cue at 50 %); D the share of one-patient clusters and of electrodes in them vs K. The renders need a screen (VTK).</li>
+</ul>
+    <h4 class="pur"><code>00_paper2_figures2_2.py</code> — FIG 2</h4>
+<ul>
+<li class="cf1 pur">Agreement at K = 8: top the four feature sets under convex NMF, bottom the three algorithms on concat_hg (run twice, the second with <code>--algo-feature-set concat_bands5z</code>). Solutions matched by Hungarian assignment on the correlation of mean-centred loadings (shared-electrode counts when a side is a hard partition), reference = convex NMF on concat_bands5. Mean pairwise ARI at every K 5–30, full ARI and NMI matrices, per-electrode modal agreement after matching with a 200-permutation null, per-cluster Jaccard against the reference with its own null, self-stability (Jaccard over 50 refits on 80 % subsamples) and PAC.</li>
+</ul>
+    <h4 class="pur"><code>00_paper2_figure3_lana.py</code> — FIG 3</h4>
+<ul>
+<li class="cf1 pur">Per cluster at K = 8 on concat_hg: Spearman ρ between the cluster&#x27;s loading and the LanA probability at the electrode; two nulls of 1000 permutations (labels rolled along each shaft; within-patient shuffle), 1000 patient bootstraps for the CI, Benjamini–Hochberg FDR; electrodes with atlas coverage ≥ 0.70 only.</li>
+</ul>
+    <h4 class="pur"><code>00_paper2_figure4_correspondence.py</code> / <code>00_paper2_figure4_panels.py</code> — FIG 4</h4>
+<ul>
+<li class="cf1 pur">At each K: every solution described in the shared concat_bands5z space, centroids matched greedily by Pearson r, overlap as Jaccard and weighted Ruzicka, nulls of 1000 reassignments, plain and within-patient. The matched table (<code>FIG4_matched_K&lt;K&gt;_run&lt;stamp&gt;.csv</code>) is drawn as the panels.</li>
+</ul>
+    <h4 class="pur"><code>00_paper2_figure5_confusion.py</code> — FIG 5</h4>
+<ul>
+<li class="cf1 pur">Nine solutions (three algorithms × HFA / 15 bands / 5 bands z) against each other at each K: the Hungarian diagonal share of the contingency table against 1000 label shuffles.</li>
+</ul>
+    <h4 class="pur"><code>make_paper2_outputs.py</code> — the order</h4>
+<ul>
+<li class="cf1 pur">One command runs the rest in order: audit → select → runs → paper → stage02 → norm → prep → bundles → site (<code>--only</code> for phases, <code>--headless</code> leaves the five brain renders out, <code>--ks</code> the K values of FIG 4 / 5). It fits nothing: the cache and 240 / 241 / 242 come first. <code>02_FBM_Clustering/RUNBOOK_new_cohort.md</code> lists every command.</li>
 </ul>
     </div>
     <h3 id="o-figures-and-legends">Figures and legends</h3>

@@ -2700,6 +2700,8 @@ async function exportReport() {
         btn.textContent = `Report: glass rotation ${i + 1}/${blocks.length}...`;
         blocks[i].glassSpin = REPORT_FULL ? await captureSpin(0, SPIN_N, SPIN_W, true, gSpinBox) : [];
       }
+      { const idsNow = ((SWEEP && SWEEP.stats && SWEEP.stats[String(KSEL)]) || {}).clusters || [];
+        if (idsNow.length) KBRAINS[KSEL] = idsNow.map(c => { const b = blocks.find(x => x.d.cluster === c); return b ? b.glassShots : null; }); }
 
       // ── EVERY CLUSTER AT EVERY K, captured while the glass surface is already up.
       // The K panel could switch its numbers and centroid chips but not its brains, so
@@ -3213,7 +3215,7 @@ async function exportReport() {
            directory but nothing shows here, they have not been COMMITTED - this page
            fetches them from the repository, so a file that is only on disk reads as
            absent.</p>`}
-      ${(B.brains && B.brains.some(Boolean)) ? `
+      ${(B.ids && B.ids.length) ? `
         <div class="cardhead"><div></div>${KROW_REPS.map(r => `<div>${REP_LABEL[r] || r}</div>`).join("")}
           ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div><div>centre · language</div></div>
         <div class="cards">${(B.ids || []).map((c, i) => {

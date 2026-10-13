@@ -2599,10 +2599,12 @@ async function exportReport() {
       const st = render();          // the stats are read either way
       const shots = [];
       let spinFrames = [];
-      if (REPORT_3D) {
+      if (REPORT_FULL) {
+        // the probability stills and turn: painted-surface captures, which the glass-only
+        // page cannot make (render() paints no vertex in glass mode) - full mode only
         await sleep(80);
         for (const [az, el] of VIEWS) shots.push(await captureView(az, el, CAPW, true));
-        if (REPORT_FULL) spinFrames = await captureSpin(0, SPIN_N, SPIN_W, true);
+        spinFrames = await captureSpin(0, SPIN_N, SPIN_W, true);
       }
       const fig = (RUN.figures.per_cluster || {})[String(d.cluster)] || {};
       // CENTROIDS MUST FOLLOW K. fig.centroid points at cluster_centroids/cluster_NN.png,
@@ -3317,7 +3319,7 @@ async function exportReport() {
 <section class="card clus">
   <h2><span class="k" style="background:${clusterHue(i)}">Cluster ${k}</span>
       <span>${RUN.cluster_sizes[String(k)]} samples · ${np} of ${COH.n_patients} patients</span></h2>
-  ${!REPORT_3D ? "" : `  <p class="sechint">P(cluster ${k} | labelled electrode within ${frozen.radius} mm), gated at ${frozen.minN} labelled contacts.
+  ${!REPORT_FULL ? "" : `  <p class="sechint">P(cluster ${k} | labelled electrode within ${frozen.radius} mm), gated at ${frozen.minN} labelled contacts.
      Colour scale <b>0–${climMax.toFixed(2)}</b>, the same on every cluster in this report, so the
      panels are directly comparable. Grey is <b>no estimate</b>, not zero.</p>
   <div class="brains">
@@ -3325,15 +3327,15 @@ async function exportReport() {
     ${scaleBar(climMax, `P(c${k})`)}
   </div>
   ${st && st.peak === 0 ? `<p class="warn">No vertex passes the gate — this cluster has ${RUN.cluster_sizes[String(k)]} labelled sample(s)
-     and none sits where ${frozen.minN}+ fall within ${frozen.radius} mm. Nothing to draw, and that is the result.</p>` : ""}
-  <div class="brains glass">
+     and none sits where ${frozen.minN}+ fall within ${frozen.radius} mm. Nothing to draw, and that is the result.</p>` : ""}`}
+  ${!REPORT_3D ? "" : `  <div class="brains glass">
     ${(glassShots || []).map((g, j) => img(g, `contacts — ${VIEWS[j][2]}`, "lite")).join("")}
     <div></div>
   </div>
-  <p class="sechint">The contacts themselves on a glass brain, captured from the viewer at
+${REPORT_FULL ? `  <p class="sechint">The contacts themselves on a glass brain, captured from the viewer at
     the same three angles as the probability maps above and with no ${frozen.radius}&nbsp;mm
     smoothing &mdash; so this is where the electrodes are, and the maps above are what was
-    estimated from them.</p>`}
+    estimated from them.</p>` : `  <p class="sechint">The contacts themselves on a glass brain, captured from the viewer at three angles, with no ${frozen.radius}&nbsp;mm smoothing &mdash; this is where the electrodes are.</p>`}`}
   <div style="margin-top:16px">
     <div class="${raster && raster.data ? "cluepair" : ""}" style="margin-top:0">
       <div>${img(centroid, centroid.members !== undefined

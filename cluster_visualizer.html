@@ -2700,8 +2700,30 @@ async function exportReport() {
         btn.textContent = `Report: glass rotation ${i + 1}/${blocks.length}...`;
         blocks[i].glassSpin = REPORT_FULL ? await captureSpin(0, SPIN_N, SPIN_W, true, gSpinBox) : [];
       }
-      { const idsNow = ((SWEEP && SWEEP.stats && SWEEP.stats[String(KSEL)]) || {}).clusters || [];
-        if (idsNow.length) KBRAINS[KSEL] = idsNow.map(c => { const b = blocks.find(x => x.d.cluster === c); return b ? b.glassShots : null; }); }
+      { // table brains for the exported cut, keyed by the row's cluster id (the sweep column's).
+        // At the published K of a convex-NMF run the fit on screen (run_decomposition, 300
+        // iterations) and the sweep's fit at that K (1000) are different clusterings, so a
+        // sweep cluster takes the stills of the published cluster it overlaps most; for
+        // k-means, Ward and every re-cut K the two are the same partition and the id matches.
+        const kNow = String(KSEL), pubK = Number(RUN0.k);
+        const rowIds = ((SWEEP && SWEEP.stats && SWEEP.stats[kNow]) || {}).clusters || [];
+        if (rowIds.length) {
+          let match = (s) => Number(s);
+          const sw = SWEEP.labels && SWEEP.labels[kNow], pb = CONTACTS.runs && CONTACTS.runs[RUN0.id];
+          if (Number(KSEL) === pubK && sw && pb) {
+            const ov = {};
+            for (let i = 0; i < sw.length; i++) {
+              const a = sw[i], b = pb[i];
+              if (!Array.isArray(a) || !Array.isArray(b)) continue;
+              for (const s of a) { const row = ov[s] || (ov[s] = {}); for (const p of b) row[p] = (row[p] || 0) + 1; }
+            }
+            match = (s) => { const row = ov[s] || {}; const best = Object.keys(row).sort((x, y) => row[y] - row[x])[0];
+                             return best == null ? Number(s) : Number(best); };
+          }
+          const byId = {};
+          for (const s of rowIds) { const b = blocks.find(x => Number(x.d.cluster) === match(s)); byId[String(s)] = b ? b.glassShots : null; }
+          KBRAINS[KSEL] = byId;
+        } }
 
       // ── EVERY CLUSTER AT EVERY K, captured while the glass surface is already up.
       // The K panel could switch its numbers and centroid chips but not its brains, so
@@ -2735,7 +2757,7 @@ async function exportReport() {
             contactsHemi("both");
             shots.push(one);
           }
-          KBRAINS[kk] = shots;
+          KBRAINS[kk] = Object.fromEntries(ids.map((c, j) => [String(c), shots[j]]));
         }
         await applyK(kWas);
         refreshMapList();
@@ -3219,7 +3241,7 @@ async function exportReport() {
         <div class="cardhead"><div></div>${KROW_REPS.map(r => `<div>${REP_LABEL[r] || r}</div>`).join("")}
           ${VIEWS.map(v => `<div>${esc(v[2])}</div>`).join("")}<div>who is in it · samples</div><div>centre · language</div></div>
         <div class="cards">${(B.ids || []).map((c, i) => {
-          const g = (B.brains || [])[i];
+          const g = (B.brains || {})[String(c)] || null;   // keyed by the row's cluster id
           const comp = (st.cluster_patient_counts || {})[String(c)] || {};
           const tot = Object.values(comp).reduce((x, y) => x + y, 0);
           const items = Object.keys(comp).sort()

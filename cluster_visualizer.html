@@ -72,6 +72,7 @@
                border:1px solid rgba(255,255,255,.14); color:var(--fg); font:inherit; font-size:11px; }
   #ui2 .u2ch .sw { width:9px; height:9px; border-radius:2px; background:var(--c); flex:none; }
   #ui2 .u2ch i { font-style:normal; font-size:9.5px; color:var(--muted); }
+  #ui2 .u2ch em.rl { font-style:normal; font-size:9px; font-weight:700; margin-left:1px; }
   #ui2 .u2ch:hover { border-color:var(--accent); }
   #ui2 .u2ch.on { background:#1d2029; border-color:var(--c); box-shadow:inset 0 0 0 1px var(--c); }
   #ui2 .u2ch.on i { color:#cdd3dc; }
@@ -415,7 +416,9 @@ const CLUST  = REPO + "02_FBM_Clustering/outputs/clustering/";
 // cluster list passed through figureOrder() - see make_cluster_visualizer.py.
 const PAPER_K = 8;
 // the viewer's brain captures in the saved report; REPORT_3D in make_cluster_visualizer.py
-const REPORT_3D = false;
+const REPORT_3D = true;
+// turns and the every-K brains only in the full mode (REPORT_3D = True in the generator)
+const REPORT_FULL = false;
 const PAPER_RUNS = [
   "cnmf__concat_bands5z__20261012_190229",
   "cnmf__concat_hg__20261012_184011",
@@ -2599,7 +2602,7 @@ async function exportReport() {
       if (REPORT_3D) {
         await sleep(80);
         for (const [az, el] of VIEWS) shots.push(await captureView(az, el, CAPW, true));
-        spinFrames = await captureSpin(0, SPIN_N, SPIN_W, true);
+        if (REPORT_FULL) spinFrames = await captureSpin(0, SPIN_N, SPIN_W, true);
       }
       const fig = (RUN.figures.per_cluster || {})[String(d.cluster)] || {};
       // CENTROIDS MUST FOLLOW K. fig.centroid points at cluster_centroids/cluster_NN.png,
@@ -2662,7 +2665,7 @@ async function exportReport() {
       btn.textContent = "Report: glass rotation box...";
       const gSpinBox = await probeSpinBox(0, 8, true);
       btn.textContent = "Report: glass coverage rotation...";
-      glassCovSpin = await captureSpin(0, SPIN_N, SPIN_W, true, gSpinBox);
+      if (REPORT_FULL) glassCovSpin = await captureSpin(0, SPIN_N, SPIN_W, true, gSpinBox);
       const gBox = [];
       for (const [az, el] of VIEWS) {
         gBox.push(await new Promise(r => {
@@ -2693,7 +2696,7 @@ async function exportReport() {
         // no extra frames - it replaces the offline rotation the report used to pull -
         // and it means a run that was never rendered offline still turns.
         btn.textContent = `Report: glass rotation ${i + 1}/${blocks.length}...`;
-        blocks[i].glassSpin = await captureSpin(0, SPIN_N, SPIN_W, true, gSpinBox);
+        blocks[i].glassSpin = REPORT_FULL ? await captureSpin(0, SPIN_N, SPIN_W, true, gSpinBox) : [];
       }
 
       // ── EVERY CLUSTER AT EVERY K, captured while the glass surface is already up.
@@ -2704,7 +2707,7 @@ async function exportReport() {
       //
       // Stills only. A 60-frame turn for each of these clusters would be roughly 8600
       // more frames and a third of a gigabyte, which no browser will open.
-      if (SWEEP && SWEEP.ks && SWEEP.ks.length > 1) {
+      if (REPORT_FULL && SWEEP && SWEEP.ks && SWEEP.ks.length > 1) {
         const kWas = KSEL;
         for (const kk of SWEEP.ks) {
           btn.textContent = `Report: K=${kk} brains…`;
@@ -3342,7 +3345,7 @@ async function exportReport() {
           : ""}</div>
       ${raster && raster.data ? `<div>${img(raster, rasterCap, "wide lite")}</div>` : ""}
     </div>
-    ${!REPORT_3D ? "" : `<div style="margin-top:14px">
+    ${!REPORT_FULL ? "" : `<div style="margin-top:14px">
       <h2 class="sec">Seen from every angle</h2>
       <p class="sechint">Two full turns of the same cluster. <b>Left:</b> the probability
         map from the stills above &mdash; a cluster that looks focal from one side and
@@ -3421,7 +3424,7 @@ ${kPanelHTML}
 
 ${cardsHTML}
 
-${!REPORT_3D ? "" : `<section class="card">
+${!REPORT_FULL ? "" : `<section class="card">
   <div class="three">
     <div>
       <h2 class="sec">The same cohort, glass</h2>
@@ -3649,10 +3652,10 @@ const u2Rows  = c => (RUN && RUN.cluster_sizes && RUN.cluster_sizes[String(c)]) 
 // composition of those dots. Counted over localised contacts, which is fewer than the
 // run's rows: the tooltips carry both.
 const u2TallyCache = new Map();
-function u2TallyOf(key, lab, load, cohortId) {
-  const ck = `${key}|${state.minLoad}`;
+function u2TallyOf(key, lab, load, cohortId, rel) {
+  const ck = `${key}|${state.minLoad}|${rel ? "r" : "-"}`;
   if (u2TallyCache.has(ck)) return u2TallyCache.get(ck);
-  const n = {}, pat = {};
+  const n = {}, pat = {}, rl = {};
   if (lab && CONTACTS) {
     for (const i of (CONTACTS.cohorts[cohortId] || [])) {
       const L = lab[i];
@@ -3663,16 +3666,27 @@ function u2TallyOf(key, lab, load, cohortId) {
         n[c] = (n[c] || 0) + 1;
         const m = pat[c] || (pat[c] = {});
         m[p] = (m[p] || 0) + 1;
+        if (rel && rel[i] === 1) rl[c] = (rl[c] || 0) + 1;
       }
     }
   }
-  const out = { n, pat };
+  const out = { n, pat, rel: rel ? rl : null };
   if (u2TallyCache.size > 80) u2TallyCache.clear();
   u2TallyCache.set(ck, out);
   return out;
 }
+// RELIABILITY (2026-10-13): contacts.json["reliability"][run] marks, per contact, whether it
+// gets the same component from the full fit and from each trial half (plot_hg_timebins_test).
+// Measured at the run's published K only, so the chips show it at that K and not at others.
+const relForK = () => (RUN0 && CONTACTS && CONTACTS.reliability && Number(KSEL) === Number(RUN0.k))
+  ? (CONTACTS.reliability[RUN0.id] || null) : null;
 const u2Now   = () => u2TallyOf(`${RUN0 ? RUN0.id : "?"}|${KSEL}`, labelsForK(), loadingsForK(),
-                                RUN ? RUN.cohort_id : "");
+                                RUN ? RUN.cohort_id : "", relForK());
+const u2RelPct = c => { const T = u2Now(); if (!T.rel || !T.n[c]) return null;
+  return Math.round(100 * (T.rel[c] || 0) / T.n[c]); };
+const u2RelCol = p => p >= 70 ? "#7fd38a" : p >= 50 ? "#f0c060" : "#f08080";
+const u2RelText = c => { const p = u2RelPct(c); return p == null ? "" :
+  ` · ${p}% reliable (${u2Now().rel[c] || 0} of ${u2Size(c)} drawn: same component from both trial halves)`; };
 const u2Size  = c => u2Now().n[c] || 0;          // contacts drawn at the current minimum
 
 // ── one patient, more than half the cluster ──────────────────────────────────
@@ -4103,9 +4117,11 @@ function u2Chips() {
          + `data-c="${d.cluster}" style="--c:${u2CSS(u2Hue(i, K))}" `
          + `title="position #${i + 1} in figure order · cluster ${d.cluster} · `
          + `${u2Size(d.cluster)} contacts drawn of ${u2Rows(d.cluster)} in the run`
-         + `${u2esc(u2DomText(dom))}">`
+         + `${u2esc(u2DomText(dom))}${u2esc(u2RelText(d.cluster))}">`
          + `<span class="sw"></span><b>#${i + 1}</b>${u2DomMark(dom)}`
-         + `<i>${u2Size(d.cluster)}</i></button>`;
+         + `<i>${u2Size(d.cluster)}</i>`
+         + (u2RelPct(d.cluster) == null ? "" : `<em class="rl" style="color:${u2RelCol(u2RelPct(d.cluster))}">${u2RelPct(d.cluster)}%</em>`)
+         + `</button>`;
   }).join("");
   box.querySelectorAll("button[data-map]").forEach(b => {
     b.onclick = () => u2ClickChip(b.dataset.map, Number(b.dataset.c));
@@ -4115,14 +4131,16 @@ function u2Chips() {
   $("u2selnote").textContent = UI2.mode === "overlay"
     ? `${UI2.sel.size} selected`
     : (d ? `#${pos + 1} · cluster ${d.cluster} · n=${u2Size(d.cluster)}`
-         + (dm ? ` (${dm.pid} ${u2DomPct(dm)}%)` : "") : "");
+         + (dm ? ` (${dm.pid} ${u2DomPct(dm)}%)` : "")
+         + (u2RelPct(d.cluster) == null ? "" : ` · ${u2RelPct(d.cluster)}% reliable`) : "");
 }
 
 function u2Note() {
   const n = $("u2modenote");
   if (!n) return;
   n.innerHTML = UI2.mode === "single"
-    ? "One cluster on the glass brain."
+    ? "One cluster on the glass brain." + (relForK() ? " The coloured % on a chip: its drawn contacts "
+        + "that get the same component from both trial halves (green ≥ 70, amber ≥ 50)." : "")
     : UI2.mode === "overlay"
       ? "Click chips to add or drop clusters. A contact in more than one selected cluster "
         + "is drawn <b>white and larger</b>."

@@ -979,6 +979,16 @@ function contactsHemi(which) {
 }
 
 const HEMI_FOR_VIEW = ["lh", "rh", "both"];   // matches VIEWS
+// The far hemisphere itself, not only its dots, for the lateral stills of the report: the
+// near side is drawn alone (Niivue skips a mesh whose .visible is false), its contacts
+// filtered by contactsHemi. "both" restores the scene.
+function farHemi(near) {
+  for (const h of ["lh", "rh"]) {
+    const m = hemis[h] && hemis[h].mesh;
+    if (m) m.visible = (near === "both" || h === near);
+  }
+  contactsHemi(near);          // re-emits the dots and redraws
+}
 
 function cohortMask(cohortId) {
   const mask = new Uint8Array(CONTACTS.xyz.length);
@@ -2690,9 +2700,12 @@ async function exportReport() {
         // onWhite: the glass backdrop is white, so both the crop and the fill invert
         for (let v = 0; v < VIEWS.length; v++) {
           const [az, el] = VIEWS[v];
+          farHemi(HEMI_FOR_VIEW[v]);   // a lateral still is one hemisphere; dorsal keeps both
+          await sleep(40);
           gs.push(gBox[v] ? await captureRaw(az, el, CAPW, gBox[v], true)
                           : await captureView(az, el, CAPW, true));
         }
+        farHemi("both");
         blocks[i].glassShots = gs;
         // The 360 comes from here too, rather than being fetched from the repo. It costs
         // no extra frames - it replaces the offline rotation the report used to pull -
@@ -2749,12 +2762,12 @@ async function exportReport() {
             const one = [];
             for (let v = 0; v < VIEWS.length; v++) {
               const [az, el] = VIEWS[v];
-              contactsHemi(HEMI_FOR_VIEW[v]);
+              farHemi(HEMI_FOR_VIEW[v]);
               await sleep(40);
               one.push(gBox[v] ? await captureRaw(az, el, CAPW, gBox[v], true)
                                : await captureView(az, el, CAPW, true));
             }
-            contactsHemi("both");
+            farHemi("both");
             shots.push(one);
           }
           KBRAINS[kk] = Object.fromEntries(ids.map((c, j) => [String(c), shots[j]]));
@@ -2766,7 +2779,7 @@ async function exportReport() {
       // A failed glass pass must not cost the report the work already captured.
       console.warn("glass pass failed:", e);
     } finally {
-      contactsHemi("both");  // a pass that failed mid-view must not leave dots missing
+      farHemi("both");  // a pass that failed mid-view must not leave dots or a hemisphere missing
       state.glass = glassWas.glass; state.elecByCluster = glassWas.byCluster;
       state.showElec = glassWas.elec; state.surf = frozen.surf;
       // Always reload: leaving a uniform-rgba255 mesh behind under a non-glass state

@@ -4057,7 +4057,11 @@ async function u2SetRep(rep) {
   } catch (e) {
     console.warn("centroid representation:", e);
   } finally {
-    u2Lock(false); u2Reps(); drawCentroid();
+    // the open samples strip is drawn ON this representation too, so it has to follow.
+    // Without this its canvases keep the PREVIOUS representation while the centroid
+    // above them switches - two different feature sets on screen, both captioned as one,
+    // which is the exact comparison the strip exists to make.
+    u2Lock(false); u2Reps(); drawCentroid(); if (UI2.samp) u2Samples();
   }
 }
 

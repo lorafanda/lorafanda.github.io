@@ -492,11 +492,19 @@ const CENTROIDS = REPO + "02_FBM_Clustering/outputs/clustering/paper_web/centroi
 // are comparable by eye. It used to be the 99th percentile of |cluster mean|, which
 // drifted per run and per set (+/-1.4, +/-1.8 ...) and, being a limit of MEANS, was far
 // too tight for single electrodes - the samples strip saturated almost everywhere.
-// +/-5 dB is ~p99.9 of |single electrode| on all four sets (measured 2026-10-16 over
-// the 1607-electrode cohort: p99.9 = 4.03 / 4.54 / 5.52 / 4.09 for bands2 / bands5 /
-// bands15 / hfa), so electrodes read properly and only the extreme tail clips. All
-// four sets are in dB, which is what makes one shared scale meaningful.
-const CEN_VLIM = 5;
+// +/-3 dB is the chosen limit; p99 of |single electrode| is 2.52-3.54 on the four sets
+// (p99.9 = 4.03 / 4.54 / 5.52 / 4.09 for bands2 / bands5 / bands15 / hfa), so the top
+// per cent or so of an electrode's range clips while a cluster MEAN, which peaks near
+// 1.8, still keeps real contrast. All four sets are in dB, which is what makes one
+// shared scale meaningful at all.
+const CEN_VLIM = 3;
+// and the LINE axis, which cannot share that number: it draws mean +/- SD, and measured
+// over every run drawn as lines (hfa and bands2, three algorithms, K 5-12) the extreme of
+// mean +/- SD is +3.70 dB (Ward on 2 bands; the rest sit between -2.46 and +3.18). A fixed
+// +/-3 would cut the top off that band, and a flat-topped band reads as data rather than as
+// a clipped axis. +/-4 clears it and is still the same on every panel - two line plots with
+// different y axes cannot be compared, which is the whole reason 2 bands is drawn as lines.
+const CEN_YLIM = 4;
 const REP_LABEL = { concat_bands2: "2 bands (30-50, 70-150 Hz)",
                     concat_bands5: "5 bands (1-170 Hz in 5 bands)",
                     concat_bands15: "15 bands (1-170 Hz in 15 bands)",
@@ -545,6 +553,7 @@ function cenGeom(rep) {
   const r = rep || CEN_REP, g = CEN_INDEX.feature_sets[r];
   if (!g) return null;
   return { rep: r, n: g.n, nc: g.conds.length, nb: g.bands.length, nt: g.nt, conds: g.conds,
+           bands: g.bands,
            F: g.conds.length * g.bands.length * g.nt,
            unit: g.unit || "dB", unitLong: g.unit_long || "" };
 }
@@ -567,13 +576,13 @@ function cenWeights(k, j, min, paper) {
   return { w, nMembers, nPass, weighted: true };
 }
 // the weighted mean of representation `rep` over the electrodes cenWeights picks; the
-// weighted SD too, but only for the single-band line, where it is drawn
+// weighted SD too, for the sets drawn as lines (<= 2 bands), where it is shaded
 function cenMean(k, j, min, paper, rep) {
   const g = cenGeom(rep); if (!g) return null;
   const X = _cenX.get(g.rep);
   if (!X || X.length !== g.n * g.F || g.n !== CEN.meta.n) return null;
   const r = cenWeights(k, j, min, paper); if (!r) return null;
-  const mean = new Float32Array(g.F), sd = g.nb === 1 ? new Float32Array(g.F) : null;
+  const mean = new Float32Array(g.F), sd = g.nb <= 2 ? new Float32Array(g.F) : null;
   let sw = 0; for (let i = 0; i < g.n; i++) sw += r.w[i];
   if (sw <= 0) return Object.assign(r, { mean, sd, empty: true, g });
   const s = CEN_INDEX.x_scale;
@@ -589,22 +598,12 @@ function cenMean(k, j, min, paper, rep) {
 // so clusters are comparable. Heatmap: symmetric colour limit at the 99th percentile
 // of |argmax mean| over all clusters (FIG 1's rule). Line: the range of every cluster's
 // mean +/- SD (FIG 1's rule), so the band never clips.
+// Both numbers are now fixed for every run, feature set and K - see CEN_VLIM / CEN_YLIM,
+// which were measured over the cohort rather than guessed. k and rep are kept so callers
+// do not change, and so a future per-set exception has somewhere to go. This used to call
+// cenMean() once per cluster on every lookup, purely to derive limits that are constants.
 function cenLimits(k, rep) {
-  const g = cenGeom(rep); if (!g) return { vlim: 1, ylo: -1, yhi: 1 };
-  const key = CEN.meta.id + ":" + g.rep + ":" + k; if (_cenLim.has(key)) return _cenLim.get(key);
-  const vals = []; let lo = 0, hi = 0;
-  if (CEN.meta.labels[String(k)]) for (let j = 0; j < k; j++) {
-    const st = cenMean(k, j, 0, true, g.rep); if (!st || st.empty) continue;
-    for (let f = 0; f < st.mean.length; f++) {
-      const v = st.mean[f], s = st.sd ? st.sd[f] : 0; vals.push(Math.abs(v));
-      if (v - s < lo) lo = v - s; if (v + s > hi) hi = v + s;
-    }
-  }
-  vals.sort((a, b) => a - b);
-  // vlim is CEN_VLIM for every run, set and K - see the constant. The LINE range stays
-  // measured: it draws mean +/- SD and a fixed range would clip the band.
-  const lim = { vlim: CEN_VLIM, ylo: lo * 1.06, yhi: hi * 1.06 };
-  _cenLim.set(key, lim); return lim;
+  return { vlim: CEN_VLIM, ylo: -CEN_YLIM, yhi: CEN_YLIM };
 }
 // matplotlib RdBu, red to blue; the figures use RdBu_r, so t is flipped
 const RDBU = [[103,0,31],[178,24,43],[214,96,77],[244,165,130],[253,219,199],[247,247,247],[209,229,240],[146,197,222],[67,147,195],[33,102,172],[5,48,97]];
@@ -627,7 +626,7 @@ function renderCentroid(ctx, Wd, Hd, k, j, rep, min, paper, scale, stIn) {
   // everything on white, as the figures are: a dark ground around a heatmap read as a
   // black frame on the report's white page. The heatmap gets a thin grey frame instead,
   // so its edge still shows where RdBu's white zero meets the page.
-  const line = nb === 1;
+  const line = nb <= 2;        // HFA, and 2 bands as two traces rather than two rows
   const T = { bg: "#ffffff", fg: "#1b232c", muted: "#68727d", grid: "#c9ced4", sep: "#1b232c", cue: "#68727d" };
   ctx.setLineDash([]); ctx.fillStyle = T.bg; ctx.fillRect(0, 0, Wd, Hd);
   // a right gutter carries the GLOBAL scale: a colour bar for the heatmap, a y axis for
@@ -664,17 +663,44 @@ function renderCentroid(ctx, Wd, Hd, k, j, rep, min, paper, scale, stIn) {
     for (const v of [hi, 0, lo]) { const y = sy(v); ctx.beginPath(); ctx.moveTo(padL - 4 * S, y + 0.5); ctx.lineTo(padL - 0.5, y + 0.5); ctx.stroke(); ctx.fillText(v.toFixed(1), padL - 6 * S, y + 3 * S); }
     ctx.save(); ctx.translate(9 * S, padT + h / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = "center"; ctx.fillText(unit, 0, 0); ctx.restore();
     ctx.strokeStyle = T.grid; ctx.beginPath(); ctx.moveTo(padL, sy(0) + 0.5); ctx.lineTo(padL + w, sy(0) + 0.5); ctx.stroke();
+    // ONE TRACE PER BAND. The highest band carries the cluster colour - it is the one
+    // that matches the dots on the brain - and any band below it is grey, so it reads as
+    // the second trace rather than as another cluster. With nb === 1 (HFA) this is
+    // exactly what it always was: one cluster-coloured line and its band.
+    const LOW = "#8d969e", LOW_FILL = "#b9c0c6";
+    const bandCol = b => (b === nb - 1 ? col : LOW);
     for (let c = 0; c < nc; c++) {
       const x0 = padL + w * c / nc, xw = w / nc, xt = t => x0 + xw * t / (nt - 1);
-      if (st.sd) {                                                // +/-1 SD, weighted - the line only
-        ctx.fillStyle = col; ctx.globalAlpha = 0.22; ctx.beginPath();
-        for (let t = 0; t < nt; t++) { const f = c * nt + t; if (!t) ctx.moveTo(xt(t), sy(st.mean[f] + st.sd[f])); else ctx.lineTo(xt(t), sy(st.mean[f] + st.sd[f])); }
-        for (let t = nt - 1; t >= 0; t--) { const f = c * nt + t; ctx.lineTo(xt(t), sy(st.mean[f] - st.sd[f])); }
+      // every SD band first, then every line, so no fill is drawn over a line
+      if (st.sd) for (let b = 0; b < nb; b++) {
+        const f0 = (c * nb + b) * nt;
+        ctx.fillStyle = b === nb - 1 ? col : LOW_FILL;
+        ctx.globalAlpha = b === nb - 1 ? 0.22 : 0.3; ctx.beginPath();
+        for (let t = 0; t < nt; t++) { const f = f0 + t; if (!t) ctx.moveTo(xt(t), sy(st.mean[f] + st.sd[f])); else ctx.lineTo(xt(t), sy(st.mean[f] + st.sd[f])); }
+        for (let t = nt - 1; t >= 0; t--) { const f = f0 + t; ctx.lineTo(xt(t), sy(st.mean[f] - st.sd[f])); }
         ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1;
       }
-      ctx.strokeStyle = col; ctx.lineWidth = 1.4 * S; ctx.beginPath();
-      for (let t = 0; t < nt; t++) { const f = c * nt + t; if (!t) ctx.moveTo(xt(t), sy(st.mean[f])); else ctx.lineTo(xt(t), sy(st.mean[f])); }
-      ctx.stroke();
+      for (let b = 0; b < nb; b++) {
+        const f0 = (c * nb + b) * nt;
+        ctx.strokeStyle = bandCol(b); ctx.lineWidth = (b === nb - 1 ? 1.4 : 1.1) * S;
+        ctx.beginPath();
+        for (let t = 0; t < nt; t++) { const f = f0 + t; if (!t) ctx.moveTo(xt(t), sy(st.mean[f])); else ctx.lineTo(xt(t), sy(st.mean[f])); }
+        ctx.stroke();
+      }
+    }
+    // which line is which. Only with more than one band - the single HFA line needs no
+    // legend, and the panel is small enough that an unnecessary one costs real space.
+    if (nb > 1) {
+      const labs = g.bands || [], lh = (nb * 10 + 5) * S;
+      const lx = padL + 5 * S, ly = padT + 4 * S, lw = 52 * S;
+      ctx.fillStyle = "rgba(255,255,255,.8)"; ctx.fillRect(lx, ly, lw, lh);
+      ctx.textAlign = "left"; ctx.font = font(8);
+      for (let b = nb - 1, q = 0; b >= 0; b--, q++) {
+        const yy = ly + 4 * S + q * 10 * S;
+        ctx.fillStyle = bandCol(b); ctx.fillRect(lx + 4 * S, yy + 2 * S, 8 * S, 3 * S);
+        ctx.fillStyle = T.muted;
+        ctx.fillText(labs[b] || `band ${b + 1}`, lx + 15 * S, yy + 6 * S);
+      }
     }
   }
   for (let c = 0; c < nc; c++) {                                  // blocks and the GO cue at 50%
@@ -719,7 +745,7 @@ function drawCentroid() {
   $("cpTitle").textContent = `#${pos || "?"} · Cluster ${j} · ` + (st.weighted
     ? `${st.nPass} contacts at loading ≥ ${state.minLoad.toFixed(2)} · ${st.nMembers} argmax members`
     : `n = ${st.nMembers} members`) + (cross ? ` · on ${REP_LABEL[CEN_REP]}` : "");
-  const sdTxt = g.nb === 1 ? " · band = ±1 SD" + (paper ? "" : " (weighted)") : "";
+  const sdTxt = g.nb <= 2 ? " · band = ±1 SD" + (paper ? "" : " (weighted)") : "";
   $("cpNote").textContent = (paper
     ? "paper definition: mean over argmax members, unweighted — FIG 1's centroid"
     : CEN.W ? "loading-weighted mean over every electrode with loading ≥ the minimum"
@@ -4635,7 +4661,9 @@ function u2Samples() {
                : "members of a hard partition \u00b7 no loadings to order by";
   const scTxt = own
     ? `own scale, \u00b1${own.vlim.toFixed(1)} ${g.unit} \u2014 readable per electrode, NOT comparable with the centroid`
-    : `the shared \u00b1${CEN_VLIM} ${g.unit} scale \u2014 the same on every feature set, `
+    // a line panel is bounded by CEN_YLIM, a heatmap by CEN_VLIM - say the one the
+    // reader is actually looking at
+    : `the shared \u00b1${g.nb <= 2 ? CEN_YLIM : CEN_VLIM} ${g.unit} scale \u2014 the same on every feature set, `
       + `so this panel, the centroid above it and any other run are comparable by eye`;
   S.innerHTML =
     `<div class="sh">

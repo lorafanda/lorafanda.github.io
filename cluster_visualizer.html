@@ -156,6 +156,44 @@
   #u2gg .miss { display:grid; place-items:center; height:118px; color:var(--muted);
                 font-size:11px; text-align:center; padding:8px; }
 
+  /* THE SAMPLES BEHIND A CLUSTER (2026-10-15). Double-click a grid panel, or press v,
+     and the overlay splits in two: the panels compress into the top half and every
+     electrode that cluster contains is drawn underneath as its own concatenated ERSP,
+     on the same global colour scale the centroid above it uses. The question it answers
+     is whether a centroid is a response TYPE or the average of unlike things - which no
+     centroid, however well drawn, can show. The grid stays on screen on purpose: the
+     samples are only readable against the mean they came from. */
+  #u2grid.sampon { grid-template-rows:auto minmax(0, 1fr) minmax(0, 1fr); }
+  #u2samp { display:none; overflow:auto; margin-top:9px; padding-top:1px;
+            border-top:1px solid rgba(255,255,255,.16); }
+  #u2grid.sampon #u2samp { display:block; }
+  /* the header scrolls with nothing - it carries the counts and the two definitions */
+  #u2samp .sh { position:sticky; top:0; z-index:2; display:flex; align-items:baseline;
+                gap:8px; flex-wrap:wrap; padding:8px 0 8px; background:rgba(0,0,0,.94); }
+  #u2samp .sh .t { font-size:12.5px; font-weight:600; }
+  #u2samp .sh .s { font-size:10.5px; color:var(--muted); }
+  #u2samp .sh .sp { margin-left:auto; }
+  #u2samp .sh button { background:#15161b; color:var(--muted); font:inherit; font-size:10.5px;
+                       border:1px solid rgba(255,255,255,.14); border-radius:6px;
+                       padding:3px 8px; cursor:pointer; }
+  #u2samp .sh button:hover { color:var(--fg); border-color:var(--accent); }
+  #u2samp .sh button.on { color:var(--fg); border-color:var(--accent); background:#1d2230; }
+  #u2samp .rows { display:grid; gap:7px; align-content:start; padding-bottom:10px;
+                  grid-template-columns:repeat(auto-fill, minmax(188px, 1fr)); }
+  #u2samp .r { border-radius:7px; overflow:hidden; background:#000;
+               border:1px solid rgba(255,255,255,.10); border-left:3px solid var(--c); }
+  /* a SOLID left edge is an argmax member, a DASHED one an electrode that only clears
+     the loading minimum - the difference the two definitions turn on, per row */
+  #u2samp .r.weak { border-left-style:dashed; }
+  #u2samp .r canvas { display:block; width:100%; height:auto; background:#ffffff; }
+  #u2samp .r .c { display:flex; align-items:center; gap:5px; padding:3px 6px 4px;
+                  font-size:10px; border-top:1px solid rgba(255,255,255,.07); }
+  #u2samp .r .c b { font-weight:600; overflow:hidden; text-overflow:ellipsis;
+                    white-space:nowrap; }
+  #u2samp .r .c .lab { color:var(--muted); margin-left:auto; flex:none;
+                       font-variant-numeric:tabular-nums; }
+  #u2samp .note { color:var(--muted); font-size:11px; padding:10px 2px 14px; }
+
   /* ON A PHONE the panel is a sheet that opens upward from a pill at the bottom left,
      closed until tapped, so the brain has the screen and the pill is never over it. The
      centroid sits above the pill at the full width; in the grid it steps aside (the
@@ -178,6 +216,7 @@
     body #hint { display:none; }
     #u2grid { padding:10px 8px 54px; }
     #u2gg { grid-template-columns:repeat(auto-fill, minmax(160px, 1fr)); gap:8px; }
+    #u2samp .rows { grid-template-columns:repeat(auto-fill, minmax(148px, 1fr)); gap:6px; }
     #u2cens .u2cen { width:min(276px, calc(100vw - 20px)); }
     #u2cens .u2cen canvas { width:100%; height:auto; }
   }
@@ -357,7 +396,7 @@
   </div>
 
   <div id="prov">—</div>
-  <div id="hint">drag rotate · scroll zoom · <b>←&nbsp;→</b> cluster · <b>↑&nbsp;↓</b> feature set · <b>1 2 3</b> algorithm · <b>g</b> grid · <b>o</b> overlay · <b>h</b> panels · <b>c</b> controls</div>
+  <div id="hint">drag rotate · scroll zoom · <b>←&nbsp;→</b> cluster · <b>↑&nbsp;↓</b> feature set · <b>1 2 3</b> algorithm · <b>g</b> grid · <b>o</b> overlay · <b>v</b> electrodes · <b>h</b> panels · <b>c</b> controls</div>
 
 <script>
 // SAFARI BEFORE 16.4 HAS NO DecompressionStream, and Niivue gunzips the GIfTI data
@@ -420,18 +459,18 @@ const REPORT_3D = true;
 // turns and the every-K brains only in the full mode (REPORT_3D = True in the generator)
 const REPORT_FULL = false;
 const PAPER_RUNS = [
-  "cnmf__concat_bands5z__20261012_190229",
-  "cnmf__concat_hg__20261012_184011",
-  "cnmf__concat_rawds__20261012_184855",
+  "cnmf__concat_bands2__20261013_212938",
   "cnmf__concat_bands5__20261012_185604",
-  "kmeans__concat_bands5z__20261012_182614",
-  "kmeans__concat_hg__20261012_182452",
-  "kmeans__concat_rawds__20261012_182520",
+  "cnmf__concat_bands15__20261013_212310",
+  "cnmf__concat_hfa__20261013_213504",
+  "kmeans__concat_bands2__20261013_183918",
   "kmeans__concat_bands5__20261012_182554",
-  "hierarchical__concat_bands5z__20261012_182536",
-  "hierarchical__concat_hg__20261012_182510",
-  "hierarchical__concat_rawds__20261012_182518",
-  "hierarchical__concat_bands5__20261012_182528"
+  "kmeans__concat_bands15__20261013_183844",
+  "kmeans__concat_hfa__20261013_183935",
+  "hierarchical__concat_bands2__20261013_183921",
+  "hierarchical__concat_bands5__20261012_182528",
+  "hierarchical__concat_bands15__20261013_183911",
+  "hierarchical__concat_hfa__20261013_183928"
 ];
 let ORDER = { runs: {} };
 // ---- the live centroid (cluster_visualizer) ---------------------------------------
@@ -444,8 +483,13 @@ let ORDER = { runs: {} };
 // the single-band HFA line only; the band heatmaps show the mean. Every scale is GLOBAL
 // - the same for every cluster of a run at a K - and labelled with its unit.
 const CENTROIDS = REPO + "02_FBM_Clustering/outputs/clustering/paper_web/centroids/";
-const REP_LABEL = { concat_bands5z: "5 bands, z-scored", concat_hg: "HFA (70-150 Hz)",
-                    concat_rawds: "15 bands", concat_bands5: "5 bands" };
+// The 2026-10-13 family and the sets that came before it. A name here is what the
+// "shown on" selector and every grid caption say, so the two 15-band sets and the two
+// HFA sets have to be distinguishable on sight.
+const REP_LABEL = { concat_bands2: "2 bands (30-50, 70-150 Hz)",
+                    concat_bands5: "5 bands (1-170 Hz in 5 bands)",
+                    concat_bands15: "15 bands (1-170 Hz in 15 bands)",
+                    concat_hfa: "HFA only (70-150 Hz)" };
 let CEN = null;                 // {meta, W: Uint16Array|null} for RUN0
 let CEN_INDEX = null;           // index.json: geometry per feature set, the alignment proof
 let CEN_REP = null;             // the feature set the centroid is drawn ON
@@ -485,7 +529,7 @@ async function loadCentroids(runId) {
   drawCentroid();
 }
 // the representations a report's K rows show, in this order
-const KROW_REPS = ["concat_hg", "concat_bands5z", "concat_rawds"];
+const KROW_REPS = ["concat_bands15", "concat_bands5", "concat_hfa"];
 function cenGeom(rep) {
   const r = rep || CEN_REP, g = CEN_INDEX.feature_sets[r];
   if (!g) return null;
@@ -560,9 +604,12 @@ function rdbu_r(t) {
 // the panel calls it on its canvas, the report on offscreen canvases. `min` is the
 // minimum loading applied, `paper` selects FIG 1's argmax-member mean, `scale` sizes
 // text and line widths (1 at the panel's 380 px). Returns the stats drawn, or null.
-function renderCentroid(ctx, Wd, Hd, k, j, rep, min, paper, scale) {
-  const st = cenMean(k, j, min, paper, rep); if (!st) return null;
-  const g = st.g, lim = cenLimits(k, g.rep), nc = g.nc, nb = g.nb, nt = g.nt, ncol = nc * nt, col = clusterCSS(j);
+// `stIn` draws a stats object the caller already built - cenRow()'s single electrode
+// for the samples strip - instead of the weighted mean, and its `lim` overrides the
+// global colour limits, which are the limits of MEANS and saturate on one electrode.
+function renderCentroid(ctx, Wd, Hd, k, j, rep, min, paper, scale, stIn) {
+  const st = stIn || cenMean(k, j, min, paper, rep); if (!st) return null;
+  const g = st.g, lim = st.lim || cenLimits(k, g.rep), nc = g.nc, nb = g.nb, nt = g.nt, ncol = nc * nt, col = clusterCSS(j);
   const S = scale || 1, font = px => `${Math.round(px * S)}px sans-serif`;
   // everything on white, as the figures are: a dark ground around a heatmap read as a
   // black frame on the report's white page. The heatmap gets a thin grey frame instead,
@@ -3668,11 +3715,12 @@ const U2_MIN_LOAD_MS = 2000;
 let U2_HOLD = false, U2_HIDE_PENDING = false;   // boot(): the splash is up; a hide was asked for meanwhile
 const UI2 = { on:false, mode:"single", sel:new Set(), gridBy:"clusters",
               busy:false, gridOpen:false, seq:0,
+              samp:null,            // {cid, runId, by, scale}: the electrodes under the grid
               cenPos:new Map() };   // cluster -> where its overlay card was dragged
 const U2_METHODS = [["cnmf", "cNMF"], ["kmeans", "k-means"], ["hierarchical", "Ward"]];
 const U2_MLABEL  = { cnmf:"cNMF", kmeans:"k-means", hierarchical:"Ward" };
-const U2_FSETS   = [["concat_bands5z", "5 bands z"], ["concat_hg", "HFA"],
-                    ["concat_rawds", "15 bands"], ["concat_bands5", "5 bands"]];
+const U2_FSETS   = [["concat_bands2", "2 bands"], ["concat_bands5", "5 bands"],
+                    ["concat_bands15", "15 bands"], ["concat_hfa", "HFA"]];
 const u2esc = t => String(t == null ? "" : t)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const u2Split = id => { const p = String(id).split("__"); return { method:p[0], fset:p[1] }; };
@@ -3924,7 +3972,7 @@ function u2Build() {
   document.querySelectorAll("#ctlBody .grp").forEach(g => { g.style.display = "none"; });
   const g = document.createElement("div");
   g.id = "u2grid";
-  g.innerHTML = `<div id="u2gh"></div><div id="u2gg"></div>`;
+  g.innerHTML = `<div id="u2gh"></div><div id="u2gg"></div><div id="u2samp"></div>`;
   document.body.appendChild(g);
   const c = document.createElement("div");
   c.id = "u2cens";
@@ -3943,8 +3991,10 @@ function u2Reps() {
   if (!CEN || !CEN_INDEX) { box.innerHTML = ""; $("u2cennote").textContent = ""; return; }
   const own = CEN.meta.feature_set;
   const have = Object.keys(CEN_INDEX.feature_sets).filter(f => f === own || CEN_INDEX.rows_aligned);
-  const order = U2_FSETS.map(x => x[0]).filter(f => have.includes(f))
-    .concat(have.filter(f => !U2_FSETS.some(x => x[0] === f)));
+  // the listed sets and nothing else. This used to append every set the centroid
+  // bundle happened to carry but U2_FSETS did not list, unlabelled, which is how
+  // raw "concat_b..." keys ended up as chips next to the named ones.
+  const order = U2_FSETS.map(x => x[0]).filter(f => have.includes(f));
   box.innerHTML = order.map(f => {
     const short = (U2_FSETS.find(x => x[0] === f) || [f, f])[1];
     return `<button type="button" class="u2rp${f === CEN_REP ? " on" : ""}`
@@ -4355,6 +4405,7 @@ function u2MinLoad() {
 }
 
 function u2CloseGrid() {
+  u2SampClose();                     // the strip is part of the grid, not of the run
   UI2.gridOpen = false;
   const g = $("u2grid"); if (g) g.classList.remove("on");
   document.body.classList.remove("u2gridon");
@@ -4423,16 +4474,29 @@ async function u2Grid() {
         f.onmouseenter = () => u2Preview(Number(f.dataset.cluster));
         f.onmouseleave = () => drawCentroid();
       }
-      f.onclick = async () => {
-        const runId = f.dataset.run, cid = Number(f.dataset.cluster);
-        if (!runId) return;
-        UI2.mode = "single"; u2CloseGrid();
-        if (runId !== RUN0.id) await u2GoRun(runId);
-        else {
-          const d = u2Defs().find(x => Number(x.cluster) === cid);
-          if (d) { UI2.sel = new Set([cid]); u2Pick(d.id); }
-        }
-        updateElectrodes(); u2Sync();
+      // ONE click opens the cluster, TWO show the electrodes it contains. The open
+      // waits out the double-click window: fired at once it closes the grid before
+      // the second click can land, and the strip belongs to the grid.
+      let hold = null;
+      f.onclick = () => {
+        if (hold) return;
+        hold = setTimeout(async () => {
+          hold = null;
+          const runId = f.dataset.run, cid = Number(f.dataset.cluster);
+          if (!runId) return;
+          UI2.mode = "single"; u2CloseGrid();
+          if (runId !== RUN0.id) await u2GoRun(runId);
+          else {
+            const d = u2Defs().find(x => Number(x.cluster) === cid);
+            if (d) { UI2.sel = new Set([cid]); u2Pick(d.id); }
+          }
+          updateElectrodes(); u2Sync();
+        }, 240);
+      };
+      f.ondblclick = () => {
+        if (hold) { clearTimeout(hold); hold = null; }
+        if (!f.dataset.run || f.dataset.cluster === undefined) return;
+        u2SampToggle(Number(f.dataset.cluster), f.dataset.run);
       };
     });
   } catch (e) {
@@ -4441,7 +4505,174 @@ async function u2Grid() {
   } finally {
     u2Lock(false);
     updateElectrodes();                 // the live view comes back exactly as it was
+    // K moving under the strip is fine - the same cluster at another cut. The RUN
+    // moving is not: cluster 3 of k-means is not cluster 3 of cNMF, and re-aiming
+    // the id would draw different electrodes under an unchanged heading.
+    if (UI2.samp) { if (UI2.samp.runId !== RUN0.id) u2SampClose(); else u2Samples(); }
   }
+}
+
+// ── the electrodes behind a cluster ──────────────────────────────────────────
+// A centroid is a mean, and the mean of unlike things looks exactly like a type. These
+// panels draw the electrodes THEMSELVES - one small concatenated ERSP per electrode -
+// underneath the grid, so the mean and the things it is a mean of are on screen at the
+// same time. Double-click a panel, or press v. Nothing is fetched: x_<fset>.bin IS the
+// matrix the centroid is averaged from, and cenWeights() already says which rows belong.
+const U2_SW = 300, U2_SH = 132;        // the backing store of one sample canvas
+let _u2SampObs = null;                 // panels draw as they scroll in, not all at once
+
+// Row i of the feature matrix, as the stats object renderCentroid draws. No SD: one
+// electrode has no spread.
+function cenRow(i, rep) {
+  const g = cenGeom(rep); if (!g) return null;
+  const X = _cenX.get(g.rep);
+  if (!X || X.length !== g.n * g.F || i < 0 || i >= g.n) return null;
+  const s = CEN_INDEX.x_scale, mean = new Float32Array(g.F), b = i * g.F;
+  for (let f = 0; f < g.F; f++) mean[f] = X[b + f] * s;
+  return { mean, sd:null, empty:false, g, w:null, nMembers:1, nPass:1, weighted:false };
+}
+// "PAT_3066|HAD1" per row, if the bundle published the electrode order it proves
+// identical across runs. A bundle from before row_keys was added still works - it just
+// cannot put a name on a panel, and says "row 142" instead.
+function cenRowName(i) {
+  const keys = CEN_INDEX && CEN_INDEX.row_keys;
+  if (!keys || !keys[i]) return { pid:"", el:"row " + i };
+  const p = String(keys[i]).split("|");
+  return { pid:p[0] || "", el:p[1] || ("row " + i) };
+}
+// THE SAMPLES' OWN SCALE, for the "own scale" button. The centroid's limits are the 99th
+// percentile of |cluster MEAN|, and a single electrode is several times noisier than any
+// mean of them, so on the shared scale most panels saturate. Same rule, measured on the
+// rows actually shown: p99 of |value| for the heatmap, p0.5/p99.5 for the line. Every
+// third feature is enough to put a percentile on 400 x 1350 numbers.
+function u2SampLimits(rows, g) {
+  const X = _cenX.get(g.rep), s = CEN_INDEX.x_scale, v = [];
+  for (const r of rows) { const b = r.i * g.F; for (let f = 0; f < g.F; f += 3) v.push(X[b + f] * s); }
+  if (!v.length) return null;
+  const abs = v.map(Math.abs).sort((a, b) => a - b), srt = v.slice().sort((a, b) => a - b);
+  const q = (arr, p) => arr[Math.min(arr.length - 1, Math.max(0, Math.floor(p * arr.length)))];
+  const vlim = q(abs, 0.99) || 1, lo = q(srt, 0.005), hi = q(srt, 0.995);
+  return { vlim, ylo:Math.min(lo, 0) * 1.06, yhi:Math.max(hi, 0) * 1.06 };
+}
+
+function u2SampClose() {
+  UI2.samp = null;
+  if (_u2SampObs) { _u2SampObs.disconnect(); _u2SampObs = null; }
+  const g = $("u2grid"); if (g) g.classList.remove("sampon");
+  const s = $("u2samp"); if (s) s.innerHTML = "";
+}
+// v and double-click are the same toggle; asking again for the cluster already open
+// closes it. The membership definition starts as the one the centroid panel is showing,
+// so the strip underneath is the mean above broken into its parts and not another cut.
+function u2SampToggle(cid, runId) {
+  const id = runId || (RUN0 && RUN0.id);
+  if (cid === undefined || Number.isNaN(Number(cid))) return;
+  if (UI2.samp && UI2.samp.cid === Number(cid) && UI2.samp.runId === id) return u2SampClose();
+  const paper = !!(($("cpPaper") || {}).checked);
+  UI2.samp = { cid:Number(cid), runId:id, scale:"centroid",
+               by:(paper || !(CEN && CEN.W)) ? "argmax" : "load" };
+  u2Samples();
+}
+
+function u2Samples() {
+  const S = $("u2samp"), G = $("u2grid");
+  if (!S || !G || !UI2.samp) return;
+  G.classList.add("sampon");
+  const note = t => { S.innerHTML = `<div class="note">${u2esc(t)}</div>`; };
+  const cid = UI2.samp.cid, k = Number(KSEL);
+  // the centroid bundle is loaded for ONE run at a time, so these can only ever be the
+  // open run's electrodes. The algorithm and feature-set grids show other runs' panels.
+  if (UI2.samp.runId !== (RUN0 && RUN0.id))
+    return note("that panel belongs to another run \u2014 open it (\u2193 \u2191 or 1 2 3), then press v");
+  if (!CEN || !CEN_INDEX) return note("no centroid bundle for this run");
+  if (!CEN.meta.ks.includes(k)) return note(`this run has no cut at K=${k}`);
+  const g = cenGeom(CEN_REP); if (!g) return note("no geometry for " + CEN_REP);
+  if (!_cenX.get(g.rep)) {                       // the matrix for a cross-run "shown on"
+    cenX(g.rep).then(() => { if (UI2.samp) u2Samples(); });
+    return note("loading the electrode matrix\u2026");
+  }
+  const lab = CEN.meta.labels[String(k)];
+  const r = cenWeights(k, cid, state.minLoad, false);
+  if (!r || !lab) return note("no membership at this K");
+  const weighted = r.weighted, byLoad = UI2.samp.by === "load" && weighted;
+  // WHICH ELECTRODES. "argmax" is the paper's definition - the ones whose largest
+  // loading is this cluster. "loading" is the panel's - every electrode at or over the
+  // minimum, which takes in electrodes that belong more to another cluster, and those
+  // are the ones worth looking at. Strongest loading first, so the top of the strip is
+  // the cluster at its purest and the bottom is where it frays.
+  // the RAW loading, not cenWeights's: that one is zeroed under the minimum, which is
+  // right for a weighted mean and wrong for a label - an argmax member just under the
+  // slider would read 0.00 and sort to the bottom of its own cluster. The minimum still
+  // decides which electrodes the loading view shows; it does not decide the number.
+  const woff = weighted ? CEN.meta.w_offsets[String(k)] : undefined;
+  const rawW = i => woff === undefined ? 0 : CEN.W[woff + i * k + cid] * CEN.meta.w_scale;
+  const rows = [];
+  for (let i = 0; i < g.n; i++) {
+    const isMem = lab[i] === cid;
+    if (byLoad ? !(r.w[i] > 0) : !isMem) continue;
+    rows.push({ i, w: weighted ? rawW(i) : 1, isMem });
+  }
+  rows.sort((a, b) => (b.w - a.w) || (a.i - b.i));
+  if (!rows.length) return note("no electrode in this cluster at that definition");
+  const own = UI2.samp.scale === "own" ? u2SampLimits(rows, g) : null;
+  const nm = (RUN && RUN.clusters) ? RUN.clusters.map(Number).indexOf(cid) + 1 : 0;
+  const defTxt = byLoad
+    ? `loading \u2265 ${state.minLoad.toFixed(2)} \u00b7 ${r.nMembers} of them are argmax members`
+    : weighted ? `argmax members \u00b7 ${r.nPass} clear loading ${state.minLoad.toFixed(2)}`
+               : "members of a hard partition \u00b7 no loadings to order by";
+  const scTxt = own
+    ? `own scale, \u00b1${own.vlim.toFixed(1)} ${g.unit} \u2014 readable per electrode, NOT comparable with the centroid`
+    : `the centroid's scale \u2014 comparable with the panel above, so single electrodes saturate`;
+  S.innerHTML =
+    `<div class="sh">
+       <div class="t">Cluster ${cid}${nm ? ` (#${nm})` : ""} \u00b7 ${rows.length} electrodes</div>
+       <div class="s">${u2esc(defTxt)} \u00b7 on ${u2esc(REP_LABEL[g.rep] || g.rep)} \u00b7 ${u2esc(scTxt)}</div>
+       <div class="sp"></div>
+       <button type="button" data-a="load"${weighted ? "" : " disabled"}>loading</button>
+       <button type="button" data-a="argmax">argmax</button>
+       <button type="button" data-a="scale">${own ? "centroid scale" : "own scale"}</button>
+       <button type="button" data-a="close">close \u2715</button>
+     </div><div class="rows">`
+    + rows.map(x => {
+        const n = cenRowName(x.i);
+        return `<div class="r${x.isMem ? "" : " weak"}" data-i="${x.i}" style="--c:${clusterCSS(cid)}"`
+             + ` title="${u2esc(n.pid + " " + n.el)}${weighted ? ` \u00b7 loading ${x.w.toFixed(3)}` : ""}`
+             + `${x.isMem ? " \u00b7 argmax member" : " \u00b7 argmax goes to another cluster"}">`
+             + `<canvas width="${U2_SW}" height="${U2_SH}"></canvas>`
+             + `<div class="c"><b>${u2esc(n.pid)}</b><span>${u2esc(n.el)}</span>`
+             + `<span class="lab">${weighted ? x.w.toFixed(2) : ""}</span></div></div>`;
+      }).join("")
+    + `</div>`;
+  S.querySelectorAll(".sh button[data-a]").forEach(b => {
+    b.classList.toggle("on", b.dataset.a === UI2.samp.by);
+    b.onclick = () => {
+      const a = b.dataset.a;
+      if (a === "close") return u2SampClose();
+      if (a === "scale") UI2.samp.scale = own ? "centroid" : "own";
+      else UI2.samp.by = a;
+      u2Samples();
+    };
+  });
+  S.scrollTop = 0;
+  // DRAWN AS THEY SCROLL IN. A cluster at K=6 can hold 400 electrodes, and 400 canvases
+  // drawn up front lock the tab for seconds and hold tens of MB of backing store. Each
+  // is drawn once, the first time it comes near the viewport, and then left alone.
+  if (_u2SampObs) _u2SampObs.disconnect();
+  _u2SampObs = new IntersectionObserver(es => {
+    for (const e of es) {
+      if (!e.isIntersecting) continue;
+      const el = e.target;
+      if (_u2SampObs) _u2SampObs.unobserve(el);
+      if (el.dataset.drawn) continue;
+      el.dataset.drawn = "1";
+      const cv = el.querySelector("canvas"), st = cenRow(Number(el.dataset.i), g.rep);
+      if (!cv || !st) continue;
+      if (own) st.lim = own;
+      renderCentroid(cv.getContext("2d"), cv.width, cv.height, k, cid, g.rep, 0, false,
+                     cv.width / 380, st);
+    }
+  }, { root:S, rootMargin:"320px 0px" });
+  S.querySelectorAll(".r").forEach(el => _u2SampObs.observe(el));
 }
 
 // ── keys ─────────────────────────────────────────────────────────────────────
@@ -4470,6 +4701,13 @@ function u2Keys(e) {
     u2SetMode(UI2.mode === "grid" ? "single" : "grid");
   } else if (e.key === "o") {
     u2SetMode(UI2.mode === "overlay" ? "single" : "overlay");
+  } else if (e.key === "v") {
+    // the electrodes behind the SELECTED panel. Only with the grid up: the strip
+    // sits under the grid, and under nothing it has nothing to be compared with.
+    if (!UI2.gridOpen) return;
+    const d = u2Defs()[u2Pos()];
+    if (!d || d.cluster === undefined) return;
+    u2SampToggle(d.cluster, RUN0.id);
   } else { return; }
   e.preventDefault();
 }

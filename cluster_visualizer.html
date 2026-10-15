@@ -162,7 +162,9 @@
      on the same global colour scale the centroid above it uses. The question it answers
      is whether a centroid is a response TYPE or the average of unlike things - which no
      centroid, however well drawn, can show. The grid stays on screen on purpose: the
-     samples are only readable against the mean they came from. */
+     samples are only readable against the mean they came from - and because that is
+     the reason, v opens the grid when it is closed (2026-10-16) instead of returning
+     early, which was indistinguishable from a broken key. */
   #u2grid.sampon { grid-template-rows:auto minmax(0, 1fr) minmax(0, 1fr); }
   #u2samp { display:none; overflow:auto; margin-top:9px; padding-top:1px;
             border-top:1px solid rgba(255,255,255,.16); }
@@ -486,6 +488,15 @@ const CENTROIDS = REPO + "02_FBM_Clustering/outputs/clustering/paper_web/centroi
 // The 2026-10-13 family and the sets that came before it. A name here is what the
 // "shown on" selector and every grid caption say, so the two 15-band sets and the two
 // HFA sets have to be distinguishable on sight.
+// ONE colour limit for every feature set, run and K, so any two heatmaps on the page
+// are comparable by eye. It used to be the 99th percentile of |cluster mean|, which
+// drifted per run and per set (+/-1.4, +/-1.8 ...) and, being a limit of MEANS, was far
+// too tight for single electrodes - the samples strip saturated almost everywhere.
+// +/-5 dB is ~p99.9 of |single electrode| on all four sets (measured 2026-10-16 over
+// the 1607-electrode cohort: p99.9 = 4.03 / 4.54 / 5.52 / 4.09 for bands2 / bands5 /
+// bands15 / hfa), so electrodes read properly and only the extreme tail clips. All
+// four sets are in dB, which is what makes one shared scale meaningful.
+const CEN_VLIM = 5;
 const REP_LABEL = { concat_bands2: "2 bands (30-50, 70-150 Hz)",
                     concat_bands5: "5 bands (1-170 Hz in 5 bands)",
                     concat_bands15: "15 bands (1-170 Hz in 15 bands)",
@@ -590,8 +601,10 @@ function cenLimits(k, rep) {
     }
   }
   vals.sort((a, b) => a - b);
-  const v = vals.length ? vals[Math.min(vals.length - 1, Math.floor(0.99 * vals.length))] : 1;
-  const lim = { vlim: v || 1, ylo: lo * 1.06, yhi: hi * 1.06 }; _cenLim.set(key, lim); return lim;
+  // vlim is CEN_VLIM for every run, set and K - see the constant. The LINE range stays
+  // measured: it draws mean +/- SD and a fixed range would clip the band.
+  const lim = { vlim: CEN_VLIM, ylo: lo * 1.06, yhi: hi * 1.06 };
+  _cenLim.set(key, lim); return lim;
 }
 // matplotlib RdBu, red to blue; the figures use RdBu_r, so t is flipped
 const RDBU = [[103,0,31],[178,24,43],[214,96,77],[244,165,130],[253,219,199],[247,247,247],[209,229,240],[146,197,222],[67,147,195],[33,102,172],[5,48,97]];
@@ -4622,7 +4635,8 @@ function u2Samples() {
                : "members of a hard partition \u00b7 no loadings to order by";
   const scTxt = own
     ? `own scale, \u00b1${own.vlim.toFixed(1)} ${g.unit} \u2014 readable per electrode, NOT comparable with the centroid`
-    : `the centroid's scale \u2014 comparable with the panel above, so single electrodes saturate`;
+    : `the shared \u00b1${CEN_VLIM} ${g.unit} scale \u2014 the same on every feature set, `
+      + `so this panel, the centroid above it and any other run are comparable by eye`;
   S.innerHTML =
     `<div class="sh">
        <div class="t">Cluster ${cid}${nm ? ` (#${nm})` : ""} \u00b7 ${rows.length} electrodes</div>
@@ -4702,11 +4716,15 @@ function u2Keys(e) {
   } else if (e.key === "o") {
     u2SetMode(UI2.mode === "overlay" ? "single" : "overlay");
   } else if (e.key === "v") {
-    // the electrodes behind the SELECTED panel. Only with the grid up: the strip
-    // sits under the grid, and under nothing it has nothing to be compared with.
-    if (!UI2.gridOpen) return;
+    // the electrodes behind the SELECTED panel. The strip sits under the grid and
+    // is only readable against the means it came from - so rather than do nothing
+    // with the grid shut (which read as a dead key), v opens the grid itself.
     const d = u2Defs()[u2Pos()];
     if (!d || d.cluster === undefined) return;
+    if (!UI2.gridOpen) {
+      u2SetMode("grid");
+      if (!UI2.gridOpen) return;   // u2Grid() bails while a capture is in flight;
+    }                              // never leave the strip under no grid
     u2SampToggle(d.cluster, RUN0.id);
   } else { return; }
   e.preventDefault();

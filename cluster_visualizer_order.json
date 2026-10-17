@@ -1,5 +1,5 @@
 {
- "generated": "2026-10-16",
+ "generated": "2026-10-17",
  "reference": "cnmf / concat_bands5 - the figures' matching reference (P2.MATCH_REF_FSET); the reference itself is ordered by cross-condition similarity, as in FIG 1",
  "paper_k": 8,
  "sweep_ks": [
@@ -1054,7 +1054,7 @@
    "feature_set": "concat_bands2"
   },
   "cnmf__concat_bands5__20261012_185604": {
-   "track_label": "Convex NMF 5-band - graded (argmax)",
+   "track_label": "Convex NMF \u00b7 5 bands (v16)",
    "run": "20261012_185604",
    "method": "cnmf",
    "feature_set": "concat_bands5"
@@ -1078,7 +1078,7 @@
    "feature_set": "concat_bands2"
   },
   "kmeans__concat_bands5__20261012_182554": {
-   "track_label": "K-means \u00b7 concat 5-band",
+   "track_label": "K-means \u00b7 5 bands (v16)",
    "run": "20261012_182554",
    "method": "kmeans",
    "feature_set": "concat_bands5"
@@ -1102,7 +1102,7 @@
    "feature_set": "concat_bands2"
   },
   "hierarchical__concat_bands5__20261012_182528": {
-   "track_label": "Ward \u00b7 concat 5-band",
+   "track_label": "Ward \u00b7 5 bands (v16)",
    "run": "20261012_182528",
    "method": "hierarchical",
    "feature_set": "concat_bands5"

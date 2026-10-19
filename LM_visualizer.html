@@ -1390,8 +1390,8 @@ function gateCanvas(c, kind) { const d = gateTileDims(), cv = document.createEle
 function gateFrame(cv) { const d = gateTileDims(), g = cv.getContext("2d"); cv.width = d.w; cv.height = d.hh; g.fillStyle = "#f4f6f8"; g.fillRect(0, 0, cv.width, cv.height); return [g, d]; }
 function gateNoFile(g, cv, msg) { g.fillStyle = "#9aa0aa"; g.font = "10px sans-serif"; g.textAlign = "center"; g.fillText(msg, cv.width/2, cv.height/2 + 3); }
 function gateMidLine(g, x0, bw, h) { g.strokeStyle = "#1b232c"; g.lineWidth = 1; g.setLineDash([2, 2]); g.beginPath(); g.moveTo(x0 + bw/2, 0); g.lineTo(x0 + bw/2, h); g.stroke(); g.setLineDash([]); }
-// the full tile: the review tile, the bins above the threshold outlined green (below it blue in the
-// "below" / "max" modes), a green bar over the condition carrying the score
+// the full tile: the review tile, the bins above the threshold outlined bright green and the bins
+// below the negative one bright yellow (in every score mode), a green bar over the carrying condition
 async function gateDrawTile(cv, c) {
   const a = await rvErsp(c.i), m = RV.man, [g, d] = gateFrame(cv);
   if (!a) { gateNoFile(g, cv, "no ERSP file"); return; }
@@ -1400,12 +1400,12 @@ async function gateDrawTile(cv, c) {
     if (!blk) { g.fillStyle = "#e6e9ee"; g.fillRect(x0, 0, d.bw, d.h); return; }
     g.imageSmoothingEnabled = true; g.drawImage(blk, x0, 0, d.bw, d.h);
     const th = gateThr(c, cond), ab = new Uint8Array(nf * nt);
-    for (let f = 0; f < nf; f++) for (let t = 0; t < nt; t++) { const b = a[(kk*nf + f)*nt + t]; if (!b) continue; const v = vmin + (b - 1) / 254 * span; ab[f*nt + t] = v > th.up ? 1 : (GT.mode !== "pos" && v < th.dn ? 2 : 0); }
+    for (let f = 0; f < nf; f++) for (let t = 0; t < nt; t++) { const b = a[(kk*nf + f)*nt + t]; if (!b) continue; const v = vmin + (b - 1) / 254 * span; ab[f*nt + t] = v > th.up ? 1 : (v < th.dn ? 2 : 0); }
     const ov = document.createElement("canvas"); ov.width = nt; ov.height = nf; const og = ov.getContext("2d"), im = og.createImageData(nt, nf), px = im.data; let any = false;
     for (let f = 0; f < nf; f++) for (let t = 0; t < nt; t++) { const s = ab[f*nt + t]; if (!s) continue;
       const edge = t === 0 || t === nt-1 || f === 0 || f === nf-1 || ab[f*nt + t-1] !== s || ab[f*nt + t+1] !== s || ab[(f-1)*nt + t] !== s || ab[(f+1)*nt + t] !== s;
       if (!edge) continue; const o = ((nf - 1 - f)*nt + t)*4;
-      if (s === 1) { px[o] = 25; px[o+1] = 255; px[o+2] = 106; } else { px[o] = 40; px[o+1] = 120; px[o+2] = 255; } px[o+3] = 255; any = true; }
+      if (s === 1) { px[o] = 25; px[o+1] = 255; px[o+2] = 106; } else { px[o] = 255; px[o+1] = 238; px[o+2] = 0; } px[o+3] = 255; any = true; }
     if (any) { og.putImageData(im, 0, 0); g.imageSmoothingEnabled = false; g.drawImage(ov, x0, 0, d.bw, d.h); }
     gateMidLine(g, x0, d.bw, d.h);
     if (row && row.best === cond) { g.fillStyle = "#19ff6a"; g.fillRect(x0, 0, d.bw, 3); } });

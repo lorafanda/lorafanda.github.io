@@ -149,6 +149,11 @@
   #gateBand .thumbs span { display:block; font-size:10px; color:var(--muted); text-align:center; }
   #gateHist { flex:0 0 150px; width:100%; height:150px; display:block; background:#0d1014; border-radius:8px; cursor:crosshair; }
   #gateNote { color:var(--muted); font-weight:400; font-size:11px; margin-left:auto; }
+  #gateEq { font-size:11px; line-height:1.45; color:var(--fg); opacity:.9; white-space:normal; }
+  #gateEq b { font-weight:600; color:var(--accent); }
+  #gate h3 .bnd { gap:3px; }
+  #gate h3 .bnd input[type=number] { width:52px; }
+  #gate h3 .bnd .pm { font-weight:700; color:var(--fg); }
   #review { top:auto; left:14px; right:492px; bottom:14px; height:calc(var(--rvh) - 28px);
             display:none; overflow:auto; padding:10px 12px; }
   #review.on { display:block; }
@@ -361,14 +366,17 @@
     <h3>Gate
       <span id="gatePats"><button id="gatePatBtn" title="which patients are in the window">patients &#9662;</button>
         <div id="gatePatList"><div style="margin-bottom:4px"><button id="gatePatAll">all</button> <button id="gatePatNone">none</button> <button id="gatePatCur" title="the patient of the review strip">current</button></div><div id="gatePatCbs"></div></div></span>
-      <label title="the share of a condition's bins above max(thr_pos, k x noise) (the gate's positive rule), below min(thr_neg, -k x noise) (its negative rule), or the larger of the two; a contact's score is its best condition's">score <select id="gateMode"><option value="pos">share above +thr</option><option value="neg">share below &minus;thr</option><option value="max">max of both</option></select></label>
-      <label title="a contact passes when its score reaches this share of its bins (the dataset gate: 2 % above, or 4 % below)">cut (% of bins) <input type="number" id="gateCut" step="0.1" min="0" max="100" value="2"></label>
-      <label title="the border band: the contacts within this distance of the cut, listed with their two halves"><input type="checkbox" id="gateBandOn" checked> border &plusmn; <input type="number" id="gateBandW" step="0.1" min="0" value="0.5" style="width:48px"> %</label>
-      <button id="gateGo" title="apply the cut and the band (or Enter in a box)">refresh</button>
+      <label class="bnd" title="the positive rule: a condition passes when its share of bins above thr+ lies in this range"><span class="pm">+</span> min <input type="number" id="gateLoPos" step="0.1" min="0" max="100" value="2"> max <input type="number" id="gateHiPos" step="0.1" min="0" max="100" value="100"> %</label>
+      <label class="bnd" title="the negative rule: a condition passes when its share of bins below thr&minus; lies in this range"><span class="pm">&minus;</span> min <input type="number" id="gateLoNeg" step="0.1" min="0" max="100" value="4"> max <input type="number" id="gateHiNeg" step="0.1" min="0" max="100" value="100"> %</label>
+      <label title="the border band: the contacts within this distance of the bound that decides them, listed with their two halves"><input type="checkbox" id="gateBandOn" checked> border &plusmn; <input type="number" id="gateBandW" step="0.1" min="0" value="0.5" style="width:48px"> %</label>
+      <button id="gateGo" title="apply the bounds and the band (or Enter in a box)">refresh</button>
+      <label title="weight of a bin in the shares, by its frequency row: none (the dataset gate), 1/(1 &minus; f/fmax) (the high rows count more), fmax/f (the low rows count more, equal weight per octave); weighted shares are computed here from the thumbnails">weight <select id="gateWeight"><option value="none">none</option><option value="high">1/(1 &minus; f/fmax)</option><option value="low">fmax/f</option></select></label>
+      <label title="which share the plots and the captions rank by: the share above thr+, the share below thr&minus;, or the larger of the two; a contact's score is its best condition's">plot score <select id="gateMode"><option value="pos">share above +thr</option><option value="neg">share below &minus;thr</option><option value="max">max of both</option></select></label>
       <label title="the bottom plot">plot <select id="gatePlot"><option value="hist">histogram</option><option value="percond">per condition</option><option value="noise">score vs noise</option><option value="rel">score vs reliability</option></select></label>
       <label>tile size <input type="range" id="gateScale" min="0.15" max="0.6" step="0.05" value="0.3" style="width:70px"></label>
       <span id="gateNote"></span>
     </h3>
+    <div id="gateEq"></div>
     <div id="gateCols">
       <div class="gcol"><h4 id="gateLeftHdr">not passed</h4><div class="gtiles" id="gateLeft"></div></div>
       <div class="gcol"><h4 id="gateRightHdr">passed</h4><div class="gtiles" id="gateRight"></div></div>
@@ -378,7 +386,7 @@
   </div>
 
   <div id="regionLegend" class="panel"></div>
-  <div id="hint">drag = rotate · scroll = zoom · click a dot = select · <b>h j k l</b> = hide controls / ERSP / info / regions · <b>r</b> = review (bottom strip; the brain turns to the contact you click) · <b>v</b> = gate window (passed | not passed, border band, score plots) · <b>space</b> = play · <b>↑ ↓</b> = contact · <b>← →</b> = shaft</div>
+  <div id="hint">drag = rotate · scroll = zoom · click a dot = select · <b>h j k l</b> = hide controls / ERSP / info / regions · <b>r</b> = review (bottom strip; the brain turns to the contact you click) · <b>v</b> = gate window (passed | not passed, bounds on both rules, border band, score plots) · <b>space</b> = play · <b>↑ ↓</b> = contact · <b>← →</b> = shaft</div>
 
 <script type="module">
 import { Niivue, NVMesh } from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
@@ -1341,13 +1349,17 @@ async function toggleReview(on) {
 // noise, the amplitude threshold max(thr_pos, noise_k x noise), the share of bins above it
 // (prop_pos) and below min(thr_neg, -noise_k x noise) (prop_neg); a bundle built before gets
 // both shares computed here from the thumbnails, at the fixed thresholds when it has no noise.
-// Score = the share above (the gate's positive rule), the share below (its negative rule) or
-// the larger of the two, of the contact's best condition; it passes when that reaches the cut.
-// Tiles outline the bins beyond the thresholds and bar the carrying condition; the bottom plot
-// is a histogram of the score, one per condition, or the score against the noise or the
-// split-half r; the border band lists the contacts within +-w of the cut with their two halves
-// (ersp_halves/, in the bundle since 2026-10-19).
-const GT = { on:false, pats:new Set(), cut:null, mode:"pos", plot:"hist", band:true, bandW:0.005, scale:0.3, sel:-1, rows:[], rowOf:new Map(), obs:null, seq:0, hcache:new Map(), _geom:[] };
+// A condition passes when its + share lies in [min+, max+] or its - share in [min-, max-]; a
+// contact passes when any condition does (the dataset gate: min+ 2 %, min- 4 %, no max). The
+// bins may be weighted by frequency row (none / 1/(1 - f/fmax) / fmax/f); weighted shares are
+// computed here from the thumbnails. The plots rank by one share (the "plot score": above,
+// below or the larger) of the contact's best condition. Tiles outline the bins beyond the
+// thresholds (green above, yellow below) and bar the condition carrying the score; the bottom
+// plot is a histogram of the score, one per condition, or the score against the noise or the
+// split-half r; the border band lists the contacts within +-w of the bound that decides them,
+// with their two halves (ersp_halves/, in the bundle since 2026-10-19).
+const GT = { on:false, pats:new Set(), lo:{ pos:null, neg:null }, hi:{ pos:1, neg:1 }, mode:"pos", weight:"none", plot:"hist", band:true, bandW:0.005, scale:0.3,
+             sel:-1, rows:[], rowOf:new Map(), obs:null, seq:0, hcache:new Map(), _geom:[], _w:{} };
 function gateDefaults() {
   const g = (RV.man && RV.man.gate) || {};
   return { thr_pos: g.thr_pos ?? 2.2, noise_k: g.noise_k ?? 2.0, min_prop_pos: g.min_prop_pos ?? 0.02, thr_neg: g.thr_neg ?? -3.0, min_prop_neg: g.min_prop_neg ?? 0.04 };
@@ -1359,29 +1371,48 @@ function gateThr(c, cond) {
   const dn = nz === nz ? Math.min(g.thr_neg, -g.noise_k * nz) : g.thr_neg;
   return { up, dn, noise: nz };
 }
-// shares of bins above / below per condition: the bundle's numbers, else from the thumbnail bytes
+// the weight of each frequency row: 1, 1/(1 - f/fmax) or fmax/f, with f normalised so neither end is infinite
+function gateWeights() {
+  const wm = GT.weight; if (GT._w[wm]) return GT._w[wm];
+  const nf = RV.man.n_freq, F = Array.isArray(RV.man.f_hz) && RV.man.f_hz.length === nf ? RV.man.f_hz : Array.from({ length: nf }, (_, i) => i);
+  const df = F.length > 1 ? F[1] - F[0] : 1, top = F[nf - 1] + df, w = new Float64Array(nf);
+  for (let i = 0; i < nf; i++) w[i] = wm === "high" ? 1 / (1 - F[i] / top) : wm === "low" ? top / (F[i] + df) : 1;
+  GT._w[wm] = w; return w;
+}
+// shares of bins above / below per condition: the bundle's numbers when unweighted, else from the thumbnail bytes
 async function gateProps(c) {
-  if (c._gp) return c._gp;
-  const pos = {}, neg = {}; let fromBundle = true;
-  for (const cond of BRAIN_CONDS) { const m = c.m && c.m[cond]; if (!m) continue;
+  const wm = GT.weight; c._gp = c._gp || {};
+  if (c._gp[wm]) return c._gp[wm];
+  const pos = {}, neg = {}; let fromBundle = wm === "none";
+  if (fromBundle) for (const cond of BRAIN_CONDS) { const m = c.m && c.m[cond]; if (!m) continue;
     if (m.prop_pos != null && m.prop_neg != null) { pos[cond] = m.prop_pos; neg[cond] = m.prop_neg; } else fromBundle = false; }
   if (!fromBundle) {
-    const a = await rvErsp(c.i), man = RV.man;
-    if (a) { const nf = man.n_freq, nt = man.n_time, vmin = man.vmin, span = man.vmax - man.vmin, N = nf * nt;
+    const a = await rvErsp(c.i), man = RV.man, w = gateWeights();
+    if (a) { const nf = man.n_freq, nt = man.n_time, vmin = man.vmin, span = man.vmax - man.vmin; let W = 0; for (let f = 0; f < nf; f++) W += w[f] * nt;
       for (const cond of BRAIN_CONDS) { const k = man.conditions.indexOf(cond); if (k < 0 || !(c.m && c.m[cond]) || pos[cond] != null) continue;
         const th = gateThr(c, cond); let up = 0, dn = 0;
-        for (let f = 0; f < nf; f++) for (let t = 0; t < nt; t++) { const b = a[(k*nf + f)*nt + t]; if (!b) continue; const v = vmin + (b - 1) / 254 * span; if (v > th.up) up++; else if (v < th.dn) dn++; }
-        pos[cond] = up / N; neg[cond] = dn / N; } }
+        for (let f = 0; f < nf; f++) { const wf = w[f], o = (k*nf + f)*nt; for (let t = 0; t < nt; t++) { const b = a[o + t]; if (!b) continue; const v = vmin + (b - 1) / 254 * span; if (v > th.up) up += wf; else if (v < th.dn) dn += wf; } }
+        pos[cond] = up / W; neg[cond] = dn / W; } }
   }
-  c._gp = { pos, neg }; c._gpFromBundle = fromBundle; return c._gp;
+  c._gp[wm] = { pos, neg, fromBundle }; return c._gp[wm];
 }
 const gateCondScore = (p, cond) => { const a = p.pos[cond], b = p.neg[cond]; if (GT.mode === "pos") return a; if (GT.mode === "neg") return b; return a === a && b === b ? Math.max(a, b) : (a === a ? a : b); };
-// one contact: its score, the condition carrying it, and the dataset gate's own verdicts
+// one contact: its plot score and the condition carrying it, the verdict under the bounds (per
+// condition and rule), the bound that decides it (for the border band), and the dataset gate's own verdict
 function gateRow(c, p) {
-  const g = gateDefaults(), sc = {}; let best = null, score = NaN;
-  for (const cond of BRAIN_CONDS) { if (p.pos[cond] == null) continue; const v = gateCondScore(p, cond); sc[cond] = v; if (v === v && !(v <= score)) { score = v; best = cond; } }
-  const posIn = BRAIN_CONDS.some(k => p.pos[k] >= g.min_prop_pos), negIn = BRAIN_CONDS.some(k => p.neg[k] >= g.min_prop_neg);
-  return { c, score, best, sc, p, posIn, negIn, gate: posIn || negIn };
+  const g = gateDefaults(), sc = {}, passC = {}; let best = null, score = NaN, pass = false, hp = null, hf = null;
+  for (const cond of BRAIN_CONDS) { if (p.pos[cond] == null) continue;
+    const v = gateCondScore(p, cond); sc[cond] = v; if (v === v && !(v <= score)) { score = v; best = cond; }
+    for (const r of ["pos", "neg"]) { const s = p[r][cond]; if (!(s === s)) continue; const lo = GT.lo[r], hi = GT.hi[r];
+      if (s >= lo && s <= hi) { passC[cond] = passC[cond] || {}; passC[cond][r] = true; pass = true; const d = Math.min(s - lo, hi - s);
+        if (!hp || d > hp.d) hp = { cond, r, bound: s - lo <= hi - s ? "min" : "max", d }; }
+      else { const d = s < lo ? lo - s : s - hi; if (!hf || d < hf.d) hf = { cond, r, bound: s < lo ? "min" : "max", d }; } } }
+  // the dataset gate itself: the bundle's unweighted numbers when present, else these shares
+  let posIn = false, negIn = false;
+  for (const cond of BRAIN_CONDS) { const m = c.m && c.m[cond]; if (!m) continue; const pp = m.prop_pos != null ? m.prop_pos : p.pos[cond], pn = m.prop_neg != null ? m.prop_neg : p.neg[cond];
+    if (pp >= g.min_prop_pos) posIn = true; if (pn >= g.min_prop_neg) negIn = true; }
+  const how = pass ? hp : hf;
+  return { c, score, best, sc, p, pass, passC, how, margin: how ? (pass ? how.d : -how.d) : NaN, posIn, negIn, gate: posIn || negIn };
 }
 function gateScope() { const list = []; for (const pid of GT.pats) for (const c of (RV.byPat.get(pid) || [])) if (c.status === "data" && c.file) list.push(c); return list; }
 function gateTileDims() { const s = GT.scale, bw = (CC.W - CC.padL - CC.padR - CC.gap*2) / 3 * s, h = (CC.H - CC.padT - CC.padB) * s, gap = CC.gap * s; return { bw, h, gap, w: Math.round(3 * bw + 2 * gap), hh: Math.round(h) }; }
@@ -1429,15 +1460,16 @@ async function gateDrawHalf(cv, c, half) {
     g.imageSmoothingEnabled = true; g.drawImage(blk, x0, 0, d.bw, d.h); gateMidLine(g, x0, d.bw, d.h); });
 }
 const gatePct = (v) => v != null && v === v ? (100 * v).toFixed(1) : "·";
+const gateSign = (r) => r === "pos" ? "⁺" : "⁻";
 function gateCaption(r) {
   const g = gateDefaults(), c = r.c;
-  const parts = BRAIN_CONDS.map(k => { const s = gatePct(r.sc[k]); return k === r.best ? `<span class="best">${s}</span>` : s; }).join(" / ");
-  const tip = BRAIN_CONDS.filter(k => r.p.pos[k] != null).map(k => { const m = c.m[k] || {}, th = gateThr(c, k), ok = m.gate != null ? m.gate : (r.p.pos[k] >= g.min_prop_pos || r.p.neg[k] >= g.min_prop_neg);
-    return `${k}: above ${gatePct(r.p.pos[k])} % (thr ${th.up.toFixed(2)} dB) · below ${gatePct(r.p.neg[k])} % (thr ${th.dn.toFixed(2)} dB)${th.noise === th.noise ? ` · noise ${th.noise.toFixed(2)} dB` : ""}${m.rel != null ? ` · split-half r ${m.rel}` : ""} · dataset gate ${ok ? "✓" : "✗"}`; }).join("\n");
-  const pass = r.score >= GT.cut; let badges = "";
+  const parts = BRAIN_CONDS.map(k => { const s = gatePct(r.sc[k]) + (r.passC[k] ? "✓" : ""); return k === r.best ? `<span class="best">${s}</span>` : s; }).join(" / ");
+  const tip = BRAIN_CONDS.filter(k => r.p.pos[k] != null).map(k => { const m = c.m[k] || {}, th = gateThr(c, k), pc = r.passC[k] || {};
+    return `${k}: above ${gatePct(r.p.pos[k])} %${pc.pos ? " ✓" : ""} (thr⁺ ${th.up.toFixed(2)} dB) · below ${gatePct(r.p.neg[k])} %${pc.neg ? " ✓" : ""} (thr⁻ ${th.dn.toFixed(2)} dB)${th.noise === th.noise ? ` · noise ${th.noise.toFixed(2)} dB` : ""}${m.rel != null ? ` · split-half r ${m.rel}` : ""}`; }).join("\n");
+  let badges = "";
   if (r.negIn) badges += `<span class="badge neg" title="in the dataset by the negative rule${r.posIn ? " and the positive one" : " only"} (share below ≥ ${(100*g.min_prop_neg).toFixed(0)} %)">neg${r.posIn ? "+pos" : " only"}</span>`;
-  if (pass !== r.gate) badges += `<span class="badge dis" title="the dataset gate (${(100*g.min_prop_pos).toFixed(0)} % above or ${(100*g.min_prop_neg).toFixed(0)} % below) says the opposite of this cut">gate ${r.gate ? "✓" : "✗"}</span>`;
-  return `<b>${_esc(c.patient)} · ${_esc(c.name)}</b> <span style="color:${pass ? "var(--sel)" : "#ff9c9c"}">${gatePct(r.score)} %</span>${badges}<span class="lab" title="${_esc(tip)}">${parts}</span>`;
+  if (r.pass !== r.gate) badges += `<span class="badge dis" title="the dataset gate (${(100*g.min_prop_pos).toFixed(0)} % above or ${(100*g.min_prop_neg).toFixed(0)} % below, unweighted, no max) says the opposite of these bounds">gate ${r.gate ? "✓" : "✗"}</span>`;
+  return `<b>${_esc(c.patient)} · ${_esc(c.name)}</b> <span style="color:${r.pass ? "var(--sel)" : "#ff9c9c"}">${gatePct(r.score)} %</span>${badges}<span class="lab" title="${_esc(tip)}">${parts}</span>`;
 }
 function gateTile(r) {
   const c = r.c, d = gateTileDims(), el = document.createElement("div"); el.className = "tile" + (c.i === GT.sel ? " sel" : ""); el.dataset.i = c.i;
@@ -1447,8 +1479,8 @@ function gateTile(r) {
 }
 function gateBandEntry(r) {
   const c = r.c, el = document.createElement("div"); el.className = "bent" + (c.i === GT.sel ? " sel" : ""); el.dataset.i = c.i;
-  const cap = document.createElement("div"); cap.className = "cap";
-  cap.innerHTML = gateCaption(r) + `<span class="lab">${r.score >= GT.cut ? "passed" : "not passed"} · ${(100 * (r.score - GT.cut)).toFixed(2)} % from the cut</span>`; el.appendChild(cap);
+  const cap = document.createElement("div"), h = r.how; cap.className = "cap";
+  cap.innerHTML = gateCaption(r) + `<span class="lab">${r.pass ? "passed" : "not passed"} · ${(100 * Math.abs(r.margin)).toFixed(2)} % ${r.pass ? "inside" : "outside"} ${h.bound}${gateSign(h.r)} (${h.cond})</span>`; el.appendChild(cap);
   const th = document.createElement("div"); th.className = "thumbs";
   [["full", "full ERSP"], ["h0", "half 1"], ["h1", "half 2"]].forEach(([kind, lab]) => { const w = document.createElement("div"); w.appendChild(gateCanvas(c, kind)); const t = document.createElement("span"); t.textContent = lab; w.appendChild(t); th.appendChild(w); });
   el.appendChild(th); el.onclick = () => gateSelect(c.i); return el;
@@ -1459,6 +1491,15 @@ function gateSelect(i) {
   const b = document.querySelector(`#gate .bent[data-i="${i}"]`); if (b) b.scrollIntoView({ inline: "nearest", block: "nearest" });
   gateHist(); if (RV.on) rvSelect(i);
 }
+// the gate as it is applied, written out
+function gateEqText(fromBundle, hasNoise) {
+  const g = gateDefaults(), wm = GT.weight, pc = (v) => (100 * v).toFixed(1) + " %";
+  const share = wm === "none" ? "<b>s⁺</b> = #bins(ERSP &gt; thr⁺) / #bins · <b>s⁻</b> = #bins(ERSP &lt; thr⁻) / #bins"
+    : `<b>s⁺</b> = Σ w(f)·[ERSP &gt; thr⁺] / Σ w(f) · <b>s⁻</b> = Σ w(f)·[ERSP &lt; thr⁻] / Σ w(f) · <b>w(f)</b> = ${wm === "high" ? "1 / (1 − f/f<sub>max</sub>)" : "f<sub>max</sub> / f"}`;
+  const src = wm !== "none" || !fromBundle ? ` · shares computed here from the thumbnails (time ↓2${hasNoise ? "" : "; fixed thresholds, no noise in the bundle"})` : " · shares from the bundle (full cubes)";
+  return `<b>noise</b> = sd(half₁ − half₂) / 2 · <b>thr⁺</b> = max(${g.thr_pos} dB, ${g.noise_k} × noise) · <b>thr⁻</b> = min(${g.thr_neg} dB, −${g.noise_k} × noise) · ${share}, per condition`
+    + ` · <b>pass</b> = (${pc(GT.lo.pos)} ≤ s⁺ ≤ ${pc(GT.hi.pos)}) or (${pc(GT.lo.neg)} ≤ s⁻ ≤ ${pc(GT.hi.neg)}) in any condition · dataset gate: s⁺ ≥ ${pc(g.min_prop_pos)} or s⁻ ≥ ${pc(g.min_prop_neg)}, unweighted` + src;
+}
 async function gateRender() {
   if (!GT.on) return;
   const my = ++GT.seq, L = $("gateLeft"), R = $("gateRight"), B = $("gateBandList"); L.innerHTML = ""; R.innerHTML = ""; B.innerHTML = "";
@@ -1468,45 +1509,52 @@ async function gateRender() {
   const scope = gateScope(), rows = []; let fromBundle = true;
   for (let i = 0; i < scope.length; i += 24) {                           // the fallback reads one file per contact: in batches, with a count
     const batch = scope.slice(i, i + 24); const ps = await Promise.all(batch.map(gateProps)); if (my !== GT.seq) return;
-    batch.forEach((c, j) => { if (!c._gpFromBundle) fromBundle = false; rows.push(gateRow(c, ps[j])); });
+    batch.forEach((c, j) => { if (!ps[j].fromBundle) fromBundle = false; rows.push(gateRow(c, ps[j])); });
     if (!fromBundle) $("gateNote").textContent = `scoring ${Math.min(i + 24, scope.length)} / ${scope.length} contacts from the thumbnails…`;
   }
   rows.sort((x, y) => (y.score - x.score) || x.c.patient.localeCompare(y.c.patient) || x.c.i - y.c.i);
   GT.rows = rows; GT.rowOf = new Map(rows.map(r => [r.c.i, r]));
-  let nl = 0, nr = 0, nneg = 0, nnegOnly = 0, ndis = 0;
-  for (const r of rows) { if (!(r.score === r.score)) continue; if (r.negIn) { nneg++; if (!r.posIn) nnegOnly++; } const pass = r.score >= GT.cut; if (pass !== r.gate) ndis++;
-    const el = gateTile(r); if (pass) { R.appendChild(el); nr++; } else { L.appendChild(el); nl++; } }
-  $("gateLeftHdr").textContent = `not passed · ${nl} (score < ${(100*GT.cut).toFixed(1)} %)`; $("gateRightHdr").textContent = `passed · ${nr} (score ≥ ${(100*GT.cut).toFixed(1)} %)`;
-  const band = rows.filter(r => r.score === r.score && Math.abs(r.score - GT.cut) <= GT.bandW + 1e-12);
+  let nl = 0, nr = 0, nPosOnly = 0, nNegOnly = 0, nBoth = 0, nneg = 0, nnegOnly = 0, ndis = 0;
+  for (const r of rows) { if (!(r.score === r.score)) continue; if (r.negIn) { nneg++; if (!r.posIn) nnegOnly++; } if (r.pass !== r.gate) ndis++;
+    const byP = BRAIN_CONDS.some(k => r.passC[k] && r.passC[k].pos), byN = BRAIN_CONDS.some(k => r.passC[k] && r.passC[k].neg); if (byP && byN) nBoth++; else if (byP) nPosOnly++; else if (byN) nNegOnly++;
+    const el = gateTile(r); if (r.pass) { R.appendChild(el); nr++; } else { L.appendChild(el); nl++; } }
+  $("gateLeftHdr").textContent = `not passed · ${nl}`; $("gateRightHdr").textContent = `passed · ${nr} (by + only ${nPosOnly}, by − only ${nNegOnly}, both ${nBoth})`;
+  const band = rows.filter(r => r.how && Math.abs(r.margin) <= GT.bandW + 1e-12);
   $("gateBand").classList.toggle("on", GT.band);
-  if (GT.band) { $("gateBandHdr").textContent = `border · ${band.length} contacts within ±${(100*GT.bandW).toFixed(1)} % of the cut (${(100*(GT.cut - GT.bandW)).toFixed(1)}–${(100*(GT.cut + GT.bandW)).toFixed(1)} %) · full ERSP, half 1, half 2 of the trials`
+  if (GT.band) { $("gateBandHdr").textContent = `border · ${band.length} contacts within ±${(100*GT.bandW).toFixed(1)} % of the bound that decides them · full ERSP, half 1, half 2 of the trials`
       + (RV.man.halves ? "" : " · this bundle has no halves: rebuild it with make_lm_review_bundle.py"); for (const r of band) B.appendChild(gateBandEntry(r)); }
-  const g = gateDefaults(), hasNoise = rows.some(r => BRAIN_CONDS.some(k => r.c.m[k] && r.c.m[k].noise != null));
-  const modeLab = { pos: "share above +thr", neg: "share below −thr", max: "max of both" }[GT.mode];
-  $("gateNote").textContent = `${rows.length} contacts of ${GT.pats.size} patient(s) · score = ${modeLab}, thr = max(${g.thr_pos} dB, ${g.noise_k} × noise) / min(${g.thr_neg} dB, −${g.noise_k} × noise)`
-    + ` · in the dataset by the negative rule: ${nneg} (${nnegOnly} only by it) · ${ndis} disagree with the dataset gate`
-    + (fromBundle ? "" : " · no gate numbers in the bundle: computed from the thumbnails" + (hasNoise ? "" : " at the fixed thresholds (no noise)"));
+  const hasNoise = rows.some(r => BRAIN_CONDS.some(k => r.c.m[k] && r.c.m[k].noise != null));
+  $("gateEq").innerHTML = gateEqText(fromBundle, hasNoise);
+  $("gateNote").textContent = `${rows.length} contacts of ${GT.pats.size} patient(s) · in the dataset by the negative rule: ${nneg} (${nnegOnly} only by it) · ${ndis} disagree with the dataset gate`;
   gateHist();
 }
-const gateDotColor = (r, v) => (r.negIn && !r.posIn) ? "#6fa8ff" : (v >= GT.cut ? "#19ff6a" : "#ff9c9c");
+const gateDotColor = (r, pass) => (r.negIn && !r.posIn) ? "#6fa8ff" : (pass ? "#19ff6a" : "#ff9c9c");
 function gateSelDot(g, x, y, text, right) {
   g.beginPath(); g.arc(x, y, 5.5, 0, Math.PI * 2); g.fillStyle = "#19ff6a"; g.fill(); g.strokeStyle = "#fff"; g.lineWidth = 1.5; g.stroke();
   g.fillStyle = "#fff"; g.textAlign = right ? "right" : "left"; g.fillText(text, x + (right ? -9 : 9), Math.max(24, y - 9));
 }
-// one histogram band: bars, the cut, one dot per point stacked in its bin; returns nothing, fills GT._geom
+// the bounds that apply to the plotted share: [value, label, colour]
+function gateBounds(smax) {
+  const out = [], add = (r, which) => { const v = which === "min" ? GT.lo[r] : GT.hi[r]; if (v === v && v <= smax && (which === "min" || v < 1)) out.push([v, `${which}${gateSign(r)} ${(100*v).toFixed(1)} %`, r === "pos" ? "#ffd27f" : "#8ab4ff"]); };
+  if (GT.mode !== "neg") { add("pos", "min"); add("pos", "max"); }
+  if (GT.mode !== "pos") { add("neg", "min"); add("neg", "max"); }
+  return out;
+}
+const gateAxisMax = (vals) => { let m = Math.max(...vals, GT.lo.pos * 1.5, GT.lo.neg * 1.5) || 1; for (const r of ["pos", "neg"]) if (GT.hi[r] < 1 && GT.hi[r] > m) m = GT.hi[r] * 1.05; return m; };
+// one histogram band: bars, the bounds, one dot per point stacked in its bin; fills GT._geom
 function gateHistRow(g, x0, y0, pw, ph, pts, smax, label) {
   const nb = 80, bins = new Array(nb).fill(0), stack = new Array(nb).fill(0);
   const bx = (v) => x0 + v / smax * pw, bi = (v) => Math.min(nb - 1, Math.max(0, Math.floor(v / smax * nb)));
   for (const p of pts) bins[bi(p.v)]++;
   const bmax = Math.max(1, ...bins);
   for (let i = 0; i < nb; i++) { const xa = x0 + i / nb * pw, xb = x0 + (i + 1) / nb * pw, bh = bins[i] / bmax * ph; g.fillStyle = "#2a3340"; g.fillRect(xa + 0.5, y0 + ph - bh, Math.max(1, xb - xa - 1), bh); }
-  const xc = bx(GT.cut); g.strokeStyle = "#ffd27f"; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(xc, y0); g.lineTo(xc, y0 + ph); g.stroke(); g.setLineDash([]);
-  g.fillStyle = "#ffd27f"; g.textAlign = "left"; g.fillText(`cut ${(100*GT.cut).toFixed(1)} %`, xc + 4, y0 + 10);
+  gateBounds(smax).forEach(([v, lab, col], j) => { const xc = bx(v); g.strokeStyle = col; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(xc, y0); g.lineTo(xc, y0 + ph); g.stroke(); g.setLineDash([]);
+    g.fillStyle = col; g.textAlign = "left"; g.fillText(lab, xc + 4, y0 + 10 + (j % 2) * 12); });
   if (label) { g.fillStyle = "#aab0ba"; g.textAlign = "right"; g.fillText(`${label} · ${pts.length}`, x0 + pw - 4, y0 + 10); }
   let selPt = null; const maxStack = Math.max(1, Math.floor(ph / 6));
   for (const p of pts) { const i = bi(p.v), k = stack[i]++, x = bx(p.v), y = y0 + ph - 4 - (k % maxStack) * 6; GT._geom.push({ i: p.r.c.i, x, y });
     if (p.r.c.i === GT.sel) { selPt = { x, y, p }; continue; }
-    g.beginPath(); g.arc(x, y, 2.2, 0, Math.PI * 2); g.fillStyle = gateDotColor(p.r, p.v); g.fill(); }
+    g.beginPath(); g.arc(x, y, 2.2, 0, Math.PI * 2); g.fillStyle = gateDotColor(p.r, p.pass); g.fill(); }
   if (selPt) gateSelDot(g, selPt.x, selPt.y, `${selPt.p.r.c.patient} · ${selPt.p.r.c.name} · ${(100*selPt.p.v).toFixed(1)} %`, selPt.x > x0 + pw * 0.7);
   g.fillStyle = "#9aa0aa"; g.textAlign = "left"; g.fillText("0 %", x0, y0 + ph + 12); g.textAlign = "right"; g.fillText(`${(100*smax).toFixed(1)} %`, x0 + pw, y0 + ph + 12);
 }
@@ -1516,20 +1564,20 @@ function gateScatter(g, w, h, rows, plot) {
   const xv = xs.filter(v => v === v), n = xv.length;
   if (!n) { g.fillStyle = "#9aa0aa"; g.textAlign = "center"; g.fillText(plot === "noise" ? "no split-half noise in this bundle — rebuild it with make_lm_review_bundle.py" : "no split-half r in this bundle", w/2, h/2); return; }
   const xmin = plot === "noise" ? 0 : (Math.min(0, ...xv) || 0), xmax = plot === "noise" ? (Math.max(...xv) * 1.05 || 1) : 1;
-  const smax = Math.max(GT.cut * 1.5, ...rows.map(r => r.score)) || 1;
+  const smax = gateAxisMax(rows.map(r => r.score));
   const X = (v) => padL + (v - xmin) / (xmax - xmin) * pw, Y = (v) => padT + ph - v / smax * ph;
   g.strokeStyle = "#2a3340"; g.lineWidth = 1; g.strokeRect(padL + 0.5, padT + 0.5, pw, ph);
-  const yc = Y(GT.cut); g.strokeStyle = "#ffd27f"; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(padL, yc); g.lineTo(padL + pw, yc); g.stroke(); g.setLineDash([]);
-  g.fillStyle = "#ffd27f"; g.textAlign = "left"; g.fillText(`cut ${(100*GT.cut).toFixed(1)} %`, padL + 4, yc - 4);
+  gateBounds(smax).forEach(([v, lab, col], j) => { const yc = Y(v); g.strokeStyle = col; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(padL, yc); g.lineTo(padL + pw, yc); g.stroke(); g.setLineDash([]);
+    g.fillStyle = col; g.textAlign = "left"; g.fillText(lab, padL + 4 + (j % 2) * 90, yc - 4); });
   if (plot === "noise") { const xr = X(gd.thr_pos / gd.noise_k); if (xr > padL && xr < padL + pw) { g.strokeStyle = "#8ab4ff"; g.lineWidth = 1; g.setLineDash([2, 3]); g.beginPath(); g.moveTo(xr, padT); g.lineTo(xr, padT + ph); g.stroke(); g.setLineDash([]);
     g.fillStyle = "#8ab4ff"; g.textAlign = "left"; g.fillText(`→ threshold rises with the noise above ${(gd.thr_pos / gd.noise_k).toFixed(2)} dB`, xr + 4, padT + 10); } }
   let selPt = null;
   rows.forEach((r, i) => { if (xs[i] !== xs[i]) return; const x = X(xs[i]), y = Y(r.score); GT._geom.push({ i: r.c.i, x, y }); if (r.c.i === GT.sel) { selPt = { x, y, r }; return; }
-    g.beginPath(); g.arc(x, y, 2.4, 0, Math.PI * 2); g.fillStyle = gateDotColor(r, r.score); g.fill(); });
+    g.beginPath(); g.arc(x, y, 2.4, 0, Math.PI * 2); g.fillStyle = gateDotColor(r, r.pass); g.fill(); });
   if (selPt) gateSelDot(g, selPt.x, selPt.y, `${selPt.r.c.patient} · ${selPt.r.c.name} · ${(100*selPt.r.score).toFixed(1)} % · ${plot === "noise" ? "noise" : "r"} ${xs[rows.indexOf(selPt.r)].toFixed(2)}`, selPt.x > padL + pw * 0.7);
   const miss = rows.length - n;
   g.fillStyle = "#9aa0aa"; g.textAlign = "left"; g.fillText(plot === "noise" ? "0 dB" : xmin.toFixed(1), padL, h - 6); g.textAlign = "right"; g.fillText(plot === "noise" ? `${xmax.toFixed(2)} dB` : "1.0", padL + pw, h - 6);
-  g.textAlign = "center"; g.fillText((plot === "noise" ? "x = split-half noise of the best condition (dB)" : "x = split-half r of the best condition") + ` · y = score · ${n} contacts` + (miss ? ` · ${miss} without ${plot === "noise" ? "noise" : "r"}` : ""), padL + pw/2, h - 6);
+  g.textAlign = "center"; g.fillText((plot === "noise" ? "x = split-half noise of the best condition (dB)" : "x = split-half r of the best condition") + ` · y = plot score · ${n} contacts` + (miss ? ` · ${miss} without ${plot === "noise" ? "noise" : "r"}` : ""), padL + pw/2, h - 6);
   g.save(); g.translate(12, padT + ph/2); g.rotate(-Math.PI/2); g.textAlign = "center"; g.fillText(`score 0–${(100*smax).toFixed(1)} %`, 0, 0); g.restore();
 }
 function gateHist() {
@@ -1540,15 +1588,15 @@ function gateHist() {
   const rows = GT.rows.filter(r => r.score === r.score); GT._geom = [];
   if (!rows.length) return;
   if (plot === "noise" || plot === "rel") { gateScatter(g, w, h, rows, plot); return; }
-  const smax = Math.max(GT.cut * 1.5, ...rows.map(r => plot === "percond" ? Math.max(...BRAIN_CONDS.map(k => r.sc[k] === r.sc[k] && r.sc[k] != null ? r.sc[k] : 0)) : r.score)) || 1;
+  const smax = gateAxisMax(rows.map(r => plot === "percond" ? Math.max(...BRAIN_CONDS.map(k => r.sc[k] === r.sc[k] && r.sc[k] != null ? r.sc[k] : 0)) : r.score));
   const foot = (txt) => { g.fillStyle = "#9aa0aa"; g.textAlign = "center"; g.fillText(txt, 44 + (w - 60)/2, h - 6); };
   g.save(); g.fillStyle = "#9aa0aa"; g.translate(12, h/2); g.rotate(-Math.PI/2); g.textAlign = "center"; g.fillText("contacts", 0, 0); g.restore();
   if (plot === "hist") {
-    gateHistRow(g, 44, 14, w - 60, h - 38, rows.map(r => ({ r, v: r.score })), smax, null);
-    foot(`score = ${ { pos: "share above +thr", neg: "share below −thr", max: "max of both" }[GT.mode] } of the best condition · ${rows.length} contacts · min ${(100*Math.min(...rows.map(r => r.score))).toFixed(1)} % · max ${(100*Math.max(...rows.map(r => r.score))).toFixed(1)} %`);
+    gateHistRow(g, 44, 14, w - 60, h - 38, rows.map(r => ({ r, v: r.score, pass: r.pass })), smax, null);
+    foot(`plot score = ${ { pos: "share above +thr", neg: "share below −thr", max: "max of both" }[GT.mode] } of the best condition · ${rows.length} contacts · min ${(100*Math.min(...rows.map(r => r.score))).toFixed(1)} % · max ${(100*Math.max(...rows.map(r => r.score))).toFixed(1)} % · dot colour = the verdict under the bounds (blue = in the dataset by the negative rule only)`);
   } else {
     const rh = (h - 8) / 3;
-    BRAIN_CONDS.forEach((k, j) => gateHistRow(g, 44, 6 + j * rh, w - 60, rh - 20, rows.filter(r => r.sc[k] != null && r.sc[k] === r.sc[k]).map(r => ({ r, v: r.sc[k] })), smax, k));
+    BRAIN_CONDS.forEach((k, j) => gateHistRow(g, 44, 6 + j * rh, w - 60, rh - 20, rows.filter(r => r.sc[k] != null && r.sc[k] === r.sc[k]).map(r => ({ r, v: r.sc[k], pass: !!r.passC[k] })), smax, k));
   }
 }
 function gateHistClick(e) {
@@ -1557,7 +1605,9 @@ function gateHistClick(e) {
   if (best) gateSelect(best.i);
 }
 function gateSetCut() {
-  const v = parseFloat($("gateCut").value); if (v === v && v >= 0) GT.cut = v / 100; $("gateCut").value = (100 * GT.cut).toFixed(1);
+  const rd = (id, cur) => { const v = parseFloat($(id).value); return v === v && v >= 0 && v <= 100 ? v / 100 : cur; };
+  for (const r of ["pos", "neg"]) { const lo = rd(r === "pos" ? "gateLoPos" : "gateLoNeg", GT.lo[r]), hi = rd(r === "pos" ? "gateHiPos" : "gateHiNeg", GT.hi[r]); GT.lo[r] = Math.min(lo, hi); GT.hi[r] = Math.max(lo, hi);
+    $(r === "pos" ? "gateLoPos" : "gateLoNeg").value = (100 * GT.lo[r]).toFixed(1); $(r === "pos" ? "gateHiPos" : "gateHiNeg").value = (100 * GT.hi[r]).toFixed(1); }
   const b = parseFloat($("gateBandW").value); if (b === b && b >= 0) GT.bandW = b / 100; $("gateBandW").value = (100 * GT.bandW).toFixed(1);
   GT.band = $("gateBandOn").checked; gateRender();
 }
@@ -1572,8 +1622,9 @@ function gateWire() {
   $("gatePatAll").onclick = () => setAll(true); $("gatePatNone").onclick = () => setAll(false);
   $("gatePatCur").onclick = () => { GT.pats = new Set(RV.pid ? [RV.pid] : []); box.querySelectorAll("input").forEach(cb => cb.checked = GT.pats.has(cb.value)); gateRender(); };
   $("gateGo").onclick = gateSetCut;
-  for (const id of ["gateCut", "gateBandW"]) $(id).onkeydown = (e) => { e.stopPropagation(); if (e.key === "Enter") gateSetCut(); };
+  for (const id of ["gateLoPos", "gateHiPos", "gateLoNeg", "gateHiNeg", "gateBandW"]) $(id).onkeydown = (e) => { e.stopPropagation(); if (e.key === "Enter") gateSetCut(); };
   $("gateBandOn").onchange = gateSetCut;
+  $("gateWeight").onchange = () => { GT.weight = $("gateWeight").value; gateRender(); };
   $("gateMode").onchange = () => { GT.mode = $("gateMode").value; gateRender(); };
   $("gatePlot").onchange = () => { GT.plot = $("gatePlot").value; gateHist(); };
   $("gate").querySelector("h3").addEventListener("keydown", (e) => e.stopPropagation());   // typing / arrows in the controls never reach the page's keys
@@ -1588,7 +1639,7 @@ async function toggleGate(on) {
   if (!GT.on) return;
   if (!(await loadReview())) { $("gateNote").textContent = `no review bundle at ${BUNDLE}review/ — build it with 02_FBM_Clustering/scripts/make_lm_review_bundle.py`; return; }
   gateWire();
-  if (GT.cut == null) { GT.cut = gateDefaults().min_prop_pos; $("gateCut").value = (100 * GT.cut).toFixed(1); }
+  if (GT.lo.pos == null) { const g = gateDefaults(); GT.lo.pos = g.min_prop_pos; GT.lo.neg = g.min_prop_neg; $("gateLoPos").value = (100 * GT.lo.pos).toFixed(1); $("gateLoNeg").value = (100 * GT.lo.neg).toFixed(1); }
   if (!GT.pats.size) { const first = RV.pid || (RV.pats[0] && RV.pats[0].patient); if (first) { GT.pats.add(first); const cb = $("gatePatCbs").querySelector(`input[value="${CSS.escape(first)}"]`); if (cb) cb.checked = true; } }
   gateRender();
 }

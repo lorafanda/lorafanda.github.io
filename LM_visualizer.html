@@ -110,6 +110,33 @@
   #regionLegend .sw { width:12px; height:12px; border-radius:3px; flex:none; border:1px solid rgba(255,255,255,.25); }
   /* review mode (r): the patient's contacts shaft by shaft, along the bottom of the screen,
      left of the ERSP panel (and out to the right edge when that panel is hidden with j) */
+  /* ---- gate window (v): passed | not passed, the outline of the bins above the threshold, and the score histogram ---- */
+  #gate { top:10px; left:14px; right:14px; bottom:14px; display:none; flex-direction:column; gap:6px; overflow:hidden; z-index:30; }
+  #gate.on { display:flex; }
+  #gate h3 { margin:0; font-size:12px; font-weight:600; display:flex; gap:8px; align-items:center; flex-wrap:wrap; }
+  #gate h3 label { color:var(--muted); font-weight:400; font-size:11px; display:flex; align-items:center; gap:4px; white-space:nowrap; }
+  #gate h3 input[type=number] { background:#101318; color:var(--fg); border:1px solid rgba(255,255,255,.14); border-radius:6px; padding:2px 5px; font:inherit; font-size:11px; width:64px; }
+  #gate h3 input[type=range] { accent-color:var(--accent); }
+  #gate button { background:#2a2f38; color:var(--fg); border:1px solid rgba(255,255,255,.14); border-radius:6px; padding:2px 8px; font:inherit; font-size:11px; cursor:pointer; }
+  #gate button:hover { background:var(--accent); color:#001; }
+  #gatePats { position:relative; }
+  #gatePatList { display:none; position:absolute; top:24px; left:0; z-index:5; background:#101318; border:1px solid rgba(255,255,255,.18); border-radius:6px; padding:6px 8px; max-height:50vh; overflow:auto; font-size:11px; white-space:nowrap; }
+  #gatePatList.open { display:block; }
+  #gatePatCbs { columns:3; column-gap:14px; }
+  #gatePatCbs label { display:block; color:var(--fg); }
+  #gateCols { flex:1 1 auto; display:grid; grid-template-columns:1fr 1fr; gap:10px; min-height:0; }
+  #gate .gcol { display:flex; flex-direction:column; min-height:0; border:1px solid rgba(255,255,255,.1); border-radius:8px; padding:6px; }
+  #gate .gcol h4 { margin:0 0 4px; font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:#aab0ba; }
+  #gate .gtiles { flex:1 1 auto; overflow:auto; display:flex; flex-wrap:wrap; gap:8px 10px; align-content:flex-start; }
+  #gate .tile { position:relative; border:2px solid transparent; border-radius:6px; padding:2px; cursor:pointer; }
+  #gate .tile:hover { border-color:rgba(255,255,255,.25); }
+  #gate .tile.sel { border-color:var(--sel); }
+  #gate .tile canvas { display:block; border-radius:3px; background:#f4f6f8; }
+  #gate .tile .cap { font-size:10.5px; line-height:1.3; margin-top:2px; }
+  #gate .tile .cap b { font-weight:600; }
+  #gate .tile .cap .lab { color:var(--muted); display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  #gateHist { flex:0 0 150px; width:100%; height:150px; display:block; background:#0d1014; border-radius:8px; cursor:crosshair; }
+  #gateNote { color:var(--muted); font-weight:400; font-size:11px; margin-left:auto; }
   #review { top:auto; left:14px; right:492px; bottom:14px; height:calc(var(--rvh) - 28px);
             display:none; overflow:auto; padding:10px 12px; }
   #review.on { display:block; }
@@ -318,8 +345,24 @@
     <div id="rvBody"><div id="rvTiles"></div><div id="rvSide"></div></div>
   </div>
 
+  <div id="gate" class="panel">
+    <h3>Gate
+      <span id="gatePats"><button id="gatePatBtn" title="which patients are in the window">patients &#9662;</button>
+        <div id="gatePatList"><div style="margin-bottom:4px"><button id="gatePatAll">all</button> <button id="gatePatNone">none</button> <button id="gatePatCur" title="the patient of the review strip">current</button></div><div id="gatePatCbs"></div></div></span>
+      <label title="a contact passes when its best condition has at least this share of its bins above the amplitude threshold (the dataset gate: max(2.2 dB, 2 x split-half noise), at least 2 % of the bins)">score cut (% of bins) <input type="number" id="gateCut" step="0.1" min="0" max="100" value="2"></label>
+      <button id="gateGo" title="apply the cut (or Enter in the box)">refresh</button>
+      <label>tile size <input type="range" id="gateScale" min="0.15" max="0.6" step="0.05" value="0.3" style="width:70px"></label>
+      <span id="gateNote"></span>
+    </h3>
+    <div id="gateCols">
+      <div class="gcol"><h4 id="gateLeftHdr">not passed</h4><div class="gtiles" id="gateLeft"></div></div>
+      <div class="gcol"><h4 id="gateRightHdr">passed</h4><div class="gtiles" id="gateRight"></div></div>
+    </div>
+    <canvas id="gateHist" width="1600" height="150" title="every contact at its score; click a dot to select it"></canvas>
+  </div>
+
   <div id="regionLegend" class="panel"></div>
-  <div id="hint">drag = rotate · scroll = zoom · click a dot = select · <b>h j k l</b> = hide controls / ERSP / info / regions · <b>r</b> = review (bottom strip; the brain turns to the contact you click) · <b>space</b> = play · <b>↑ ↓</b> = contact · <b>← →</b> = shaft</div>
+  <div id="hint">drag = rotate · scroll = zoom · click a dot = select · <b>h j k l</b> = hide controls / ERSP / info / regions · <b>r</b> = review (bottom strip; the brain turns to the contact you click) · <b>v</b> = gate window (passed | not passed, score histogram) · <b>space</b> = play · <b>↑ ↓</b> = contact · <b>← →</b> = shaft</div>
 
 <script type="module">
 import { Niivue, NVMesh } from "https://unpkg.com/@niivue/niivue@0.69.0/dist/index.js";
@@ -1276,6 +1319,156 @@ async function toggleReview(on) {
   if (!RV.pid) rvSetPatient(RV.pats[0].patient); else rvRender();
 }
 
+// ---- gate window (v) -------------------------------------------------------------------
+// Every contact of the chosen patients, split by the dataset gate: right = passed, left = not.
+// A contact's score is its best condition's share of bins above the gate's amplitude threshold
+// (max(thr_pos, noise_k x split-half noise), lf_dataset); it passes when that share reaches the
+// cut in the box. The numbers come from the review bundle (make_lm_review_bundle.py writes
+// noise / thr / prop_pos per condition); a bundle built before they existed gets them computed
+// here from the thumbnails, at the fixed threshold when it has no noise either. On every tile
+// the bins above the threshold are outlined; the histogram places every contact at its score.
+const GT = { on:false, pats:new Set(), cut:null, scale:0.3, sel:-1, rows:[], obs:null, seq:0 };
+function gateDefaults() {
+  const g = (RV.man && RV.man.gate) || {};
+  return { thr_pos: g.thr_pos ?? 2.2, noise_k: g.noise_k ?? 2.0, min_prop_pos: g.min_prop_pos ?? 0.02, thr_neg: g.thr_neg ?? -3.0, min_prop_neg: g.min_prop_neg ?? 0.04 };
+}
+// the amplitude threshold (dB) of one condition block, as the gate uses it
+function gateThr(c, cond) {
+  const g = gateDefaults(), m = c.m && c.m[cond];
+  if (m && m.thr != null) return m.thr;
+  const nz = m && m.noise != null ? m.noise : NaN;
+  return nz === nz ? Math.max(g.thr_pos, g.noise_k * nz) : g.thr_pos;
+}
+// share of bins above the threshold per condition: the bundle's number, else from the bytes
+async function gateProps(c) {
+  if (c._gp) return c._gp;
+  const out = {}; let fromBundle = true;
+  for (const cond of BRAIN_CONDS) { const m = c.m && c.m[cond]; if (!m) continue; if (m.prop_pos != null) out[cond] = m.prop_pos; else fromBundle = false; }
+  if (!fromBundle) {
+    const a = await rvErsp(c.i), man = RV.man;
+    if (a) { const nf = man.n_freq, nt = man.n_time, vmin = man.vmin, span = man.vmax - man.vmin;
+      for (const cond of BRAIN_CONDS) { const k = man.conditions.indexOf(cond); if (k < 0 || !(c.m && c.m[cond]) || out[cond] != null) continue;
+        const thr = gateThr(c, cond); let n = 0, above = 0;
+        for (let f = 0; f < nf; f++) for (let t = 0; t < nt; t++) { const b = a[(k*nf + f)*nt + t]; if (!b) continue; n++; if (vmin + (b - 1) / 254 * span > thr) above++; }
+        out[cond] = n ? above / n : NaN; } }
+  }
+  c._gp = out; c._gpFromBundle = fromBundle; return out;
+}
+const gateScore = (props) => { const v = Object.values(props).filter(x => x === x); return v.length ? Math.max(...v) : NaN; };
+function gateScope() {
+  const list = [];
+  for (const pid of GT.pats) for (const c of (RV.byPat.get(pid) || [])) if (c.status === "data" && c.file) list.push(c);
+  return list;
+}
+// a tile: the review tile, plus the outline of the bins above the threshold in each block
+async function gateDrawTile(cv, c) {
+  const a = await rvErsp(c.i), m = RV.man, s = GT.scale, bw = (CC.W - CC.padL - CC.padR - CC.gap*2) / 3 * s, h = (CC.H - CC.padT - CC.padB) * s, gap = CC.gap * s;
+  cv.width = Math.round(3 * bw + 2 * gap); cv.height = Math.round(h); const g = cv.getContext("2d"); g.fillStyle = "#f4f6f8"; g.fillRect(0, 0, cv.width, cv.height);
+  if (!a) { g.fillStyle = "#9aa0aa"; g.font = "10px sans-serif"; g.textAlign = "center"; g.fillText("no ERSP file", cv.width/2, cv.height/2 + 3); return; }
+  const nf = m.n_freq, nt = m.n_time, vmin = m.vmin, span = m.vmax - m.vmin;
+  BRAIN_CONDS.forEach((cond, k) => { const kk = m.conditions.indexOf(cond), x0 = k * (bw + gap), blk = kk >= 0 ? rvBlock(a, kk, m) : null;
+    if (!blk) { g.fillStyle = "#e6e9ee"; g.fillRect(x0, 0, bw, h); return; }
+    g.imageSmoothingEnabled = true; g.drawImage(blk, x0, 0, bw, h);
+    const thr = gateThr(c, cond), ab = new Uint8Array(nf * nt);
+    for (let f = 0; f < nf; f++) for (let t = 0; t < nt; t++) { const b = a[(kk*nf + f)*nt + t]; ab[f*nt + t] = b && (vmin + (b - 1) / 254 * span > thr) ? 1 : 0; }
+    const ov = document.createElement("canvas"); ov.width = nt; ov.height = nf; const og = ov.getContext("2d"), im = og.createImageData(nt, nf), px = im.data; let any = false;
+    for (let f = 0; f < nf; f++) for (let t = 0; t < nt; t++) { if (!ab[f*nt + t]) continue;
+      const edge = t === 0 || t === nt-1 || f === 0 || f === nf-1 || !ab[f*nt + t-1] || !ab[f*nt + t+1] || !ab[(f-1)*nt + t] || !ab[(f+1)*nt + t];
+      if (!edge) continue; const o = ((nf - 1 - f)*nt + t)*4; px[o] = 25; px[o+1] = 255; px[o+2] = 106; px[o+3] = 255; any = true; }
+    if (any) { og.putImageData(im, 0, 0); g.imageSmoothingEnabled = false; g.drawImage(ov, x0, 0, bw, h); }
+    g.strokeStyle = "#1b232c"; g.lineWidth = 1; g.setLineDash([2, 2]); g.beginPath(); g.moveTo(x0 + bw/2, 0); g.lineTo(x0 + bw/2, h); g.stroke(); g.setLineDash([]); });
+}
+function gateTile(c, score, props) {
+  const d = document.createElement("div"); d.className = "tile" + (c.i === GT.sel ? " sel" : ""); d.dataset.i = c.i;
+  const cv = document.createElement("canvas"); const s = GT.scale; cv.width = Math.round((CC.W - CC.padL - CC.padR) * s); cv.height = Math.round((CC.H - CC.padT - CC.padB) * s); d.appendChild(cv); GT.obs.observe(d);
+  const pp = BRAIN_CONDS.map(k => props[k] != null && props[k] === props[k] ? (100 * props[k]).toFixed(1) : "·").join(" / ");
+  const cap = document.createElement("div"); cap.className = "cap"; cap.style.maxWidth = cv.width + "px";
+  cap.innerHTML = `<b>${_esc(c.patient)} · ${_esc(c.name)}</b> <span style="color:${score >= GT.cut ? "var(--sel)" : "#ff9c9c"}">${(100*score).toFixed(1)} %</span><span class="lab" title="share of bins above the threshold: audio / picture / reading">${pp}</span>`;
+  d.appendChild(cap); d.onclick = () => gateSelect(c.i); return d;
+}
+function gateSelect(i) {
+  GT.sel = i; document.querySelectorAll("#gate .tile").forEach(t => t.classList.toggle("sel", +t.dataset.i === i));
+  const t = document.querySelector(`#gate .tile[data-i="${i}"]`); if (t) t.scrollIntoView({ block: "nearest" });
+  gateHist(); if (RV.on) rvSelect(i);
+}
+async function gateRender() {
+  if (!GT.on) return;
+  const my = ++GT.seq, L = $("gateLeft"), R = $("gateRight"); L.innerHTML = ""; R.innerHTML = "";
+  if (GT.obs) GT.obs.disconnect();
+  GT.obs = new IntersectionObserver((es) => { for (const e of es) if (e.isIntersecting) { const d = e.target, c = RV.contacts[+d.dataset.i], cv = d.querySelector("canvas"); if (cv && !cv.dataset.done) { cv.dataset.done = 1; gateDrawTile(cv, c); } } }, { root: null, rootMargin: "300px" });
+  const scope = gateScope(), rows = []; let fromBundle = true;
+  for (let i = 0; i < scope.length; i += 24) {                           // the fallback reads one file per contact: in batches, with a count
+    const batch = scope.slice(i, i + 24); const ps = await Promise.all(batch.map(gateProps)); if (my !== GT.seq) return;
+    batch.forEach((c, j) => { if (!c._gpFromBundle) fromBundle = false; rows.push({ c, score: gateScore(ps[j]), props: ps[j] }); });
+    if (!fromBundle) $("gateNote").textContent = `scoring ${Math.min(i + 24, scope.length)} / ${scope.length} contacts from the thumbnails…`;
+  }
+  rows.sort((x, y) => (y.score - x.score) || x.c.patient.localeCompare(y.c.patient) || x.c.i - y.c.i);
+  GT.rows = rows;
+  let nl = 0, nr = 0;
+  for (const r of rows) { if (!(r.score === r.score)) continue; const d = gateTile(r.c, r.score, r.props); if (r.score >= GT.cut) { R.appendChild(d); nr++; } else { L.appendChild(d); nl++; } }
+  $("gateLeftHdr").textContent = `not passed · ${nl} (score < ${(100*GT.cut).toFixed(1)} %)`; $("gateRightHdr").textContent = `passed · ${nr} (score ≥ ${(100*GT.cut).toFixed(1)} %)`;
+  const g = gateDefaults(), hasNoise = rows.some(r => BRAIN_CONDS.some(k => r.c.m[k] && r.c.m[k].noise != null));
+  $("gateNote").textContent = `${rows.length} contacts of ${GT.pats.size} patient(s) · threshold max(${g.thr_pos} dB, ${g.noise_k} × split-half noise)` +
+    (fromBundle ? " · numbers from the bundle" : " · bundle has no gate numbers: computed from the thumbnails" + (hasNoise ? "" : " at the fixed " + g.thr_pos + " dB (no noise in the bundle)"));
+  gateHist();
+}
+function gateHist() {
+  const cv = $("gateHist"), dpr = window.devicePixelRatio || 1, w = cv.clientWidth || 1200, h = 150;
+  cv.width = Math.round(w * dpr); cv.height = Math.round(h * dpr); const g = cv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0);
+  g.fillStyle = "#0d1014"; g.fillRect(0, 0, w, h);
+  const rows = GT.rows.filter(r => r.score === r.score); if (!rows.length) { GT._geom = null; return; }
+  const padL = 44, padR = 16, padT = 14, padB = 24, pw = w - padL - padR, ph = h - padT - padB;
+  const smin = 0, smax = Math.max(GT.cut * 1.5, ...rows.map(r => r.score)) || 1, nb = 80, bins = new Array(nb).fill(0), stack = new Array(nb).fill(0);
+  const bx = (v) => padL + (v - smin) / (smax - smin) * pw, bi = (v) => Math.min(nb - 1, Math.max(0, Math.floor((v - smin) / (smax - smin) * nb)));
+  for (const r of rows) bins[bi(r.score)]++;
+  const bmax = Math.max(...bins);
+  for (let i = 0; i < nb; i++) { const x0 = padL + i / nb * pw, x1 = padL + (i + 1) / nb * pw, bh = bins[i] / bmax * ph; g.fillStyle = "#2a3340"; g.fillRect(x0 + 0.5, padT + ph - bh, Math.max(1, x1 - x0 - 1), bh); }
+  const xc = bx(GT.cut); g.strokeStyle = "#ffd27f"; g.lineWidth = 1.5; g.setLineDash([4, 3]); g.beginPath(); g.moveTo(xc, padT); g.lineTo(xc, padT + ph); g.stroke(); g.setLineDash([]);
+  g.fillStyle = "#ffd27f"; g.font = "11px sans-serif"; g.textAlign = "left"; g.fillText(`cut ${(100*GT.cut).toFixed(1)} %`, xc + 4, padT + 10);
+  const pts = []; let selPt = null;
+  for (const r of rows) { const i = bi(r.score), k = stack[i]++, x = bx(r.score), y = padT + ph - 4 - (k % Math.max(1, Math.floor(ph / 6))) * 6, sel = r.c.i === GT.sel;
+    pts.push({ i: r.c.i, x }); if (sel) { selPt = { x, y, r }; continue; }
+    g.beginPath(); g.arc(x, y, 2.2, 0, Math.PI * 2); g.fillStyle = r.score >= GT.cut ? "#19ff6a" : "#ff9c9c"; g.fill(); }
+  if (selPt) { const { x, y, r } = selPt; g.beginPath(); g.arc(x, y, 5.5, 0, Math.PI * 2); g.fillStyle = "#19ff6a"; g.fill(); g.strokeStyle = "#fff"; g.lineWidth = 1.5; g.stroke();
+    g.fillStyle = "#fff"; g.textAlign = x > padL + pw * 0.7 ? "right" : "left"; g.fillText(`${r.c.patient} · ${r.c.name} · ${(100*r.score).toFixed(1)} %`, x + (x > padL + pw * 0.7 ? -9 : 9), Math.max(padT + 24, y - 9)); }
+  g.fillStyle = "#9aa0aa"; g.font = "11px sans-serif"; g.textAlign = "left"; g.fillText("0 %", padL, h - 6); g.textAlign = "right"; g.fillText(`${(100*smax).toFixed(1)} %`, padL + pw, h - 6);
+  g.textAlign = "center"; g.fillText(`score = best condition's share of bins above the threshold · ${rows.length} contacts · min ${(100*Math.min(...rows.map(r => r.score))).toFixed(1)} % · max ${(100*Math.max(...rows.map(r => r.score))).toFixed(1)} %`, padL + pw/2, h - 6);
+  g.save(); g.translate(12, padT + ph/2); g.rotate(-Math.PI/2); g.textAlign = "center"; g.fillText("contacts", 0, 0); g.restore();
+  GT._geom = pts;
+}
+function gateHistClick(e) {
+  const pts = GT._geom; if (!pts) return; const r = $("gateHist").getBoundingClientRect(), x = e.clientX - r.left;
+  let best = null, bd = 8; for (const p of pts) { const d = Math.abs(p.x - x); if (d < bd) { bd = d; best = p; } }
+  if (best) gateSelect(best.i);
+}
+function gateSetCut() { const v = parseFloat($("gateCut").value); if (v === v && v >= 0) GT.cut = v / 100; $("gateCut").value = (100 * GT.cut).toFixed(1); gateRender(); }
+let _gateWired = false;
+function gateWire() {
+  if (_gateWired) return; _gateWired = true;
+  const box = $("gatePatCbs");
+  box.innerHTML = RV.pats.filter(p => p.ran !== false).map(p => `<label><input type="checkbox" value="${_esc(p.patient)}"> ${p.in_cohort === false ? "* " : ""}${_esc(p.patient)}</label>`).join("");
+  box.querySelectorAll("input").forEach(cb => cb.onchange = () => { if (cb.checked) GT.pats.add(cb.value); else GT.pats.delete(cb.value); gateRender(); });
+  $("gatePatBtn").onclick = (e) => { e.stopPropagation(); $("gatePatList").classList.toggle("open"); };
+  const setAll = (on) => { box.querySelectorAll("input").forEach(cb => { cb.checked = on; if (on) GT.pats.add(cb.value); else GT.pats.delete(cb.value); }); gateRender(); };
+  $("gatePatAll").onclick = () => setAll(true); $("gatePatNone").onclick = () => setAll(false);
+  $("gatePatCur").onclick = () => { GT.pats = new Set(RV.pid ? [RV.pid] : []); box.querySelectorAll("input").forEach(cb => cb.checked = GT.pats.has(cb.value)); gateRender(); };
+  $("gateGo").onclick = gateSetCut; $("gateCut").onkeydown = (e) => { e.stopPropagation(); if (e.key === "Enter") gateSetCut(); };
+  const sc = $("gateScale"); sc.oninput = () => { GT.scale = +sc.value; }; sc.onchange = gateRender;
+  $("gateHist").onclick = gateHistClick;
+  document.addEventListener("click", (e) => { if (!$("gatePats").contains(e.target)) $("gatePatList").classList.remove("open"); });
+  window.addEventListener("resize", () => { if (GT.on) gateHist(); });
+}
+async function toggleGate(on) {
+  GT.on = on === undefined ? !GT.on : !!on;
+  $("gate").classList.toggle("on", GT.on);
+  if (!GT.on) return;
+  if (!(await loadReview())) { $("gateNote").textContent = `no review bundle at ${BUNDLE}review/ — build it with 02_FBM_Clustering/scripts/make_lm_review_bundle.py`; return; }
+  gateWire();
+  if (GT.cut == null) { GT.cut = gateDefaults().min_prop_pos; $("gateCut").value = (100 * GT.cut).toFixed(1); }
+  if (!GT.pats.size) { const first = RV.pid || (RV.pats[0] && RV.pats[0].patient); if (first) { GT.pats.add(first); const cb = $("gatePatCbs").querySelector(`input[value="${CSS.escape(first)}"]`); if (cb) cb.checked = true; } }
+  gateRender();
+}
+
 // ---- animation loop -----------------------------------------------------------------
 let lastT = null;
 function tick(now) {
@@ -1356,6 +1549,7 @@ function buildUI() {
     if (/^(INPUT|SELECT|TEXTAREA)$/.test(tag) && e.target.type !== "range" && e.target.type !== "checkbox" && !/^Arrow/.test(e.key)) return;
     if (tag === "SELECT" && /^Arrow(Up|Down)$/.test(e.key)) return;    // let the dropdown do its own stepping
     if (e.key === "r") { toggleReview(); return; }
+    if (e.key === "v") { toggleGate(); return; }                          // the gate window: passed | not passed, score histogram
     if (RV.on && rvKey(e)) return;                                      // review mode owns the arrows and PgUp/PgDn
     if (e.key === "h") togglePanel("controls");
     else if (e.key === "j") togglePanel("concat");

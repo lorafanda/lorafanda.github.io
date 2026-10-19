@@ -145,8 +145,6 @@
   #gateBand.on { display:block; }
   #gateBand .bhdr { font-size:11px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:#aab0ba; margin:0 0 4px; white-space:normal; }
   #gateBand .bent { display:inline-block; vertical-align:top; margin-right:14px; border:2px solid transparent; border-radius:6px; padding:2px; cursor:pointer; }
-  #gateBand .thumbs { display:flex; gap:6px; }
-  #gateBand .thumbs span { display:block; font-size:10px; color:var(--muted); text-align:center; }
   #gateHist { flex:0 0 150px; width:100%; height:150px; display:block; background:#0d1014; border-radius:8px; cursor:crosshair; }
   #gateNote { color:var(--muted); font-weight:400; font-size:11px; margin-left:auto; }
   #gateEq { font-size:11px; line-height:1.45; color:var(--fg); opacity:.9; white-space:normal; }
@@ -368,7 +366,7 @@
         <div id="gatePatList"><div style="margin-bottom:4px"><button id="gatePatAll">all</button> <button id="gatePatNone">none</button> <button id="gatePatCur" title="the patient of the review strip">current</button></div><div id="gatePatCbs"></div></div></span>
       <label class="bnd" title="the positive rule: a condition passes when its share of bins above thr+ lies in this range"><span class="pm">+</span> min <input type="number" id="gateLoPos" step="0.1" min="0" max="100" value="2"> max <input type="number" id="gateHiPos" step="0.1" min="0" max="100" value="100"> %</label>
       <label class="bnd" title="the negative rule: a condition passes when its share of bins below thr&minus; lies in this range"><span class="pm">&minus;</span> min <input type="number" id="gateLoNeg" step="0.1" min="0" max="100" value="4"> max <input type="number" id="gateHiNeg" step="0.1" min="0" max="100" value="100"> %</label>
-      <label title="the border band: the contacts within this distance of the bound that decides them, listed with their two halves"><input type="checkbox" id="gateBandOn" checked> border &plusmn; <input type="number" id="gateBandW" step="0.1" min="0" value="0.5" style="width:48px"> %</label>
+      <label title="the border band: the contacts within this distance of the bound that decides them"><input type="checkbox" id="gateBandOn" checked> border &plusmn; <input type="number" id="gateBandW" step="0.1" min="0" value="0.5" style="width:48px"> %</label>
       <button id="gateGo" title="apply the bounds and the band (or Enter in a box)">refresh</button>
       <label title="weight of a bin in the shares, by its frequency row: none (the dataset gate), 1/(1 &minus; f/fmax) (the high rows count more), fmax/f (the low rows count more, equal weight per octave); weighted shares are computed here from the thumbnails">weight <select id="gateWeight"><option value="none">none</option><option value="high">1/(1 &minus; f/fmax)</option><option value="low">fmax/f</option></select></label>
       <label title="which share the plots and the captions rank by: the share above thr+, the share below thr&minus;, or the larger of the two; a contact's score is its best condition's">plot score <select id="gateMode"><option value="pos">share above +thr</option><option value="neg">share below &minus;thr</option><option value="max">max of both</option></select></label>
@@ -1356,10 +1354,9 @@ async function toggleReview(on) {
 // below or the larger) of the contact's best condition. Tiles outline the bins beyond the
 // thresholds (green above, yellow below) and bar the condition carrying the score; the bottom
 // plot is a histogram of the score, one per condition, or the score against the noise or the
-// split-half r; the border band lists the contacts within +-w of the bound that decides them,
-// with their two halves (ersp_halves/, in the bundle since 2026-10-19).
+// split-half r; the border band lists the contacts within +-w of the bound that decides them.
 const GT = { on:false, pats:new Set(), lo:{ pos:null, neg:null }, hi:{ pos:1, neg:1 }, mode:"pos", weight:"none", plot:"hist", band:true, bandW:0.005, scale:0.3,
-             sel:-1, rows:[], rowOf:new Map(), obs:null, seq:0, hcache:new Map(), _geom:[], _w:{} };
+             sel:-1, rows:[], rowOf:new Map(), obs:null, seq:0, _geom:[], _w:{} };
 function gateDefaults() {
   const g = (RV.man && RV.man.gate) || {};
   return { thr_pos: g.thr_pos ?? 2.2, noise_k: g.noise_k ?? 2.0, min_prop_pos: g.min_prop_pos ?? 0.02, thr_neg: g.thr_neg ?? -3.0, min_prop_neg: g.min_prop_neg ?? 0.04 };
@@ -1416,8 +1413,8 @@ function gateRow(c, p) {
 }
 function gateScope() { const list = []; for (const pid of GT.pats) for (const c of (RV.byPat.get(pid) || [])) if (c.status === "data" && c.file) list.push(c); return list; }
 function gateTileDims() { const s = GT.scale, bw = (CC.W - CC.padL - CC.padR - CC.gap*2) / 3 * s, h = (CC.H - CC.padT - CC.padB) * s, gap = CC.gap * s; return { bw, h, gap, w: Math.round(3 * bw + 2 * gap), hh: Math.round(h) }; }
-// a canvas drawn when it scrolls into view: the tile with the outlines ("full") or one half ("h0" / "h1")
-function gateCanvas(c, kind) { const d = gateTileDims(), cv = document.createElement("canvas"); cv.className = "ersp"; cv.width = d.w; cv.height = d.hh; cv.dataset.i = c.i; cv.dataset.kind = kind; GT.obs.observe(cv); return cv; }
+// a canvas drawn when it scrolls into view
+function gateCanvas(c) { const d = gateTileDims(), cv = document.createElement("canvas"); cv.className = "ersp"; cv.width = d.w; cv.height = d.hh; cv.dataset.i = c.i; GT.obs.observe(cv); return cv; }
 function gateFrame(cv) { const d = gateTileDims(), g = cv.getContext("2d"); cv.width = d.w; cv.height = d.hh; g.fillStyle = "#f4f6f8"; g.fillRect(0, 0, cv.width, cv.height); return [g, d]; }
 function gateNoFile(g, cv, msg) { g.fillStyle = "#9aa0aa"; g.font = "10px sans-serif"; g.textAlign = "center"; g.fillText(msg, cv.width/2, cv.height/2 + 3); }
 function gateMidLine(g, x0, bw, h) { g.strokeStyle = "#1b232c"; g.lineWidth = 1; g.setLineDash([2, 2]); g.beginPath(); g.moveTo(x0 + bw/2, 0); g.lineTo(x0 + bw/2, h); g.stroke(); g.setLineDash([]); }
@@ -1441,24 +1438,6 @@ async function gateDrawTile(cv, c) {
     gateMidLine(g, x0, d.bw, d.h);
     if (row && row.best === cond) { g.fillStyle = "#19ff6a"; g.fillRect(x0, 0, d.bw, 3); } });
 }
-// the two halves of a contact (ersp_halves/<file>): fetched once, null when the bundle has none
-async function gateHalves(c) {
-  const H = RV.man.halves; if (!H || !c.file) return null;
-  if (GT.hcache.has(c.i)) return GT.hcache.get(c.i);
-  let a = null; try { const r = await fetch(BUNDLE + "review/" + c.file.replace(/^ersp\//, "ersp_halves/")); if (r.ok) a = new Uint8Array(await r.arrayBuffer()); } catch (e) {}
-  GT.hcache.set(c.i, a); return a;
-}
-async function gateDrawHalf(cv, c, half) {
-  const H = RV.man.halves, [g, d] = gateFrame(cv);
-  if (!H) { gateNoFile(g, cv, "no halves in the bundle (rebuild it)"); return; }
-  const a = await gateHalves(c); if (!a) { gateNoFile(g, cv, "no halves file"); return; }
-  const nC = H.n_cond || RV.man.conditions.length, per = nC * H.n_freq * H.n_time, man = { n_freq: H.n_freq, n_time: H.n_time, vmin: H.vmin ?? RV.man.vmin, vmax: H.vmax ?? RV.man.vmax };
-  if (a.length < (half + 1) * per) { gateNoFile(g, cv, "halves file too short"); return; }
-  const sub = a.subarray(half * per, (half + 1) * per);
-  BRAIN_CONDS.forEach((cond, k) => { const kk = RV.man.conditions.indexOf(cond), x0 = k * (d.bw + d.gap), blk = kk >= 0 && kk < nC ? rvBlock(sub, kk, man) : null;
-    if (!blk) { g.fillStyle = "#e6e9ee"; g.fillRect(x0, 0, d.bw, d.h); return; }
-    g.imageSmoothingEnabled = true; g.drawImage(blk, x0, 0, d.bw, d.h); gateMidLine(g, x0, d.bw, d.h); });
-}
 const gatePct = (v) => v != null && v === v ? (100 * v).toFixed(1) : "·";
 const gateSign = (r) => r === "pos" ? "⁺" : "⁻";
 function gateCaption(r) {
@@ -1473,7 +1452,7 @@ function gateCaption(r) {
 }
 function gateTile(r) {
   const c = r.c, d = gateTileDims(), el = document.createElement("div"); el.className = "tile" + (c.i === GT.sel ? " sel" : ""); el.dataset.i = c.i;
-  el.appendChild(gateCanvas(c, "full"));
+  el.appendChild(gateCanvas(c));
   const cap = document.createElement("div"); cap.className = "cap"; cap.style.maxWidth = d.w + "px"; cap.innerHTML = gateCaption(r); el.appendChild(cap);
   el.onclick = () => gateSelect(c.i); return el;
 }
@@ -1481,9 +1460,7 @@ function gateBandEntry(r) {
   const c = r.c, el = document.createElement("div"); el.className = "bent" + (c.i === GT.sel ? " sel" : ""); el.dataset.i = c.i;
   const cap = document.createElement("div"), h = r.how; cap.className = "cap";
   cap.innerHTML = gateCaption(r) + `<span class="lab">${r.pass ? "passed" : "not passed"} · ${(100 * Math.abs(r.margin)).toFixed(2)} % ${r.pass ? "inside" : "outside"} ${h.bound}${gateSign(h.r)} (${h.cond})</span>`; el.appendChild(cap);
-  const th = document.createElement("div"); th.className = "thumbs";
-  [["full", "full ERSP"], ["h0", "half 1"], ["h1", "half 2"]].forEach(([kind, lab]) => { const w = document.createElement("div"); w.appendChild(gateCanvas(c, kind)); const t = document.createElement("span"); t.textContent = lab; w.appendChild(t); th.appendChild(w); });
-  el.appendChild(th); el.onclick = () => gateSelect(c.i); return el;
+  el.appendChild(gateCanvas(c)); el.onclick = () => gateSelect(c.i); return el;
 }
 function gateSelect(i) {
   GT.sel = i; document.querySelectorAll("#gate .tile, #gate .bent").forEach(t => t.classList.toggle("sel", +t.dataset.i === i));
@@ -1505,7 +1482,7 @@ async function gateRender() {
   const my = ++GT.seq, L = $("gateLeft"), R = $("gateRight"), B = $("gateBandList"); L.innerHTML = ""; R.innerHTML = ""; B.innerHTML = "";
   if (GT.obs) GT.obs.disconnect();
   GT.obs = new IntersectionObserver((es) => { for (const e of es) { if (!e.isIntersecting) continue; const cv = e.target; if (cv.dataset.done) continue; cv.dataset.done = 1;
-    const c = RV.contacts[+cv.dataset.i]; if (cv.dataset.kind === "full") gateDrawTile(cv, c); else gateDrawHalf(cv, c, cv.dataset.kind === "h0" ? 0 : 1); } }, { rootMargin: "300px" });
+    gateDrawTile(cv, RV.contacts[+cv.dataset.i]); } }, { rootMargin: "300px" });
   const scope = gateScope(), rows = []; let fromBundle = true;
   for (let i = 0; i < scope.length; i += 24) {                           // the fallback reads one file per contact: in batches, with a count
     const batch = scope.slice(i, i + 24); const ps = await Promise.all(batch.map(gateProps)); if (my !== GT.seq) return;
@@ -1521,8 +1498,7 @@ async function gateRender() {
   $("gateLeftHdr").textContent = `not passed · ${nl}`; $("gateRightHdr").textContent = `passed · ${nr} (by + only ${nPosOnly}, by − only ${nNegOnly}, both ${nBoth})`;
   const band = rows.filter(r => r.how && Math.abs(r.margin) <= GT.bandW + 1e-12);
   $("gateBand").classList.toggle("on", GT.band);
-  if (GT.band) { $("gateBandHdr").textContent = `border · ${band.length} contacts within ±${(100*GT.bandW).toFixed(1)} % of the bound that decides them · full ERSP, half 1, half 2 of the trials`
-      + (RV.man.halves ? "" : " · this bundle has no halves: rebuild it with make_lm_review_bundle.py"); for (const r of band) B.appendChild(gateBandEntry(r)); }
+  if (GT.band) { $("gateBandHdr").textContent = `border · ${band.length} contacts within ±${(100*GT.bandW).toFixed(1)} % of the bound that decides them`; for (const r of band) B.appendChild(gateBandEntry(r)); }
   const hasNoise = rows.some(r => BRAIN_CONDS.some(k => r.c.m[k] && r.c.m[k].noise != null));
   $("gateEq").innerHTML = gateEqText(fromBundle, hasNoise);
   $("gateNote").textContent = `${rows.length} contacts of ${GT.pats.size} patient(s) · in the dataset by the negative rule: ${nneg} (${nnegOnly} only by it) · ${ndis} disagree with the dataset gate`;

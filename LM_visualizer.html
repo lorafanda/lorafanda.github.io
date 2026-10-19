@@ -368,7 +368,7 @@
       <label class="bnd" title="the negative rule: a condition passes when its share of bins below thr&minus; lies in this range"><span class="pm">&minus;</span> min <input type="number" id="gateLoNeg" step="0.1" min="0" max="100" value="4"> max <input type="number" id="gateHiNeg" step="0.1" min="0" max="100" value="100"> %</label>
       <label title="the border band: the contacts within this distance of the bound that decides them"><input type="checkbox" id="gateBandOn" checked> border &plusmn; <input type="number" id="gateBandW" step="0.1" min="0" value="0.5" style="width:48px"> %</label>
       <button id="gateGo" title="apply the bounds and the band (or Enter in a box)">refresh</button>
-      <label title="weight of a bin in the shares, by its frequency row: none (the dataset gate), 1/(1 &minus; f/fmax) (the high rows count more), fmax/f (the low rows count more, equal weight per octave); weighted shares are computed here from the thumbnails">weight <select id="gateWeight"><option value="none">none</option><option value="high">1/(1 &minus; f/fmax)</option><option value="low">fmax/f</option></select></label>
+      <label title="weight of a bin in the shares, by its frequency row f (F = fmax + one row step, so no weight is infinite): none = every bin 1 (the dataset gate); 1/(1 &minus; f/F) = 1 at 0 Hz rising to 103 at the top row (the high rows count more); F/(f + step) = 103 at 0 Hz falling to 1 at the top row (the low rows count more, about equal weight per octave). Weighted shares are computed here from the thumbnails; the dataset gate's own verdict stays unweighted">weight <select id="gateWeight"><option value="none">none</option><option value="high">1/(1 &minus; f/fmax)</option><option value="low">fmax/f</option></select></label>
       <label title="which share the plots and the captions rank by: the share above thr+, the share below thr&minus;, or the larger of the two; a contact's score is its best condition's">plot score <select id="gateMode"><option value="pos">share above +thr</option><option value="neg">share below &minus;thr</option><option value="max">max of both</option></select></label>
       <label title="the bottom plot">plot <select id="gatePlot"><option value="hist">histogram</option><option value="percond">per condition</option><option value="noise">score vs noise</option><option value="rel">score vs reliability</option></select></label>
       <label>tile size <input type="range" id="gateScale" min="0.15" max="0.6" step="0.05" value="0.3" style="width:70px"></label>
@@ -1356,7 +1356,7 @@ async function toggleReview(on) {
 // plot is a histogram of the score, one per condition, or the score against the noise or the
 // split-half r; the border band lists the contacts within +-w of the bound that decides them.
 const GT = { on:false, pats:new Set(), lo:{ pos:null, neg:null }, hi:{ pos:1, neg:1 }, mode:"pos", weight:"none", plot:"hist", band:true, bandW:0.005, scale:0.3,
-             sel:-1, rows:[], rowOf:new Map(), obs:null, seq:0, _geom:[], _w:{} };
+             sel:-1, rows:[], rowOf:new Map(), obs:null, seq:0, _geom:[], _w:{}, _wmeta:{} };
 function gateDefaults() {
   const g = (RV.man && RV.man.gate) || {};
   return { thr_pos: g.thr_pos ?? 2.2, noise_k: g.noise_k ?? 2.0, min_prop_pos: g.min_prop_pos ?? 0.02, thr_neg: g.thr_neg ?? -3.0, min_prop_neg: g.min_prop_neg ?? 0.04 };
@@ -1369,22 +1369,31 @@ function gateThr(c, cond) {
   return { up, dn, noise: nz };
 }
 // the weight of each frequency row: 1, 1/(1 - f/fmax) or fmax/f, with f normalised so neither end is infinite
-function gateWeights() {
-  const wm = GT.weight; if (GT._w[wm]) return GT._w[wm];
-  const nf = RV.man.n_freq, F = Array.isArray(RV.man.f_hz) && RV.man.f_hz.length === nf ? RV.man.f_hz : Array.from({ length: nf }, (_, i) => i);
-  const df = F.length > 1 ? F[1] - F[0] : 1, top = F[nf - 1] + df, w = new Float64Array(nf);
+// the frequency of each row, from the manifest (f_hz = [fmin, fmax] or one value per row; rows are linear)
+function gateFreqs() {
+  const nf = RV.man.n_freq, fh = RV.man.f_hz;
+  if (Array.isArray(fh) && fh.length === nf) return fh.slice();
+  const [f0, f1] = Array.isArray(fh) && fh.length === 2 ? fh : [0, nf - 1];
+  return Array.from({ length: nf }, (_, i) => f0 + i * (f1 - f0) / (nf - 1));
+}
+// the weight of each row. F = f_max + df (one step above the top row) keeps both ends finite:
+//   high: w = 1 / (1 - f/F)   = 1 at 0 Hz ... nf at the top row
+//   low:  w = F / (f + df)    = nf at 0 Hz ... 1 at the top row
+function gateWeights(wm = GT.weight) {
+  if (GT._w[wm]) return GT._w[wm];
+  const nf = RV.man.n_freq, F = gateFreqs(), df = nf > 1 ? F[1] - F[0] : 1, top = F[nf - 1] + df, w = new Float64Array(nf);
   for (let i = 0; i < nf; i++) w[i] = wm === "high" ? 1 / (1 - F[i] / top) : wm === "low" ? top / (F[i] + df) : 1;
-  GT._w[wm] = w; return w;
+  GT._w[wm] = w; GT._wmeta[wm] = { F, df, top, w }; return w;
 }
 // shares of bins above / below per condition: the bundle's numbers when unweighted, else from the thumbnail bytes
-async function gateProps(c) {
-  const wm = GT.weight; c._gp = c._gp || {};
+async function gateProps(c, wm = GT.weight) {
+  c._gp = c._gp || {};
   if (c._gp[wm]) return c._gp[wm];
   const pos = {}, neg = {}; let fromBundle = wm === "none";
   if (fromBundle) for (const cond of BRAIN_CONDS) { const m = c.m && c.m[cond]; if (!m) continue;
     if (m.prop_pos != null && m.prop_neg != null) { pos[cond] = m.prop_pos; neg[cond] = m.prop_neg; } else fromBundle = false; }
   if (!fromBundle) {
-    const a = await rvErsp(c.i), man = RV.man, w = gateWeights();
+    const a = await rvErsp(c.i), man = RV.man, w = gateWeights(wm);
     if (a) { const nf = man.n_freq, nt = man.n_time, vmin = man.vmin, span = man.vmax - man.vmin; let W = 0; for (let f = 0; f < nf; f++) W += w[f] * nt;
       for (const cond of BRAIN_CONDS) { const k = man.conditions.indexOf(cond); if (k < 0 || !(c.m && c.m[cond]) || pos[cond] != null) continue;
         const th = gateThr(c, cond); let up = 0, dn = 0;
@@ -1396,7 +1405,7 @@ async function gateProps(c) {
 const gateCondScore = (p, cond) => { const a = p.pos[cond], b = p.neg[cond]; if (GT.mode === "pos") return a; if (GT.mode === "neg") return b; return a === a && b === b ? Math.max(a, b) : (a === a ? a : b); };
 // one contact: its plot score and the condition carrying it, the verdict under the bounds (per
 // condition and rule), the bound that decides it (for the border band), and the dataset gate's own verdict
-function gateRow(c, p) {
+function gateRow(c, p, p0 = p) {
   const g = gateDefaults(), sc = {}, passC = {}; let best = null, score = NaN, pass = false, hp = null, hf = null;
   for (const cond of BRAIN_CONDS) { if (p.pos[cond] == null) continue;
     const v = gateCondScore(p, cond); sc[cond] = v; if (v === v && !(v <= score)) { score = v; best = cond; }
@@ -1404,9 +1413,9 @@ function gateRow(c, p) {
       if (s >= lo && s <= hi) { passC[cond] = passC[cond] || {}; passC[cond][r] = true; pass = true; const d = Math.min(s - lo, hi - s);
         if (!hp || d > hp.d) hp = { cond, r, bound: s - lo <= hi - s ? "min" : "max", d }; }
       else { const d = s < lo ? lo - s : s - hi; if (!hf || d < hf.d) hf = { cond, r, bound: s < lo ? "min" : "max", d }; } } }
-  // the dataset gate itself: the bundle's unweighted numbers when present, else these shares
+  // the dataset gate itself: the bundle's unweighted numbers when present, else the unweighted shares computed here (p0)
   let posIn = false, negIn = false;
-  for (const cond of BRAIN_CONDS) { const m = c.m && c.m[cond]; if (!m) continue; const pp = m.prop_pos != null ? m.prop_pos : p.pos[cond], pn = m.prop_neg != null ? m.prop_neg : p.neg[cond];
+  for (const cond of BRAIN_CONDS) { const m = c.m && c.m[cond]; if (!m) continue; const pp = m.prop_pos != null ? m.prop_pos : p0.pos[cond], pn = m.prop_neg != null ? m.prop_neg : p0.neg[cond];
     if (pp >= g.min_prop_pos) posIn = true; if (pn >= g.min_prop_neg) negIn = true; }
   const how = pass ? hp : hf;
   return { c, score, best, sc, p, pass, passC, how, margin: how ? (pass ? how.d : -how.d) : NaN, posIn, negIn, gate: posIn || negIn };
@@ -1471,8 +1480,11 @@ function gateSelect(i) {
 // the gate as it is applied, written out
 function gateEqText(fromBundle, hasNoise) {
   const g = gateDefaults(), wm = GT.weight, pc = (v) => (100 * v).toFixed(1) + " %";
-  const share = wm === "none" ? "<b>s⁺</b> = #bins(ERSP &gt; thr⁺) / #bins · <b>s⁻</b> = #bins(ERSP &lt; thr⁻) / #bins"
-    : `<b>s⁺</b> = Σ w(f)·[ERSP &gt; thr⁺] / Σ w(f) · <b>s⁻</b> = Σ w(f)·[ERSP &lt; thr⁻] / Σ w(f) · <b>w(f)</b> = ${wm === "high" ? "1 / (1 − f/f<sub>max</sub>)" : "f<sub>max</sub> / f"}`;
+  let share = "<b>s⁺</b> = #bins(ERSP &gt; thr⁺) / #bins · <b>s⁻</b> = #bins(ERSP &lt; thr⁻) / #bins";
+  if (wm !== "none") { gateWeights(wm); const { F, df, top, w } = GT._wmeta[wm], nf = F.length, i200 = F.reduce((b, f, i) => Math.abs(f - 200) < Math.abs(F[b] - 200) ? i : b, 0), r = (v) => v >= 10 ? v.toFixed(0) : v.toFixed(2);
+    share = `<b>s⁺</b> = Σ<sub>f,t</sub> w(f)·[ERSP(f,t) &gt; thr⁺] / Σ<sub>f,t</sub> w(f) · <b>s⁻</b> = Σ<sub>f,t</sub> w(f)·[ERSP(f,t) &lt; thr⁻] / Σ<sub>f,t</sub> w(f), sums over all ${nf} rows × ${RV.man.n_time} bins`
+      + ` · <b>w(f)</b> = ${wm === "high" ? "1 / (1 − f/F)" : "F / (f + Δf)"}, F = f<sub>max</sub> + Δf = ${top.toFixed(1)} Hz, Δf = ${df.toFixed(2)} Hz, f = the row's frequency (0 … ${F[nf - 1].toFixed(0)} Hz)`
+      + `: w = ${r(w[0])} at 0 Hz, ${r(w[i200])} at ${F[i200].toFixed(0)} Hz, ${r(w[nf - 1])} at ${F[nf - 1].toFixed(0)} Hz`; }
   const src = wm !== "none" || !fromBundle ? ` · shares computed here from the thumbnails (time ↓2${hasNoise ? "" : "; fixed thresholds, no noise in the bundle"})` : " · shares from the bundle (full cubes)";
   return `<b>noise</b> = sd(half₁ − half₂) / 2 · <b>thr⁺</b> = max(${g.thr_pos} dB, ${g.noise_k} × noise) · <b>thr⁻</b> = min(${g.thr_neg} dB, −${g.noise_k} × noise) · ${share}, per condition`
     + ` · <b>pass</b> = (${pc(GT.lo.pos)} ≤ s⁺ ≤ ${pc(GT.hi.pos)}) or (${pc(GT.lo.neg)} ≤ s⁻ ≤ ${pc(GT.hi.neg)}) in any condition · dataset gate: s⁺ ≥ ${pc(g.min_prop_pos)} or s⁻ ≥ ${pc(g.min_prop_neg)}, unweighted` + src;
@@ -1485,8 +1497,9 @@ async function gateRender() {
     gateDrawTile(cv, RV.contacts[+cv.dataset.i]); } }, { rootMargin: "300px" });
   const scope = gateScope(), rows = []; let fromBundle = true;
   for (let i = 0; i < scope.length; i += 24) {                           // the fallback reads one file per contact: in batches, with a count
-    const batch = scope.slice(i, i + 24); const ps = await Promise.all(batch.map(gateProps)); if (my !== GT.seq) return;
-    batch.forEach((c, j) => { if (!ps[j].fromBundle) fromBundle = false; rows.push(gateRow(c, ps[j])); });
+    const batch = scope.slice(i, i + 24); const ps = await Promise.all(batch.map(c => gateProps(c))); if (my !== GT.seq) return;
+    const ps0 = GT.weight === "none" ? ps : await Promise.all(batch.map(c => gateProps(c, "none"))); if (my !== GT.seq) return;   // the dataset gate's own verdict is unweighted
+    batch.forEach((c, j) => { if (!ps[j].fromBundle) fromBundle = false; rows.push(gateRow(c, ps[j], ps0[j])); });
     if (!fromBundle) $("gateNote").textContent = `scoring ${Math.min(i + 24, scope.length)} / ${scope.length} contacts from the thumbnails…`;
   }
   rows.sort((x, y) => (y.score - x.score) || x.c.patient.localeCompare(y.c.patient) || x.c.i - y.c.i);
@@ -1519,7 +1532,7 @@ function gateBounds(smax) {
 const gateAxisMax = (vals) => { let m = Math.max(...vals, GT.lo.pos * 1.5, GT.lo.neg * 1.5) || 1; for (const r of ["pos", "neg"]) if (GT.hi[r] < 1 && GT.hi[r] > m) m = GT.hi[r] * 1.05; return m; };
 // one histogram band: bars, the bounds, one dot per point stacked in its bin; fills GT._geom
 function gateHistRow(g, x0, y0, pw, ph, pts, smax, label) {
-  const nb = 80, bins = new Array(nb).fill(0), stack = new Array(nb).fill(0);
+  const nb = 500, bins = new Array(nb).fill(0), stack = new Array(nb).fill(0);
   const bx = (v) => x0 + v / smax * pw, bi = (v) => Math.min(nb - 1, Math.max(0, Math.floor(v / smax * nb)));
   for (const p of pts) bins[bi(p.v)]++;
   const bmax = Math.max(1, ...bins);

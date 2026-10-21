@@ -364,7 +364,7 @@
     <h3>Gate
       <span id="gatePats"><button id="gatePatBtn" title="which patients are in the window">patients &#9662;</button>
         <div id="gatePatList"><div style="margin-bottom:4px"><button id="gatePatAll">all</button> <button id="gatePatNone">none</button> <button id="gatePatCur" title="the patient of the review strip">current</button></div><div id="gatePatCbs"></div></div></span>
-      <label title="share = the dataset gate: the share of a condition's bins beyond the threshold. blob = the valley blobs of lf_blob_metrics: seeds beyond the threshold grown to threshold &minus;/+ &delta; (8-connected), each scored |mean| (dB) &times; area (% of bins), its cluster mass; a condition's value is its best blob">rule <select id="gateRule"><option value="share">share of bins</option><option value="blob">blob score</option></select></label>
+      <label title="share = the dataset gate: the share of a condition's bins beyond the threshold. blob = the valley blobs of lf_blob_metrics: seeds beyond the threshold grown to threshold &minus;/+ &delta; (8-connected), each scored |mean| (dB) &times; area (% of bins), its cluster mass (hysteresis thresholding, Canny 1986 / Vincent 1993, scored as in Bullmore 1999); a condition's value is its best blob">rule <select id="gateRule"><option value="share">share of bins</option><option value="blob">blob score</option></select></label>
       <label class="bnd" id="gateBlobPars" title="&delta; = how far below (above) the threshold a blob is grown">&delta; <input type="number" id="gateDelta" step="0.1" min="0" value="0.5"> dB</label>
       <label class="bnd" title="the positive rule: a condition passes when its + value lies in this range"><span class="pm">+</span> min <input type="number" id="gateLoPos" step="0.1" min="0" value="2"> max <input type="number" id="gateHiPos" step="0.1" min="0" value="100"> <span class="unit">%</span></label>
       <label class="bnd" title="the negative rule: a condition passes when its &minus; value lies in this range"><span class="pm">&minus;</span> min <input type="number" id="gateLoNeg" step="0.1" min="0" value="4"> max <input type="number" id="gateHiNeg" step="0.1" min="0" value="100"> <span class="unit">%</span></label>
@@ -1351,7 +1351,11 @@ async function toggleReview(on) {
 // older bundle gets them computed here from the thumbnails; the bins may be weighted by frequency
 // row. BLOB (lf_blob_metrics.s21_segment_valley_blobs, on the thumbnails): seeds beyond thr, grown
 // to thr -/+ delta, 8-connected, kept when the mean is beyond 0.7 thr+ / 0.8 thr-; a blob's score
-// = |mean| (dB) x area (% of bins), its cluster mass; s+ / s- = the best blob of each sign. A condition passes when s+ lies in [min+, max+] or s- in [min-, max-]; a contact passes
+// = |mean| (dB) x area (% of bins), its cluster mass; s+ / s- = the best blob of each sign. In the
+// literature: hysteresis thresholding (Canny 1986; Vincent 1993, h-maxima) scored by cluster mass
+// (Bullmore 1999; Maris & Oostenveld 2007), thr+ / thr- being the cluster-forming threshold (2 noise
+// SD with a floor); TFCE (Smith & Nichols 2009) generalises the single delta. With delta <= 0.6 dB the
+// mean floor never binds: every bin of a blob lies within delta of its threshold. A condition passes when s+ lies in [min+, max+] or s- in [min-, max-]; a contact passes
 // when any condition does. The plots rank by s+, s- or max(s+, s-) of the contact's best
 // condition. Tiles outline the bins (share) or the blobs (blob) beyond the thresholds, green above
 // and yellow below, and bar the carrying condition; the bottom plot is a histogram, one per
@@ -1540,12 +1544,15 @@ function gateSelect(i) {
 // the gate as it is applied, written out
 function gateEqText(fromBundle, hasNoise) {
   const g = gateDefaults(), wm = GT.weight, pc = (v) => gateFmt(v) + " " + gateUnit();
-  const thr = `<b>noise</b> = sd(half₁ − half₂) / 2 · <b>thr⁺</b> = max(${g.thr_pos} dB, ${g.noise_k} × noise) · <b>thr⁻</b> = min(${g.thr_neg} dB, −${g.noise_k} × noise)`;
+  const thr = `<b>noise</b> = sd(half₁ − half₂) / 2 · <b>thr⁺</b> = max(${g.thr_pos} dB, ${g.noise_k} × noise) · <b>thr⁻</b> = min(${g.thr_neg} dB, −${g.noise_k} × noise) (the cluster-forming threshold: ${g.noise_k} noise SD with a floor)`;
   let body, src;
   if (GT.rule === "blob") {
+    const dInert = Math.min((1 - MIN_MEAN_POS) * g.thr_pos, (1 - MAX_MEAN_NEG) * Math.abs(g.thr_neg));   // the delta up to which the mean floor cannot bind
     body = ` · <b>blob⁺</b> = an 8-connected region of bins with ERSP ≥ thr⁺ − δ that holds a bin ≥ thr⁺, kept when its mean ≥ ${MIN_MEAN_POS} × thr⁺ · <b>blob⁻</b> likewise with ERSP ≤ thr⁻ + δ, a bin ≤ thr⁻, mean ≤ ${MAX_MEAN_NEG} × thr⁻`
+      + (GT.delta <= dInert + 1e-9 ? ` (at δ = ${GT.delta} dB the floor never binds: every bin of a blob lies within δ of its threshold)` : ` (at δ = ${GT.delta} dB the floor can bind; it cannot up to δ = ${dInert.toFixed(2)} dB)`)
       + ` · <b>score</b> = |mean| (dB) × area (% of all ${RV.man.n_freq} × ${RV.man.n_time} bins) = the blob's cluster mass · <b>δ</b> = ${GT.delta} dB`
-      + ` · <b>s⁺</b>, <b>s⁻</b> = the best blob's score per condition (0 without a blob)`;
+      + ` · <b>s⁺</b>, <b>s⁻</b> = the best blob's score per condition (0 without a blob)`
+      + ` · in the literature: hysteresis thresholding (Canny 1986; Vincent 1993) scored by cluster mass (Bullmore 1999; Maris &amp; Oostenveld 2007); TFCE (Smith &amp; Nichols 2009) is the generalisation over every δ`;
     src = " · blobs computed here from the thumbnails (time ↓2)" + (hasNoise ? "" : "; fixed thresholds, no noise in the bundle");
   } else {
     body = " · " + (wm === "none" ? "<b>s⁺</b> = #bins(ERSP &gt; thr⁺) / #bins · <b>s⁻</b> = #bins(ERSP &lt; thr⁻) / #bins" : "");

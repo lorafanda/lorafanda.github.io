@@ -364,8 +364,8 @@
     <h3>Gate
       <span id="gatePats"><button id="gatePatBtn" title="which patients are in the window">patients &#9662;</button>
         <div id="gatePatList"><div style="margin-bottom:4px"><button id="gatePatAll">all</button> <button id="gatePatNone">none</button> <button id="gatePatCur" title="the patient of the review strip">current</button></div><div id="gatePatCbs"></div></div></span>
-      <label title="share = the dataset gate: the share of a condition's bins beyond the threshold. blob = the valley blobs of lf_blob_metrics: seeds beyond the threshold grown to threshold &minus;/+ &delta; (8-connected), each scored |mean| (dB) &times; area (% of bins) / (1 + &alpha; &middot; f_peak/f_max); a condition's value is its best blob">rule <select id="gateRule"><option value="share">share of bins</option><option value="blob">blob score</option></select></label>
-      <label class="bnd" id="gateBlobPars" title="&delta; = how far below (above) the threshold a blob is grown; &alpha; = the frequency penalty of a blob's score, 1 + &alpha; &middot; f_peak/f_max (&alpha; 3 = up to 4&times; at the top row)">&delta; <input type="number" id="gateDelta" step="0.1" min="0" value="0.5"> dB &middot; &alpha; <input type="number" id="gateAlpha" step="0.5" min="0" value="3"></label>
+      <label title="share = the dataset gate: the share of a condition's bins beyond the threshold. blob = the valley blobs of lf_blob_metrics: seeds beyond the threshold grown to threshold &minus;/+ &delta; (8-connected), each scored |mean| (dB) &times; area (% of bins), its cluster mass; a condition's value is its best blob">rule <select id="gateRule"><option value="share">share of bins</option><option value="blob">blob score</option></select></label>
+      <label class="bnd" id="gateBlobPars" title="&delta; = how far below (above) the threshold a blob is grown">&delta; <input type="number" id="gateDelta" step="0.1" min="0" value="0.5"> dB</label>
       <label class="bnd" title="the positive rule: a condition passes when its + value lies in this range"><span class="pm">+</span> min <input type="number" id="gateLoPos" step="0.1" min="0" value="2"> max <input type="number" id="gateHiPos" step="0.1" min="0" value="100"> <span class="unit">%</span></label>
       <label class="bnd" title="the negative rule: a condition passes when its &minus; value lies in this range"><span class="pm">&minus;</span> min <input type="number" id="gateLoNeg" step="0.1" min="0" value="4"> max <input type="number" id="gateHiNeg" step="0.1" min="0" value="100"> <span class="unit">%</span></label>
       <label title="the border band: the contacts within this distance of the bound that decides them"><input type="checkbox" id="gateBandOn" checked> border &plusmn; <input type="number" id="gateBandW" step="0.1" min="0" value="0.5" style="width:48px"> <span class="unit">%</span></label>
@@ -1351,15 +1351,14 @@ async function toggleReview(on) {
 // older bundle gets them computed here from the thumbnails; the bins may be weighted by frequency
 // row. BLOB (lf_blob_metrics.s21_segment_valley_blobs, on the thumbnails): seeds beyond thr, grown
 // to thr -/+ delta, 8-connected, kept when the mean is beyond 0.7 thr+ / 0.8 thr-; a blob's score
-// = |mean| (dB) x area (% of bins) / (1 + alpha x f_peak/f_max); s+ / s- = the best blob of each
-// sign. A condition passes when s+ lies in [min+, max+] or s- in [min-, max-]; a contact passes
+// = |mean| (dB) x area (% of bins), its cluster mass; s+ / s- = the best blob of each sign. A condition passes when s+ lies in [min+, max+] or s- in [min-, max-]; a contact passes
 // when any condition does. The plots rank by s+, s- or max(s+, s-) of the contact's best
 // condition. Tiles outline the bins (share) or the blobs (blob) beyond the thresholds, green above
 // and yellow below, and bar the carrying condition; the bottom plot is a histogram, one per
 // condition, or the score against the split-half r or a shape of the best blob (largest-blob
 // fraction, number of blobs, solidity, time extent, frequency extent); the border band lists the
 // contacts within +-w of the bound that decides them.
-const GT = { on:false, pats:new Set(), rule:"share", lo:{ pos:null, neg:null }, hi:{ pos:1, neg:1 }, _bnd:{}, delta:0.5, alpha:3, mode:"pos", weight:"none", plot:"hist",
+const GT = { on:false, pats:new Set(), rule:"share", lo:{ pos:null, neg:null }, hi:{ pos:1, neg:1 }, _bnd:{}, delta:0.5, mode:"pos", weight:"none", plot:"hist",
              band:true, bandW:0.005, scale:0.3, sel:-1, rows:[], rowOf:new Map(), obs:null, seq:0, _geom:[], _w:{}, _wmeta:{} };
 const MIN_MEAN_POS = 0.7, MAX_MEAN_NEG = 0.8;        // lf_blob_clustering_config: min_mean_pos = 0.7 thr_pos, max_mean_neg = 0.8 thr_neg
 function gateDefaults() {
@@ -1441,9 +1440,9 @@ function gateSolidity(idx, nt) {
   for (let k = 0; k < hull.length; k++) { const p = hull[k], q = hull[(k + 1) % hull.length]; A += p[0] * q[1] - q[0] * p[1]; }
   A = Math.abs(A) / 2; return A > 0 ? Math.min(1, idx.length / A) : 1;
 }
-const gateBlobScoreOf = (b, alpha) => Math.abs(b.mean) * b.area * 100 / (1 + alpha * b.fnorm);
-const gateBlobBest = (st, alpha) => st && st.blobs.length ? st.blobs.reduce((m, b) => gateBlobScoreOf(b, alpha) > gateBlobScoreOf(m, alpha) ? b : m) : null;
-const gateBlobScore = (st, alpha) => { if (!st) return NaN; const b = gateBlobBest(st, alpha); return b ? gateBlobScoreOf(b, alpha) : 0; };
+const gateBlobScoreOf = (b) => Math.abs(b.mean) * b.area * 100;          // cluster mass: |mean| dB x area in % of bins
+const gateBlobBest = (st) => st && st.blobs.length ? st.blobs.reduce((m, b) => gateBlobScoreOf(b) > gateBlobScoreOf(m) ? b : m) : null;
+const gateBlobScore = (st) => { if (!st) return NaN; const b = gateBlobBest(st); return b ? gateBlobScoreOf(b) : 0; };
 // the blobs of every condition of a contact at the current delta (cached per delta)
 async function gateBlobStats(c) {
   const key = GT.delta.toFixed(3); c._gb = c._gb || {}; if (c._gb[key]) return c._gb[key];
@@ -1455,7 +1454,7 @@ async function gateBlobStats(c) {
 }
 const gateNeedBlob = () => GT.rule === "blob" || GT.plot in { shape: 1, nblob: 1, solid: 1, text: 1, fext: 1 };
 // the value of one rule for one condition: the share (weighted as set) or the best blob's score
-function gateVal(p, b, r, cond) { if (GT.rule === "blob") return b && b[cond] ? gateBlobScore(b[cond][r], GT.alpha) : NaN; return p[r][cond] != null ? p[r][cond] : NaN; }
+function gateVal(p, b, r, cond) { if (GT.rule === "blob") return b && b[cond] ? gateBlobScore(b[cond][r]) : NaN; return p[r][cond] != null ? p[r][cond] : NaN; }
 const gateCondScore = (p, b, cond) => { const a = gateVal(p, b, "pos", cond), n = gateVal(p, b, "neg", cond); if (GT.mode === "pos") return a; if (GT.mode === "neg") return n; return a === a && n === n ? Math.max(a, n) : (a === a ? a : n); };
 // one contact: its plot score and the condition carrying it, the verdict under the bounds (per
 // condition and rule), the bound that decides it (for the border band), and the dataset gate's own verdict
@@ -1511,7 +1510,7 @@ function gateCaption(r) {
   const g = gateDefaults(), c = r.c, F = gateFreqs(), nf = F.length;
   const parts = BRAIN_CONDS.map(k => { const s = gateFmt(r.sc[k]) + (r.passC[k] ? "✓" : ""); return k === r.best ? `<span class="best">${s}</span>` : s; }).join(" / ");
   const tip = BRAIN_CONDS.filter(k => c.m && c.m[k]).map(k => { const m = c.m[k] || {}, th = gateThr(c, k), pc = r.passC[k] || {}; let line;
-    if (GT.rule === "blob") { const bb = r.b && r.b[k]; const one = (sg, st) => { const b = st ? gateBlobBest(st, GT.alpha) : null; return b ? `s${sg} ${gateBlobScoreOf(b, GT.alpha).toFixed(2)} (mean ${b.mean.toFixed(2)} dB, area ${(100*b.area).toFixed(1)} %, peak ${F[Math.round(b.fnorm * (nf - 1))].toFixed(0)} Hz, solidity ${b.sol.toFixed(2)}, ${(100 * (b.tmax - b.tmin + 1) / RV.man.n_time).toFixed(0)} % of time × ${((b.fmax - b.fmin + 1) * (nf > 1 ? F[1] - F[0] : 1)).toFixed(0)} Hz; ${st.nAll} blob${st.nAll === 1 ? "" : "s"})` : `s${sg} 0 (no blob)`; };
+    if (GT.rule === "blob") { const bb = r.b && r.b[k]; const one = (sg, st) => { const b = st ? gateBlobBest(st) : null; return b ? `s${sg} ${gateBlobScoreOf(b).toFixed(2)} (mean ${b.mean.toFixed(2)} dB, area ${(100*b.area).toFixed(1)} %, peak ${F[Math.round(b.fnorm * (nf - 1))].toFixed(0)} Hz, solidity ${b.sol.toFixed(2)}, ${(100 * (b.tmax - b.tmin + 1) / RV.man.n_time).toFixed(0)} % of time × ${((b.fmax - b.fmin + 1) * (nf > 1 ? F[1] - F[0] : 1)).toFixed(0)} Hz; ${st.nAll} blob${st.nAll === 1 ? "" : "s"})` : `s${sg} 0 (no blob)`; };
       line = `${k}: ${one("⁺", bb && bb.pos)}${pc.pos ? " ✓" : ""} · ${one("⁻", bb && bb.neg)}${pc.neg ? " ✓" : ""}`; }
     else line = `${k}: above ${gateFmt(r.p.pos[k])} %${pc.pos ? " ✓" : ""} · below ${gateFmt(r.p.neg[k])} %${pc.neg ? " ✓" : ""}`;
     return line + ` (thr⁺ ${th.up.toFixed(2)} dB, thr⁻ ${th.dn.toFixed(2)} dB${th.noise === th.noise ? `, noise ${th.noise.toFixed(2)} dB` : ""}${m.rel != null ? `, split-half r ${m.rel}` : ""})`; }).join("\n");
@@ -1545,7 +1544,7 @@ function gateEqText(fromBundle, hasNoise) {
   let body, src;
   if (GT.rule === "blob") {
     body = ` · <b>blob⁺</b> = an 8-connected region of bins with ERSP ≥ thr⁺ − δ that holds a bin ≥ thr⁺, kept when its mean ≥ ${MIN_MEAN_POS} × thr⁺ · <b>blob⁻</b> likewise with ERSP ≤ thr⁻ + δ, a bin ≤ thr⁻, mean ≤ ${MAX_MEAN_NEG} × thr⁻`
-      + ` · <b>score</b> = |mean| (dB) × area (% of all ${RV.man.n_freq} × ${RV.man.n_time} bins) / (1 + α · f<sub>peak</sub>/f<sub>max</sub>), f<sub>peak</sub> = the row of the blob's strongest bin · <b>δ</b> = ${GT.delta} dB, <b>α</b> = ${GT.alpha} (1 → ${(1 + GT.alpha).toFixed(1)}× penalty from 0 Hz to the top row)`
+      + ` · <b>score</b> = |mean| (dB) × area (% of all ${RV.man.n_freq} × ${RV.man.n_time} bins) = the blob's cluster mass · <b>δ</b> = ${GT.delta} dB`
       + ` · <b>s⁺</b>, <b>s⁻</b> = the best blob's score per condition (0 without a blob)`;
     src = " · blobs computed here from the thumbnails (time ↓2)" + (hasNoise ? "" : "; fixed thresholds, no noise in the bundle");
   } else {
@@ -1582,8 +1581,8 @@ async function gateRender() {
   }
   // first bounds of the blob rule: the medians of the contacts' best values (your old gate chose a quantile)
   if (GT.rule === "blob" && GT.lo.pos == null && data.length) {
-    const vp = data.map(d => Math.max(-1, ...BRAIN_CONDS.filter(k => d.b && d.b[k]).map(k => gateBlobScore(d.b[k].pos, GT.alpha)))).filter(v => v >= 0);
-    const vn = data.map(d => Math.max(-1, ...BRAIN_CONDS.filter(k => d.b && d.b[k]).map(k => gateBlobScore(d.b[k].neg, GT.alpha)))).filter(v => v >= 0);
+    const vp = data.map(d => Math.max(-1, ...BRAIN_CONDS.filter(k => d.b && d.b[k]).map(k => gateBlobScore(d.b[k].pos)))).filter(v => v >= 0);
+    const vn = data.map(d => Math.max(-1, ...BRAIN_CONDS.filter(k => d.b && d.b[k]).map(k => gateBlobScore(d.b[k].neg)))).filter(v => v >= 0);
     GT.lo.pos = +gateMedian(vp).toFixed(2) || 0; GT.lo.neg = +gateMedian(vn).toFixed(2) || 0; GT._bndNote = `first bounds = the medians of the best ${GT.rule} values (${gateFmt(GT.lo.pos)} / ${gateFmt(GT.lo.neg)} ${gateUnit()})`; }
   gateBoxes();
   const rows = data.map(d => gateRow(d.c, d.p, d.p0, d.b));
@@ -1637,8 +1636,8 @@ function gateHistRow(g, x0, y0, pw, ph, pts, smax, label) {
 // the blob statistics of a contact's best condition for the plotted sign
 function gateShapeOf(r) {
   if (!r.best || !r.b || !r.b[r.best]) return null;
-  const sg = GT.mode === "neg" ? "neg" : GT.mode === "pos" ? "pos" : (gateBlobScore(r.b[r.best].pos, GT.alpha) >= gateBlobScore(r.b[r.best].neg, GT.alpha) ? "pos" : "neg");
-  const st = r.b[r.best][sg], b = gateBlobBest(st, GT.alpha), F = gateFreqs(), df = F.length > 1 ? F[1] - F[0] : 1;
+  const sg = GT.mode === "neg" ? "neg" : GT.mode === "pos" ? "pos" : (gateBlobScore(r.b[r.best].pos) >= gateBlobScore(r.b[r.best].neg) ? "pos" : "neg");
+  const st = r.b[r.best][sg], b = gateBlobBest(st), F = gateFreqs(), df = F.length > 1 ? F[1] - F[0] : 1;
   return { st, b, frac: st.areaAll > 0 && st.blobs.length ? Math.max(...st.blobs.map(x => x.area)) / st.areaAll : NaN, n: st.nAll,
            sol: b ? b.sol : NaN, text: b ? (b.tmax - b.tmin + 1) / RV.man.n_time : NaN, fext: b ? (b.fmax - b.fmin + 1) * df : NaN };
 }
@@ -1697,7 +1696,6 @@ function gateSetCut() {
   for (const r of ["pos", "neg"]) { const lo = rd(r === "pos" ? "gateLoPos" : "gateLoNeg", GT.lo[r] == null ? 0 : GT.lo[r], false), hi = rd(r === "pos" ? "gateHiPos" : "gateHiNeg", GT.hi[r], true); GT.lo[r] = Math.min(lo, hi); GT.hi[r] = Math.max(lo, hi); }
   const b = parseFloat($("gateBandW").value); if (b === b && b >= 0) GT.bandW = toV(b);
   const dl = parseFloat($("gateDelta").value); if (dl === dl && dl >= 0) GT.delta = dl; $("gateDelta").value = GT.delta;
-  const al = parseFloat($("gateAlpha").value); if (al === al && al >= 0) GT.alpha = al; $("gateAlpha").value = GT.alpha;
   GT.band = $("gateBandOn").checked; gateRender();
 }
 // switching the rule keeps each rule's bounds and unit
@@ -1721,7 +1719,7 @@ function gateWire() {
   $("gatePatAll").onclick = () => setAll(true); $("gatePatNone").onclick = () => setAll(false);
   $("gatePatCur").onclick = () => { GT.pats = new Set(RV.pid ? [RV.pid] : []); box.querySelectorAll("input").forEach(cb => cb.checked = GT.pats.has(cb.value)); gateRender(); };
   $("gateGo").onclick = gateSetCut;
-  for (const id of ["gateLoPos", "gateHiPos", "gateLoNeg", "gateHiNeg", "gateBandW", "gateDelta", "gateAlpha"]) $(id).onkeydown = (e) => { e.stopPropagation(); if (e.key === "Enter") gateSetCut(); };
+  for (const id of ["gateLoPos", "gateHiPos", "gateLoNeg", "gateHiNeg", "gateBandW", "gateDelta"]) $(id).onkeydown = (e) => { e.stopPropagation(); if (e.key === "Enter") gateSetCut(); };
   $("gateBandOn").onchange = gateSetCut;
   $("gateRule").onchange = () => gateSetRule($("gateRule").value);
   $("gateWeight").onchange = () => { GT.weight = $("gateWeight").value; gateRender(); };

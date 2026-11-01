@@ -34,6 +34,66 @@
   option { color:var(--fg); }
 
   /* ── compare UI — make_cluster_visualizer.py ──────────────────────────── */
+  /* ── the held-out view (2026-11-01): the story panel on the right ──────── */
+  #u2ho { position:fixed; top:14px; right:14px; bottom:14px; width:440px; z-index:6; overflow-y:auto;
+          background:var(--panel-bg); backdrop-filter:blur(8px); border-radius:10px; padding:12px 14px 16px;
+          font-size:11.5px; line-height:1.45; color:var(--fg); box-shadow:0 4px 18px rgba(0,0,0,.25); }
+  #u2ho h3 { font-size:12.5px; margin:14px 0 4px; font-weight:600; }
+  #u2ho h3 small { color:var(--muted); font-weight:400; margin-left:6px; }
+  #u2ho .hoh { font-size:13.5px; font-weight:600; margin:0 0 2px; }
+  #u2ho .hoq { color:var(--muted); margin:0 0 6px; }
+  #u2ho p { margin:4px 0; }
+  #u2ho cite.hocite { font-style:normal; color:var(--muted); font-size:10.5px; cursor:help; }
+  #u2ho .hobig { display:flex; gap:16px; align-items:flex-end; margin:6px 0 4px; }
+  #u2ho .hobig b { font-size:26px; font-weight:600; line-height:1; display:block; }
+  #u2ho .hobig span { font-size:10.5px; color:var(--muted); display:block; max-width:120px; }
+  #u2ho .hotype { display:grid; grid-template-columns:120px 1fr 64px; gap:3px 8px; align-items:center; cursor:pointer;
+                  padding:2px 4px; border-radius:5px; }
+  #u2ho .hotype:hover { background:rgba(255,255,255,.06); }
+  #u2ho .hotype.on { background:rgba(255,255,255,.10); box-shadow:inset 0 0 0 1px var(--accent); }
+  #u2ho .hotype .nm { white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:11px; }
+  #u2ho .hotype .bars { position:relative; height:14px; background:rgba(255,255,255,.07); border-radius:3px; }
+  #u2ho .hotype .bars i { position:absolute; left:0; top:0; height:14px; border-radius:3px; opacity:.45; }
+  #u2ho .hotype .bars b { position:absolute; left:0; top:0; height:14px; border-radius:3px; border:1.5px solid; box-sizing:border-box; }
+  #u2ho .hotype .nums { font-size:10.5px; color:var(--muted); white-space:nowrap; text-align:right; }
+  #u2ho table.hocm { border-collapse:collapse; margin:4px 0 2px; }
+  #u2ho table.hocm th, #u2ho table.hocm td { width:30px; height:24px; text-align:center; font-size:10.5px;
+                                             border:1px solid rgba(0,0,0,.35); cursor:pointer; }
+  #u2ho table.hocm th { font-weight:600; border:none; }
+  #u2ho table.hocm td.sel { outline:2px solid #ff5a5f; outline-offset:-2px; }
+  #u2ho table.hocm tr.rowsel th { text-decoration:underline; }
+  #u2ho .hocmt { font-size:11px; font-weight:600; margin:6px 0 0; }
+  #u2ho .hocmt span { font-weight:400; color:var(--muted); }
+  #u2ho .hoseg { display:flex; gap:4px; flex-wrap:wrap; margin:4px 0; }
+  #u2ho .hoseg button { font:inherit; font-size:10.5px; padding:3px 8px; border-radius:5px; cursor:pointer;
+                        background:#15161b; color:var(--fg); border:1px solid rgba(255,255,255,.14); }
+  #u2ho .hoseg button.on { background:var(--accent); color:#001; border-color:var(--accent); font-weight:700; }
+  #u2ho .hoseg select { font:inherit; font-size:10.5px; background:#15161b; color:var(--fg);
+                        border:1px solid rgba(255,255,255,.14); border-radius:5px; padding:2px 4px; }
+  #u2ho .hopat { display:grid; grid-template-columns:72px 1fr 118px; gap:2px 8px; align-items:center; cursor:pointer;
+                 padding:1px 4px; border-radius:4px; font-size:10.5px; }
+  #u2ho .hopat:hover { background:rgba(255,255,255,.06); }
+  #u2ho .hopat.on { background:rgba(255,255,255,.10); box-shadow:inset 0 0 0 1px var(--accent); }
+  #u2ho .hopat .bars { position:relative; height:9px; background:rgba(255,255,255,.07); border-radius:2px; }
+  #u2ho .hopat .bars i { position:absolute; left:0; top:0; height:9px; border-radius:2px; opacity:.7; }
+  #u2ho .hopat .bars b { position:absolute; top:-2px; width:2px; height:13px; background:var(--fg); }
+  #u2ho .hopat .nums { color:var(--muted); text-align:right; white-space:nowrap; }
+  #u2ho .homore { color:var(--accent); cursor:pointer; font-size:10.5px; }
+  #u2ho .holeg { display:flex; align-items:center; gap:6px; color:var(--muted); font-size:10.5px; margin:4px 0; }
+  #u2ho .holeg .ramp { width:90px; height:8px; border:1px solid rgba(255,255,255,.2); background:linear-gradient(90deg,#e1e1e1,#1e1e1e); }
+  #u2ho .hosw { display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:3px; vertical-align:middle; }
+  #u2ho details { margin:6px 0; }
+  #u2ho details summary { cursor:pointer; color:var(--accent); font-size:11px; }
+  #u2ho ol.horefs { padding-left:16px; font-size:10.5px; color:var(--muted); }
+  #u2ho ol.horefs li { margin:2px 0; }
+  #u2ho .howarn { color:#ffb454; }
+  #u2ho .hok { color:#7fd38a; }
+  body[data-u2mode="heldout"] #centroidPanel { display:none !important; }
+  body[data-u2mode="heldout"] #prov { display:none !important; }
+  body[data-u2mode="heldout"] #readout { display:none !important; }
+  @media (max-width: 640px) {
+    #u2ho { left:0; right:0; top:auto; bottom:0; width:auto; height:56vh; border-radius:12px 12px 0 0; }
+  }
   #controls { width:304px; }
   /* the template's panel (its Run dropdown, pial / inflated / glass, radius ...) is
      what boot() would show until ui2Init() replaces it; nothing of it is on screen
@@ -3933,6 +3993,7 @@ function u2Mesh(lab, load, want, colourOf, minLoad, cohortId) {
 // rather than at every call site; single mode falls straight through to the page's own.
 const u2SingleElectrodes = updateElectrodes;
 updateElectrodes = function () {
+  if (UI2.on && UI2.mode === "heldout") return hoElectrodes();
   if (!UI2.on || UI2.mode !== "overlay" || !UI2.sel.size) return u2SingleElectrodes();
   if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} elecMesh = null; }
   const defs = u2Defs(), K = defs.length;
@@ -3953,6 +4014,7 @@ refreshMapList = function () {
   // means nothing any more; the ring lays itself out again
   UI2.cenPos.clear();
   if (UI2.on) u2Sync();
+  if (UI2.on && UI2.mode === "heldout") hoRefresh();
 };
 
 // ── another run's labels at a K, for the cross-run grids ─────────────────────
@@ -4015,6 +4077,7 @@ function u2Build() {
         <button type="button" data-m="single" class="on">one</button>
         <button type="button" data-m="overlay">overlay</button>
         <button type="button" data-m="grid">grid</button>
+        <button type="button" data-m="heldout" title="where a type's electrodes land when a model that never saw their patient places them">held-out</button>
       </div>
       <div class="segs" id="u2gridby" style="display:none;margin-top:4px">
         <button type="button" data-g="clusters" class="on">clusters</button>
@@ -4302,7 +4365,8 @@ function u2RunNote() {
   box.innerHTML = `<b>${u2esc(U2_MLABEL[cur.method] || cur.method)}</b> · `
     + `${u2esc(REP_LABEL[cur.fset] || cur.fset)} — switching keeps K and the position, so `
     + `you land on the matched cluster` + cmp
-    + (gen ? ` · bundle built ${u2esc(gen)}` : "");
+    + (gen ? ` · bundle built ${u2esc(gen)}` : "")
+    + (HO.index && HO.index.runs && HO.index.runs[RUN0.id] ? ` · <b>held-out</b> view available` : "");
 }
 
 function u2Chips() {
@@ -4310,7 +4374,8 @@ function u2Chips() {
   if (!box || !RUN) return;
   const defs = u2Defs(), K = defs.length;
   box.innerHTML = defs.map((d, i) => {
-    const on = UI2.mode === "overlay" ? UI2.sel.has(d.cluster) : (state.map === d.id);
+    const on = UI2.mode === "overlay" ? UI2.sel.has(d.cluster)
+             : UI2.mode === "heldout" ? (HO.row === d.cluster) : (state.map === d.id);
     const dom = u2DomOf(d.cluster);
     return `<button type="button" class="u2ch${on ? " on" : ""}" data-map="${u2esc(d.id)}" `
          + `data-c="${d.cluster}" style="--c:${u2CSS(u2Hue(i, K))}" `
@@ -4337,7 +4402,9 @@ function u2Chips() {
 function u2Note() {
   const n = $("u2modenote");
   if (!n) return;
-  n.innerHTML = UI2.mode === "single"
+  n.innerHTML = UI2.mode === "heldout"
+    ? hoNote()
+    : UI2.mode === "single"
     ? "One cluster on the glass brain." + (relForK() ? " The coloured % on a chip: its drawn contacts "
         + "that get the same component from both trial halves (green ≥ 70, amber ≥ 50)." : "")
     : UI2.mode === "overlay"
@@ -4391,6 +4458,7 @@ function u2Pick(mapId) {
 
 function u2ClickChip(mapId, cid) {
   if (UI2.busy) return;
+  if (UI2.mode === "heldout") { hoRow(cid); return; }
   if (UI2.mode === "overlay") {
     if (UI2.sel.has(cid)) { if (UI2.sel.size > 1) UI2.sel.delete(cid); }
     else UI2.sel.add(cid);
@@ -4460,12 +4528,15 @@ async function u2GoRun(id) {
 }
 
 function u2SetMode(m) {
+  const was = UI2.mode;
   UI2.mode = m;
+  if (was === "heldout" && m !== "heldout") hoLeave();
   if (m === "overlay" && !UI2.sel.size) {
     const d = u2Defs()[u2Pos()];
     if (d) UI2.sel.add(d.cluster);
   }
   if (m === "grid") { u2Sync(); drawCentroid(); u2Grid(); }
+  else if (m === "heldout") { u2CloseGrid(); u2Sync(); hoEnter(); }
   else { u2CloseGrid(); updateElectrodes(); u2Sync(); drawCentroid(); }
 }
 
@@ -4866,6 +4937,344 @@ function u2Keys(e) {
     u2SampToggle(d.cluster, RUN0.id);
   } else { return; }
   e.preventDefault();
+}
+
+
+// ── HELD-OUT PLACEMENT (2026-11-01) ───────────────────────────────────────────
+// Where a type's electrodes land when a model that never saw their patient places them:
+// prediction strength (Tibshirani & Walther 2005) blocked by patient, and the stricter
+// half-split version (Lange et al. 2004). Data: runs/<run>/heldout.json, written by
+// make_heldout_bundle.py from the MMD script's confusion tables at the paper's K of the
+// run's feature set. The panel follows the validation story - the question, one number,
+// per type, where the misses go, on the brain, is it patients, what it means, the
+// distances - and every statement ends with the paper it rests on.
+const HO = { data:null, run:null, index:null, src:"lopo", colour:"miss", pat:"", row:null,
+             cell:null, byIdx:null, pos:null, allPat:false };
+const HO_REFS = {
+  TW05: ["Tibshirani & Walther 2005", "Tibshirani R, Walther G (2005). Cluster validation by prediction strength. Journal of Computational and Graphical Statistics 14(3): 511-528."],
+  L04:  ["Lange et al. 2004", "Lange T, Roth V, Braun ML, Buhmann JM (2004). Stability-based validation of clustering solutions. Neural Computation 16(6): 1299-1323."],
+  V17:  ["Varoquaux et al. 2017", "Varoquaux G, Raamana PR, Engemann DA, Hoyos-Idrobo A, Schwartz Y, Thirion B (2017). Assessing and tuning brain decoders: cross-validation, caveats, and guidelines. NeuroImage 145: 166-179."],
+  K55:  ["Kuhn 1955", "Kuhn HW (1955). The Hungarian method for the assignment problem. Naval Research Logistics Quarterly 2: 83-97."],
+  D10:  ["Ding et al. 2010", "Ding C, Li T, Jordan MI (2010). Convex and semi-nonnegative matrix factorizations. IEEE Transactions on Pattern Analysis and Machine Intelligence 32(1): 45-55."],
+  G12:  ["Gretton et al. 2012", "Gretton A, Borgwardt KM, Rasch MJ, Schölkopf B, Smola A (2012). A kernel two-sample test. Journal of Machine Learning Research 13: 723-773."],
+  M03:  ["Monti et al. 2003", "Monti S, Tamayo P, Mesirov J, Golub T (2003). Consensus clustering: a resampling-based method for class discovery and visualization of gene expression microarray data. Machine Learning 52: 91-118."],
+  S14:  ["Şenbabaoğlu et al. 2014", "Şenbabaoğlu Y, Michailidis G, Li JZ (2014). Critical limitations of consensus clustering in class discovery. Scientific Reports 4: 6207."],
+  R87:  ["Rousseeuw 1987", "Rousseeuw PJ (1987). Silhouettes: a graphical aid to the interpretation and validation of cluster analysis. Journal of Computational and Applied Mathematics 20: 53-65."],
+};
+const hoCite = (...ks) => ` <cite class="hocite" title="${u2esc(ks.map(k => HO_REFS[k][1]).join("   "))}">(${ks.map(k => HO_REFS[k][0]).join("; ")})</cite>`;
+const hoPct = v => (v === null || v === undefined || !isFinite(v)) ? "–" : Math.round(100 * v) + " %";
+const hoF2 = v => (v === null || v === undefined || !isFinite(v)) ? "–" : Number(v).toFixed(2);
+
+async function hoIndex() {
+  if (HO.index) return HO.index;
+  try { HO.index = await (await fetch(BUNDLE + "heldout_index.json", { cache: "no-store" })).json(); }
+  catch (e) { HO.index = { runs: {} }; }
+  return HO.index;
+}
+async function hoLoad(runId) {
+  if (HO.run === runId && HO.data) return HO.data;
+  HO.data = null; HO.run = runId; HO.byIdx = null; HO.pos = null; HO.cell = null; HO.row = null;
+  const ix = await hoIndex();
+  const ent = ix.runs && ix.runs[runId];
+  if (!ent) return null;
+  try {
+    const d = await (await fetch(BUNDLE + ent.file, { cache: "no-store" })).json();
+    if (HO.run !== runId) return HO.data;         // the run moved on while this loaded
+    HO.data = d;
+    HO.byIdx = new Map(d.contacts.idx.map((ci, n) => [ci, n]));
+    HO.pos = new Map(d.order.map((c, i) => [c, i]));
+    return d;
+  } catch (e) { console.warn("held-out: cannot read", ent.file, e); return null; }
+}
+
+// ── colours ──────────────────────────────────────────────────────────────────
+// hit rate: light grey (never placed in its type) to near black (always); the type
+// colours are the page's own, by figure position, so a destination reads like a chip
+const hoGrey = v => { const g = Math.round(225 - 195 * Math.max(0, Math.min(1, v))); return [g, g, g]; };
+const hoTypeRGB = c => u2Hue((HO.pos && HO.pos.has(c)) ? HO.pos.get(c) : 0, HO.data ? HO.data.k : 7);
+const hoTypeCSS = c => u2CSS(hoTypeRGB(c));
+const hoHit  = n => HO.src === "lopo" ? HO.data.contacts.lopo_hit[n]  : HO.data.contacts.halves_hit[n];
+const hoGoes = n => HO.src === "lopo" ? HO.data.contacts.lopo_goes[n] : HO.data.contacts.halves_goes[n];
+const hoConf = () => HO.src === "lopo" ? HO.data.lopo : HO.data.halves;
+const hoT = t => { const T = HO.data.types.find(x => x.cluster === t); return T || {}; };
+const hoName = t => `c${t}` + (hoT(t).name ? " " + hoT(t).name : "");
+function hoVisible(n, ci) {
+  if (HO.row !== null && HO.data.contacts.type[n] !== HO.row) return false;
+  if (HO.pat && CONTACTS.patient[ci] !== HO.pat) return false;
+  return true;
+}
+function hoInCell(n) {
+  if (!HO.cell) return true;
+  const t = HO.data.contacts.type[n], h = hoHit(n);
+  if (t !== HO.cell[0] || h === null) return false;
+  if (HO.cell[0] === HO.cell[1]) return h >= 0.5;
+  return hoGoes(n) === HO.cell[1] && h < 1;
+}
+
+// ── the electrodes: every contact of the run, coloured by the held-out placement ──
+function hoElectrodes() {
+  if (!HO.data || !CONTACTS) return u2SingleElectrodes();
+  if (elecMesh) { try { nv.removeMesh(elecMesh); } catch (e) {} elecMesh = null; }
+  const C = HO.data.contacts, pts = [], tris = [], cols = [];
+  let vi = 0;
+  for (let n = 0; n < C.idx.length; n++) {
+    const ci = C.idx[n];
+    if (HEMI_ONLY && CONTACTS.hemi[ci] !== HEMI_ONLY) continue;
+    const t = C.type[n], h = hoHit(n);
+    let colr, r = 1.73, al = 255;
+    if (HO.colour === "hit") { colr = h === null ? [200, 200, 205] : hoGrey(h); r = 1.4 + 0.9 * (h === null ? 0.5 : 1 - h); }
+    else if (HO.colour === "miss") {
+      if (h !== null && h >= 0.999) { colr = [205, 208, 214]; r = 1.25; }
+      else { colr = hoTypeRGB(hoGoes(n)); r = 2.3; }
+    } else if (HO.colour === "cons") {
+      const v = (C.cons_own && C.cons_other && C.cons_own[n] !== null) ? (C.cons_own[n] - C.cons_other[n]) : null;
+      colr = v === null ? [200, 200, 205] : hoGrey(v); r = 1.4 + 0.9 * (v === null ? 0.5 : 1 - Math.max(0, Math.min(1, v)));
+    } else if (HO.colour === "type") colr = hoTypeRGB(t);
+    else colr = patientRGB(CONTACTS.patient[ci]);
+    const vis = hoVisible(n, ci), lit = vis && hoInCell(n);
+    if (!vis) { al = 26; r = 1.0; }
+    else if (HO.cell && !lit) { colr = [200, 200, 205]; al = 70; r = 0.9; }   // the rest steps back in grey
+    else if (HO.cell) { r = Math.max(r, 2.6); }
+    const [x, y, z] = CONTACTS.xyz[ci];
+    for (const o of _OCT) pts.push(x + o[0] * r, y + o[1] * r, z + o[2] * r);
+    for (const f of _OCTF) tris.push(vi + f[0], vi + f[1], vi + f[2]);
+    for (let j = 0; j < _OCT.length; j++) cols.push(colr[0], colr[1], colr[2], al);
+    vi += _OCT.length;
+  }
+  if (vi) {
+    try { elecMesh = new NVMesh(new Float32Array(pts), new Uint32Array(tris), "electrodes",
+                                new Uint8Array(cols), 1.0, true, nv.gl); nv.addMesh(elecMesh); }
+    catch (e) { console.error("held-out overlay failed:", e); }
+  }
+  nv.drawScene();
+}
+
+// ── entering, leaving, following the run ─────────────────────────────────────
+async function hoEnter() {
+  let p = $("u2ho");
+  if (!p) { p = document.createElement("div"); p.id = "u2ho"; document.body.appendChild(p); }
+  p.innerHTML = `<div class="hoh">loading the held-out placement …</div>`;
+  const d = await hoLoad(RUN0.id);
+  if (UI2.mode !== "heldout") return;
+  if (d && Number(KSEL) !== Number(d.k)) {
+    // measured at the paper's K of this feature set: the brain goes there too
+    try { await applyK(d.k); refreshMapList(); autoScale(); render(); } catch (e) { console.warn(e); }
+  }
+  hoPanel(); updateElectrodes();
+}
+function hoLeave() { const p = $("u2ho"); if (p) p.remove(); HO.cell = null; HO.row = null; HO.pat = ""; }
+async function hoRefresh() {
+  if (!RUN0 || UI2.mode !== "heldout") return;
+  if (HO.run !== RUN0.id) await hoLoad(RUN0.id);
+  if (UI2.mode !== "heldout") return;
+  hoPanel(); updateElectrodes();
+}
+function hoNote() {
+  return HO.data
+    ? "Every electrode of the run, coloured by where a model that never saw its patient put it. "
+      + "The panel on the right tells the story; click a matrix cell, a type or a patient to light up its electrodes."
+    : "No held-out tables for this run yet: run 00_paper2_figure6_mmd.py on it, then make_heldout_bundle.py.";
+}
+function hoRow(t) { HO.row = HO.row === t ? null : t; HO.cell = null; hoPanel(); updateElectrodes(); u2Chips(); }
+function hoCell(i, j, src) { HO.src = src; HO.cell = (HO.cell && HO.cell[0] === i && HO.cell[1] === j) ? null : [i, j]; HO.row = null; hoPanel(); updateElectrodes(); }
+function hoPatient(p) { HO.pat = HO.pat === p ? "" : p; hoPanel(); updateElectrodes(); }
+
+// ── the numbers the sentences are made of (all from heldout.json + contacts.json) ──
+function hoChance() {
+  const C = HO.data.contacts, byP = new Map();
+  for (let n = 0; n < C.idx.length; n++) {
+    const p = CONTACTS.patient[C.idx[n]];
+    const m = byP.get(p) || new Map();
+    m.set(C.type[n], (m.get(C.type[n]) || 0) + 1); byP.set(p, m);
+  }
+  let s = 0; for (const m of byP.values()) s += Math.max(...m.values());
+  return s / C.idx.length;
+}
+function hoPatients() {
+  const C = HO.data.contacts, byP = new Map();
+  for (let n = 0; n < C.idx.length; n++) {
+    const p = CONTACTS.patient[C.idx[n]];
+    const r = byP.get(p) || { p, n: 0, lo: [], ha: [], missH: 0 };
+    r.n++;
+    if (C.lopo_hit[n] !== null) r.lo.push(C.lopo_hit[n]);
+    if (C.halves_hit[n] !== null) { r.ha.push(C.halves_hit[n]); r.missH += 1 - C.halves_hit[n]; }
+    byP.set(p, r);
+  }
+  const rows = [...byP.values()];
+  const N = C.idx.length, totMiss = rows.reduce((a, r) => a + r.missH, 0) || 1;
+  for (const r of rows) {
+    r.hitL = r.lo.length ? r.lo.reduce((a, b) => a + b, 0) / r.lo.length : null;
+    r.hitH = r.ha.length ? r.ha.reduce((a, b) => a + b, 0) / r.ha.length : null;
+    r.excess = (r.missH / totMiss) / (r.n / N);
+  }
+  rows.sort((a, b) => ((a.hitH === null ? 9 : a.hitH) - (b.hitH === null ? 9 : b.hitH)));
+  return rows;
+}
+function hoSpearman(a, b) {
+  const rk = v => { const o = v.map((x, i) => [x, i]).sort((p, q) => p[0] - q[0]); const r = new Array(v.length); o.forEach((p, i) => r[p[1]] = i); return r; };
+  const ra = rk(a), rb = rk(b), n = a.length, ma = (n - 1) / 2, mb = (n - 1) / 2;
+  let num = 0, da = 0, db = 0;
+  for (let i = 0; i < n; i++) { num += (ra[i] - ma) * (rb[i] - mb); da += (ra[i] - ma) ** 2; db += (rb[i] - mb) ** 2; }
+  return da && db ? num / Math.sqrt(da * db) : NaN;
+}
+
+// ── the panel: the story, every statement with its reference ───────────────
+function hoPanel() {
+  const p = $("u2ho");
+  if (!p) return;
+  const d = HO.data;
+  const cur = u2Split(RUN0.id);
+  const runName = `${u2esc(U2_MLABEL[cur.method] || cur.method)} · ${u2esc(REP_LABEL[cur.fset] || cur.fset)}`;
+  if (!d) {
+    p.innerHTML = `<div class="hoh">Held-out placement</div><div class="hoq">${runName}</div>
+      <p class="howarn">No held-out tables for this run yet.</p>
+      <p>They come from <code>00_paper2_figure6_mmd.py</code> (its leave-one-patient-out and patient-halves
+      confusions, 2026-10-30) through <code>make_heldout_bundle.py</code>. The 15 bands × convex NMF run has them.</p>`;
+    return;
+  }
+  const K = d.k, order = d.order, T = Object.fromEntries(d.types.map(t => [t.cluster, t]));
+  const kWarn = Number(KSEL) !== Number(K)
+    ? `<p class="howarn">Measured at K = ${K}, the paper's cut for this feature set; the brain is re-cut at K = ${KSEL}. The types below are the K = ${K} partition.</p>` : "";
+  const chance = hoChance();
+  const recL = order.map(t => T[t].lopo_recall), recH = order.map(t => T[t].halves_recall);
+  const rho = hoSpearman(recL, recH);
+  const holds = order.filter(t => T[t].lopo_recall >= 0.9 && T[t].halves_recall >= 0.7);
+  const leaks = order.filter(t => T[t].lopo_recall < 0.85 || T[t].halves_recall < 0.5);
+  const mid = order.filter(t => !holds.includes(t) && !leaks.includes(t));
+  const pats = hoPatients();
+  const worst = pats.slice().sort((a, b) => b.excess - a.excess).slice(0, 3);
+  const keep80 = pats.filter(r => r.hitH !== null && r.hitH >= 0.8).length;
+  const nSeeds = d.params.n_lopo_seeds || "several";
+  const srcName = HO.src === "lopo" ? "leave one patient out" : "patient halves";
+
+  // 1 - one number
+  let h = `<div class="hoh">Do the types survive a patient the model never saw?</div>
+    <div class="hoq">${runName} · K = ${K} · ${d.n} electrodes, ${d.n_patients} patients</div>${kWarn}
+    <h3>1 · The answer in one number</h3>
+    <div class="hobig">
+      <div><b>${hoPct(d.lopo.overall)}</b><span>leave one patient out: refit on the other ${d.n_patients - 1}, place the held-out patient</span></div>
+      <div><b>${hoPct(d.halves.overall)}</b><span>patient halves: refit on half, place the other half (harsher)</span></div>
+      <div><b style="color:var(--muted)">≈ ${hoPct(chance)}</b><span>chance: every electrode given its patient's commonest type</span></div>
+    </div>
+    <p>${hoPct(d.lopo.overall)} of held-out electrodes land in their published type when a model fitted without their patient
+    places them; that is the prediction strength of the partition, blocked by patient.${hoCite("TW05")}
+    Refitting on half the patients keeps ${hoPct(d.halves.overall)}, because the model itself is then less sure, which is the
+    stability reading of the same test.${hoCite("L04")}</p>`;
+
+  // 2 - per type
+  h += `<h3>2 · Per type <small>filled = halves, outline and tick = leave one out; click to follow a type</small></h3>`;
+  for (const t of order) {
+    const x = T[t], c = hoTypeCSS(t);
+    h += `<div class="hotype${HO.row === t ? " on" : ""}" data-t="${t}" title="${u2esc(hoName(t))}: leave-one-out recall ${hoF2(x.lopo_recall)} (IQR over folds ${hoF2(x.lopo_q25)}–${hoF2(x.lopo_q75)}), halves ${hoF2(x.halves_recall)} (${hoF2(x.halves_q25)}–${hoF2(x.halves_q75)}); n ${x.n}, ${x.n_patients} patients">
+      <span class="nm" style="color:${c}"><span class="hosw" style="background:${c}"></span>${u2esc(hoName(t))}</span>
+      <span class="bars"><i style="width:${100 * x.halves_recall}%;background:${c}"></i><b style="width:${100 * x.lopo_recall}%;border-color:${c}"></b></span>
+      <span class="nums">${hoPct(x.lopo_recall)} · ${hoPct(x.halves_recall)}</span></div>`;
+  }
+  h += `<p>The ranking of the types is the same under both tests (Spearman ρ ${hoF2(rho)}); the spread is not:
+    ${hoPct(Math.min(...recL))} to ${hoPct(Math.max(...recL))} with one patient out, ${hoPct(Math.min(...recH))} to
+    ${hoPct(Math.max(...recH))} with half the patients out.${hoCite("TW05", "L04")}`
+    + (holds.length ? ` Hold in both: ${holds.map(hoName).map(u2esc).join(", ")}.` : "")
+    + (leaks.length ? ` Leak: ${leaks.map(t => `${u2esc(hoName(t))} (${hoPct(T[t].lopo_recall)} / ${hoPct(T[t].halves_recall)})`).join(", ")}.` : "")
+    + ` The weaker the model, the more the fragile types dissolve into their neighbours.${hoCite("L04")}</p>`;
+
+  // 3 - where the misses go
+  const cm = (M, src, title, sub) => {
+    const tot = M.map(r => r.reduce((a, b) => a + b, 0) || 1);
+    let t = `<div class="hocmt">${title} <span>${sub}</span></div><table class="hocm"><tr><th></th>`
+      + order.map(j => `<th style="color:${hoTypeCSS(j)}">c${j}</th>`).join("") + `</tr>`;
+    for (const i of order) {
+      t += `<tr class="${HO.row === i ? "rowsel" : ""}"><th data-row="${i}" style="color:${hoTypeCSS(i)};text-align:right;padding-right:4px">c${i}</th>`;
+      for (const j of order) {
+        const v = M[i][j] / tot[i], g = Math.round(235 - 235 * v);
+        const sel = HO.cell && HO.cell[0] === i && HO.cell[1] === j && HO.src === src;
+        t += `<td data-i="${i}" data-j="${j}" data-src="${src}" class="${sel ? "sel" : ""}" style="background:rgb(${g},${g},${g});color:${v > 0.55 ? "#fff" : "#1b232c"};font-weight:${i === j ? 700 : 400}" title="published ${u2esc(hoName(i))}: ${Math.round(100 * v)} % of its held-out electrodes placed in c${j} (${M[i][j]} placements)">${Math.round(100 * v)}</td>`;
+      }
+      t += `</tr>`;
+    }
+    return t + `</table>`;
+  };
+  h += `<h3>3 · Where the misses go <small>rows: the published type · columns: where its held-out electrodes were placed · % of the row</small></h3>`
+    + cm(d.lopo.matrix, "lopo", "A · leave one patient out", `${nSeeds} refit seed(s) × ${d.n_patients} folds · overall ${hoPct(d.lopo.overall)}`)
+    + cm(d.halves.matrix, "halves", "B · patient halves", `${d.params.n_splits} splits · overall ${hoPct(d.halves.overall)}`);
+  const leakyH = order.filter(t => T[t].halves_recall < 0.75);
+  h += `<p>` + (leakyH.length
+    ? leakyH.map(t => { const x = T[t]; const row = d.halves.matrix[t], tot = row.reduce((a, b) => a + b, 0) || 1;
+        const dest = order.filter(j => j !== t).map(j => [j, row[j] / tot]).sort((a, b) => b[1] - a[1]).filter(z => z[1] >= 0.05).slice(0, 2);
+        return `${u2esc(hoName(t))} goes to ${dest.map(z => `c${z[0]} (${hoPct(z[1])})`).join(" and ")}.`; }).join(" ")
+    : "No type loses more than a quarter of its electrodes under the halves test.")
+    + ` A row is read as a confusion of the prediction-strength test: each held-out electrode is placed by the refit and counted against its published type.${hoCite("TW05")}
+    The refit's clusters are aligned to the published ones on the kept electrodes first, one to one, by the Hungarian assignment.${hoCite("K55")}</p>`;
+
+  // 4 - on the brain
+  const seg = (id, opts, cur) => `<div class="hoseg" id="${id}">` + opts.map(([v, lab, tip]) =>
+    `<button type="button" data-v="${v}" class="${cur === v ? "on" : ""}" title="${u2esc(tip || "")}">${lab}</button>`).join("") + `</div>`;
+  h += `<h3>4 · On the brain <small>every electrode at its fsaverage position</small></h3>
+    <div class="holeg">colour by</div>` + seg("hocolour", [
+      ["miss", "where misses go", "a hit is a small grey dot; a miss is painted in the colour of the type it was placed in"],
+      ["hit", "hit rate", "light grey never placed in its type, black always"],
+      ["cons", "consensus margin", "own-type consensus minus best-other, from the patient-resampling sweep: black = always with its type"],
+      ["type", "type", "the published type"], ["patient", "patient", "the page's patient hues"]], HO.colour)
+    + `<div class="holeg">source</div>` + seg("hosrc", [["lopo", "leave one patient out", ""], ["halves", "patient halves", ""]], HO.src)
+    + `<div class="holeg">patient <select id="hopat"><option value="">all</option>${pats.slice().sort((a, b) => a.p < b.p ? -1 : 1).map(r => `<option value="${u2esc(r.p)}"${HO.pat === r.p ? " selected" : ""}>${u2esc(r.p)}</option>`).join("")}</select>`
+    + (HO.cell ? ` <span>· cell c${HO.cell[0]} → c${HO.cell[1]} lit</span>` : "") + (HO.row !== null ? ` <span>· ${u2esc(hoName(HO.row))} only</span>` : "") + `</div>`
+    + (HO.colour === "hit" || HO.colour === "cons" ? `<div class="holeg">0 <span class="ramp"></span> 1</div>` : "")
+    + `<p>In <b>where misses go</b> a confusion cell becomes a set of coloured points: if they sit in one territory the two types
+    overlap there, if they sit in one patient it is that patient.${hoCite("TW05")} The <b>hit rate</b> is the share of an electrode's
+    held-out placements that landed in its own type (${srcName}); the <b>consensus margin</b> is how much more often it stays with
+    its type than with any other when 20 % of the patients are dropped.${hoCite("M03", "S14")}</p>`;
+
+  // 5 - is it patients
+  const show = HO.allPat ? pats : pats.slice(0, 8);
+  h += `<h3>5 · Is it patients? <small>mean hit rate per patient, worst first · bar = halves, tick = leave one out</small></h3>`;
+  for (const r of show) {
+    h += `<div class="hopat${HO.pat === r.p ? " on" : ""}" data-p="${u2esc(r.p)}" title="${u2esc(r.p)}: ${r.n} electrodes · leave-one-out ${hoF2(r.hitL)} · halves ${hoF2(r.hitH)} · ${r.excess.toFixed(1)}× its share of the halves misses">
+      <span>${u2esc(r.p)}</span>
+      <span class="bars"><i style="width:${100 * (r.hitH || 0)}%;background:${u2CSS(patientRGB(r.p))}"></i>${r.hitL !== null ? `<b style="left:${100 * r.hitL}%"></b>` : ""}</span>
+      <span class="nums">n ${r.n} · ${r.excess.toFixed(1)}× the misses</span></div>`;
+  }
+  if (pats.length > 8) h += `<div class="homore" id="homore">${HO.allPat ? "fewer" : `all ${pats.length} patients`}</div>`;
+  h += `<p>Misses are not spread evenly: ${worst.map(r => `${u2esc(r.p)} (${r.excess.toFixed(1)}× its share of electrodes)`).join(", ")}
+    carry more than their share of the halves misses; ${keep80} of ${pats.length} patients keep at least 80 %. That is why the
+    split is by patient and not by electrode: contacts of one patient share a reference and a region and are not independent
+    samples.${hoCite("V17")}</p>`;
+
+  // 6 - what it means
+  const la = d.label_agreement || {};
+  h += `<h3>6 · What it means, and what it does not</h3>
+    <p>A miss is an electrode whose response sits between two types, placed by a model that never saw its patient; it is not
+    an error of the electrode.${hoCite("TW05")} The halves test refits the model on half a cohort and so mixes refit instability
+    with placement; it is read beside the leave-one-out, not instead of it.${hoCite("L04")} The types are the paper's partition
+    at K = ${K}, the sweep fit the figures use`
+    + (la.published !== null && la.published !== undefined && la.published < 0.999
+       ? `; it agrees with this page's published labels on ${hoPct(la.published)} of the electrodes, so a few chips count differently` : "")
+    + `.${hoCite("D10")}</p>`;
+
+  // 7 - the distances, folded
+  const mm = d.mmd || {}, pr = (mm.pairs || []).slice().sort((a, b) => a.ratio - b.ratio);
+  const consRank = order.slice().sort((a, b) => (T[b].consensus || 0) - (T[a].consensus || 0));
+  h += `<details><summary>7 · The distances behind it: MMD², consensus, silhouette</summary>`
+    + (pr.length ? `<p>MMD² between every pair of types on held-out patients runs from ${hoF2(pr[0].mmd2)} (c${pr[0].i}–c${pr[0].j})
+      to ${hoF2(pr[pr.length - 1].mmd2)} (c${pr[pr.length - 1].i}–c${pr[pr.length - 1].j}); every pair differs on held-out patients
+      in at least ${hoPct(Math.min(...pr.map(x => x.share_p)))} of the splits, and ${pr.filter(x => x.ratio < 1).length} of ${pr.length}
+      pairs sit closer than two sectors of a featureless Gaussian cloud (${hoF2(mm.cloud)}).${hoCite("G12")}</p>` : "")
+    + `<p>Consensus under patient resampling, the mean of M over the pairs inside a type: ${consRank.map(t => `c${t} ${hoF2(T[t].consensus)}`).join(", ")}.${hoCite("M03", "S14")}</p>`
+    + `<p>Silhouette z against the Gaussian cloud per type: ${order.slice().sort((a, b) => (T[b].sil_z || 0) - (T[a].sil_z || 0)).map(t => `c${t} ${T[t].sil_z === null ? "–" : (T[t].sil_z >= 0 ? "+" : "") + Number(T[t].sil_z).toFixed(1)}`).join(", ")}.${hoCite("R87")}</p>
+    </details>`;
+
+  // references
+  h += `<details><summary>References</summary><ol class="horefs">` + Object.values(HO_REFS).map(r => `<li>${u2esc(r[1])}</li>`).join("") + `</ol></details>
+    <div class="holeg">heldout.json built ${u2esc(d.written)} · ${d.params.n_perm} shuffles, ${d.params.n_splits} halves, ${d.params.n_cloud} cloud draws</div>`;
+  p.innerHTML = h;
+
+  // handlers
+  p.querySelectorAll(".hotype").forEach(e => e.onclick = () => hoRow(Number(e.dataset.t)));
+  p.querySelectorAll("table.hocm th[data-row]").forEach(e => e.onclick = () => hoRow(Number(e.dataset.row)));
+  p.querySelectorAll("table.hocm td[data-i]").forEach(e => e.onclick = () => hoCell(Number(e.dataset.i), Number(e.dataset.j), e.dataset.src));
+  p.querySelectorAll("#hocolour button").forEach(b => b.onclick = () => { HO.colour = b.dataset.v; hoPanel(); updateElectrodes(); });
+  p.querySelectorAll("#hosrc button").forEach(b => b.onclick = () => { HO.src = b.dataset.v; HO.cell = null; hoPanel(); updateElectrodes(); });
+  const ps = p.querySelector("#hopat"); if (ps) ps.onchange = () => { HO.pat = ps.value; hoPanel(); updateElectrodes(); };
+  p.querySelectorAll(".hopat").forEach(e => e.onclick = () => hoPatient(e.dataset.p));
+  const more = p.querySelector("#homore"); if (more) more.onclick = () => { HO.allPat = !HO.allPat; hoPanel(); };
 }
 
 // ── init, after boot has a run on screen ─────────────────────────────────────

@@ -5060,14 +5060,14 @@ async function hoEnter() {
     // measured at the paper's K of this feature set: the brain goes there too
     try { await applyK(d.k); refreshMapList(); autoScale(); render(); } catch (e) { console.warn(e); }
   }
-  hoPanel(); updateElectrodes();
+  hoPanel(); updateElectrodes(); u2Note();   // the mode note was written before the data arrived
 }
 function hoLeave() { const p = $("u2ho"); if (p) p.remove(); HO.cell = null; HO.row = null; HO.pat = ""; }
 async function hoRefresh() {
   if (!RUN0 || UI2.mode !== "heldout") return;
   if (HO.run !== RUN0.id) await hoLoad(RUN0.id);
   if (UI2.mode !== "heldout") return;
-  hoPanel(); updateElectrodes();
+  hoPanel(); updateElectrodes(); u2Note();
 }
 function hoNote() {
   return HO.data

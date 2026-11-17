@@ -1,0 +1,135 @@
+/* lm_visualizer/patient.css - the per-patient electrode pages (patient.js) and their list page.
+   One light theme on purpose: the glass brain is drawn on white. Every colour is set here. */
+:root {
+  --ground: #ffffff;
+  --panel: #f6f7f9;
+  --ink: #17202a;
+  --muted: #5b6672;
+  --faint: #8a94a0;
+  --line: #dfe4ea;
+  --sel: #19ff6a;
+  --untyped: #9aa2ab;
+  --nodata: #c9ced5;
+  --focus: #1f6feb;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--ground); color: var(--ink);
+  font: 14px/1.45 -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+button { font: inherit; color: inherit; }
+:focus-visible { outline: 2px solid var(--focus); outline-offset: 2px; }
+
+/* ---- the patient page ------------------------------------------------------------------ */
+.page { display: grid; grid-template-columns: minmax(0, 1.15fr) minmax(420px, 1fr); height: 100vh; min-height: 560px; }
+.brainpane { position: relative; min-width: 0; min-height: 0; background: var(--ground); border-right: 1px solid var(--line);
+  display: flex; flex-direction: column; }
+.stage { position: relative; flex: 1 1 auto; min-height: 0; }    /* the brain; the header and the tools lie over its top, the legend is a strip under it */
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.stage canvas.gl { cursor: crosshair; }
+.stage canvas.ov { pointer-events: none; z-index: 2; }
+.stage canvas:focus, .stage canvas:focus-visible { outline: none; }
+
+.phead { position: absolute; left: 20px; top: 16px; z-index: 3; pointer-events: none; }
+.phead h1 { margin: 0; font-size: 26px; line-height: 1.1; font-weight: 650; letter-spacing: -0.01em; }
+.phead p { margin: 4px 0 0; color: var(--muted); font-size: 13px; }
+.phead .note { color: #9a4a12; max-width: 46ch; }
+
+.tools { position: absolute; right: 16px; top: 16px; z-index: 3; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; }
+.seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--ground); }
+.seg button { border: 0; background: transparent; padding: 5px 10px; font-size: 12.5px; color: var(--muted); cursor: pointer; }
+.seg button + button { border-left: 1px solid var(--line); }
+.seg button:hover { color: var(--ink); background: var(--panel); }
+.seg button.on { background: var(--ink); color: #ffffff; }
+.seg button:disabled { color: var(--nodata); cursor: default; background: transparent; }
+
+.legend { flex: none; margin: 0; padding: 10px 20px 12px; list-style: none; border-top: 1px solid var(--line);
+  display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12.5px; background: var(--ground); }
+.legend li { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.legend li.lt { flex-basis: 100%; color: var(--muted); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.legend li.zero { color: var(--faint); }
+.legend li.sep { flex-basis: 100%; height: 0; }                  /* line break before the two grey kinds */
+.legend .sw { width: 12px; height: 12px; border-radius: 50%; flex: none; }
+.legend .sw.small { width: 8px; height: 8px; margin: 0 2px; }
+.legend .cid { color: var(--muted); font-variant-numeric: tabular-nums; }
+.legend .ct { font-variant-numeric: tabular-nums; color: var(--muted); }
+
+/* a page with contacts that have no position (no reconstruction): the contacts as a list under the brain */
+.nopos { position: absolute; left: 0; right: 0; bottom: 14px; z-index: 3; margin: 0 auto; max-width: 48ch; padding: 0 16px;
+  text-align: center; color: var(--muted); font-size: 13px; pointer-events: none; }
+.clist { flex: none; max-height: 34vh; overflow-y: auto; padding: 10px 20px 8px; border-top: 1px solid var(--line); background: var(--ground); }
+.clist .lt { margin-bottom: 6px; color: var(--muted); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.crow { display: flex; align-items: flex-start; gap: 10px; padding: 2px 0; }
+.crow .cs { flex: none; width: 60px; padding-top: 3px; color: var(--muted); font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.chips { display: flex; flex-wrap: wrap; gap: 5px; }
+.chip { width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%; cursor: pointer; text-align: center;
+  font-size: 11px; font-weight: 600; line-height: 24px; font-variant-numeric: tabular-nums; }
+.chip:hover { box-shadow: 0 0 0 2px var(--ink); }
+.chip.on { box-shadow: 0 0 0 2px #000, 0 0 0 4.5px var(--sel); }
+
+.tip { position: absolute; z-index: 4; pointer-events: none; padding: 4px 8px; border-radius: 6px; font-size: 12px;
+  background: rgba(23, 32, 42, 0.92); color: #ffffff; white-space: nowrap; transform: translate(12px, -50%); }
+.tip[hidden] { display: none; }
+.hint { color: var(--faint); font-size: 12px; text-align: right; }
+.loading { position: absolute; inset: 0; z-index: 5; display: grid; place-items: center; background: var(--ground); color: var(--muted); font-size: 14px; }
+.loading.gone { display: none; }
+.loading.failed { color: #a4262c; padding: 24px; text-align: center; }
+
+.side { min-width: 0; overflow-y: auto; background: var(--panel); padding: 20px 22px 16px; display: flex; flex-direction: column; gap: 14px; }
+.card { background: var(--ground); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 14px; }
+.card h2 { margin: 0; font-size: 20px; font-weight: 650; line-height: 1.2; }
+.card .where { margin: 3px 0 12px; color: var(--muted); font-size: 13px; }
+.card .empty { color: var(--muted); margin: 0; }
+.erspwrap { position: relative; }
+.erspwrap canvas { display: block; width: 100%; }
+.axisnote { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+.noersp { margin: 0; padding: 22px 12px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); text-align: center; font-size: 13px; }
+
+.type { margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+.type .cap { color: var(--muted); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.type .tline { display: flex; align-items: baseline; gap: 8px; margin-top: 4px; }
+.type .tline .sw { width: 13px; height: 13px; border-radius: 50%; align-self: center; flex: none; }
+.type .tline b { font-size: 17px; font-weight: 650; min-width: 0; }
+.type .tline .cid { color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.type .tline .pct { margin-left: auto; padding-left: 10px; font-size: 20px; font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.type .stack { display: flex; gap: 2px; height: 14px; margin-top: 8px; border-radius: 4px; overflow: hidden; background: var(--ground); }
+.type .stack span { display: block; height: 100%; min-width: 2px; }
+.type .stack span.rest { background: #e7eaee; }
+.type .track { position: relative; height: 14px; margin-top: 8px; border-radius: 4px; background: #e7eaee; overflow: hidden; }
+.type .track span { position: absolute; left: 0; top: 0; bottom: 0; }
+.type .track i { position: absolute; top: 0; bottom: 0; width: 2px; background: var(--ink); }
+.type .then { margin: 8px 0 0; font-size: 13px; color: var(--ink); }
+.type .then .dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 5px; }
+.type .then span.it { white-space: nowrap; margin-right: 12px; }
+.type .def { margin: 8px 0 0; color: var(--muted); font-size: 12px; }
+.type .none { margin: 4px 0 0; font-size: 15px; }
+.type .closest { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin: 10px 0 0; font-size: 14px; }
+.type .closest .k { margin-right: 4px; color: var(--muted); font-size: 11px; letter-spacing: 0.06em; text-transform: uppercase; }
+.type .closest .dot { width: 9px; height: 9px; border-radius: 50%; align-self: center; flex: none; }
+.type .closest .cid { color: var(--muted); font-variant-numeric: tabular-nums; }
+.type .closest .v { font-weight: 650; font-variant-numeric: tabular-nums; white-space: nowrap; }
+
+.stamp { margin-top: auto; color: var(--faint); font-size: 11.5px; line-height: 1.5; }
+.stamp .warn { color: #9a4a12; }
+
+@media (max-width: 900px) {                                       /* narrow: header, tools, brain, legend, card - stacked */
+  .page { grid-template-columns: 1fr; height: auto; min-height: 0; }
+  .brainpane { display: flex; flex-direction: column; border-right: 0; border-bottom: 1px solid var(--line); }
+  .phead { position: static; padding: 14px 16px 0; }
+  .tools { position: static; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 10px 16px 0; }
+  .stage { flex: none; height: 56vh; min-height: 320px; }
+  .legend { padding: 10px 16px 14px; }
+  .clist { max-height: none; padding: 10px 16px 8px; }
+  .brainpane.bare .stage { height: 36vh; min-height: 240px; }       /* no electrodes on it: the list is the way in */
+  .hint { display: none; }
+  .side { overflow: visible; padding: 16px; }
+}
+
+/* ---- the list page ----------------------------------------------------------------------- */
+body.list { background: var(--panel); }
+.listwrap { max-width: 760px; margin: 0 auto; padding: 40px 22px 60px; }
+.listwrap h1 { margin: 0; font-size: 26px; font-weight: 650; letter-spacing: -0.01em; }
+.listwrap .sub { margin: 6px 0 22px; color: var(--muted); max-width: 65ch; }
+.plist { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px; }
+.plist li { background: var(--ground); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; }
+.plist a { color: var(--ink); font-weight: 650; text-decoration: none; }
+.plist a:hover { text-decoration: underline; }
+.plist span { color: var(--muted); font-size: 12.5px; font-variant-numeric: tabular-nums; }

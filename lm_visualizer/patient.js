@@ -2,10 +2,15 @@
 // a click on an electrode shows its ERSP (audio | picture | reading, stimulus and response marked) and
 // its most likely response type.
 //
-// A contact the clustering did not take carries a PROJECTED type (c.p: its ERSP fitted with the run's
-// types, no refit). It is coloured by it only when nothing but its patient kept it out (c.p.ok); otherwise
-// it stays grey and the card gives the closest type as a secondary line. A patient with no reconstruction
-// has no positions: the brain is shown without electrodes and the contacts as a list, shaft by shaft.
+// SEVERAL CLASSIFIERS. META.sols lists the clustering solutions the page switches between (the switch top
+// right; ?c=<short key> in the address). c.v[i] is the contact's record under solution i: its type and
+// numbers when the clustering took it, or {p:1, ...} = a PROJECTED type (its ERSP fitted with that run's
+// types, no refit). A projected contact is coloured only when nothing but its patient kept it out (c.ok);
+// otherwise it stays grey and the card gives the closest type as a secondary line. Only the reference
+// solution has type names: a type of another solution carries `like` (the reference type it shares most
+// electrodes with), takes its colour and is shown as "≈ that name". data/types.json holds every type's
+// mean response, drawn as the legend's thumbnails. A patient with no reconstruction has no positions:
+// the brain is shown without electrodes and the contacts as a list, shaft by shaft.
 //
 // Data: data/<patient>.json, written by 02_FBM_Clustering/make_lm_patient_pages.py (analysis repo), which
 // also writes the stubs <patient>/index.html that load this file. The ERSP files and the fsaverage
@@ -30,12 +35,15 @@ const rgb = (c) => `rgb(${c[0]},${c[1]},${c[2]})`;
 const pct = (v) => (v == null ? "–" : Math.round(v * 100) + " %");
 const norm = (s) => String(s).replace(/[^A-Za-z0-9]/g, "").toUpperCase();
 const hasE = (c) => !!(c.f || c.fl);                              // the contact has an ERSP
-const shownT = (c) => (c.t != null ? c.t : c.p && c.p.ok ? c.p.t : null);   // the type a contact is coloured by: the clustering's, or a projected one
 const ink = (c) => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] > 140 ? "#17202a" : "#fff");   // text that reads on colour c
 
 let D, META, BUNDLE, C = [], nv, elecMesh = null, sel = -1, surf = "fsaverage";
 let LIST = false;                                                  // some contacts have no position: the page lists them
-const TYPE = new Map();
+let SOLS = [], SOL = 0, REFSOL = null, TYPE = new Map(), CEN = null;   // the classifiers, the one shown, the reference one, the shown one's types by id, the types' mean responses
+const rec = (c) => (c.v ? c.v[SOL] : null);                        // the contact's record under the classifier shown
+const clu = (c) => { const r = rec(c); return r && !r.p ? r : null; };   // ... when the clustering took the contact
+const shownT = (c) => { const r = rec(c); return !r ? null : r.p ? (c.ok ? r.t : null) : r.t; };   // the type a contact is coloured by: the clustering's, or a projected one
+const tname = (t) => t.name || (t.like ? "≈ " + t.like.name : "type c" + t.id);
 let filesReady = Promise.resolve(), liveBuilt = "";              // liveBuilt: set when the bundle online is another build
 const erspCache = new Map();
 let erspShown = null;                                              // {c, a}: what the ERSP canvas shows
@@ -62,17 +70,16 @@ function bwr255(val) {                                             // blue - whi
 
 // ---- the page --------------------------------------------------------------------------------
 function build() {
-  const h = D.header, nProj = h.n_proj || 0, med = META.proj && META.proj.r2_med;
-  const fit = !nProj ? "" : "The types are projected" + (h.proj_r2 == null ? "."
-    : `; they explain a median ${pct(h.proj_r2)} of a contact's ERSP shape` + (med != null ? ` (clustered contacts: ${pct(med)}).` : "."));
+  const h = D.header, nProj = h.n_proj || 0;
   $("app").innerHTML = `
   <div class="page">
     <section class="brainpane${h.n_pos === 0 ? " bare" : ""}">
       <header class="phead"><h1>${esc(D.patient)}</h1>
         <p>${h.n} contacts · ${h.in_cohort ? `${h.n_typed} with a response type` : `${nProj} with a projected response type`}</p>
-        ${h.in_cohort ? "" : `<p class="note">Not in the clustering${h.note ? ": " + esc(h.note) : ""}.</p>${fit ? `<p class="note">${esc(fit)}</p>` : ""}`}
+        ${h.in_cohort ? "" : `<p class="note">Not in the clustering${h.note ? ": " + esc(h.note) : ""}.</p>${nProj ? `<p class="note" id="headfit"></p>` : ""}`}
       </header>
       <div class="tools">
+        ${SOLS.length > 1 ? `<div class="segrow"><span class="seglab">classifier</span><div class="seg" id="solSeg" role="group" aria-label="Classifier">${SOLS.map((s, i) => `<button data-sol="${i}" title="${esc(`${s.method_label} on ${s.feature_label}, K ${s.k}`)}">${esc(s.label)}</button>`).join("")}</div></div>` : ""}
         ${D.own ? `<div class="seg" id="surfSeg" role="group" aria-label="Brain surface"><button data-surf="fsaverage" class="on">fsaverage</button><button data-surf="own">own brain</button></div>` : ""}
         <div class="seg" id="viewSeg" role="group" aria-label="View"><button data-view="90,0">left</button><button data-view="270,0">right</button><button data-view="0,90">top</button><button data-view="180,0">front</button><button data-view="0,0">back</button></div>
         <div class="hint">drag to turn · scroll to zoom${h.n_pos === 0 ? "" : " · click an electrode"}</div>
@@ -93,23 +100,51 @@ function build() {
   </div>`;
 }
 
+function headFit() {                                               // how well the shown classifier's types fit this patient's projected contacts
+  const el = $("headfit"); if (!el) return;
+  const v = (D.header.proj_r2 || [])[SOL], med = SOLS[SOL].r2_med;
+  el.textContent = "The types are projected" + (v == null ? "." : `; they explain a median ${pct(v)} of a contact's ERSP shape` + (med != null ? ` (clustered contacts: ${pct(med)}).` : "."));
+}
+
+// A type's mean response (data/types.json): the 15 bands, low at the bottom, by the three conditions side by side.
+function thumb(cv, id) {
+  const S = CEN && CEN.sols[SOLS[SOL].short], b64 = S && S[id]; if (!b64) return;
+  const raw = atob(b64), nb = CEN.n_bands, nc = CEN.n_cond, nt = CEN.n_time, gap = 2, W = nc * nt + (nc - 1) * gap, H = nb * 2;
+  cv.width = W; cv.height = H;
+  const g = cv.getContext("2d"), img = g.createImageData(W, H), px = img.data;
+  px.fill(255);
+  for (let b = 0; b < nb; b++) for (let c = 0; c < nc; c++) for (let t = 0; t < nt; t++) {
+    let v = raw.charCodeAt((b * nc + c) * nt + t); if (v > 127) v -= 256;       // int8: -127..127 = -db..+db
+    const col = bwr255((v / 127) * VLIM), x = c * (nt + gap) + t;
+    for (let dy = 0; dy < 2; dy++) { const o = (((nb - 1 - b) * 2 + dy) * W + x) * 4; px[o] = col[0]; px[o + 1] = col[1]; px[o + 2] = col[2]; }
+  }
+  g.putImageData(img, 0, 0);
+}
+async function loadCentroids() {
+  try { const r = await fetch(new URL("data/types.json", BASE), { cache: "no-cache" }); if (r.ok) { CEN = await r.json(); legend(); } } catch (e) { /* no thumbnails */ }
+}
+
 function legend() {
-  const n = new Map(); let untyped = 0, nodata = 0, nClu = 0, nPro = 0;
+  const S = SOLS[SOL], n = new Map(); let untyped = 0, nodata = 0, nClu = 0, nPro = 0;
   for (const c of C) { const t = shownT(c);
-    if (t != null) { n.set(t, (n.get(t) || 0) + 1); if (c.t != null) nClu++; else nPro++; }
+    if (t != null) { n.set(t, (n.get(t) || 0) + 1); if (clu(c)) nClu++; else nPro++; }
     else if (hasE(c)) untyped++; else nodata++; }
-  let html = `<li class="lt">${nPro && !nClu ? "Projected response type" : nPro ? "Response type, clustered or projected" : "Response type"} · contacts</li>`;
-  for (const t of META.types) { const k = n.get(t.id) || 0;
-    html += `<li class="${k ? "" : "zero"}"><span class="sw" style="background:${rgb(t.rgb)}"></span><span class="cid">c${t.id}</span><span>${esc(t.name)}</span><span class="ct">${k}</span></li>`; }
+  const tip = CEN ? `Mean response of this type's electrodes: ${CEN.conditions.join(" | ")}, ${CEN.n_bands} bands (low at the bottom), ±${CEN.db} dB` : "";
+  let html = `<li class="lt">${nPro && !nClu ? "Projected response type" : nPro ? "Response type, clustered or projected" : "Response type"} · contacts`
+    + (S.ref || !REFSOL ? "" : ` · ≈ the “${esc(REFSOL.label)}” type it shares most electrodes with, and the share`) + `</li>`;
+  for (const t of S.types) { const k = n.get(t.id) || 0;
+    html += `<li class="ty${k ? "" : " zero"}">${CEN ? `<canvas class="th" data-t="${t.id}" title="${esc(tip)}"></canvas>` : ""}<span class="sw" style="background:${rgb(t.rgb)}"></span><span class="cid">c${t.id}</span>`
+      + `<span>${esc(tname(t))}${t.like && !t.name ? ` <span class="sh">${pct(t.like.share)}</span>` : ""}</span><span class="ct">${k}</span></li>`; }
   html += `<li class="sep"></li><li><span class="sw" style="background:${rgb(GREY)}"></span><span>recorded, no type</span><span class="ct">${untyped}</span></li>`;
   if (nodata) html += `<li><span class="sw small" style="background:${rgb(LIGHT)}"></span><span>not analysed</span><span class="ct">${nodata}</span></li>`;
   $("legend").innerHTML = html;
+  $("legend").querySelectorAll("canvas.th").forEach((cv) => thumb(cv, cv.dataset.t));
 }
 
 function stamp() {
-  const r = META.run;
-  $("stamp").innerHTML = `Types: ${esc(r.method_label)} on ${esc(r.feature_label)}, K ${r.k}, ${r.n_electrodes} electrodes of ${r.n_patients} patients (${esc(r.cache)}). `
-    + (C.some((c) => c.p) ? `A contact outside the clustering: its ERSP fitted with those ${r.k} types, no refit (projection). ` : "")
+  const r = SOLS[SOL];
+  $("stamp").innerHTML = `Types: ${esc(r.method_label)} on ${esc(r.feature_label)}, K ${r.k}, ${META.n_electrodes} electrodes of ${META.n_patients} patients (${esc(META.cache)}). `
+    + (C.some((c) => c.v && c.v.some((x) => x && x.p)) ? `A contact outside the clustering: its ERSP fitted with those ${r.k} types, no refit (projection). ` : "")
     + `ERSP: dB against the pre-stimulus baseline, ` + (C.some((c) => c.fl) ? `written with the page data` : `bundle of ${esc(liveBuilt || META.review_built)}`)
     + (liveBuilt ? ` <span class="warn">(newer than this page's data: the ERSP files were matched by contact name)</span>` : "")
     + `. Page data built ${esc(META.built)}.`;
@@ -168,7 +203,7 @@ function nearest(clientX, clientY) {
 }
 function tipText(c) {
   const t = shownT(c);
-  return c.n + " · " + (t != null ? TYPE.get(t).name + (c.t == null ? " (projected)" : "") : hasE(c) ? "no type" : "not analysed");
+  return c.n + " · " + (t != null ? tname(TYPE.get(t)) + (clu(c) ? "" : " (projected)") : hasE(c) ? "no type" : "not analysed");
 }
 // The contacts as a list, shaft by shaft, each a disc in its colour: the way to a contact that has no
 // position (no reconstruction). Built only for such a page.
@@ -184,6 +219,8 @@ function contactList() {
     }).join("") + `</span></div>`;
   }
   el.innerHTML = html;
+  if (el.dataset.wired) return;                                    // rebuilt at every change of classifier: one listener
+  el.dataset.wired = "1";
   el.addEventListener("click", (e) => {
     const b = e.target.closest(".chip"); if (!b) return;
     select(+b.dataset.i);
@@ -333,54 +370,68 @@ function drawErsp(cv, a) {
 }
 
 // ---- the type of one contact ---------------------------------------------------------------------
+// Everything here reads the contact's record under the classifier shown (rec): r.t the type, r.w the shares,
+// r.ho / r.cs the held-out and consensus numbers where that solution has them, r.p = projected.
 const DEF = {
-  membership: () => `Membership: this contact's share of loading on each of the ${META.types.length} response types (${META.run.method_label}). The shares add to 100 %; the type is the largest.`,
-  heldout: (c) => `Held out: the share of the ${c.ho ? c.ho[3] : ""} models fitted on half of the patients, without this patient, that placed the contact in this type.`,
+  membership: () => `Membership: this contact's share of loading on each of the ${SOLS[SOL].types.length} response types (${SOLS[SOL].method_label}). The shares add to 100 %; the type is the largest.`,
+  heldout: (r) => `Held out: the share of the ${r.ho ? r.ho[3] : ""} models fitted on half of the patients, without this patient, that placed the contact in this type.`,
   consensus: () => `Consensus: over patient-resampled fits, how often this contact fell in the same cluster as the members of this type (mean over the members). The mark is the next type.`,
 };
-function projFit(p) {                                               // how much of a projected contact the types explain
-  const m = META.proj && META.proj.r2_med;
-  return p.r2 == null ? "" : ` The ${META.types.length} types explain ${pct(p.r2)} of its ERSP shape` + (m != null ? ` (clustered contacts: median ${pct(m)}).` : ".");
+function projFit(r) {                                               // how much of a projected contact the types explain
+  const m = SOLS[SOL].r2_med;
+  return r.r2 == null ? "" : ` The ${SOLS[SOL].types.length} types explain ${pct(r.r2)} of its ERSP shape` + (m != null ? ` (clustered contacts: median ${pct(m)}).` : ".");
 }
 function typeHtml(c) {
-  const item = (id, v) => `<span class="it"><span class="dot" style="background:${rgb(TYPE.get(id).rgb)}"></span>${esc(TYPE.get(id).name)} ${pct(v)}</span>`;
-  const seg = (id, v) => `<span style="flex:${v};background:${rgb(TYPE.get(id).rgb)}" title="c${id} ${esc(TYPE.get(id).name)}: ${pct(v)}"></span>`;
-  if (c.t == null) {                                                // not in the clustering: nothing, the closest type, or a projected type
-    const p = c.p, why = esc(c.why || "not in the clustering"), nT = META.types.length;
-    if (!p) return `<div class="cap">Response type</div><p class="none">None: ${why}.</p>`;
-    const pt = TYPE.get(p.t), own = p.w[p.t];
-    if (!p.ok) return `<div class="cap">Response type</div><p class="none">None: ${why}.</p>
-    <p class="closest"><span class="k">Closest type</span><span class="dot" style="background:${rgb(pt.rgb)}"></span><span>${esc(pt.name)}</span><span class="cid">c${pt.id}</span><span class="v">${pct(own)}</span></p>
-    <p class="def">Closest type: the largest share when this contact's ERSP is fitted with the ${nT} response types anyway, without a refit.${esc(projFit(p))}</p>`;
-    const parts = p.w.map((v, id) => ({ id, v: v || 0 })).sort((a, b) => b.v - a.v), nx = parts.filter((q) => q.id !== p.t && q.v >= 0.05).slice(0, 2);
+  const nm = (id) => tname(TYPE.get(id));
+  const item = (id, v) => `<span class="it"><span class="dot" style="background:${rgb(TYPE.get(id).rgb)}"></span>${esc(nm(id))} ${pct(v)}</span>`;
+  const seg = (id, v) => `<span style="flex:${v};background:${rgb(TYPE.get(id).rgb)}" title="c${id} ${esc(nm(id))}: ${pct(v)}"></span>`;
+  const r = rec(c);
+  if (!r || r.p) {                                                  // not in the clustering: nothing, the closest type, or a projected type
+    const why = esc(c.why || "not in the clustering"), nT = SOLS[SOL].types.length;
+    if (!r) return `<div class="cap">Response type</div><p class="none">None: ${why}.</p>`;
+    const pt = TYPE.get(r.t), own = r.w[r.t];
+    if (!c.ok) return `<div class="cap">Response type</div><p class="none">None: ${why}.</p>
+    <p class="closest"><span class="k">Closest type</span><span class="dot" style="background:${rgb(pt.rgb)}"></span><span>${esc(tname(pt))}</span><span class="cid">c${pt.id}</span><span class="v">${pct(own)}</span></p>
+    <p class="def">Closest type: the largest share when this contact's ERSP is fitted with the ${nT} response types anyway, without a refit.${esc(projFit(r))}</p>`;
+    const parts = r.w.map((v, id) => ({ id, v: v || 0 })).sort((a, b) => b.v - a.v), nx = parts.filter((q) => q.id !== r.t && q.v >= 0.05).slice(0, 2);
     return `<div class="cap">Projected response type</div>
-    <div class="tline"><span class="sw" style="background:${rgb(pt.rgb)}"></span><b>${esc(pt.name)}</b><span class="cid">c${pt.id}</span><span class="pct">${pct(own)}</span></div>
+    <div class="tline"><span class="sw" style="background:${rgb(pt.rgb)}"></span><b>${esc(tname(pt))}</b><span class="cid">c${pt.id}</span><span class="pct">${pct(own)}</span></div>
     <div class="stack">${parts.filter((q) => q.v > 0.004).map((q) => seg(q.id, q.v)).join("")}</div>
     ${nx.length ? `<p class="then">then ${nx.map((q) => item(q.id, q.v)).join("")}</p>` : ""}
-    <p class="def">Projected, not clustered: ${why}. Its ERSP is fitted with the ${nT} response types of the clustering, without a refit; the shares add to 100 % and the type is the largest.${esc(projFit(p))}</p>`;
+    <p class="def">Projected, not clustered: ${why}. Its ERSP is fitted with the ${nT} response types of the clustering, without a refit; the shares add to 100 % and the type is the largest.${esc(projFit(r))}</p>`;
   }
-  const t = TYPE.get(c.t), mode = META.prob;
+  const t = TYPE.get(r.t), mode = META.prob === "heldout" && r.ho ? "heldout" : META.prob === "consensus" && r.cs ? "consensus" : "membership";
   let num = "", bar = "", then = "";
-  if (mode === "heldout" && c.ho) {
-    const [hit, goes, share] = c.ho, rest = Math.max(0, 1 - hit - (goes !== c.t ? share : 0));
+  if (mode === "heldout") {
+    const [hit, goes, share] = r.ho, rest = Math.max(0, 1 - hit - (goes !== r.t ? share : 0));
     num = pct(hit);
-    bar = `<div class="stack">${hit > 0 ? seg(c.t, hit) : ""}${goes !== c.t && share > 0 ? seg(goes, share) : ""}${rest > 0.004 ? `<span class="rest" style="flex:${rest}" title="other types: ${pct(rest)}"></span>` : ""}</div>`;
-    then = goes !== c.t && share > 0 ? `<p class="then">otherwise mostly ${item(goes, share)}</p>` : "";
-  } else if (mode === "consensus" && c.cs) {
-    const others = c.cs.map((v, id) => ({ id, v: v || 0 })).filter((p) => p.id !== c.t).sort((a, b) => b.v - a.v), own = c.cs[c.t] || 0;
+    bar = `<div class="stack">${hit > 0 ? seg(r.t, hit) : ""}${goes !== r.t && share > 0 ? seg(goes, share) : ""}${rest > 0.004 ? `<span class="rest" style="flex:${rest}" title="other types: ${pct(rest)}"></span>` : ""}</div>`;
+    then = goes !== r.t && share > 0 ? `<p class="then">otherwise mostly ${item(goes, share)}</p>` : "";
+  } else if (mode === "consensus") {
+    const others = r.cs.map((v, id) => ({ id, v: v || 0 })).filter((p) => p.id !== r.t).sort((a, b) => b.v - a.v), own = r.cs[r.t] || 0;
     num = own.toFixed(2);
-    bar = `<div class="track"><span style="width:${100 * own}%;background:${rgb(t.rgb)}"></span><i style="left:${100 * others[0].v}%" title="${esc(TYPE.get(others[0].id).name)}: ${others[0].v.toFixed(2)}"></i></div>`;
-    then = `<p class="then">next <span class="it"><span class="dot" style="background:${rgb(TYPE.get(others[0].id).rgb)}"></span>${esc(TYPE.get(others[0].id).name)} ${others[0].v.toFixed(2)}</span></p>`;
+    bar = `<div class="track"><span style="width:${100 * own}%;background:${rgb(t.rgb)}"></span><i style="left:${100 * others[0].v}%" title="${esc(nm(others[0].id))}: ${others[0].v.toFixed(2)}"></i></div>`;
+    then = `<p class="then">next <span class="it"><span class="dot" style="background:${rgb(TYPE.get(others[0].id).rgb)}"></span>${esc(nm(others[0].id))} ${others[0].v.toFixed(2)}</span></p>`;
   } else {
-    const parts = c.w.map((v, id) => ({ id, v: v || 0 })).sort((a, b) => b.v - a.v);
-    num = pct(c.w[c.t]);
+    const parts = r.w.map((v, id) => ({ id, v: v || 0 })).sort((a, b) => b.v - a.v);
+    num = pct(r.w[r.t]);
     bar = `<div class="stack">${parts.filter((p) => p.v > 0.004).map((p) => seg(p.id, p.v)).join("")}</div>`;
-    const nx = parts.filter((p) => p.id !== c.t && p.v >= 0.05).slice(0, 2);
+    const nx = parts.filter((p) => p.id !== r.t && p.v >= 0.05).slice(0, 2);
     then = nx.length ? `<p class="then">then ${nx.map((p) => item(p.id, p.v)).join("")}</p>` : "";
   }
   return `<div class="cap">Most likely response type</div>
-    <div class="tline"><span class="sw" style="background:${rgb(t.rgb)}"></span><b>${esc(t.name)}</b><span class="cid">c${t.id}</span><span class="pct">${num}</span></div>
-    ${bar}${then}<p class="def">${esc((DEF[mode] || DEF.membership)(c))}</p>`;
+    <div class="tline"><span class="sw" style="background:${rgb(t.rgb)}"></span><b>${esc(tname(t))}</b><span class="cid">c${t.id}</span><span class="pct">${num}</span></div>
+    ${bar}${then}<p class="def">${esc(DEF[mode](r))}</p>`;
+}
+function markSol() { const sg = $("solSeg"); if (sg) sg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", +b.dataset.sol === SOL)); }
+function setSol(i) {                                               // another classifier: the colours, the legend, the list, the card's type
+  if (i === SOL || !SOLS[i]) return;
+  SOL = i; TYPE = new Map(SOLS[i].types.map((t) => [t.id, t]));
+  markSol(); headFit(); contactList(); markList(); legend(); stamp();
+  if (nv && nv.meshes && nv.meshes.length) drawContacts();
+  const el = sel >= 0 ? document.querySelector("#card .type") : null;
+  if (el) el.innerHTML = typeHtml(C[sel]);
+  try { const u = new URL(location.href); u.searchParams.set("c", SOLS[i].short); history.replaceState(null, "", u); } catch (e) {}
 }
 
 async function renderCard() {
@@ -390,7 +441,7 @@ async function renderCard() {
     + (hasE(c) ? `<div class="erspwrap"><canvas id="ersp" role="img" aria-label="ERSP of ${esc(c.n)}: ${esc(META.ersp.conditions.join(", "))}; in each block the stimulus, then the response; ${esc(String(Math.round(META.ersp.f_hz[1])))} Hz at the top"></canvas></div>
          <p class="axisnote">Time runs left to right in each block and is normalised within each trial: stimulus onset, GO cue (dashed line), end of the response.</p>`
            : `<p class="noersp">No ERSP and no response type: ${esc(c.why || "not analysed")}.</p>`)
-    + (hasE(c) || c.t != null ? `<div class="type">${typeHtml(c)}</div>` : "");
+    + (hasE(c) || rec(c) ? `<div class="type">${typeHtml(c)}</div>` : "");
   erspShown = null;
   if (!hasE(c)) return;
   const a = await ersp(c);
@@ -426,19 +477,25 @@ async function main() {
   } catch (e) { app.innerHTML = `<p style="padding:24px">No page data for ${esc(PID)} (${esc(e.message)}).</p>`; return; }
   META = D.meta; C = D.contacts;
   LIST = C.some((c) => c.x == null && hasE(c));
-  for (const t of META.types) TYPE.set(t.id, t);
-  BUNDLE = Q.get("bundle") || `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${META.branch}/02_FBM_Clustering/outputs/250_recon/fsaverage/activity_viz/`;
+  SOLS = META.sols; REFSOL = SOLS.find((s) => s.ref) || null;
+  const wantSol = Q.get("c"), si = wantSol ? SOLS.findIndex((s) => s.short === wantSol || s.key === wantSol) : -1;
+  SOL = si >= 0 ? si : META.sol0 || 0;                             // the address names a classifier, else the page's default
+  TYPE = new Map(SOLS[SOL].types.map((t) => [t.id, t]));
+  BUNDLE =Q.get("bundle") || `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${META.branch}/02_FBM_Clustering/outputs/250_recon/fsaverage/activity_viz/`;
   if (!BUNDLE.endsWith("/")) BUNDLE += "/";
   document.title = `${D.patient} electrodes`;
-  build(); contactList(); legend(); stamp();
+  build(); markSol(); headFit(); contactList(); legend(); stamp();
+  const sg = $("solSeg");
+  if (sg) sg.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setSol(+b.dataset.sol); });
+  loadCentroids();
   filesReady = resolveFiles();
 
   // open on the contact the address names, else on the contact with the clearest type (no clustered
   // contact: the projected one the types explain best)
   const want = decodeURIComponent(location.hash.slice(1));
   let first = want ? C.findIndex((c) => c.n === want || norm(c.n) === norm(want)) : -1;
-  if (first < 0) { let bv = -1; C.forEach((c, i) => { if (c.t != null && hasE(c) && c.w[c.t] > bv) { bv = c.w[c.t]; first = i; } }); }
-  if (first < 0) { let bv = -1; C.forEach((c, i) => { if (c.p && c.p.ok && hasE(c) && (c.p.r2 || 0) > bv) { bv = c.p.r2 || 0; first = i; } }); }
+  if (first < 0) { let bv = -1; C.forEach((c, i) => { const r = clu(c); if (r && hasE(c) && r.w[r.t] > bv) { bv = r.w[r.t]; first = i; } }); }
+  if (first < 0) { let bv = -1; C.forEach((c, i) => { const r = rec(c); if (r && r.p && c.ok && hasE(c) && (r.r2 || 0) > bv) { bv = r.r2 || 0; first = i; } }); }
   if (first < 0) first = C.findIndex(hasE);
 
   const L = $("loading");

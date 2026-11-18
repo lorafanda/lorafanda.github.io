@@ -26,7 +26,7 @@ const PID = document.body.dataset.patient || Q.get("p") || "";
 const VLIM = 6;                                                   // dB at the two ends of the colour scale
 const GLASS_RGBA = [205, 198, 190, 30], GLASS_OPACITY = 0.18;     // the glass of LM_visualizer.html
 const R_TYPED = 1.9, R_UNTYPED = 1.25, R_NODATA = 0.8;            // sphere radius, mm
-const GREY = [154, 162, 171], LIGHT = [201, 206, 213];
+const GREY = [154, 162, 171], LIGHT = [201, 206, 213], DIM = [96, 106, 118];   // no type · not analysed · a type under the minimum share
 const FONT = '-apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif';
 
 const $ = (id) => document.getElementById(id);
@@ -40,9 +40,13 @@ const ink = (c) => (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2] > 140 ? "#1720
 let D, META, BUNDLE, C = [], nv, elecMesh = null, sel = -1, surf = "fsaverage";
 let LIST = false;                                                  // some contacts have no position: the page lists them
 let SOLS = [], SOL = 0, REFSOL = null, TYPE = new Map(), CEN = null;   // the classifiers, the one shown, the reference one, the shown one's types by id, the types' mean responses
+let MIN = 0;                                                       // the slider: the least share (%) of its type a contact needs to take the type's colour; 0 = off
 const rec = (c) => (c.v ? c.v[SOL] : null);                        // the contact's record under the classifier shown
 const clu = (c) => { const r = rec(c); return r && !r.p ? r : null; };   // ... when the clustering took the contact
-const shownT = (c) => { const r = rec(c); return !r ? null : r.p ? (c.ok ? r.t : null) : r.t; };   // the type a contact is coloured by: the clustering's, or a projected one
+const typed = (c) => { const r = rec(c); return r && (!r.p || c.ok) ? r : null; };   // the record that gives the contact a type: the clustering's, or a projection that counts
+const topPct = (r) => Math.round((r.w[r.t] || 0) * 100);           // the share of its type, as the card prints it
+const shownT = (c) => { const r = typed(c); return r && topPct(r) >= MIN ? r.t : null; };   // the type a contact is coloured by
+const below = (c) => { const r = typed(c); return !!r && topPct(r) < MIN; };   // it has a type, under the slider's minimum share
 const tname = (t) => t.name || (t.like ? "≈ " + t.like.name : "type c" + t.id);
 let filesReady = Promise.resolve(), liveBuilt = "";              // liveBuilt: set when the bundle online is another build
 const erspCache = new Map();
@@ -75,11 +79,12 @@ function build() {
   <div class="page">
     <section class="brainpane${h.n_pos === 0 ? " bare" : ""}">
       <header class="phead"><h1>${esc(D.patient)}</h1>
-        <p>${h.n} contacts · ${h.in_cohort ? `${h.n_typed} with a response type` : `${nProj} with a projected response type`}</p>
+        <p id="headcount"></p>
         ${h.in_cohort ? "" : `<p class="note">Not in the clustering${h.note ? ": " + esc(h.note) : ""}.</p>${nProj ? `<p class="note" id="headfit"></p>` : ""}`}
       </header>
       <div class="tools">
         ${SOLS.length > 1 ? `<div class="segrow"><span class="seglab">classifier</span><div class="seg" id="solSeg" role="group" aria-label="Classifier">${SOLS.map((s, i) => `<button data-sol="${i}" title="${esc(`${s.method_label} on ${s.feature_label}, K ${s.k}`)}">${esc(s.label)}</button>`).join("")}</div></div>` : ""}
+        <div class="segrow" title="A contact whose type holds less than this share of its loading is shown grey"><span class="seglab">min. share</span><input type="range" id="minR" min="0" max="80" step="5" value="${MIN}" aria-label="Minimum share of its type for a contact to take the type's colour"><output id="minV" for="minR"></output></div>
         ${D.own ? `<div class="seg" id="surfSeg" role="group" aria-label="Brain surface"><button data-surf="fsaverage" class="on">fsaverage</button><button data-surf="own">own brain</button></div>` : ""}
         <div class="seg" id="viewSeg" role="group" aria-label="View"><button data-view="90,0">left</button><button data-view="270,0">right</button><button data-view="0,90">top</button><button data-view="180,0">front</button><button data-view="0,0">back</button></div>
         <div class="hint">drag to turn · scroll to zoom${h.n_pos === 0 ? "" : " · click an electrode"}</div>
@@ -100,6 +105,10 @@ function build() {
   </div>`;
 }
 
+function headCount() {                                             // the line under the patient's name
+  const h = D.header, n = C.filter((c) => typed(c)).length, kept = C.filter((c) => shownT(c) != null).length;
+  $("headcount").textContent = `${h.n} contacts · ${n} with a ${h.in_cohort ? "" : "projected "}response type` + (MIN ? ` · ${kept} at ${MIN} % or more` : "");
+}
 function headFit() {                                               // how well the shown classifier's types fit this patient's projected contacts
   const el = $("headfit"); if (!el) return;
   const v = (D.header.proj_r2 || [])[SOL], med = SOLS[SOL].r2_med;
@@ -125,17 +134,18 @@ async function loadCentroids() {
 }
 
 function legend() {
-  const S = SOLS[SOL], n = new Map(); let untyped = 0, nodata = 0, nClu = 0, nPro = 0;
+  const S = SOLS[SOL], n = new Map(); let untyped = 0, nodata = 0, nClu = 0, nPro = 0, nBelow = 0;
   for (const c of C) { const t = shownT(c);
     if (t != null) { n.set(t, (n.get(t) || 0) + 1); if (clu(c)) nClu++; else nPro++; }
-    else if (hasE(c)) untyped++; else nodata++; }
+    else if (below(c)) nBelow++; else if (hasE(c)) untyped++; else nodata++; }
   const tip = CEN ? `Mean response of this type's electrodes: ${CEN.conditions.join(" | ")}, ${CEN.n_bands} bands (low at the bottom), ±${CEN.db} dB` : "";
   let html = `<li class="lt">${nPro && !nClu ? "Projected response type" : nPro ? "Response type, clustered or projected" : "Response type"} · contacts`
     + (S.ref || !REFSOL ? "" : ` · ≈ the “${esc(REFSOL.label)}” type it shares most electrodes with, and the share`) + `</li>`;
   for (const t of S.types) { const k = n.get(t.id) || 0;
     html += `<li class="ty${k ? "" : " zero"}">${CEN ? `<canvas class="th" data-t="${t.id}" title="${esc(tip)}"></canvas>` : ""}<span class="sw" style="background:${rgb(t.rgb)}"></span><span class="cid">c${t.id}</span>`
       + `<span>${esc(tname(t))}${t.like && !t.name ? ` <span class="sh">${pct(t.like.share)}</span>` : ""}</span><span class="ct">${k}</span></li>`; }
-  html += `<li class="sep"></li><li><span class="sw" style="background:${rgb(GREY)}"></span><span>recorded, no type</span><span class="ct">${untyped}</span></li>`;
+  html += `<li class="sep"></li>` + (MIN ? `<li><span class="sw" style="background:${rgb(DIM)}"></span><span>type under ${MIN} %</span><span class="ct">${nBelow}</span></li>` : "")
+    + `<li><span class="sw" style="background:${rgb(GREY)}"></span><span>recorded, no type</span><span class="ct">${untyped}</span></li>`;
   if (nodata) html += `<li><span class="sw small" style="background:${rgb(LIGHT)}"></span><span>not analysed</span><span class="ct">${nodata}</span></li>`;
   $("legend").innerHTML = html;
   $("legend").querySelectorAll("canvas.th").forEach((cv) => thumb(cv, cv.dataset.t));
@@ -171,7 +181,7 @@ function drawContacts() {
   const pts = [], tris = [], cols = []; let vi = 0;
   for (const c of C) {
     const p = pos(c); if (!p) continue;
-    const t = shownT(c), [r, col] = t != null ? [R_TYPED, TYPE.get(t).rgb] : hasE(c) ? [R_UNTYPED, GREY] : [R_NODATA, LIGHT];
+    const t = shownT(c), [r, col] = t != null ? [R_TYPED, TYPE.get(t).rgb] : below(c) ? [R_UNTYPED, DIM] : hasE(c) ? [R_UNTYPED, GREY] : [R_NODATA, LIGHT];
     for (const o of ICO) pts.push(p[0] + o[0] * r, p[1] + o[1] * r, p[2] + o[2] * r);
     for (const f of ICOF) tris.push(vi + f[0], vi + f[1], vi + f[2]);
     for (let j = 0; j < ICO.length; j++) cols.push(col[0], col[1], col[2], 255);
@@ -202,8 +212,9 @@ function nearest(clientX, clientY) {
   return best;
 }
 function tipText(c) {
-  const t = shownT(c);
-  return c.n + " · " + (t != null ? tname(TYPE.get(t)) + (clu(c) ? "" : " (projected)") : hasE(c) ? "no type" : "not analysed");
+  const t = shownT(c), r = typed(c);
+  return c.n + " · " + (t != null ? tname(TYPE.get(t)) + (clu(c) ? "" : " (projected)")
+    : r ? `${tname(TYPE.get(r.t))} ${topPct(r)} %, under ${MIN} %` : hasE(c) ? "no type" : "not analysed");
 }
 // The contacts as a list, shaft by shaft, each a disc in its colour: the way to a contact that has no
 // position (no reconstruction). Built only for such a page.
@@ -214,7 +225,7 @@ function contactList() {
   let html = `<div class="lt">Contacts by shaft</div>`;
   for (const [s, idx] of shafts) {
     html += `<div class="crow"><span class="cs">${esc(s)}</span><span class="chips">` + idx.map((i) => {
-      const c = C[i], t = shownT(c), col = t != null ? TYPE.get(t).rgb : hasE(c) ? GREY : LIGHT;
+      const c = C[i], t = shownT(c), col = t != null ? TYPE.get(t).rgb : below(c) ? DIM : hasE(c) ? GREY : LIGHT;
       return `<button class="chip" data-i="${i}" style="background:${rgb(col)};color:${ink(col)}" title="${esc(tipText(c))}" aria-label="${esc(tipText(c))}">${esc(c.k || c.n)}</button>`;
     }).join("") + `</span></div>`;
   }
@@ -386,6 +397,7 @@ function typeHtml(c) {
   const item = (id, v) => `<span class="it"><span class="dot" style="background:${rgb(TYPE.get(id).rgb)}"></span>${esc(nm(id))} ${pct(v)}</span>`;
   const seg = (id, v) => `<span style="flex:${v};background:${rgb(TYPE.get(id).rgb)}" title="c${id} ${esc(nm(id))}: ${pct(v)}"></span>`;
   const r = rec(c);
+  const under = below(c) ? `<p class="below">Under the minimum share of ${MIN} %: shown dark grey, not in its type's colour.</p>` : "";
   if (!r || r.p) {                                                  // not in the clustering: nothing, the closest type, or a projected type
     const why = esc(c.why || "not in the clustering"), nT = SOLS[SOL].types.length;
     if (!r) return `<div class="cap">Response type</div><p class="none">None: ${why}.</p>`;
@@ -395,7 +407,7 @@ function typeHtml(c) {
     <p class="def">Closest type: the largest share when this contact's ERSP is fitted with the ${nT} response types anyway, without a refit.${esc(projFit(r))}</p>`;
     const parts = r.w.map((v, id) => ({ id, v: v || 0 })).sort((a, b) => b.v - a.v), nx = parts.filter((q) => q.id !== r.t && q.v >= 0.05).slice(0, 2);
     return `<div class="cap">Projected response type</div>
-    <div class="tline"><span class="sw" style="background:${rgb(pt.rgb)}"></span><b>${esc(tname(pt))}</b><span class="cid">c${pt.id}</span><span class="pct">${pct(own)}</span></div>
+    <div class="tline"><span class="sw" style="background:${rgb(pt.rgb)}"></span><b>${esc(tname(pt))}</b><span class="cid">c${pt.id}</span><span class="pct">${pct(own)}</span></div>${under}
     <div class="stack">${parts.filter((q) => q.v > 0.004).map((q) => seg(q.id, q.v)).join("")}</div>
     ${nx.length ? `<p class="then">then ${nx.map((q) => item(q.id, q.v)).join("")}</p>` : ""}
     <p class="def">Projected, not clustered: ${why}. Its ERSP is fitted with the ${nT} response types of the clustering, without a refit; the shares add to 100 % and the type is the largest.${esc(projFit(r))}</p>`;
@@ -420,18 +432,29 @@ function typeHtml(c) {
     then = nx.length ? `<p class="then">then ${nx.map((p) => item(p.id, p.v)).join("")}</p>` : "";
   }
   return `<div class="cap">Most likely response type</div>
-    <div class="tline"><span class="sw" style="background:${rgb(t.rgb)}"></span><b>${esc(tname(t))}</b><span class="cid">c${t.id}</span><span class="pct">${num}</span></div>
+    <div class="tline"><span class="sw" style="background:${rgb(t.rgb)}"></span><b>${esc(tname(t))}</b><span class="cid">c${t.id}</span><span class="pct">${num}</span></div>${under}
     ${bar}${then}<p class="def">${esc(DEF[mode](r))}</p>`;
 }
 function markSol() { const sg = $("solSeg"); if (sg) sg.querySelectorAll("button").forEach((b) => b.classList.toggle("on", +b.dataset.sol === SOL)); }
 function setSol(i) {                                               // another classifier: the colours, the legend, the list, the card's type
   if (i === SOL || !SOLS[i]) return;
   SOL = i; TYPE = new Map(SOLS[i].types.map((t) => [t.id, t]));
-  markSol(); headFit(); contactList(); markList(); legend(); stamp();
+  markSol(); headCount(); headFit(); contactList(); markList(); legend(); stamp();
   if (nv && nv.meshes && nv.meshes.length) drawContacts();
   const el = sel >= 0 ? document.querySelector("#card .type") : null;
   if (el) el.innerHTML = typeHtml(C[sel]);
   try { const u = new URL(location.href); u.searchParams.set("c", SOLS[i].short); history.replaceState(null, "", u); } catch (e) {}
+}
+function markMin() { const o = $("minV"), r = $("minR"); if (o) o.textContent = MIN ? MIN + " %" : "off"; if (r && +r.value !== MIN) r.value = MIN; }
+function setMin(v) {                                               // the slider: a contact whose type holds less than v % of its loading goes grey
+  v = Math.max(0, Math.min(100, Math.round(+v) || 0));
+  if (v === MIN) return;
+  MIN = v;
+  markMin(); headCount(); contactList(); markList(); legend();
+  if (nv && nv.meshes && nv.meshes.length) drawContacts();
+  const el = sel >= 0 ? document.querySelector("#card .type") : null;
+  if (el) el.innerHTML = typeHtml(C[sel]);
+  try { const u = new URL(location.href); if (MIN) u.searchParams.set("min", MIN); else u.searchParams.delete("min"); history.replaceState(null, "", u); } catch (e) {}
 }
 
 async function renderCard() {
@@ -481,12 +504,14 @@ async function main() {
   const wantSol = Q.get("c"), si = wantSol ? SOLS.findIndex((s) => s.short === wantSol || s.key === wantSol) : -1;
   SOL = si >= 0 ? si : META.sol0 || 0;                             // the address names a classifier, else the page's default
   TYPE = new Map(SOLS[SOL].types.map((t) => [t.id, t]));
-  BUNDLE =Q.get("bundle") || `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${META.branch}/02_FBM_Clustering/outputs/250_recon/fsaverage/activity_viz/`;
+  MIN = Math.max(0, Math.min(100, parseInt(Q.get("min"), 10) || 0));   // ?min=35: the slider's value in a shared address
+  BUNDLE = Q.get("bundle") || `https://raw.githubusercontent.com/lorafanda/Analysis_LoraFanda/${META.branch}/02_FBM_Clustering/outputs/250_recon/fsaverage/activity_viz/`;
   if (!BUNDLE.endsWith("/")) BUNDLE += "/";
   document.title = `${D.patient} electrodes`;
-  build(); markSol(); headFit(); contactList(); legend(); stamp();
+  build(); markSol(); markMin(); headCount(); headFit(); contactList(); legend(); stamp();
   const sg = $("solSeg");
   if (sg) sg.addEventListener("click", (e) => { const b = e.target.closest("button"); if (b) setSol(+b.dataset.sol); });
+  $("minR").addEventListener("input", (e) => setMin(e.target.value));
   loadCentroids();
   filesReady = resolveFiles();
 

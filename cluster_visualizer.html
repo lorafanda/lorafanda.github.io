@@ -535,16 +535,39 @@ const PAPER_RUNS = [
   "cnmf__concat_hfa__20261017_200121",
   "cnmf__concat_bands15z__20261102_221405",
   "cnmf__concat_bands15s__20261102_222007",
+  "cnmf__concat_bands15t__20261102_232300",
+  "cnmf__concat_bands15n__20261120_234452",
+  "cnmf__concat_bands15nu__20261120_235104",
+  "cnmf__concat_bands5s__20261120_235519",
+  "cnmf__concat_bands5n__20261120_235917",
+  "cnmf__concat_bands5nu__20261121_000319",
+  "cnmf__concat_hfas__20261121_000638",
   "kmeans__concat_bands2__20261017_192551",
   "kmeans__concat_bands5__20261017_192531",
   "kmeans__concat_bands15__20261017_192459",
   "kmeans__concat_hfa__20261017_192608",
   "kmeans__concat_bands15z__20261102_220821",
   "kmeans__concat_bands15s__20261102_220833",
+  "kmeans__concat_bands15t__20261102_225346",
+  "kmeans__concat_bands15n__20261120_231145",
+  "kmeans__concat_bands15nu__20261120_231156",
+  "kmeans__concat_bands5s__20261120_231206",
+  "kmeans__concat_bands5n__20261120_231214",
+  "kmeans__concat_bands5nu__20261120_231221",
+  "kmeans__concat_hfas__20261120_231229",
   "hierarchical__concat_bands2__20261017_193332",
   "hierarchical__concat_bands5__20261017_193326",
   "hierarchical__concat_bands15__20261017_193312",
-  "hierarchical__concat_hfa__20261017_193338"
+  "hierarchical__concat_hfa__20261017_193338",
+  "hierarchical__concat_bands15z__20261120_232736",
+  "hierarchical__concat_bands15s__20261120_232741",
+  "hierarchical__concat_bands15t__20261120_232746",
+  "hierarchical__concat_bands15n__20261120_232752",
+  "hierarchical__concat_bands15nu__20261120_232758",
+  "hierarchical__concat_bands5s__20261120_232803",
+  "hierarchical__concat_bands5n__20261120_232807",
+  "hierarchical__concat_bands5nu__20261120_232811",
+  "hierarchical__concat_hfas__20261120_232815"
 ];
 let ORDER = { runs: {} };
 // ---- the live centroid (cluster_visualizer) ---------------------------------------
@@ -582,7 +605,14 @@ const REP_LABEL = { concat_bands2: "2 bands (30-50, 70-150 Hz)",
                     concat_bands15: "15 bands (1-170 Hz in 15 bands)",
                     concat_hfa: "HFA only (70-150 Hz)",
                     concat_bands15z: "15 bands, each band z-scored across the cohort",
-                    concat_bands15s: "15 bands, per-band shape within each electrode" };
+                    concat_bands15s: "15 bands, per-band shape within each electrode",
+                    concat_bands15t: "15 bands, ternary map (-1 / 0 / +1 on the z-scored bands)",
+                    concat_bands15n: "15 bands, each band divided by its split-half noise SD",
+                    concat_bands15nu: "15 bands, noise-normalised then unit length per electrode",
+                    concat_bands5s: "5 bands, per-band shape within each electrode",
+                    concat_bands5n: "5 bands, each band divided by its split-half noise SD",
+                    concat_bands5nu: "5 bands, noise-normalised then unit length per electrode",
+                    concat_hfas: "HFA only, shape within each electrode" };
 let CEN = null;                 // {meta, W: Uint16Array|null} for RUN0
 let CEN_INDEX = null;           // index.json: geometry per feature set, the alignment proof
 let CEN_REP = null;             // the feature set the centroid is drawn ON
@@ -641,7 +671,8 @@ async function loadCentroids(runId) {
 // grid widths and its axis spacers are derived from this length, so adding one here is
 // enough - it used to be three while the page showed four sets, and 2 bands was simply
 // missing from every exported report.
-const KROW_REPS = ["concat_bands2", "concat_bands5", "concat_bands15", "concat_hfa", "concat_bands15z", "concat_bands15s"];
+const KROW_REPS = ["concat_bands2", "concat_bands5", "concat_bands15", "concat_hfa", "concat_bands15z", "concat_bands15s",
+                   "concat_bands15t", "concat_bands15n", "concat_bands15nu", "concat_bands5s", "concat_bands5n", "concat_bands5nu", "concat_hfas"];
 function cenGeom(rep) {
   const r = rep || CEN_REP, g = CEN_INDEX.feature_sets[r];
   if (!g) return null;
@@ -695,8 +726,12 @@ function cenMean(k, j, min, paper, rep) {
 // which were measured over the cohort rather than guessed. k and rep are kept so callers
 // do not change, and so a future per-set exception has somewhere to go. This used to call
 // cenMean() once per cluster on every lookup, purely to derive limits that are constants.
+// per-UNIT exception (2026-11-20): a ternary map's centroid is the share of members up minus
+// the share down, bounded by +/-1 - at +/-3 it is a pale panel, so its limit is 1.
+const CEN_VLIM_BY_UNIT = { ternary: 1 };
 function cenLimits(k, rep) {
-  return { vlim: CEN_VLIM, ylo: -CEN_YLIM, yhi: CEN_YLIM };
+  const g = cenGeom(rep), vlim = (g && CEN_VLIM_BY_UNIT[g.unit]) || CEN_VLIM;
+  return { vlim, ylo: -CEN_YLIM, yhi: CEN_YLIM };
 }
 // matplotlib RdBu, red to blue; the figures use RdBu_r, so t is flipped
 const RDBU = [[103,0,31],[178,24,43],[214,96,77],[244,165,130],[253,219,199],[247,247,247],[209,229,240],[146,197,222],[67,147,195],[33,102,172],[5,48,97]];
@@ -3865,7 +3900,11 @@ const U2_METHODS = [["cnmf", "cNMF"], ["kmeans", "k-means"], ["hierarchical", "W
 const U2_MLABEL  = { cnmf:"cNMF", kmeans:"k-means", hierarchical:"Ward" };
 const U2_FSETS   = [["concat_bands2", "2 bands"], ["concat_bands5", "5 bands"],
                     ["concat_bands15", "15 bands"], ["concat_hfa", "HFA"],
-                    ["concat_bands15z", "15 bands z"], ["concat_bands15s", "15 bands shape"]];
+                    ["concat_bands15z", "15 bands z"], ["concat_bands15s", "15 bands shape"],
+                    ["concat_bands15t", "15 bands ternary"], ["concat_bands15n", "15 bands noise"],
+                    ["concat_bands15nu", "15 bands noise, unit"], ["concat_bands5s", "5 bands shape"],
+                    ["concat_bands5n", "5 bands noise"], ["concat_bands5nu", "5 bands noise, unit"],
+                    ["concat_hfas", "HFA shape"]];
 const u2esc = t => String(t == null ? "" : t)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const u2Split = id => { const p = String(id).split("__"); return { method:p[0], fset:p[1] }; };
@@ -4854,7 +4893,7 @@ function u2Samples() {
   // is actually looking at. There is no per-strip scale any more: the limits are fixed
   // and shared, so the escape hatch this used to need is gone with it.
   const scTxt =
-      `the shared \u00b1${g.nb <= 2 ? CEN_YLIM : CEN_VLIM} ${g.unit} scale \u2014 the same on every feature set, `
+      `the shared \u00b1${g.nb <= 2 ? CEN_YLIM : cenLimits(0, g.rep).vlim} ${g.unit} scale \u2014 the same on every feature set with this unit, `
       + `so this panel, the centroid above it and any other run are comparable by eye`;
   S.innerHTML =
     `<div class="sh">

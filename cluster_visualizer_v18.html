@@ -542,6 +542,9 @@ const PAPER_RUNS = [
   "cnmf__concat_bands5n__20261121_025914",
   "cnmf__concat_bands5nu__20261121_030558",
   "cnmf__concat_hfas__20261121_031201",
+  "cnmf__concat_bands15dct__20261123_120408",
+  "cnmf__concat_bands15grad__20261123_132306",
+  "cnmf__concat_bands15mom__20261123_132714",
   "kmeans__concat_bands2__20261121_005341",
   "kmeans__concat_bands5__20261121_005320",
   "kmeans__concat_bands15__20261121_005246",
@@ -555,6 +558,9 @@ const PAPER_RUNS = [
   "kmeans__concat_bands5n__20261121_010535",
   "kmeans__concat_bands5nu__20261121_010555",
   "kmeans__concat_hfas__20261121_010616",
+  "kmeans__concat_bands15dct__20261123_115937",
+  "kmeans__concat_bands15grad__20261123_115944",
+  "kmeans__concat_bands15mom__20261123_120008",
   "hierarchical__concat_bands2__20261121_010313",
   "hierarchical__concat_bands5__20261121_010304",
   "hierarchical__concat_bands15__20261121_010253",
@@ -567,7 +573,10 @@ const PAPER_RUNS = [
   "hierarchical__concat_bands5s__20261121_010419",
   "hierarchical__concat_bands5n__20261121_010428",
   "hierarchical__concat_bands5nu__20261121_010435",
-  "hierarchical__concat_hfas__20261121_010443"
+  "hierarchical__concat_hfas__20261121_010443",
+  "hierarchical__concat_bands15dct__20261123_120037",
+  "hierarchical__concat_bands15grad__20261123_120049",
+  "hierarchical__concat_bands15mom__20261123_120059"
 ];
 let ORDER = { runs: {} };
 // ---- the live centroid (cluster_visualizer) ---------------------------------------
@@ -612,7 +621,10 @@ const REP_LABEL = { concat_bands2: "2 bands (30-50, 70-150 Hz)",
                     concat_bands5s: "5 bands, per-band shape within each electrode",
                     concat_bands5n: "5 bands, each band divided by its split-half noise SD",
                     concat_bands5nu: "5 bands, noise-normalised then unit length per electrode",
-                    concat_hfas: "HFA only, shape within each electrode" };
+                    concat_hfas: "HFA only, shape within each electrode",
+                    concat_bands15dct: "15 bands, 2D DCT low block of the noise-normalised image (6 x 10 per condition)",
+                    concat_bands15grad: "15 bands, smoothed noise-normalised image + d/dt + d/df",
+                    concat_bands15mom: "15 bands, moments of the activity per phase and sign (mass, centre, spread, tilt)" };
 let CEN = null;                 // {meta, W: Uint16Array|null} for RUN0
 let CEN_INDEX = null;           // index.json: geometry per feature set, the alignment proof
 let CEN_REP = null;             // the feature set the centroid is drawn ON
@@ -656,7 +668,9 @@ async function loadCentroids(runId) {
     const fsets = Object.keys(idx.feature_sets).filter(f => f === own || idx.rows_aligned);
     const sel = $("cpRep");
     sel.innerHTML = fsets.map(f => `<option value="${f}">${REP_LABEL[f] || f}</option>`).join("");
-    if (!fsets.includes(CEN_REP)) CEN_REP = own;
+    // a run whose own set has no matrix in the bundle (grad, mom) is drawn on the first available
+    // representation instead of hiding the panel (2026-11-23)
+    if (!fsets.includes(CEN_REP)) CEN_REP = fsets.includes(own) ? own : (fsets[0] || own);
     sel.value = CEN_REP;
     $("cpRepRow").style.display = fsets.length > 1 ? "" : "none";
     await cenX(CEN_REP);
@@ -672,7 +686,8 @@ async function loadCentroids(runId) {
 // enough - it used to be three while the page showed four sets, and 2 bands was simply
 // missing from every exported report.
 const KROW_REPS = ["concat_bands2", "concat_bands5", "concat_bands15", "concat_hfa", "concat_bands15z", "concat_bands15s",
-                   "concat_bands15t", "concat_bands15n", "concat_bands15nu", "concat_bands5s", "concat_bands5n", "concat_bands5nu", "concat_hfas"];
+                   "concat_bands15t", "concat_bands15n", "concat_bands15nu", "concat_bands5s", "concat_bands5n", "concat_bands5nu", "concat_hfas",
+                   "concat_bands15dct"];
 function cenGeom(rep) {
   const r = rep || CEN_REP, g = CEN_INDEX.feature_sets[r];
   if (!g) return null;
@@ -3904,7 +3919,9 @@ const U2_FSETS   = [["concat_bands2", "2 bands"], ["concat_bands5", "5 bands"],
                     ["concat_bands15t", "15 bands ternary"], ["concat_bands15n", "15 bands noise"],
                     ["concat_bands15nu", "15 bands noise, unit"], ["concat_bands5s", "5 bands shape"],
                     ["concat_bands5n", "5 bands noise"], ["concat_bands5nu", "5 bands noise, unit"],
-                    ["concat_hfas", "HFA shape"]];
+                    ["concat_hfas", "HFA shape"],
+                    ["concat_bands15dct", "15 bands DCT"], ["concat_bands15grad", "15 bands gradients"],
+                    ["concat_bands15mom", "15 bands moments"]];
 const u2esc = t => String(t == null ? "" : t)
   .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const u2Split = id => { const p = String(id).split("__"); return { method:p[0], fset:p[1] }; };

@@ -1473,9 +1473,13 @@ function gateRow(c, p, p0, b) {
       if (s >= lo && s <= hi) { passC[cond] = passC[cond] || {}; passC[cond][r] = true; pass = true; const d = Math.min(s - lo, hi - s);
         if (!hp || d > hp.d) hp = { cond, r, bound: s - lo <= hi - s ? "min" : "max", d }; }
       else { const d = s < lo ? lo - s : s - hi; if (!hf || d < hf.d) hf = { cond, r, bound: s < lo ? "min" : "max", d }; } } }
-  // the dataset gate itself: the bundle's unweighted numbers when present, else the unweighted shares computed here (p0)
+  // the dataset gate itself. Blob rule (manifest.gate.rule, bundles since 2026-11-26): the verdict the dataset recorded per
+  // cube (m.gate; m.blob_pos / m.blob_neg = its best blob per sign, from the cache's df_meta) - the same comparison as
+  // lf_dataset's. Share rule (older bundles): the bundle's unweighted shares when present, else the shares computed here (p0)
   let posIn = false, negIn = false;
-  for (const cond of BRAIN_CONDS) { const m = c.m && c.m[cond]; if (!m) continue; const pp = m.prop_pos != null ? m.prop_pos : p0.pos[cond], pn = m.prop_neg != null ? m.prop_neg : p0.neg[cond];
+  for (const cond of BRAIN_CONDS) { const m = c.m && c.m[cond]; if (!m) continue;
+    if (g.rule === "blob" && m.gate_rule === "blob" && m.blob_pos != null) { if (m.blob_pos >= g.min_blob_pos) posIn = true; if (m.blob_neg >= g.min_blob_neg) negIn = true; continue; }
+    const pp = m.prop_pos != null ? m.prop_pos : p0.pos[cond], pn = m.prop_neg != null ? m.prop_neg : p0.neg[cond];
     if (pp >= g.min_prop_pos) posIn = true; if (pn >= g.min_prop_neg) negIn = true; }
   const how = pass ? hp : hf;
   return { c, score, best, sc, p, b, pass, passC, how, margin: how ? (pass ? how.d : -how.d) : NaN, posIn, negIn, gate: posIn || negIn };
@@ -1522,8 +1526,8 @@ function gateCaption(r) {
     else line = `${k}: above ${gateFmt(r.p.pos[k])} %${pc.pos ? " ✓" : ""} · below ${gateFmt(r.p.neg[k])} %${pc.neg ? " ✓" : ""}`;
     return line + ` (thr⁺ ${th.up.toFixed(2)} dB, thr⁻ ${th.dn.toFixed(2)} dB${th.noise === th.noise ? `, noise ${th.noise.toFixed(2)} dB` : ""}${m.rel != null ? `, split-half r ${m.rel}` : ""})`; }).join("\n");
   let badges = "";
-  if (r.negIn) badges += `<span class="badge neg" title="in the dataset by the negative rule${r.posIn ? " and the positive one" : " only"} (share below ≥ ${(100*g.min_prop_neg).toFixed(0)} %)">neg${r.posIn ? "+pos" : " only"}</span>`;
-  if (r.pass !== r.gate) badges += `<span class="badge dis" title="the dataset gate (share rule: ${(100*g.min_prop_pos).toFixed(0)} % above or ${(100*g.min_prop_neg).toFixed(0)} % below, unweighted, no max) says the opposite of these bounds">gate ${r.gate ? "✓" : "✗"}</span>`;
+  if (r.negIn) badges += `<span class="badge neg" title="in the dataset by the negative rule${r.posIn ? " and the positive one" : " only"} (${g.rule === "blob" && g.min_blob_neg != null ? "best − blob ≥ " + g.min_blob_neg.toFixed(2) + " dB·%" : "share below ≥ " + (100*g.min_prop_neg).toFixed(0) + " %"})">neg${r.posIn ? "+pos" : " only"}</span>`;
+  if (r.pass !== r.gate) badges += `<span class="badge dis" title="the dataset gate (${gateDatasetText(g)}) says the opposite of these bounds">gate ${r.gate ? "✓" : "✗"}</span>`;
   return `<b>${_esc(c.patient)} · ${_esc(c.name)}</b> <span style="color:${r.pass ? "var(--sel)" : "#ff9c9c"}">${gateFmt(r.score)} ${gateUnit()}</span>${badges}<span class="lab" title="${_esc(tip)}">${parts}</span>`;
 }
 function gateTile(r) {
@@ -1566,7 +1570,7 @@ function gateEqText(fromBundle, hasNoise) {
     body += ", per condition";
     src = wm !== "none" || !fromBundle ? ` · shares computed here from the thumbnails (time ↓2${hasNoise ? "" : "; fixed thresholds, no noise in the bundle"})` : " · shares from the bundle (full cubes)";
   }
-  return thr + body + ` · <b>pass</b> = (${pc(GT.lo.pos)} ≤ s⁺ ≤ ${pc(GT.hi.pos)}) or (${pc(GT.lo.neg)} ≤ s⁻ ≤ ${pc(GT.hi.neg)}) in any condition · dataset gate: share above ≥ ${(100*g.min_prop_pos).toFixed(1)} % or share below ≥ ${(100*g.min_prop_neg).toFixed(1)} %, unweighted` + src;
+  return thr + body + ` · <b>pass</b> = (${pc(GT.lo.pos)} ≤ s⁺ ≤ ${pc(GT.hi.pos)}) or (${pc(GT.lo.neg)} ≤ s⁻ ≤ ${pc(GT.hi.neg)}) in any condition · dataset gate: ${gateDatasetText(g)}` + src;
 }
 const gateMedian = (v) => { const a = v.filter(x => x === x).sort((x, y) => x - y); return a.length ? a[Math.floor(a.length / 2)] : NaN; };
 function gateBoxes() {       // the boxes show the active rule's bounds, in its unit
@@ -1710,6 +1714,11 @@ function gateSetCut() {
 }
 // the blob rule's starting bounds: the dataset's cut when the manifest carries it (lf_dataset's DEFAULT_BLOB_MIN_SCORE),
 // else null = the medians of the contacts' best values (set in gateRender). GT.rule must already be "blob".
+// the dataset's own rule in words (manifest.gate): the share rule through cohort v18, the blob rule since v19
+function gateDatasetText(g) {
+  if (g.rule === "blob" && g.min_blob_pos != null) return `blob rule on the full cube: best blob ≥ ${g.min_blob_pos.toFixed(2)} (+) or ≥ ${g.min_blob_neg.toFixed(2)} (−) dB·%, δ ${g.blob_delta} dB`;
+  return `share rule: ${(100*g.min_prop_pos).toFixed(1)} % above or ${(100*g.min_prop_neg).toFixed(1)} % below, unweighted, no max`;
+}
 function gateBlobStart() {
   const g = gateDefaults(); GT.lo = { pos: g.min_blob_pos, neg: g.min_blob_neg }; GT.hi = { pos: Infinity, neg: Infinity }; GT.bandW = 0.5;
   GT._bndNote = g.min_blob_pos != null ? `first bounds = the dataset's blob cut (${gateFmt(g.min_blob_pos)} / ${gateFmt(g.min_blob_neg)} ${gateUnit()}, δ ${GT.delta} dB)` : "";

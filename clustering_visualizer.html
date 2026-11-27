@@ -36,6 +36,12 @@
   .row label { color:var(--muted); min-width:56px; flex:none; }
   .row input[type=range] { flex:1; min-width:0; accent-color:var(--accent); }
   .row .val { width:40px; flex:none; text-align:right; font-variant-numeric:tabular-nums; }
+  .row .rwrap { flex:1; min-width:0; position:relative; display:flex; align-items:center; }
+  /* the chance mark: 1/K on the loading axis, the weight a contact spread evenly over the
+     K components would carry; a loading at the mark expresses nothing in particular */
+  .row .rwrap .mark { position:absolute; top:1px; bottom:1px; width:3px; margin-left:-1.5px;
+                      background:#2ecc71; border-radius:2px; pointer-events:none; display:none; }
+  .row .chance { flex:none; color:#2ecc71; font-size:10.5px; font-variant-numeric:tabular-nums; }
   .checks label { display:flex; align-items:center; gap:6px; cursor:pointer; padding:2px 0; }
   .checks input { accent-color:var(--accent); }
   .segs { display:flex; gap:4px; }
@@ -157,8 +163,10 @@
           <input type="range" id="minN" min="1" max="12" step="1" value="5">
           <span class="val" id="minNVal">5</span></div>
         <div class="row" id="loadRow"><label>min load</label>
-          <input type="range" id="minLoad" min="0" max="90" step="5" value="0">
-          <span class="val" id="minLoadVal">0.00</span></div>
+          <span class="rwrap"><input type="range" id="minLoad" min="0" max="90" step="5" value="0">
+            <span class="mark" id="loadMark"></span></span>
+          <span class="val" id="minLoadVal">0.00</span>
+          <span class="chance" id="loadChance"></span></div>
         <div class="cohort" id="loadNote">graded loading — convex-NMF runs only</div>
       </div>
 
@@ -570,11 +578,26 @@ async function applyK(k) {
   const pub = Number(RUN0.k);
   KSEL = Number(k);
   if (KSEL === pub) {
-    // the published cut has counts already built; use them rather than recompute
-    const cf = RUN0.counts[state.radius];
-    const [lh, rh] = await Promise.all(["lh", "rh"].map(h =>
-      fetchBin(`${BUNDLE}${RUN0.dir}/${cf[h].file}`, TYPE[cf[h].dtype])));
-    CLU = { lh, rh };
+    // the published cut has counts already built; use them rather than recompute.
+    // Bundles since v18 ship no per-run count files (a glass page never paints them),
+    // so a 404 here falls through to the sweep labels, as every other K does - without
+    // this the published cut was the one button on the row that did nothing (2026-11-27).
+    CLU = null;
+    if (!RUN0.counts_missing) {
+      try {
+        const cf = RUN0.counts[state.radius];
+        const [lh, rh] = await Promise.all(["lh", "rh"].map(h =>
+          fetchBin(`${BUNDLE}${RUN0.dir}/${cf[h].file}`, TYPE[cf[h].dtype])));
+        CLU = { lh, rh };
+      } catch (e) {
+        if (!(SWEEP && SWEEP.labels && SWEEP.labels[String(pub)])) throw e;
+        RUN0.counts_missing = true;
+      }
+    }
+    if (!CLU) {
+      const nbr = await loadNeighbours(state.radius);
+      CLU = countsFor(nbr, SWEEP.labels[String(pub)], pub, cohortMask(RUN0.cohort_id));
+    }
     RUN = RUN0;
   } else {
     const nbr = await loadNeighbours(state.radius);
@@ -592,6 +615,24 @@ async function applyK(k) {
     });
   }
   drawKButtons();
+  drawLoadMark();
+}
+
+// THE CHANCE MARK on the minimum-loading slider: 1/K, the weight a contact would carry on
+// every component if it expressed all K equally (the loadings are row-normalised to sum to
+// 1, so 1/K is where "belongs here" begins). It follows the K shown - a re-cut K has its
+// own loadings - and is absent on a hard partition, which has no loadings (2026-11-27).
+function drawLoadMark() {
+  const m = $("loadMark"), t = $("loadChance"); if (!m || !t) return;
+  const K = Number(KSEL) || (RUN && Number(RUN.k)) || 0;
+  if (!K || !loadingsForK()) { m.style.display = "none"; t.textContent = ""; t.title = ""; return; }
+  const inp = $("minLoad"), lo = Number(inp.min), hi = Number(inp.max);
+  const pct = Math.max(0, Math.min(1, (100 / K - lo) / (hi - lo)));
+  // the thumb's half-width keeps the mark on the track's own scale (a 14 px thumb)
+  m.style.left = `calc(${(pct * 100).toFixed(2)}% + ${((0.5 - pct) * 14).toFixed(1)}px)`;
+  m.style.display = "block";   // the stylesheet hides it; an empty inline value would too
+  const note = `1/K = ${(1 / K).toFixed(2)}: chance loading at K=${K}, a contact spread evenly over the ${K} components`;
+  m.title = note; t.title = note; t.textContent = `1/K ${(1 / K).toFixed(2)}`;
 }
 
 function drawKButtons() {
@@ -1102,6 +1143,7 @@ function updateElectrodes() {
   // loading: size alone is a weak perceptual channel - people misjudge area against
   // radius - so the two are moved together, as the by_loading renders do.
   const load = loadingsForK();
+  const uni = 1 / Math.max(2, Number(KSEL) || Number(RUN.k) || 7);   // chance loading at the K shown
   // ONLY THE CONTACTS THIS RUN ACTUALLY CONTAINS.
   // Cohorts are defined by patient, not by electrode, so cohort1_n27 ("1266-electrode
   // concat") and cohort2_n27 ("ungated concat") hold the identical 3611 contacts. Drawing
@@ -1143,21 +1185,21 @@ function updateElectrodes() {
     // cluster that is one patient's strip is a solid block of one hue here and invisible
     // in the cluster colouring.
     if (state.elecColour === "patient") colr = patientRGB(CONTACTS.patient[i]);
-    // 0.14 is uniform loading at K=7 (1/7); below that a contact is expressing
+    // 1/K is uniform loading (0.14 at K=7); below that a contact is expressing
     // nothing in particular and is drawn at the floor size rather than vanishing.
     let w = 1, r = 1.73;
     if (load) {
       const lv = load[i];
       if (lv === null || lv === undefined) continue;
       if (lv < state.minLoad) continue;
-      w = Math.max(0, Math.min(1, (lv - 0.14) / (0.85 - 0.14)));
+      w = Math.max(0, Math.min(1, (lv - uni) / (0.85 - uni)));
       r = 1.05 + 2.18 * w;
       // Below 0.5 the contact is not clearly expressing this component, so it fades
       // toward grey as well as shrinking. Size alone is a weak cue at these radii - two
       // contacts one step apart differ by a fraction of a millimetre on screen - and
       // colour carries the same quantity where size cannot.
       if (lv < 0.5) {
-        const g = Math.max(0, Math.min(1, (lv - 0.14) / (0.5 - 0.14)));
+        const g = Math.max(0, Math.min(1, (lv - uni) / (0.5 - uni)));
         const GREY = 148;
         colr = [Math.round(GREY + (colr[0] - GREY) * g),
                 Math.round(GREY + (colr[1] - GREY) * g),
